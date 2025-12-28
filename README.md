@@ -35,7 +35,7 @@ Créez un fichier `docker-compose.yml` dans votre dossier de travail :
 ```yaml
 services:
   pilot:
-    image: ghcr.io/neotoxic/pilot-finance:latest
+    image: ghcr.io/neotoxicfr/pilot-finance:latest
     container_name: pilot
     restart: unless-stopped
     environment:
