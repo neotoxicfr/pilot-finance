@@ -1,0 +1,19 @@
+# Configuration personnelle
+.env
+.env.local
+docker-compose.yml
+
+# Base de données de test/prod
+/data/
+*.db
+*.db-journal
+
+# Fichiers de construction (générés par Docker/Next)
+node_modules/
+.next/
+build/.next/
+dist/
+
+# Divers
+.DS_Store
+*.log

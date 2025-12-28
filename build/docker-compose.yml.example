@@ -1,0 +1,27 @@
+services:
+  pilot:
+    image: ghcr.io/neotoxic/pilot-finance:latest
+    container_name: pilot
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Paris
+      - HOST=pilot.votre-domaine.tld # Votre domaine sans https (ex: pilot.exemple.com)
+      - ALLOW_REGISTER=true          # Mettre à false après votre inscription initiale
+      - ENABLE_MAIL=false            # Passer à true pour activer les emails (SMTP requis)
+      - SMTP_HOST=
+      - SMTP_PORT=587
+      - SMTP_USER=
+      - SMTP_PASS=
+      - SMTP_FROM=
+      - DATABASE_URL=file:/data/pilot.db
+      - ENCRYPTION_KEY=             # Générez une clé : openssl rand -hex 32
+      - BLIND_INDEX_KEY=            # Générez une clé : openssl rand -hex 32
+      - AUTH_SECRET=                # Générez une clé : openssl rand -hex 32
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "[http://127.0.0.1:3000/login](http://127.0.0.1:3000/login)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

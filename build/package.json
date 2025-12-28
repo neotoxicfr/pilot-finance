@@ -1,0 +1,46 @@
+{
+  "name": "pilot",
+  "version": "0.2.2",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "latest",
+    "@simplewebauthn/browser": "latest", 
+    "@simplewebauthn/server": "latest",
+    "autoprefixer": "latest",
+    "bcryptjs": "latest",
+    "better-sqlite3": "latest",
+    "clsx": "latest",
+    "dotenv": "latest",
+    "drizzle-orm": "latest",
+    "drizzle-kit": "latest", 
+    "jose": "latest",
+    "lucide-react": "latest",
+    "next": "latest",
+    "nodemailer": "latest",
+    "otplib": "latest",
+    "qrcode": "latest",
+    "postcss": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "recharts": "latest",
+    "tailwindcss": "v3-lts",
+    "tailwind-merge": "latest"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "latest",
+    "@types/node": "latest", 
+    "@types/nodemailer": "latest",
+    "@types/qrcode": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "typescript": "latest"
+  }
+}
