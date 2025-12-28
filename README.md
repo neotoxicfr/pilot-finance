@@ -1,5 +1,4 @@
-# <img src="build/public/logo.svg" alt="Pilot Logo" width="32" height="32" align="center"> Pilot Finance
-
+# <img src="build/public/logo.svg" alt="Pilot Logo" width="35" style="vertical-align: middle;"> Pilot Finance
 **Pilot Finance** est un cockpit financier personnel conçu pour l'auto-hébergement. Une application simple et sécurisée pour suivre votre patrimoine net, vos rendements et vos opérations récurrentes en toute confidentialité.
 
 ---
