@@ -1,4 +1,12 @@
 # <img src="build/public/logo.svg" alt="Pilot Logo" width="35" style="vertical-align: middle;"> Pilot Finance
+
+![Docker Build](https://github.com/neotoxicfr/pilot-finance/actions/workflows/docker-publish.yml/badge.svg)
+![CodeQL](https://github.com/neotoxicfr/pilot-finance/actions/workflows/codeql.yml/badge.svg)
+![Version](https://img.shields.io/badge/version-1.0.0-emerald)
+![Dependabot](https://img.shields.io/badge/dependabot-active-brightgreen?logo=dependabot)
+![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?logo=docker&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-black?logo=next.js&logoColor=white)
+
 **Pilot Finance** est un cockpit financier personnel conçu pour l'auto-hébergement. Une application simple et sécurisée pour suivre votre patrimoine net, vos rendements et vos opérations récurrentes en toute confidentialité.
 
 ---
