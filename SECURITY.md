@@ -1,11 +1,16 @@
-# Security Policy
+# Politique de Sécurité
 
-## Supported Versions
+## Versions Supportées
 
-| Version | Supported          |
+| Version | Supportée           |
 | ------- | ------------------ |
 | v1.0.0  | :white_check_mark: |
 
-## Reporting a Vulnerability
+## Signaler une vulnérabilité
 
-Contact me on Discord : neo_sportbike
+Si vous découvrez une faille de sécurité, merci de ne pas ouvrir d'issue publique. 
+
+Vous pouvez me contacter directement pour un signalement privé :
+* **Discord** : neo_sportbike
+
+Je m'efforce de répondre aux signalements sous 48 heures afin de discuter des étapes de correction.
