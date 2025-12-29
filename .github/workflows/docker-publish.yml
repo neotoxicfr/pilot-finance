@@ -6,7 +6,10 @@ on:
     paths-ignore:
       - 'README.md'
       - 'LICENSE'
+      - 'SECURITY.md'
+      - '.dockerignore'
       - '.gitignore'
+      - 'build/public/**'
     tags: [ 'v*.*.*' ]
 
 env:
