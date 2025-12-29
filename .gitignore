@@ -9,6 +9,7 @@ docker-compose.yml
 
 # Fichiers de construction
 build/.next/
+build/dist/
 build/node_modules/
 .npm/
 .next/
