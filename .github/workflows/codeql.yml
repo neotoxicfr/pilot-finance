@@ -6,13 +6,17 @@ on:
     paths-ignore:
       - 'README.md'
       - 'LICENSE'
+      - 'SECURITY.md'
+      - '.dockerignore'
       - '.gitignore'
-      - 'build/public/logo.svg'
+      - 'build/public/**'
   pull_request:
     branches: [ "main" ]
     paths-ignore:
       - 'README.md'
       - 'LICENSE'
+      - 'SECURITY.md'
+      - '.dockerignore'
       - '.gitignore'
   schedule:
     - cron: '34 13 * * 6'

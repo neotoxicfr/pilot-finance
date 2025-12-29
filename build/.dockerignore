@@ -1,6 +1,9 @@
-node_modules
-.next
-.git
-.env
-Dockerfile
 .dockerignore
+.github
+.next
+.npm
+docker-compose.yml.example
+Dockerfile
+entrypoint.sh
+node_modules
+out
