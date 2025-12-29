@@ -2,11 +2,12 @@
 
 import { authenticate, getRegistrationStatus, loginPasskeyStart, loginPasskeyFinish, isPasskeyConfigured, getMailStatus } from '@/src/actions';
 import { useState, useEffect, Suspense } from 'react';
-import { Wallet, Mail, Lock, Check, Shield, Fingerprint } from 'lucide-react';
+import { Wallet, Mail, Lock, Check, Shield, Fingerprint, AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import PasswordFeedback from '@/src/components/PasswordFeedback';
 import { startAuthentication } from '@simplewebauthn/browser';
+import BrandLogo from "@/src/components/BrandLogo";
 
 function LoginForm() {
   const [isRegister, setIsRegister] = useState(false);
@@ -73,70 +74,80 @@ function LoginForm() {
   const toggleMode = () => { setIsRegister(!isRegister); setError(''); setSuccess(''); setPassword(''); setConfirmPassword(''); setRequires2FA(false); };
 
   return (
-    <div className="bg-slate-900 p-8 rounded-2xl border border-slate-800 w-full max-w-sm shadow-2xl transition-all">
-        <div className="flex justify-center mb-6"><div className="bg-blue-600/20 p-4 rounded-2xl"><Wallet className="text-blue-500 w-10 h-10" /></div></div>
-        <h1 className="text-2xl font-bold text-white mb-2 text-center">Pilot Finance</h1>
-        <p className="text-slate-500 text-sm text-center mb-8">Votre cockpit financier personnel</p>
-
-        {resetSuccess && (<div className="mb-6 p-3 bg-emerald-900/30 border border-emerald-900 rounded-xl text-center text-emerald-400 text-sm">Mot de passe réinitialisé !</div>)}
-        {success && (<div className="mb-6 p-3 bg-blue-900/30 border border-blue-900 rounded-xl text-center text-blue-400 text-sm">{success}</div>)}
-        
+    <div className="dashboard-card bg-background border rounded-2xl p-8 w-full max-w-sm transition-all animate-in zoom-in-95 duration-500">
+        <div className="flex flex-col items-center mb-8">
+            <div className="bg-background border border-border p-4 rounded-full mb-4">
+                <BrandLogo size={42} />
+            </div>
+            <h1 className="text-2xl font-bold text-foreground mb-1 text-center">Pilot Finance</h1>
+            <p className="text-muted-foreground text-sm text-center">Votre cockpit financier personnel</p>
+        </div>
+        {resetSuccess && (<div className="mb-6 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center text-emerald-600 dark:text-emerald-400 text-sm font-bold">Mot de passe réinitialisé !</div>)}
+        {success && (<div className="mb-6 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-center text-blue-600 dark:text-blue-400 text-sm font-bold">{success}</div>)}
         {!isRegister && !requires2FA && canUsePasskeys && (
-            <button onClick={handlePasskeyLogin} className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl mb-6 flex items-center justify-center gap-2 border border-slate-700 transition-all">
-                <Fingerprint size={20} className="text-purple-400"/> Se connecter avec Passkey
+            <button onClick={handlePasskeyLogin} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl mb-6 flex items-center justify-center gap-2 transition-all">
+                <Fingerprint size={20} /> Se connecter avec Passkey
             </button>
         )}
-        
         {!isRegister && !requires2FA && canUsePasskeys && (
             <div className="relative flex py-2 items-center mb-6">
-                <div className="flex-grow border-t border-slate-700"></div>
-                <span className="flex-shrink-0 mx-4 text-slate-500 text-xs uppercase font-bold">Ou via email</span>
-                <div className="flex-grow border-t border-slate-700"></div>
+                <div className="flex-grow border-t border-border"></div>
+                <span className="flex-shrink-0 mx-4 text-muted-foreground text-xs uppercase font-bold">Ou via email</span>
+                <div className="flex-grow border-t border-border"></div>
             </div>
         )}
 
         <form action={handleSubmit} className="space-y-4">
           <div className={requires2FA ? 'hidden' : ''}>
-            <label className="text-xs uppercase font-bold text-slate-500 mb-2 flex items-center gap-1 tracking-wider"><Mail size={12}/> Email</label>
-            <input name="email" type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500" placeholder="nom@exemple.com" />
+            <div className="relative group">
+               <Mail className="absolute left-3 top-3 text-muted-foreground group-focus-within:text-blue-500 transition-colors" size={18} />
+               <input name="email" type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-none focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50" placeholder="Email" />
+            </div>
           </div>
           
           <div className={requires2FA ? 'hidden' : ''}>
-            <div className="flex justify-between items-center mb-2">
-                <label className="text-xs uppercase font-bold text-slate-500 block tracking-wider flex items-center gap-1"><Lock size={12}/> Mot de passe</label>
+            <div className="flex justify-between items-center mb-2 px-1">
+                <label className="hidden text-xs uppercase font-bold text-muted-foreground tracking-wider items-center gap-1">Mot de passe</label>
                 {!isRegister && mailEnabled && (
-                    <Link href="/forgot-password" title="Réinitialiser" className="text-[10px] text-blue-400 hover:text-blue-300">Oublié ?</Link>
+                    <Link href="/forgot-password" title="Réinitialiser" className="text-[10px] ml-auto text-blue-500 hover:text-blue-400 font-medium">Mot de passe oublié ?</Link>
                 )}
             </div>
-            <input name="password" type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500" placeholder="••••••••" />
+            <div className="relative group">
+                <Lock className="absolute left-3 top-3 text-muted-foreground group-focus-within:text-blue-500 transition-colors" size={18} />
+                <input name="password" type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-none focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50" placeholder="Mot de passe" />
+            </div>
           </div>
 
           {isRegister && !requires2FA && (
-              <div className="animate-in slide-in-from-top-2 fade-in">
-                <label className="text-xs uppercase font-bold text-slate-500 mb-2 block tracking-wider flex items-center gap-1"><Check size={12}/> Confirmation</label>
-                <input name="confirmPassword" type="password" required value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className={`w-full bg-slate-950 border rounded-xl p-3 text-white outline-none transition-colors ${confirmPassword && confirmPassword === password ? 'border-emerald-500/50 focus:border-emerald-500' : 'border-slate-700 focus:border-blue-500'}`} placeholder="••••••••" />
+              <div className="animate-in slide-in-from-top-2 fade-in space-y-4">
+                <div className="relative group">
+                    <Check className="absolute left-3 top-3 text-muted-foreground group-focus-within:text-blue-500 transition-colors" size={18} />
+                    <input name="confirmPassword" type="password" required value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className={`w-full bg-background border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/50 ${confirmPassword && confirmPassword === password ? 'border-emerald-500/50 focus:border-emerald-500' : 'border-border focus:border-blue-500'}`} placeholder="Confirmation" />
+                </div>
                 <PasswordFeedback password={password} confirm={confirmPassword} showMatch={true} />
               </div>
           )}
 
           {requires2FA && (
-              <div className="animate-in zoom-in fade-in bg-blue-900/10 p-4 rounded-xl border border-blue-500/30 mt-4">
-                  <div className="flex items-center gap-2 text-blue-400 font-bold text-sm mb-3"><Shield size={18}/> Code Authenticator</div>
-                  <input name="twoFactorCode" type="text" inputMode="numeric" maxLength={6} autoFocus required value={twoFactorCode} onChange={e => setTwoFactorCode(e.target.value)} className="w-full bg-slate-950 border border-blue-500 rounded-xl p-3 text-white outline-none text-center text-xl tracking-[0.5em] font-mono shadow-[0_0_15px_rgba(59,130,246,0.2)]" placeholder="000000" />
-                  <p className="text-[10px] text-slate-400 text-center mt-2">Entrez le code à 6 chiffres.</p>
+              <div className="animate-in zoom-in fade-in bg-blue-500/5 p-4 rounded-xl border border-blue-500/20 mt-4">
+                  <div className="flex items-center gap-2 text-blue-500 font-bold text-sm mb-3"><Shield size={18}/> Code Authenticator</div>
+                  <input name="twoFactorCode" type="text" inputMode="numeric" maxLength={6} autoFocus required value={twoFactorCode} onChange={e => setTwoFactorCode(e.target.value)} className="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none text-center text-xl tracking-[0.5em] font-mono focus:border-blue-500 transition-colors" placeholder="000000" />
+                  <p className="text-[10px] text-muted-foreground text-center mt-2">Entrez le code à 6 chiffres.</p>
               </div>
           )}
           
-          {error && <div className="text-red-400 text-xs text-center bg-red-900/20 p-3 rounded-xl border border-red-900/50 animate-in shake">{error}</div>}
-
-          <button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-blue-900/20 mt-2">
+          {error && <div className="text-red-600 dark:text-red-400 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20 animate-in shake font-bold flex items-center justify-center gap-2"><AlertCircle size={16}/> {error}</div>}
+          <button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all mt-2 flex items-center justify-center gap-2">
             {loading ? 'Chargement...' : (requires2FA ? "Vérifier" : (isRegister ? "Créer un compte" : "Se connecter"))}
+            {!loading && <ArrowRight size={18} />}
           </button>
         </form>
 
         {canRegister && !requires2FA && (
-            <div className="mt-6 pt-6 border-t border-slate-800 text-center">
-              <button onClick={toggleMode} className="text-xs text-slate-500 hover:text-white transition-colors">{isRegister ? "J'ai déjà un compte ? Se connecter" : "Premier lancement ? Créer un compte"}</button>
+            <div className="mt-6 pt-6 border-t border-border text-center">
+              <button onClick={toggleMode} className="text-xs text-muted-foreground hover:text-foreground transition-colors font-medium">
+                  {isRegister ? "J'ai déjà un compte ? Se connecter" : "Pas encore de compte ? S'inscrire"}
+              </button>
             </div>
         )}
     </div>
@@ -144,5 +155,5 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
-    return (<div className="min-h-screen bg-slate-950 flex items-center justify-center p-4"><Suspense fallback={<div className="text-slate-500">Chargement...</div>}><LoginForm /></Suspense></div>);
+    return (<div className="min-h-screen bg-accent/20 flex flex-col items-center justify-center p-4"><Suspense fallback={<div className="text-muted-foreground">Chargement...</div>}><LoginForm /></Suspense><div className="mt-8 text-center text-[10px] text-muted-foreground uppercase tracking-widest opacity-50">Sécurisé par chiffrement AES-256</div></div>);
 }

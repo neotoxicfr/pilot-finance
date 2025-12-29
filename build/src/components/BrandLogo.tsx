@@ -38,19 +38,16 @@ export default function BrandLogo({ size = 32, withText = true }: { size?: numbe
         />
 
         <defs>
-            {/* Dégradé Bleu */}
             <linearGradient id="grad_blue" x1="517" y1="93" x2="-17" y2="403" gradientUnits="userSpaceOnUse">
                 <stop stopColor="#2563EB"/>
                 <stop offset="1" stopColor="#3B82F6"/>
             </linearGradient>
             
-            {/* Dégradé Violet */}
             <linearGradient id="grad_violet" x1="488" y1="112" x2="11" y2="384" gradientUnits="userSpaceOnUse">
                 <stop stopColor="#C084FC"/>
                 <stop offset="1" stopColor="#8B5CF6"/>
             </linearGradient>
             
-            {/* Dégradé Vert (Utilisé pour la Flèche + Secteur Haut-Droit) */}
             <linearGradient id="grad_green" x1="426" y1="93" x2="351" y2="136" gradientUnits="userSpaceOnUse">
                 <stop stopColor="#10B981"/>
                 <stop offset="1" stopColor="#34D399"/>
@@ -59,7 +56,7 @@ export default function BrandLogo({ size = 32, withText = true }: { size?: numbe
       </svg>
 
       {withText && (
-        <span className="text-xl font-bold tracking-tight text-white leading-none">
+        <span className="text-xl font-bold tracking-tight text-foreground leading-none">
           Pilot
         </span>
       )}

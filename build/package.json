@@ -1,6 +1,6 @@
 {
   "name": "pilot-finance",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Application de gestion financière personnelle optimisée pour Docker",
   "repository": {
@@ -33,6 +33,7 @@
     "jose": "latest",
     "lucide-react": "latest",
     "next": "latest",
+    "next-themes": "latest",
     "nodemailer": "latest",
     "otplib": "latest",
     "qrcode": "latest",
