@@ -17,6 +17,13 @@
 
 ---
 
+## 🗺️ Roadmap
+
+- [ ] 🌗 **Mode Clair / Mode Sombre / Auto (System)**
+- [ ] Support multi-langues
+
+---
+
 ## 🚀 Installation avec Docker
 
 La méthode recommandée est d'utiliser **Docker Compose**.
