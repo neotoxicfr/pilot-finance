@@ -3,6 +3,5 @@
 .npm
 docker-compose.yml.example
 Dockerfile
-entrypoint.sh
 node_modules
 out
