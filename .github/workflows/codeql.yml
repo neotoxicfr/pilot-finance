@@ -7,6 +7,7 @@ on:
       - 'README.md'
       - 'LICENSE'
       - 'SECURITY.md'
+      - '.dockerignore'
       - '.gitignore'
       - 'build/public/**'
   pull_request:
@@ -15,6 +16,7 @@ on:
       - 'README.md'
       - 'LICENSE'
       - 'SECURITY.md'
+      - '.dockerignore'
       - '.gitignore'
   schedule:
     - cron: '34 13 * * 6'
