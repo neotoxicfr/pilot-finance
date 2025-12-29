@@ -1,18 +1,27 @@
 {
-  "name": "pilot",
-  "version": "0.2.2",
+  "name": "pilot-finance",
+  "version": "1.0.0",
   "private": true,
+  "description": "Application de gestion financière personnelle optimisée pour Docker",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neotoxicfr/pilot-finance.git"
+  },
+  "bugs": {
+    "url": "https://github.com/neotoxicfr/pilot-finance/issues"
+  },
+  "homepage": "https://github.com/neotoxicfr/pilot-finance#readme",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node .next/standalone/server.js",
     "lint": "next lint",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@neondatabase/serverless": "latest",
-    "@simplewebauthn/browser": "latest", 
+    "@simplewebauthn/browser": "latest",
     "@simplewebauthn/server": "latest",
     "autoprefixer": "latest",
     "bcryptjs": "latest",
@@ -20,7 +29,7 @@
     "clsx": "latest",
     "dotenv": "latest",
     "drizzle-orm": "latest",
-    "drizzle-kit": "latest", 
+    "drizzle-kit": "latest",
     "jose": "latest",
     "lucide-react": "latest",
     "next": "latest",
@@ -36,7 +45,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "latest",
-    "@types/node": "latest", 
+    "@types/node": "latest",
     "@types/nodemailer": "latest",
     "@types/qrcode": "latest",
     "@types/react": "latest",
