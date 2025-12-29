@@ -4,20 +4,27 @@ on:
   push:
     branches: [ "main" ]
     paths-ignore:
-      - 'README.md'
-      - 'LICENSE'
-      - 'SECURITY.md'
       - '.dockerignore'
+      - '.github/**'
       - '.gitignore'
       - 'build/public/**'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE'
+      - 'README.md'
+      - 'SECURITY.md'
   pull_request:
     branches: [ "main" ]
     paths-ignore:
-      - 'README.md'
-      - 'LICENSE'
-      - 'SECURITY.md'
       - '.dockerignore'
+      - '.github/**'
       - '.gitignore'
+      - 'build/public/**'
+      - 'CODE_OF_CONDUCT.md'
+      - 'CONTRIBUTING.md'
+      - 'LICENSE'
+      - 'README.md'
+      - 'SECURITY.md'
   schedule:
     - cron: '34 13 * * 6'
 
