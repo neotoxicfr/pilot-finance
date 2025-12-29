@@ -2,7 +2,7 @@
 
 import { resetPasswordAction } from '@/src/actions';
 import { useState, Suspense } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock, AlertCircle } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 
 function ResetForm() {
@@ -21,23 +21,36 @@ function ResetForm() {
     }
   };
 
-  if (!token) return <div className="text-red-400 text-center">Lien invalide.</div>;
+  if (!token) return <div className="text-red-500 font-bold text-center">Lien invalide ou expiré.</div>;
 
   return (
-    <div className="bg-slate-900 p-8 rounded-2xl border border-slate-800 w-full max-w-sm shadow-2xl">
-        <h1 className="text-xl font-bold text-white mb-2 text-center">Nouveau mot de passe</h1>
-        <p className="text-slate-500 text-sm text-center mb-6">Choisissez un nouveau mot de passe sécurisé.</p>
+    <div className="dashboard-card bg-background border rounded-2xl p-8 w-full max-w-sm transition-all animate-in zoom-in-95 duration-500">
+        <h1 className="text-xl font-bold text-foreground mb-2 text-center">Nouveau mot de passe</h1>
+        <p className="text-muted-foreground text-sm text-center mb-6">Choisissez un nouveau mot de passe sécurisé.</p>
         
         <form action={handleSubmit} className="space-y-5">
           <input type="hidden" name="token" value={token} />
-          <div>
-            <label className="text-xs uppercase font-bold text-slate-500 mb-2 flex items-center gap-1 tracking-wider"><Lock size={12}/> Nouveau mot de passe</label>
-            <input name="password" type="password" required minLength={6} className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition-colors" placeholder="••••••••" />
-          </div>
           
-          {error && <div className="text-red-400 text-xs text-center bg-red-900/20 p-3 rounded-xl border border-red-900/50">{error}</div>}
-
-          <button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-blue-900/20">
+          <div>
+            <label className="text-xs uppercase font-bold text-muted-foreground mb-2 flex items-center gap-1 tracking-wider">
+                <Lock size={12}/> Nouveau mot de passe
+            </label>
+            <input 
+                name="password" 
+                type="password" 
+                required 
+                minLength={6} 
+                className="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50" 
+                placeholder="••••••••" 
+            />
+          </div>
+          {error && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 text-red-600 dark:text-red-400 text-xs font-bold animate-in shake">
+              <AlertCircle size={16} />
+              {error}
+            </div>
+          )}
+          <button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl transition-all">
             {loading ? 'Modification...' : "Valider"}
           </button>
         </form>
@@ -47,8 +60,8 @@ function ResetForm() {
 
 export default function ResetPasswordPage() {
     return (
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-            <Suspense fallback={<div className="text-slate-500">Chargement...</div>}>
+        <div className="min-h-screen bg-accent/20 flex items-center justify-center p-4">
+            <Suspense fallback={<div className="text-muted-foreground">Chargement...</div>}>
                 <ResetForm />
             </Suspense>
         </div>

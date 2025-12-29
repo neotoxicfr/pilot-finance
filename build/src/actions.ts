@@ -10,6 +10,7 @@ import bcrypt from 'bcryptjs';
 import { login, getSession, logout as logoutLib } from "@/src/lib/auth";
 import { encrypt, decrypt, computeBlindIndex } from "@/src/lib/crypto";
 import { sendEmail } from "@/src/lib/mail";
+import { getHtmlTemplate } from "@/src/lib/email-templates"; // <--- NOUVEL IMPORT
 import { randomBytes } from "crypto";
 import { authenticator } from 'otplib';
 import qrcode from 'qrcode';
@@ -121,10 +122,17 @@ export async function authenticate(formData: FormData, isRegister: boolean) {
                 .where(eq(users.id, userId));
             
             const verifyUrl = `https://${process.env.HOST}/verify-email?token=${verificationToken}`;
+            
+            // --- UTILISATION DU TEMPLATE HTML ---
             await sendEmail({
                 to: email,
                 subject: "Validez votre compte Pilot Finance",
-                html: `<div style="font-family: sans-serif; color: #333;"><h2>Bienvenue !</h2><p>Cliquez ici pour valider votre adresse : <a href="${verifyUrl}">Valider mon compte</a></p></div>`
+                html: getHtmlTemplate(
+                    "Confirmez votre adresse email",
+                    "Merci de vous être inscrit sur Pilot Finance. Pour activer votre compte et sécuriser votre accès, veuillez cliquer sur le bouton ci-dessous.",
+                    "Valider mon compte",
+                    verifyUrl
+                )
             });
         }
 
@@ -178,6 +186,22 @@ export async function authenticate(formData: FormData, isRegister: boolean) {
 export async function logoutAction() {
     await logoutLib();
     redirect('/login');
+}
+
+// --- EMAIL & RECUPERATION ---
+
+export async function verifyEmailAction(token: string) {
+    const [user] = await db.select().from(users).where(eq(users.verification_token, token));
+    
+    if (!user) {
+        return { error: "Lien de validation invalide ou expiré." };
+    }
+
+    await db.update(users)
+        .set({ email_verified: true, verification_token: null })
+        .where(eq(users.id, user.id));
+
+    return { success: true };
 }
 
 // --- PASSKEYS (GESTION COMPLÈTE) ---
@@ -382,10 +406,16 @@ export async function forgotPasswordAction(formData: FormData) {
 
     const resetUrl = `https://${process.env.HOST}/reset-password?token=${token}`;
     
+    // --- UTILISATION DU TEMPLATE HTML ---
     await sendEmail({
         to: email,
         subject: "Réinitialisation de votre mot de passe",
-        html: `<div style="font-family: sans-serif; color: #333;"><h2>Mot de passe oublié ?</h2><p>Cliquez ici : <a href="${resetUrl}">Réinitialiser</a></p></div>`
+        html: getHtmlTemplate(
+            "Mot de passe oublié ?",
+            "Vous avez demandé la réinitialisation de votre mot de passe Pilot Finance. Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.",
+            "Réinitialiser le mot de passe",
+            resetUrl
+        )
     });
 
     return { success: true };
@@ -792,18 +822,4 @@ export async function getRecurringOperations() {
 
 export async function getMailStatus() {
   return process.env.ENABLE_MAIL === 'true';
-}
-
-export async function verifyEmailAction(token: string) {
-    const [user] = await db.select().from(users).where(eq(users.verification_token, token));
-    
-    if (!user) {
-        return { error: "Lien de validation invalide ou expiré." };
-    }
-
-    await db.update(users)
-        .set({ email_verified: true, verification_token: null })
-        .where(eq(users.id, user.id));
-
-    return { success: true };
 }
