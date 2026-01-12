@@ -6,21 +6,13 @@ import { eq, sql, desc, asc, and, isNull, gt } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers, cookies } from "next/headers";
-import bcrypt from 'bcryptjs';
 import { login, getSession, logout as logoutLib } from "@/src/lib/auth";
 import { encrypt, decrypt, computeBlindIndex } from "@/src/lib/crypto";
 import { sendEmail } from "@/src/lib/mail";
 import { getHtmlTemplate } from "@/src/lib/email-templates";
-import { randomBytes } from "crypto";
-// NOTE : otplib est importé dynamiquement dans les fonctions pour éviter les erreurs client
-import qrcode from 'qrcode';
-import {
-  generateRegistrationOptions,
-  verifyRegistrationResponse,
-  generateAuthenticationOptions,
-  verifyAuthenticationResponse,
-} from '@simplewebauthn/server';
-import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
+
+// NOTE: Tous les imports Node.js et Server-Side (crypto, otplib, simplewebauthn)
+// sont désormais dynamiques pour éviter les erreurs "Module not found" côté client.
 
 const roundCurrency = (amount: number) => Math.round((amount + Number.EPSILON) * 100) / 100;
 
@@ -75,6 +67,10 @@ async function checkAdmin() {
 // --- AUTHENTIFICATION PRINCIPALE ---
 
 export async function authenticate(formData: FormData, isRegister: boolean) {
+  // Imports dynamiques
+  const { hash, compare } = await import('bcryptjs');
+  const { randomBytes } = await import('crypto');
+
   const email = formData.get('email') as string;
   const password = formData.get('password') as string;
   const twoFactorCode = formData.get('twoFactorCode') as string;
@@ -102,7 +98,7 @@ export async function authenticate(formData: FormData, isRegister: boolean) {
     const existing = await db.select().from(users).where(eq(users.emailBlindIndex, emailIndex));
     if (existing.length > 0) return { error: "Cet email est déjà utilisé." };
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await hash(password, 10);
 
     try {
         const newUser = await db.insert(users).values({
@@ -123,7 +119,6 @@ export async function authenticate(formData: FormData, isRegister: boolean) {
             
             const verifyUrl = `https://${process.env.HOST}/verify-email?token=${verificationToken}`;
             
-            // --- UTILISATION DU TEMPLATE HTML ---
             await sendEmail({
                 to: email,
                 subject: "Validez votre compte Pilot Finance",
@@ -157,7 +152,7 @@ export async function authenticate(formData: FormData, isRegister: boolean) {
     const [user] = await db.select().from(users).where(eq(users.emailBlindIndex, emailIndex));
     if (!user) return { error: "Identifiants incorrects" };
 
-    const match = await bcrypt.compare(password, user.password);
+    const match = await compare(password, user.password);
     if (!match) return { error: "Identifiants incorrects" };
 
     if (process.env.ENABLE_MAIL === 'true' && !user.email_verified) {
@@ -171,7 +166,7 @@ export async function authenticate(formData: FormData, isRegister: boolean) {
         }
         const decryptedSecret = decrypt(user.mfaSecret!);
         
-        // CORRECTION : Import dynamique pour éviter le crash client
+        // Import dynamique otplib
         const { authenticator } = await import('@otplib/preset-default');
         
         const isValid = authenticator.verify({ token: twoFactorCode, secret: decryptedSecret });
@@ -232,6 +227,10 @@ export async function renamePasskey(id: number, newName: string) {
 export async function registerPasskeyStart() {
     if (!getHost()) return { error: "Passkeys non activés sur ce serveur (Variable HOST manquante)." };
 
+    // Imports dynamiques SimpleWebAuthn
+    const { generateRegistrationOptions } = await import('@simplewebauthn/server');
+    const { isoUint8Array } = await import('@simplewebauthn/server/helpers');
+
     const user = await getUser();
     const [dbUser] = await db.select().from(users).where(eq(users.id, user.id));
     const userEmail = decrypt(dbUser.emailEncrypted);
@@ -259,6 +258,10 @@ export async function registerPasskeyStart() {
 }
 
 export async function registerPasskeyFinish(response: any) {
+    // Imports dynamiques SimpleWebAuthn
+    const { verifyRegistrationResponse } = await import('@simplewebauthn/server');
+    const { isoBase64URL } = await import('@simplewebauthn/server/helpers');
+
     const user = await getUser();
     const challenge = (await cookies()).get('passkey_challenge')?.value;
 
@@ -301,6 +304,9 @@ export async function registerPasskeyFinish(response: any) {
 export async function loginPasskeyStart() {
     if (!getHost()) return { error: "Passkeys non activés." };
 
+    // Import dynamique SimpleWebAuthn
+    const { generateAuthenticationOptions } = await import('@simplewebauthn/server');
+
     const options = await generateAuthenticationOptions({
         rpID: getRpID(),
         userVerification: 'preferred',
@@ -311,6 +317,10 @@ export async function loginPasskeyStart() {
 }
 
 export async function loginPasskeyFinish(response: any) {
+    // Imports dynamiques SimpleWebAuthn
+    const { verifyAuthenticationResponse } = await import('@simplewebauthn/server');
+    const { isoBase64URL } = await import('@simplewebauthn/server/helpers');
+
     const challenge = (await cookies()).get('passkey_auth_challenge')?.value;
 
     if (!challenge) return { error: "Session expirée." };
@@ -358,8 +368,9 @@ export async function loginPasskeyFinish(response: any) {
 // --- DOUBLE AUTHENTIFICATION (TOTP) ---
 
 export async function generateMfaSecretAction() {
-    // CORRECTION : Import dynamique
+    // Import dynamique pour crypto/qrcode
     const { authenticator } = await import('@otplib/preset-default');
+    const qrcode = (await import('qrcode')).default;
     
     const user = await getUser();
     const [dbUser] = await db.select().from(users).where(eq(users.id, user.id));
@@ -371,7 +382,6 @@ export async function generateMfaSecretAction() {
 }
 
 export async function enableMfaAction(secret: string, token: string) {
-    // CORRECTION : Import dynamique
     const { authenticator } = await import('@otplib/preset-default');
     
     const userSession = await getUser();
@@ -399,6 +409,9 @@ export async function getMfaStatus() {
 // --- GESTION DES MOTS DE PASSE ---
 
 export async function forgotPasswordAction(formData: FormData) {
+    // Import dynamique crypto
+    const { randomBytes } = await import('crypto');
+
     const email = formData.get('email') as string;
     if (!email || !isValidEmail(email)) return { error: "Email invalide" };
 
@@ -417,7 +430,6 @@ export async function forgotPasswordAction(formData: FormData) {
 
     const resetUrl = `https://${process.env.HOST}/reset-password?token=${token}`;
     
-    // --- UTILISATION DU TEMPLATE HTML ---
     await sendEmail({
         to: email,
         subject: "Réinitialisation de votre mot de passe",
@@ -433,6 +445,8 @@ export async function forgotPasswordAction(formData: FormData) {
 }
 
 export async function resetPasswordAction(formData: FormData) {
+    const { hash } = await import('bcryptjs');
+
     const token = formData.get('token') as string;
     const password = formData.get('password') as string;
 
@@ -448,7 +462,7 @@ export async function resetPasswordAction(formData: FormData) {
 
     if (!user) return { error: "Lien invalide ou expiré." };
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await hash(password, 10);
 
     await db.update(users).set({
         password: hashedPassword,
@@ -460,6 +474,8 @@ export async function resetPasswordAction(formData: FormData) {
 }
 
 export async function updatePasswordAction(formData: FormData) {
+    const { hash, compare } = await import('bcryptjs');
+
     const userSession = await getUser();
     const currentPassword = formData.get("currentPassword") as string;
     const newPassword = formData.get("newPassword") as string;
@@ -476,10 +492,10 @@ export async function updatePasswordAction(formData: FormData) {
     const [dbUser] = await db.select().from(users).where(eq(users.id, userSession.id));
     if (!dbUser) return { error: "Utilisateur introuvable" };
 
-    const match = await bcrypt.compare(currentPassword, dbUser.password);
+    const match = await compare(currentPassword, dbUser.password);
     if (!match) return { error: "Le mot de passe actuel est incorrect" };
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await hash(newPassword, 10);
 
     await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userSession.id));
 
@@ -506,6 +522,7 @@ export async function getRegistrationStatus() {
 }
 
 // --- DASHBOARD & CALCULS ---
+// (Le reste reste inchangé)
 
 export async function getDashboardData(projectionYears: number = 5) {
   const user = await getUser();
