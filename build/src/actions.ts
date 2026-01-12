@@ -12,8 +12,7 @@ import { encrypt, decrypt, computeBlindIndex } from "@/src/lib/crypto";
 import { sendEmail } from "@/src/lib/mail";
 import { getHtmlTemplate } from "@/src/lib/email-templates";
 import { randomBytes } from "crypto";
-// CORRECTIF v13 : Import depuis le preset pour récupérer l'objet 'authenticator'
-import { authenticator } from '@otplib/preset-default';
+// NOTE : otplib est importé dynamiquement dans les fonctions pour éviter les erreurs client
 import qrcode from 'qrcode';
 import {
   generateRegistrationOptions,
@@ -172,7 +171,9 @@ export async function authenticate(formData: FormData, isRegister: boolean) {
         }
         const decryptedSecret = decrypt(user.mfaSecret!);
         
-        // CORRECTION v13 : Utilisation de .verify() avec un objet
+        // CORRECTION : Import dynamique pour éviter le crash client
+        const { authenticator } = await import('@otplib/preset-default');
+        
         const isValid = authenticator.verify({ token: twoFactorCode, secret: decryptedSecret });
         
         if (!isValid) {
@@ -357,6 +358,9 @@ export async function loginPasskeyFinish(response: any) {
 // --- DOUBLE AUTHENTIFICATION (TOTP) ---
 
 export async function generateMfaSecretAction() {
+    // CORRECTION : Import dynamique
+    const { authenticator } = await import('@otplib/preset-default');
+    
     const user = await getUser();
     const [dbUser] = await db.select().from(users).where(eq(users.id, user.id));
     const userEmail = decrypt(dbUser.emailEncrypted);
@@ -367,8 +371,10 @@ export async function generateMfaSecretAction() {
 }
 
 export async function enableMfaAction(secret: string, token: string) {
+    // CORRECTION : Import dynamique
+    const { authenticator } = await import('@otplib/preset-default');
+    
     const userSession = await getUser();
-    // CORRECTION v13 : Utilisation de .verify() avec un objet
     const isValid = authenticator.verify({ token, secret });
     
     if (!isValid) return { error: "Code invalide. Réessayez." };
