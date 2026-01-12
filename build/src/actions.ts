@@ -10,9 +10,10 @@ import bcrypt from 'bcryptjs';
 import { login, getSession, logout as logoutLib } from "@/src/lib/auth";
 import { encrypt, decrypt, computeBlindIndex } from "@/src/lib/crypto";
 import { sendEmail } from "@/src/lib/mail";
-import { getHtmlTemplate } from "@/src/lib/email-templates"; // <--- NOUVEL IMPORT
+import { getHtmlTemplate } from "@/src/lib/email-templates";
 import { randomBytes } from "crypto";
-import { authenticator } from 'otplib';
+// CORRECTIF v13 : Import depuis le preset pour récupérer l'objet 'authenticator'
+import { authenticator } from '@otplib/preset-default';
 import qrcode from 'qrcode';
 import {
   generateRegistrationOptions,
@@ -170,7 +171,10 @@ export async function authenticate(formData: FormData, isRegister: boolean) {
             return { requires2FA: true };
         }
         const decryptedSecret = decrypt(user.mfaSecret!);
-        const isValid = authenticator.check(twoFactorCode, decryptedSecret);
+        
+        // CORRECTION v13 : Utilisation de .verify() avec un objet
+        const isValid = authenticator.verify({ token: twoFactorCode, secret: decryptedSecret });
+        
         if (!isValid) {
             return { error: "Code A2F invalide", requires2FA: true };
         }
@@ -192,7 +196,7 @@ export async function logoutAction() {
 
 export async function verifyEmailAction(token: string) {
     const [user] = await db.select().from(users).where(eq(users.verification_token, token));
-    
+
     if (!user) {
         return { error: "Lien de validation invalide ou expiré." };
     }
@@ -230,7 +234,6 @@ export async function registerPasskeyStart() {
     const user = await getUser();
     const [dbUser] = await db.select().from(users).where(eq(users.id, user.id));
     const userEmail = decrypt(dbUser.emailEncrypted);
-    
     const userAuthenticators = await db.select().from(authenticators).where(eq(authenticators.userId, user.id));
 
     const options = await generateRegistrationOptions({
@@ -270,7 +273,6 @@ export async function registerPasskeyFinish(response: any) {
 
         if (verification.verified && verification.registrationInfo) {
             const { credential } = verification.registrationInfo;
-
             const defaultName = `Clé Passkey (${new Date().toLocaleDateString('fr-FR')})`;
 
             await db.insert(authenticators).values({
@@ -309,6 +311,7 @@ export async function loginPasskeyStart() {
 
 export async function loginPasskeyFinish(response: any) {
     const challenge = (await cookies()).get('passkey_auth_challenge')?.value;
+
     if (!challenge) return { error: "Session expirée." };
 
     try {
@@ -365,8 +368,11 @@ export async function generateMfaSecretAction() {
 
 export async function enableMfaAction(secret: string, token: string) {
     const userSession = await getUser();
-    const isValid = authenticator.check(token, secret);
+    // CORRECTION v13 : Utilisation de .verify() avec un objet
+    const isValid = authenticator.verify({ token, secret });
+    
     if (!isValid) return { error: "Code invalide. Réessayez." };
+
     await db.update(users).set({ mfaEnabled: true, mfaSecret: encrypt(secret) }).where(eq(users.id, userSession.id));
     revalidatePath('/settings');
     return { success: true };
@@ -388,7 +394,6 @@ export async function getMfaStatus() {
 
 export async function forgotPasswordAction(formData: FormData) {
     const email = formData.get('email') as string;
-    
     if (!email || !isValidEmail(email)) return { error: "Email invalide" };
 
     const emailIndex = computeBlindIndex(email);
@@ -455,7 +460,6 @@ export async function updatePasswordAction(formData: FormData) {
     const confirmPassword = formData.get("confirmPassword") as string;
 
     if (!currentPassword || !newPassword || !confirmPassword) return { error: "Tous les champs sont requis" };
-    
     if (newPassword !== confirmPassword) {
         return { error: "Les nouveaux mots de passe ne correspondent pas" };
     }
@@ -470,6 +474,7 @@ export async function updatePasswordAction(formData: FormData) {
     if (!match) return { error: "Le mot de passe actuel est incorrect" };
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
+
     await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userSession.id));
 
     return { success: true };
@@ -498,20 +503,19 @@ export async function getRegistrationStatus() {
 
 export async function getDashboardData(projectionYears: number = 5) {
   const user = await getUser();
-  
   await checkRecurringOperations(user.id);
   await processRealYields(user.id);
 
   const rawAccounts = await db.select().from(accounts)
     .where(eq(accounts.userId, user.id))
     .orderBy(asc(accounts.position));
-
+    
   const allAccounts = rawAccounts.map(a => ({ ...a, name: decrypt(a.name) }));
 
   const rawRecurrings = await db.select().from(recurringOperations)
     .where(and(eq(recurringOperations.isActive, true), eq(recurringOperations.userId, user.id)))
     .orderBy(asc(recurringOperations.dayOfMonth));
-
+    
   const recurrings = rawRecurrings.map(r => ({ ...r, description: decrypt(r.description) }));
 
   const { dataPoints, totalInterests } = simulateProjection(allAccounts, recurrings, projectionYears);
@@ -558,6 +562,7 @@ function simulateProjection(initialAccounts: any[], recurrings: any[], years: nu
        universe.forEach(acc => {
           if (!acc.isYieldActive) return;
           const isPayoutDue = (acc.payoutFrequency === 'MONTHLY') || (acc.payoutFrequency === 'YEARLY' && isYearEnd);
+
           if (isPayoutDue) {
              const yieldMin = acc.yieldMin ?? 0;
              const yieldMax = acc.yieldMax ?? 0;
@@ -567,14 +572,16 @@ function simulateProjection(initialAccounts: any[], recurrings: any[], years: nu
              if (mode === 'MIN') rate = acc.yieldType === 'RANGE' ? yieldMin : yieldMin;
              if (mode === 'MAX') rate = acc.yieldType === 'RANGE' ? yieldMax : yieldMin;
              if (mode === 'AVG') rate = acc.yieldType === 'RANGE' ? (yieldMin + yieldMax) / 2 : yieldMin;
+
              if (acc.yieldFrequency === 'YEARLY' && acc.payoutFrequency === 'MONTHLY') rate = rate / 12;
              if (acc.yieldFrequency === 'MONTHLY' && acc.payoutFrequency === 'YEARLY') rate = rate * 12;
 
              const gain = roundCurrency(acc.balance * (rate / 100));
              if(mode === 'AVG') totalInterests += gain;
+             
              const reinvest = roundCurrency(gain * (reinvestmentRate / 100));
              const payout = roundCurrency(gain - reinvest);
-             
+
              acc.balance = roundCurrency(acc.balance + reinvest);
 
              if (payout > 0) {
@@ -586,12 +593,21 @@ function simulateProjection(initialAccounts: any[], recurrings: any[], years: nu
        });
     };
 
-    applyYield(accountsAvg, 'AVG'); applyYield(accountsMin, 'MIN'); applyYield(accountsMax, 'MAX');
+    applyYield(accountsAvg, 'AVG');
+    applyYield(accountsMin, 'MIN');
+    applyYield(accountsMax, 'MAX');
 
     if (showMonthly || isYearEnd) {
         const futureDate = new Date(now.getFullYear(), now.getMonth() + m, 1);
         let name = showMonthly ? futureDate.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }) : futureDate.getFullYear().toString();
-        const point: any = { name: name, totalMin: Math.round(accountsMin.reduce((sum, a) => sum + a.balance, 0)), totalMax: Math.round(accountsMax.reduce((sum, a) => sum + a.balance, 0)), totalAvg: Math.round(accountsAvg.reduce((sum, a) => sum + a.balance, 0)) };
+        
+        const point: any = { 
+            name: name, 
+            totalMin: Math.round(accountsMin.reduce((sum, a) => sum + a.balance, 0)), 
+            totalMax: Math.round(accountsMax.reduce((sum, a) => sum + a.balance, 0)), 
+            totalAvg: Math.round(accountsAvg.reduce((sum, a) => sum + a.balance, 0)) 
+        };
+        
         accountsAvg.forEach(acc => { point[acc.name] = Math.round(acc.balance); });
         dataPoints.push(point);
     }
@@ -600,13 +616,15 @@ function simulateProjection(initialAccounts: any[], recurrings: any[], years: nu
 }
 
 async function checkRecurringOperations(userId: number) {
-  const today = new Date(); const currentDay = today.getDate(); const currentMonth = today.getMonth();
+  const today = new Date();
+  const currentDay = today.getDate();
+  const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
+
   const rawOps = await db.select().from(recurringOperations).where(and(eq(recurringOperations.isActive, true), eq(recurringOperations.userId, userId)));
-  
+
   for (const opRaw of rawOps) {
     const op = { ...opRaw, description: decrypt(opRaw.description) };
-
     const lastRun = op.lastRunDate ? new Date(op.lastRunDate) : null;
     const isDue = currentDay >= op.dayOfMonth;
     const alreadyRunThisMonth = lastRun && lastRun.getMonth() === currentMonth && lastRun.getFullYear() === currentYear;
@@ -623,13 +641,16 @@ async function checkRecurringOperations(userId: number) {
               const amount = Math.abs(op.amount);
               await db.update(accounts).set({ balance: roundCurrency(source.balance - amount) }).where(eq(accounts.id, source.id));
               await db.insert(transactions).values({ userId, accountId: source.id, amount: -amount, description: encrypt(`[Auto] Virement vers ${target.name} : ${op.description}`), category: 'Virement Sortant', date: new Date() });
+              
               await db.update(accounts).set({ balance: roundCurrency(target.balance + amount) }).where(eq(accounts.id, target.id));
               await db.insert(transactions).values({ userId, accountId: target.id, amount: amount, description: encrypt(`[Auto] Virement de ${source.name} : ${op.description}`), category: 'Virement Entrant', date: new Date() });
           }
       } else {
           await db.insert(transactions).values({ userId, accountId: op.accountId, amount: op.amount, description: encrypt(`[Auto] ${op.description}`), category: 'Récurrent', date: new Date() });
           const [account] = await db.select().from(accounts).where(and(eq(accounts.id, op.accountId), eq(accounts.userId, userId)));
-          if (account) { await db.update(accounts).set({ balance: roundCurrency(account.balance + op.amount) }).where(eq(accounts.id, op.accountId)); }
+          if (account) {
+              await db.update(accounts).set({ balance: roundCurrency(account.balance + op.amount) }).where(eq(accounts.id, op.accountId));
+          }
       }
       await db.update(recurringOperations).set({ lastRunDate: new Date() }).where(eq(recurringOperations.id, op.id));
     }
@@ -637,14 +658,16 @@ async function checkRecurringOperations(userId: number) {
 }
 
 async function processRealYields(userId: number) {
-  const today = new Date(); const currentMonth = today.getMonth();
+  const today = new Date();
+  const currentMonth = today.getMonth();
   const currentYear = today.getFullYear(); 
+  
   const rawActiveAccounts = await db.select().from(accounts).where(and(eq(accounts.isYieldActive, true), eq(accounts.userId, userId)));
   
   for (const accRaw of rawActiveAccounts) { 
     const acc = { ...accRaw, name: decrypt(accRaw.name) };
-
     const lastRun = acc.lastYieldDate ? new Date(acc.lastYieldDate) : null; 
+    
     let shouldRun = false;
 
     if (acc.payoutFrequency === 'MONTHLY') { 
@@ -661,6 +684,7 @@ async function processRealYields(userId: number) {
         const reinvestmentRate = acc.reinvestmentRate ?? 0;
 
         let rate = acc.yieldType === 'RANGE' ? (yieldMin + yieldMax) / 2 : yieldMin;
+        
         if (acc.yieldFrequency === 'YEARLY' && acc.payoutFrequency === 'MONTHLY') rate = rate / 12;
         if (acc.yieldFrequency === 'MONTHLY' && acc.payoutFrequency === 'YEARLY') rate = rate * 12;
 
@@ -669,15 +693,16 @@ async function processRealYields(userId: number) {
         const payoutAmount = roundCurrency(gain - reinvestAmount); 
         
         await db.update(accounts).set({ balance: roundCurrency(acc.balance + gain), lastYieldDate: new Date() }).where(eq(accounts.id, acc.id));
-        
         await db.insert(transactions).values({ userId, accountId: acc.id, amount: gain, description: encrypt("Intérêts / Dividendes"), category: "Rendement", date: new Date() });
         
         if (payoutAmount > 0) { 
             const targetId = acc.targetAccountId || acc.id;
             const targetIdSafe = targetId || acc.id; 
+            
             if (targetIdSafe !== acc.id) { 
                 await db.update(accounts).set({ balance: sql`ROUND(balance - ${payoutAmount}, 2)` }).where(eq(accounts.id, acc.id));
                 await db.insert(transactions).values({ userId, accountId: acc.id, amount: -payoutAmount, description: encrypt(`Virement intérêts vers cpt ${targetIdSafe}`), category: "Virement Sortant", date: new Date() });
+                
                 await db.update(accounts).set({ balance: sql`ROUND(balance + ${payoutAmount}, 2)` }).where(eq(accounts.id, targetIdSafe)); 
                 await db.insert(transactions).values({ userId, accountId: targetIdSafe, amount: payoutAmount, description: encrypt(`Reçu intérêts de ${acc.name}`), category: "Rendement", date: new Date() });
             } 
@@ -692,9 +717,12 @@ export async function createAccount(formData: FormData) {
   const user = await getUser();
   const name = formData.get("name") as string; 
   const balance = parseFloat(formData.get("balance") as string) || 0;
-  const color = formData.get("color") as string || "#3b82f6"; const isYieldActive = formData.get("isYieldActive") === "on";
-  const yieldType = formData.get("yieldType") as string || "FIXED"; const yieldMin = parseFloat(formData.get("yieldMin") as string) || 0;
-  const yieldMax = parseFloat(formData.get("yieldMax") as string) || 0; const yieldFrequency = formData.get("yieldFrequency") as string || "YEARLY";
+  const color = formData.get("color") as string || "#3b82f6";
+  const isYieldActive = formData.get("isYieldActive") === "on";
+  const yieldType = formData.get("yieldType") as string || "FIXED";
+  const yieldMin = parseFloat(formData.get("yieldMin") as string) || 0;
+  const yieldMax = parseFloat(formData.get("yieldMax") as string) || 0;
+  const yieldFrequency = formData.get("yieldFrequency") as string || "YEARLY";
   const payoutFrequency = formData.get("payoutFrequency") as string || "MONTHLY"; 
   const reinvestRaw = formData.get("reinvestmentRate");
   const reinvestmentRate = (reinvestRaw !== null && reinvestRaw !== '') ? parseInt(reinvestRaw as string) : 100;
@@ -717,34 +745,42 @@ export async function updateAccountFull(formData: FormData) {
   const user = await getUser();
   const id = parseInt(formData.get("id") as string);
   if (!id) return; 
+  
   const name = formData.get("name") as string;
   const balance = parseFloat(formData.get("balance") as string) || 0;
-  const color = formData.get("color") as string || "#3b82f6"; const isYieldActive = formData.get("isYieldActive") === "on";
-  const yieldType = formData.get("yieldType") as string || "FIXED"; const yieldMin = parseFloat(formData.get("yieldMin") as string) || 0;
-  const yieldMax = parseFloat(formData.get("yieldMax") as string) || 0; const yieldFrequency = formData.get("yieldFrequency") as string || "YEARLY";
+  const color = formData.get("color") as string || "#3b82f6";
+  const isYieldActive = formData.get("isYieldActive") === "on";
+  const yieldType = formData.get("yieldType") as string || "FIXED";
+  const yieldMin = parseFloat(formData.get("yieldMin") as string) || 0;
+  const yieldMax = parseFloat(formData.get("yieldMax") as string) || 0;
+  const yieldFrequency = formData.get("yieldFrequency") as string || "YEARLY";
   const payoutFrequency = formData.get("payoutFrequency") as string || "YEARLY"; 
   const reinvestRaw = formData.get("reinvestmentRate");
   const reinvestmentRate = (reinvestRaw !== null && reinvestRaw !== '') ? parseInt(reinvestRaw as string) : 100;
   const targetAccountId = formData.get("targetAccountId") ? parseInt(formData.get("targetAccountId") as string) : null;
-  
+
   await db.update(accounts).set({ 
       name: encrypt(name),
       balance: roundCurrency(balance), color, isYieldActive, yieldType, yieldMin, yieldMax, yieldFrequency, payoutFrequency, reinvestmentRate, targetAccountId, updatedAt: new Date() 
   }).where(and(eq(accounts.id, id), eq(accounts.userId, user.id)));
+  
   revalidatePath("/"); revalidatePath("/accounts");
 }
 
 export async function updateBalanceDirect(formData: FormData) { 
-    const user = await getUser(); const id = parseInt(formData.get("id") as string);
+    const user = await getUser();
+    const id = parseInt(formData.get("id") as string);
     const newBalance = parseFloat(formData.get("balance") as string); 
-    if (!id || isNaN(newBalance)) return; 
+    
+    if (!id || isNaN(newBalance)) return;
+    
     await db.update(accounts).set({ balance: roundCurrency(newBalance) }).where(and(eq(accounts.id, id), eq(accounts.userId, user.id))); 
-    revalidatePath("/"); revalidatePath("/accounts"); 
+    revalidatePath("/"); revalidatePath("/accounts");
 }
 
 export async function deleteAccount(id: number) { 
     const user = await getUser();
-    await db.delete(accounts).where(and(eq(accounts.id, id), eq(accounts.userId, user.id))); 
+    await db.delete(accounts).where(and(eq(accounts.id, id), eq(accounts.userId, user.id)));
     revalidatePath("/accounts"); 
 }
 
@@ -752,11 +788,18 @@ export async function swapAccounts(id1: number, id2: number) {
     const user = await getUser();
     const allAccounts = await db.select().from(accounts).where(eq(accounts.userId, user.id)).orderBy(asc(accounts.position), asc(accounts.id));
     const reordered = allAccounts.map((acc, index) => ({ ...acc, tempPosition: index }));
-    const idx1 = reordered.findIndex(a => a.id === id1); const idx2 = reordered.findIndex(a => a.id === id2);
+    
+    const idx1 = reordered.findIndex(a => a.id === id1);
+    const idx2 = reordered.findIndex(a => a.id === id2);
+    
     if (idx1 !== -1 && idx2 !== -1) {
         const temp = reordered[idx1].tempPosition;
-        reordered[idx1].tempPosition = reordered[idx2].tempPosition; reordered[idx2].tempPosition = temp;
-        for (const acc of reordered) { await db.update(accounts).set({ position: acc.tempPosition }).where(and(eq(accounts.id, acc.id), eq(accounts.userId, user.id))); }
+        reordered[idx1].tempPosition = reordered[idx2].tempPosition; 
+        reordered[idx2].tempPosition = temp;
+        
+        for (const acc of reordered) {
+             await db.update(accounts).set({ position: acc.tempPosition }).where(and(eq(accounts.id, acc.id), eq(accounts.userId, user.id)));
+        }
     }
     revalidatePath("/accounts"); revalidatePath("/");
 }
@@ -766,26 +809,39 @@ export async function swapAccounts(id1: number, id2: number) {
 export async function createRecurring(formData: FormData) {
     const user = await getUser();
     const accountId = parseInt(formData.get("accountId") as string);
-    const toAccountId = formData.get("toAccountId") ? parseInt(formData.get("toAccountId") as string) : null; const amountRaw = parseFloat(formData.get("amount") as string);
+    const toAccountId = formData.get("toAccountId") ? parseInt(formData.get("toAccountId") as string) : null;
+    const amountRaw = parseFloat(formData.get("amount") as string);
     const type = formData.get("type") as string; 
-    const description = formData.get("description") as string; 
+    const description = formData.get("description") as string;
     const dayOfMonth = parseInt(formData.get("dayOfMonth") as string);
-    if(!accountId) return;
-    let amount = 0; if (type === 'transfer') amount = Math.abs(amountRaw); else if (type === 'expense') amount = -Math.abs(amountRaw);
-    else amount = Math.abs(amountRaw);
     
+    if(!accountId) return;
+    
+    let amount = 0;
+    if (type === 'transfer') amount = Math.abs(amountRaw);
+    else if (type === 'expense') amount = -Math.abs(amountRaw);
+    else amount = Math.abs(amountRaw);
+
     await db.insert(recurringOperations).values({ userId: user.id, accountId, toAccountId: type === 'transfer' ? toAccountId : null, amount: roundCurrency(amount), description: encrypt(description), dayOfMonth, isActive: true });
     revalidatePath("/accounts");
 }
 
 export async function updateRecurring(formData: FormData) {
     const user = await getUser();
-    const id = parseInt(formData.get("id") as string); const accountId = parseInt(formData.get("accountId") as string); const toAccountId = formData.get("toAccountId") ?
-    parseInt(formData.get("toAccountId") as string) : null; const amountRaw = parseFloat(formData.get("amount") as string); const type = formData.get("type") as string;
+    const id = parseInt(formData.get("id") as string);
+    const accountId = parseInt(formData.get("accountId") as string);
+    const toAccountId = formData.get("toAccountId") ? parseInt(formData.get("toAccountId") as string) : null;
+    const amountRaw = parseFloat(formData.get("amount") as string);
+    const type = formData.get("type") as string;
     const description = formData.get("description") as string; 
     const dayOfMonth = parseInt(formData.get("dayOfMonth") as string);
-    if(!id || !accountId) return; let amount = 0;
-    if (type === 'transfer') amount = Math.abs(amountRaw); else if (type === 'expense') amount = -Math.abs(amountRaw); else amount = Math.abs(amountRaw);
+    
+    if(!id || !accountId) return;
+    
+    let amount = 0;
+    if (type === 'transfer') amount = Math.abs(amountRaw);
+    else if (type === 'expense') amount = -Math.abs(amountRaw);
+    else amount = Math.abs(amountRaw);
     
     await db.update(recurringOperations).set({ accountId, toAccountId: type === 'transfer' ? toAccountId : null, amount: roundCurrency(amount), description: encrypt(description), dayOfMonth, isActive: true }).where(and(eq(recurringOperations.id, id), eq(recurringOperations.userId, user.id)));
     revalidatePath("/accounts");

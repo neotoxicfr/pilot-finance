@@ -217,7 +217,6 @@ export default function AccountsPage() {
               <div className="min-w-0">
                 <div className="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1 truncate">Sorties</div>
                 <div className="text-lg sm:text-2xl font-mono font-bold text-foreground truncate">-{formatMoney(totalExpenseMonth)}</div>
-                {transfersToSavings > 0 && <div className="hidden sm:block text-[11px] text-blue-400/70 mt-1 truncate">Dont épargne: {formatMoney(transfersToSavings)}</div>}
               </div>
             </div>
 
@@ -227,6 +226,8 @@ export default function AccountsPage() {
                 <div className={`text-lg sm:text-2xl font-mono font-bold truncate ${totalNetMonth >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
                   {totalNetMonth > 0 ? '+' : ''}{formatMoney(totalNetMonth)}
                 </div>
+                {/* DÉPLACÉ ICI : Dont épargne */}
+                {transfersToSavings > 0 && <div className="hidden sm:block text-[11px] text-blue-400/70 mt-1 truncate">Dont épargne: {formatMoney(transfersToSavings)}</div>}
               </div>
             </div>
           </div>
@@ -250,7 +251,6 @@ export default function AccountsPage() {
               <div className="min-w-0">
                 <div className="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1 truncate">Sorties</div>
                 <div className="text-base sm:text-xl font-mono font-bold text-foreground truncate">-{formatMoney(totalExpenseMonth * 12)}</div>
-                {transfersToSavings > 0 && <div className="hidden sm:block text-[11px] text-blue-400/70 mt-1 truncate">Dont épargne: {formatMoney(transfersToSavings * 12)}</div>}
               </div>
             </div>
 
@@ -260,6 +260,8 @@ export default function AccountsPage() {
                 <div className={`text-base sm:text-xl font-mono font-bold truncate ${totalNetMonth >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
                   {totalNetMonth > 0 ? '+' : ''}{formatMoney(totalNetMonth * 12)}
                 </div>
+                {/* DÉPLACÉ ICI : Dont épargne (Annuel) */}
+                {transfersToSavings > 0 && <div className="hidden sm:block text-[11px] text-blue-400/70 mt-1 truncate">Dont épargne: {formatMoney(transfersToSavings * 12)}</div>}
               </div>
             </div>
           </div>
