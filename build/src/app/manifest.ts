@@ -1,12 +1,11 @@
 import { MetadataRoute } from 'next';
-
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Pilot Finance',
     short_name: 'Pilot',
     description: 'Dashboard financier personnel',
     start_url: '/',
-    display: 'standalone', // C'est ça qui cache la barre d'URL
+    display: 'standalone', 
     background_color: '#020617',
     theme_color: '#020617',
     icons: [

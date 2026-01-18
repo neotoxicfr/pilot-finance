@@ -1,16 +1,12 @@
 'use client'
-
 import { useState, useEffect } from 'react';
 import { getAccounts, createAccount, updateAccountFull, deleteAccount, updateBalanceDirect, createRecurring, updateRecurring, deleteRecurring, swapAccounts, getRecurringOperations } from '@/src/actions';
 import { Wallet, Plus, Trash2, Save, RefreshCw, ArrowRight, Pencil, X, ChevronDown, ChevronUp, TrendingUp, Target, Palette, Percent } from "lucide-react";
-
-// --- CONFIGURATION ---
 const COLOR_PRESETS = [
   "#ef4444", "#f97316", "#f59e0b", "#eab308", "#84cc16", "#22c55e",
   "#10b981", "#14b8a6", "#06b6d4", "#0ea5e9", "#3b82f6", "#6366f1",
   "#8b5cf6", "#a855f7", "#d946ef", "#ec4899", "#f43f5e", "#64748b"
 ];
-
 const formatMoney = (amount: number) => {
   const val = Number(amount);
   if (isNaN(val)) return "0 €";
@@ -22,19 +18,16 @@ const formatMoney = (amount: number) => {
     maximumFractionDigits: decimals
   }).format(val);
 };
-
 const formatInputBalance = (amount: number) => {
   const val = Number(amount);
   if (isNaN(val)) return "";
   if (Number.isInteger(val)) return val.toString();
   return val.toFixed(2);
 };
-
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [recurrings, setRecurrings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [accFormData, setAccFormData] = useState({
@@ -43,20 +36,16 @@ export default function AccountsPage() {
     yieldFrequency: 'YEARLY', payoutFrequency: 'MONTHLY',
     reinvestmentRate: 100, targetAccountId: ''
   });
-
   const [isCreatingRecurring, setIsCreatingRecurring] = useState(false);
   const [editingRecurringId, setEditingRecurringId] = useState<number | null>(null);
   const [recurringType, setRecurringType] = useState('expense');
   const [recurringSourceId, setRecurringSourceId] = useState('');
   const [recurringToId, setRecurringToId] = useState('');
   const [recurringForm, setRecurringForm] = useState({ description: '', amount: '', dayOfMonth: '' });
-
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'dayOfMonth', direction: 'asc' });
-
   useEffect(() => {
     loadData();
   }, []);
-
   async function loadData() {
     try {
       const [accData, opsData] = await Promise.all([getAccounts(), getRecurringOperations()]);
@@ -68,11 +57,9 @@ export default function AccountsPage() {
       setLoading(false);
     }
   }
-
   const currentDay = new Date().getDate();
   let monthlyYieldPayout = 0;
   const virtualYieldsOps: any[] = [];
-
   accounts.forEach((acc: any) => {
     if (acc.isYieldActive) {
       const rate = acc.yieldType === 'RANGE' ? (acc.yieldMin + acc.yieldMax) / 2 : acc.yieldMin;
@@ -80,7 +67,6 @@ export default function AccountsPage() {
       const monthlyGain = annualGain / 12;
       const payout = monthlyGain * (1 - (acc.reinvestmentRate / 100));
       monthlyYieldPayout += payout;
-
       if (payout > 1) {
         virtualYieldsOps.push({
           id: `yield-${acc.id}`,
@@ -94,15 +80,12 @@ export default function AccountsPage() {
       }
     }
   });
-
   const workIncome = recurrings.filter((r: any) => r.amount > 0 && !r.toAccountId).reduce((sum: number, r: any) => sum + r.amount, 0);
   const fixedExpenses = recurrings.filter((r: any) => r.amount < 0 && !r.toAccountId).reduce((sum: number, r: any) => sum + Math.abs(r.amount), 0);
   const transfersToSavings = recurrings.filter((r: any) => r.toAccountId && accounts.find((a: any) => a.id === r.toAccountId)?.isYieldActive).reduce((sum: number, r: any) => sum + Math.abs(r.amount), 0);
-
   const totalIncomeMonth = workIncome + monthlyYieldPayout;
   const totalExpenseMonth = fixedExpenses;
   const totalNetMonth = totalIncomeMonth - totalExpenseMonth;
-
   const handleEditClick = (account: any) => {
     setIsCreatingAccount(false);
     setEditingId(account.id);
@@ -121,13 +104,11 @@ export default function AccountsPage() {
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-
   const handleCancelEdit = () => {
     setEditingId(null);
     setIsCreatingAccount(false);
     setAccFormData({ name: '', balance: '', color: '#3b82f6', isYieldActive: false, yieldType: 'FIXED', yieldMin: '', yieldMax: '', yieldFrequency: 'YEARLY', payoutFrequency: 'MONTHLY', reinvestmentRate: 100, targetAccountId: '' });
   };
-
   const moveAccount = async (idx: number, direction: 'up' | 'down') => {
     const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (targetIdx >= 0 && targetIdx < accounts.length) {
@@ -135,14 +116,12 @@ export default function AccountsPage() {
       loadData();
     }
   };
-
   const handleCreateOrUpdateAccount = async (formDataPayload: FormData) => {
     if (editingId) await updateAccountFull(formDataPayload);
     else await createAccount(formDataPayload);
     handleCancelEdit();
     loadData();
   };
-
   const handleEditRecurring = (op: any) => {
     setIsCreatingRecurring(false);
     setEditingRecurringId(op.id);
@@ -158,7 +137,6 @@ export default function AccountsPage() {
     const el = document.getElementById('recurring-form');
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
-
   const handleCancelRecurring = () => {
     setEditingRecurringId(null);
     setIsCreatingRecurring(false);
@@ -167,18 +145,15 @@ export default function AccountsPage() {
     setRecurringSourceId('');
     setRecurringToId('');
   };
-
   const handleCreateOrUpdateRecurring = async (formDataPayload: FormData) => {
     if (editingRecurringId) await updateRecurring(formDataPayload);
     else await createRecurring(formDataPayload);
     handleCancelRecurring();
     loadData();
   };
-
   const handleSort = (key: string) => {
     setSortConfig({ key, direction: sortConfig.key === key && sortConfig.direction === 'asc' ? 'desc' : 'asc' });
   };
-
   const sortedRecurrings = [...recurrings].sort((a: any, b: any) => {
     let aVal = a[sortConfig.key];
     let bVal = b[sortConfig.key];
@@ -190,16 +165,13 @@ export default function AccountsPage() {
     if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
     return 0;
   });
-
   if (loading) return <div className="p-10 text-center text-muted-foreground">Chargement...</div>;
-
   return (
     <main className="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8 text-foreground">
       <style jsx global>{` input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; } input[type=number] { -moz-appearance: textfield; } `}</style>
-
-      {/* BANDEAU SYNTHÈSE */}
+      {}
       <div className="dashboard-card bg-background border rounded-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-border">
-        {/* BLOC MENSUEL */}
+        {}
         <div className="p-5 min-w-0">
           <div className="flex items-center gap-2 mb-4">
             <span className="bg-blue-500/10 text-blue-500 px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider">Mensuel</span>
@@ -212,28 +184,25 @@ export default function AccountsPage() {
                 {monthlyYieldPayout > 0 && <div className="hidden sm:block text-[11px] text-emerald-500/70 mt-1 truncate">Dont loyers: {formatMoney(monthlyYieldPayout)}</div>}
               </div>
             </div>
-
             <div className="min-w-0 flex sm:block items-baseline justify-between gap-2 border-t border-border sm:border-0 pt-2 sm:pt-0">
               <div className="min-w-0">
                 <div className="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1 truncate">Sorties</div>
                 <div className="text-lg sm:text-2xl font-mono font-bold text-foreground truncate">-{formatMoney(totalExpenseMonth)}</div>
               </div>
             </div>
-
             <div className="min-w-0 flex sm:block items-baseline justify-between gap-2 border-t border-border sm:border-0 pt-2 sm:pt-0">
               <div className="min-w-0">
                 <div className="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1 truncate">Reste</div>
                 <div className={`text-lg sm:text-2xl font-mono font-bold truncate ${totalNetMonth >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
                   {totalNetMonth > 0 ? '+' : ''}{formatMoney(totalNetMonth)}
                 </div>
-                {/* DÉPLACÉ ICI : Dont épargne */}
+                {}
                 {transfersToSavings > 0 && <div className="hidden sm:block text-[11px] text-blue-400/70 mt-1 truncate">Dont épargne: {formatMoney(transfersToSavings)}</div>}
               </div>
             </div>
           </div>
         </div>
-
-        {/* BLOC ANNUEL */}
+        {}
         <div className="p-5 bg-accent/20 min-w-0">
           <div className="flex items-center gap-2 mb-4">
             <span className="bg-purple-500/10 text-purple-500 px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider">Annuel (Proj.)</span>
@@ -246,31 +215,27 @@ export default function AccountsPage() {
                 {monthlyYieldPayout > 0 && <div className="hidden sm:block text-[11px] text-emerald-500/70 mt-1 truncate">Dont loyers: {formatMoney(monthlyYieldPayout * 12)}</div>}
               </div>
             </div>
-
             <div className="min-w-0 flex sm:block items-baseline justify-between gap-2 border-t border-border sm:border-0 pt-2 sm:pt-0">
               <div className="min-w-0">
                 <div className="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1 truncate">Sorties</div>
                 <div className="text-base sm:text-xl font-mono font-bold text-foreground truncate">-{formatMoney(totalExpenseMonth * 12)}</div>
               </div>
             </div>
-
             <div className="min-w-0 flex sm:block items-baseline justify-between gap-2 border-t border-border sm:border-0 pt-2 sm:pt-0">
               <div className="min-w-0">
                 <div className="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1 truncate">Reste</div>
                 <div className={`text-base sm:text-xl font-mono font-bold truncate ${totalNetMonth >= 0 ? 'text-blue-500' : 'text-red-500'}`}>
                   {totalNetMonth > 0 ? '+' : ''}{formatMoney(totalNetMonth * 12)}
                 </div>
-                {/* DÉPLACÉ ICI : Dont épargne (Annuel) */}
+                {}
                 {transfersToSavings > 0 && <div className="hidden sm:block text-[11px] text-blue-400/70 mt-1 truncate">Dont épargne: {formatMoney(transfersToSavings * 12)}</div>}
               </div>
             </div>
           </div>
         </div>
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* COLONNE GAUCHE : COMPTES */}
+        {}
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold flex items-center gap-2 text-foreground"><Wallet size={18} /> Mes Comptes</h2>
@@ -280,7 +245,6 @@ export default function AccountsPage() {
               </button>
             )}
           </div>
-
           {(isCreatingAccount || editingId) && (
             <div className="dashboard-card bg-background border border-blue-500/50 rounded-2xl p-5 mb-4 relative animate-in slide-in-from-left-2">
               <button onClick={handleCancelEdit} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"><X size={20} /></button>
@@ -307,7 +271,6 @@ export default function AccountsPage() {
                     </div>
                   </div>
                 </div>
-                
                 <div className="border-t border-border pt-4">
                   <label className="flex items-center gap-3 cursor-pointer text-sm group select-none">
                     <div className={`w-10 h-6 rounded-full p-1 transition-colors ${accFormData.isYieldActive ? 'bg-blue-600' : 'bg-accent'}`}>
@@ -377,7 +340,6 @@ export default function AccountsPage() {
               </form>
             </div>
           )}
-
           <div className="space-y-3">
             {accounts.map((account: any, idx: number) => (
               <div key={account.id} className="dashboard-card group bg-background border hover:border-blue-500/30 rounded-2xl p-4 flex items-center gap-4 transition-all">
@@ -418,8 +380,7 @@ export default function AccountsPage() {
             ))}
           </div>
         </div>
-
-        {/* COLONNE DROITE : OPÉRATIONS */}
+        {}
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold flex items-center gap-2 text-foreground"><RefreshCw size={18} /> Opérations</h2>
@@ -429,7 +390,6 @@ export default function AccountsPage() {
               </button>
             )}
           </div>
-
           {(isCreatingRecurring || editingRecurringId) && (
             <div id="recurring-form" className="dashboard-card bg-background border border-blue-500/50 rounded-2xl p-4 relative animate-in slide-in-from-right-2">
               <button onClick={handleCancelRecurring} className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"><X size={18} /></button>
@@ -464,21 +424,20 @@ export default function AccountsPage() {
               </form>
             </div>
           )}
-
           <div className="dashboard-card bg-background border rounded-2xl overflow-hidden">
-            {/* OVERSCROLL-NONE pour éviter le rebond de la page */}
+            {}
             <div className="max-h-[600px] overflow-y-auto overflow-x-hidden w-full overscroll-none">
               <table className="w-full text-sm text-left text-muted-foreground table-fixed">
                 <thead className="text-xs font-bold uppercase bg-background text-muted-foreground sticky top-0 z-20">
                   <tr>
-                    {/* EN-TÊTE AVEC PSEUDO-BORDURE POUR RESTER VISIBLE AU SCROLL */}
+                    {}
                     <th className="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border cursor-pointer hover:text-foreground w-10 md:w-16 transition-colors" onClick={() => handleSort('dayOfMonth')}>J {sortConfig.key === 'dayOfMonth' && (sortConfig.direction === 'asc' ? '↓' : '↑')}</th>
                     <th className="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border w-auto">Libellé</th>
                     <th className="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border text-right cursor-pointer hover:text-foreground w-32 md:w-40 transition-colors" onClick={() => handleSort('amount')}>Montant {sortConfig.key === 'amount' && (sortConfig.direction === 'asc' ? '↓' : '↑')}</th>
                     <th className="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border w-20 md:w-24"></th>
                   </tr>
                 </thead>
-                {/* CORRECTION DOUBLE ÉPAISSEUR : On applique border-b à toutes les lignes SAUF la dernière */}
+                {}
                 <tbody className="[&_tr:not(:last-child)]:border-b [&_tr]:border-border">
                   {virtualYieldsOps.length > 0 && (
                     <>

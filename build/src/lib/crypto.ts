@@ -1,73 +1,39 @@
-import crypto from 'crypto';
-
-// Récupération des clés (peut être vide pendant le build)
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || '';
-const BLIND_INDEX_KEY = process.env.BLIND_INDEX_KEY || '';
-
-// Algorithme : AES-256-GCM
-const ALGO = 'aes-256-gcm';
-
-// Fonction interne pour vérifier les clés au dernier moment
-function ensureKeys() {
-    if (!ENCRYPTION_KEY || !BLIND_INDEX_KEY) {
-        // On ne jette l'erreur que si on essaie d'utiliser les fonctions
-        throw new Error("CRITIQUE : Clés de chiffrement manquantes dans .env");
-    }
-}
-
-/**
- * Chiffre un texte (réversible).
- * Format sortie : iv:authTag:content
- */
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, createHash } from 'crypto';
+import { ENV } from './env';
+const ALGORITHM = 'aes-256-gcm';
+const IV_LENGTH = 12;
+const SECRET_KEY = Buffer.from(ENV.ENCRYPTION_KEY, 'hex').length === 32 
+    ? Buffer.from(ENV.ENCRYPTION_KEY, 'hex') 
+    : createHash('sha256').update(ENV.ENCRYPTION_KEY).digest();
+const BLIND_INDEX_KEY = Buffer.from(ENV.BLIND_INDEX_KEY, 'hex').length >= 32
+    ? Buffer.from(ENV.BLIND_INDEX_KEY, 'hex')
+    : createHash('sha256').update(ENV.BLIND_INDEX_KEY).digest();
 export function encrypt(text: string): string {
-  if (!text) return text;
-  ensureKeys(); 
-
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv(ALGO, Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
-  
+  const iv = randomBytes(IV_LENGTH);
+  const cipher = createCipheriv(ALGORITHM, SECRET_KEY, iv);
   let encrypted = cipher.update(text, 'utf8', 'hex');
   encrypted += cipher.final('hex');
   const authTag = cipher.getAuthTag().toString('hex');
-
   return `${iv.toString('hex')}:${authTag}:${encrypted}`;
 }
-
-/**
- * Déchiffre un texte.
- */
 export function decrypt(text: string): string {
-  if (!text || !text.includes(':')) return text;
-  ensureKeys();
-
+  if (!text.includes(':')) return text; 
+  const [ivHex, authTagHex, encryptedHex] = text.split(':');
+  if (!ivHex || !authTagHex || !encryptedHex) return text;
   try {
-      const parts = text.split(':');
-      if (parts.length !== 3) return text;
-
-      const iv = Buffer.from(parts[0], 'hex');
-      const authTag = Buffer.from(parts[1], 'hex');
-      const encryptedText = parts[2];
-
-      const decipher = crypto.createDecipheriv(ALGO, Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
-      decipher.setAuthTag(authTag);
-
-      let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
-      decrypted += decipher.final('utf8');
-      return decrypted;
+    const decipher = createDecipheriv(ALGORITHM, SECRET_KEY, Buffer.from(ivHex, 'hex'));
+    decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
+    let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
   } catch (error) {
-      console.error("Erreur de déchiffrement:", error);
-      return "[Donnée Illisible]";
+    console.error("Decryption failed:", error);
+    return text;
   }
 }
-
-/**
- * Hash déterministe pour la recherche (Blind Index).
- */
-export function computeBlindIndex(text: string): string {
-  if (!text) return text;
-  ensureKeys();
-  
-  return crypto.createHmac('sha256', Buffer.from(BLIND_INDEX_KEY, 'hex'))
-    .update(text)
-    .digest('hex');
+export function computeBlindIndex(input: string): string {
+  return createHmac('sha256', BLIND_INDEX_KEY).update(input).digest('hex');
+}
+export function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
 }
