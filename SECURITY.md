@@ -2,10 +2,12 @@
 
 ## Versions Supportées
 
+Seules les versions récentes bénéficient des correctifs de sécurité critiques (Audit v1.2).
+
 | Version | Supportée          |
 | ------- | ------------------ |
-| v1.1.X  | :white_check_mark: |
-| v1.0.0  | :white_check_mark: |
+| v1.2.X  | :white_check_mark: |
+| < 1.2.0 | :x:                |
 
 ## Signaler une vulnérabilité
 
