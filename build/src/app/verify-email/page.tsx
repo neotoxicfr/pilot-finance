@@ -1,16 +1,13 @@
 'use client'
-
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { verifyEmailAction } from '@/src/actions';
 import { CheckCircle, XCircle, Loader2, Wallet } from 'lucide-react';
-
 function VerifyContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
-
   useEffect(() => {
     const token = searchParams.get('token');
     if (!token) {
@@ -18,7 +15,6 @@ function VerifyContent() {
       setMessage('Jeton manquant.');
       return;
     }
-
     verifyEmailAction(token).then(res => {
       if (res.success) {
         setStatus('success');
@@ -29,23 +25,19 @@ function VerifyContent() {
       }
     });
   }, [searchParams, router]);
-
   return (
-    // STYLE FLAT : dashboard-card
     <div className="dashboard-card bg-background p-8 rounded-2xl border border-border w-full max-w-sm text-center">
       <div className="flex justify-center mb-6">
         <div className="bg-blue-500/10 p-4 rounded-2xl">
           <Wallet className="text-blue-500 w-10 h-10" />
         </div>
       </div>
-      
       {status === 'loading' && (
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
           <p className="text-muted-foreground">Validation de votre compte...</p>
         </div>
       )}
-
       {status === 'success' && (
         <div className="flex flex-col items-center gap-4 animate-in zoom-in">
           <CheckCircle className="w-12 h-12 text-emerald-500" />
@@ -55,7 +47,6 @@ function VerifyContent() {
           </div>
         </div>
       )}
-
       {status === 'error' && (
         <div className="flex flex-col items-center gap-4 animate-in shake">
           <XCircle className="w-12 h-12 text-red-500" />
@@ -71,7 +62,6 @@ function VerifyContent() {
     </div>
   );
 }
-
 export default function VerifyEmailPage() {
   return (
     <div className="min-h-screen bg-accent/20 flex items-center justify-center p-4">
