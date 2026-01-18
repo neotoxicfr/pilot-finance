@@ -1,21 +1,17 @@
 'use client'
-
 import { forgotPasswordAction } from '@/src/actions';
 import { useState } from 'react';
 import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
-
 export default function ForgotPasswordPage() {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
-
   const handleSubmit = async (formData: FormData) => {
     setLoading(true);
     await forgotPasswordAction(formData);
     setLoading(false);
     setSuccess(true);
   };
-
   return (
     <div className="min-h-screen bg-accent/20 flex items-center justify-center p-4">
       <div className="dashboard-card bg-background border rounded-2xl p-8 w-full max-w-sm">
@@ -25,7 +21,6 @@ export default function ForgotPasswordPage() {
             </Link>
             <h1 className="text-xl font-bold text-foreground">Mot de passe oublié</h1>
         </div>
-        
         {success ? (
             <div className="text-center py-4 animate-in fade-in zoom-in">
                 <div className="mx-auto w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-500 mb-4 border border-emerald-500/20">

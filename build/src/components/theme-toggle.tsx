@@ -1,25 +1,19 @@
 "use client"
-
 import * as React from "react"
 import { Moon, Sun, Monitor } from "lucide-react"
 import { useTheme } from "next-themes"
-
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
-
   React.useEffect(() => {
     setMounted(true)
   }, [])
-
   if (!mounted) return <div className="p-2 w-9 h-9" />
-
   const toggleTheme = () => {
     if (theme === "system") setTheme("light")
     else if (theme === "light") setTheme("dark")
     else setTheme("system")
   }
-
   return (
     <button
       onClick={toggleTheme}

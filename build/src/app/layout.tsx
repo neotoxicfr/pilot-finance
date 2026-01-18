@@ -8,9 +8,7 @@ import { logoutAction } from "@/src/actions";
 import BrandLogo from "@/src/components/BrandLogo";
 import { ThemeProvider } from "@/src/components/theme-provider";
 import { ThemeToggle } from "@/src/components/theme-toggle";
-
 const inter = Inter({ subsets: ["latin"] });
-
 export const viewport: Viewport = {
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
@@ -22,7 +20,6 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: 'cover',
 };
-
 export const metadata: Metadata = {
   title: "Pilot Finance",
   description: "Cockpit financier personnel",
@@ -41,7 +38,6 @@ export const metadata: Metadata = {
     title: "Pilot",
   },
 };
-
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -49,7 +45,6 @@ export default async function RootLayout({
 }>) {
   const session = await getSession();
   const user = session?.user;
-
   return (
     <html lang="fr" suppressHydrationWarning>
       <body className={`${inter.className} font-sans antialiased min-h-screen flex flex-col bg-background text-foreground`}>
@@ -63,12 +58,10 @@ export default async function RootLayout({
           {user && (
             <nav className="border-b border-border bg-background/50 backdrop-blur-md sticky top-0 z-50">
               <div className="max-w-[1400px] mx-auto px-2 sm:px-4 h-16 flex items-center justify-between">
-                
                 <div className="flex items-center gap-3 sm:gap-8">
                   <Link href="/" className="hover:opacity-80 transition-opacity flex-shrink-0">
                     <BrandLogo size={28} />
                   </Link>
-
                   <div className="flex items-center gap-1">
                     <Link href="/" className="flex items-center gap-2 px-2 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-accent rounded-lg transition-all">
                       <LayoutDashboard size={20} />
@@ -80,7 +73,6 @@ export default async function RootLayout({
                     </Link>
                   </div>
                 </div>
-
                 <div className="flex items-center gap-1 sm:gap-2">
                   <ThemeToggle />
                   <div className="h-4 w-px bg-border mx-0.5"></div>
@@ -97,7 +89,6 @@ export default async function RootLayout({
               </div>
             </nav>
           )}
-
           <main className="flex-1">
             {children}
           </main>
