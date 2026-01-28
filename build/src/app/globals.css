@@ -84,3 +84,42 @@ nav {
 .dashboard-card {
   border-color: var(--border) !important;
 }
+
+/* Fix Tailwind 4 button cursor (default changed to cursor: default) */
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+a {
+  cursor: pointer;
+}
+
+/* Recharts focus outline removal */
+.recharts-sector:focus,
+.recharts-wrapper:focus,
+.recharts-surface:focus {
+  outline: none !important;
+}
+
+/* Range input slider styling */
+input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #3b82f6;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid var(--background);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+input[type='range']::-moz-range-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #3b82f6;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid var(--background);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}

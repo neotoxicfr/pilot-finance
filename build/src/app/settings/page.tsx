@@ -26,6 +26,7 @@ export default function SettingsPage() {
   const [pwdLoading, setPwdLoading] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [settingsLoading, setSettingsLoading] = useState(true);
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [mfaSetupData, setMfaSetupData] = useState<{secret: string, imageUrl: string} | null>(null);
   const [mfaCode, setMfaCode] = useState('');
@@ -62,7 +63,10 @@ export default function SettingsPage() {
             });
          setIsAdmin(false);
       })
-      .finally(() => setAdminLoading(false));
+      .finally(() => {
+        setAdminLoading(false);
+        setSettingsLoading(false);
+      });
   }, []);
   const handlePwdSubmit = async (formData: FormData) => {
     setPwdLoading(true); setPwdError(''); setPwdSuccess(false);
@@ -147,12 +151,16 @@ export default function SettingsPage() {
                 <h2 className="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <Smartphone size={20} className="text-blue-500"/> Double Authentification (A2F)
                 </h2>
-                {mfaEnabled ? (
+                {settingsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    </div>
+                ) : mfaEnabled ? (
                     <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 flex items-center justify-between">
                         <div className="flex items-center gap-3 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
                             <Shield size={24}/> A2F Active
                         </div>
-                        <button onClick={handleDisableMfa} className="text-xs bg-background hover:bg-red-500/10 text-muted-foreground hover:text-red-500 px-3 py-2 rounded-lg border border-border hover:border-red-500/50 transition-colors">
+                        <button onClick={handleDisableMfa} className="text-xs bg-background hover:bg-red-500/10 text-muted-foreground hover:text-red-500 px-3 py-2 rounded-lg border border-border hover:border-red-500/50 transition-colors cursor-pointer">
                             Désactiver
                         </button>
                     </div>
@@ -161,7 +169,7 @@ export default function SettingsPage() {
                         {!mfaSetupData ? (
                             <div className="space-y-4">
                                 <p className="text-sm text-muted-foreground">Protégez votre compte avec un code temporaire (Google Authenticator, Authy...).</p>
-                                <button onClick={handleStartMfaSetup} disabled={mfaLoading} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all text-sm">
+                                <button onClick={handleStartMfaSetup} disabled={mfaLoading} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all text-sm cursor-pointer">
                                     {mfaLoading ? 'Chargement...' : 'Configurer A2F'}
                                 </button>
                             </div>
@@ -177,8 +185,8 @@ export default function SettingsPage() {
                                 </div>
                                 {mfaError && <div className="text-red-500 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20">{mfaError}</div>}
                                 <div className="flex gap-3">
-                                    <button onClick={() => setMfaSetupData(null)} className="flex-1 bg-accent hover:bg-accent/80 text-muted-foreground font-bold py-3 rounded-xl transition-all text-sm">Annuler</button>
-                                    <button onClick={handleConfirmMfa} disabled={mfaLoading || mfaCode.length !== 6} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all text-sm disabled:opacity-50">Activer</button>
+                                    <button onClick={() => setMfaSetupData(null)} className="flex-1 bg-accent hover:bg-accent/80 text-muted-foreground font-bold py-3 rounded-xl transition-all text-sm cursor-pointer">Annuler</button>
+                                    <button onClick={handleConfirmMfa} disabled={mfaLoading || mfaCode.length !== 6} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all text-sm disabled:opacity-50 cursor-pointer">Activer</button>
                                 </div>
                             </div>
                         )}
@@ -186,7 +194,7 @@ export default function SettingsPage() {
                 )}
             </div>
             {}
-            {showPasskeys && (
+            {!settingsLoading && showPasskeys && (
                 <div className="dashboard-card bg-background border rounded-2xl p-6">
                     <h2 className="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                         <Fingerprint size={20} className="text-purple-500"/> Passkeys
@@ -205,15 +213,15 @@ export default function SettingsPage() {
                                         </div>
                                     </div>
                                     <div className="flex gap-1">
-                                        <button onClick={() => handleRenamePasskey(key.id, key.name)} className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-background rounded-lg transition-colors"><Pencil size={14}/></button>
-                                        <button onClick={() => handleDeletePasskey(key.id)} className="p-2 text-muted-foreground hover:text-red-500 hover:bg-background rounded-lg transition-colors"><Trash2 size={14}/></button>
+                                        <button onClick={() => handleRenamePasskey(key.id, key.name)} className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-background rounded-lg transition-colors cursor-pointer"><Pencil size={14}/></button>
+                                        <button onClick={() => handleDeletePasskey(key.id)} className="p-2 text-muted-foreground hover:text-red-500 hover:bg-background rounded-lg transition-colors cursor-pointer"><Trash2 size={14}/></button>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     )}
                     {passkeyMsg && <div className="mb-4 text-sm font-bold text-center animate-in fade-in text-foreground">{passkeyMsg}</div>}
-                    <button onClick={handleRegisterPasskey} disabled={passkeyLoading} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl transition-all text-sm flex items-center justify-center gap-2">
+                    <button onClick={handleRegisterPasskey} disabled={passkeyLoading} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl transition-all text-sm flex items-center justify-center gap-2 cursor-pointer">
                         <Fingerprint size={18}/> {passkeyLoading ? 'Enregistrement...' : 'Ajouter un Passkey'}
                     </button>
                 </div>
@@ -239,7 +247,7 @@ export default function SettingsPage() {
                     </div>
                     <PasswordFeedback password={newPassword} confirm={confirmPassword} showMatch={true} />
                     {pwdError && <div className="text-red-500 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20">{pwdError}</div>}
-                    <button disabled={pwdLoading} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all">
+                    <button disabled={pwdLoading} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all cursor-pointer">
                         {pwdLoading ? 'Modification...' : 'Changer le mot de passe'}
                     </button>
                 </form>
@@ -294,7 +302,7 @@ export default function SettingsPage() {
                                         </td>
                                         <td className="px-4 py-3 text-right">
                                             {user.role !== 'ADMIN' && (
-                                                <button onClick={() => handleDeleteUser(user.id)} className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all" title="Supprimer ce compte">
+                                                <button onClick={() => handleDeleteUser(user.id)} className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer" title="Supprimer ce compte">
                                                     <Trash2 size={16} />
                                                 </button>
                                             )}
