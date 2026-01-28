@@ -59,15 +59,15 @@ export default async function RootLayout({
             <nav className="border-b border-border bg-background/50 backdrop-blur-md sticky top-0 z-50">
               <div className="max-w-[1400px] mx-auto px-2 sm:px-4 h-16 flex items-center justify-between">
                 <div className="flex items-center gap-3 sm:gap-8">
-                  <Link href="/" className="hover:opacity-80 transition-opacity flex-shrink-0">
+                  <Link href="/" className="hover:opacity-80 transition-opacity flex-shrink-0 cursor-pointer">
                     <BrandLogo size={28} />
                   </Link>
                   <div className="flex items-center gap-1">
-                    <Link href="/" className="flex items-center gap-2 px-2 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-accent rounded-lg transition-all">
+                    <Link href="/" className="flex items-center gap-2 px-2 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-accent rounded-lg transition-all cursor-pointer">
                       <LayoutDashboard size={20} />
                       <span className="hidden lg:inline">Dashboard</span>
                     </Link>
-                    <Link href="/accounts" className="flex items-center gap-2 px-2 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-accent rounded-lg transition-all">
+                    <Link href="/accounts" prefetch={true} className="flex items-center gap-2 px-2 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-accent rounded-lg transition-all cursor-pointer">
                       <Wallet size={20} />
                       <span className="hidden lg:inline">Comptes</span>
                     </Link>
@@ -76,12 +76,12 @@ export default async function RootLayout({
                 <div className="flex items-center gap-1 sm:gap-2">
                   <ThemeToggle />
                   <div className="h-4 w-px bg-border mx-0.5"></div>
-                  <Link href="/settings" className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-all">
+                  <Link href="/settings" className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-all cursor-pointer">
                     <Settings size={20} />
                   </Link>
                   <div className="h-4 w-px bg-border mx-0.5"></div>
                   <form action={logoutAction}>
-                    <button className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-all">
+                    <button type="submit" className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-all cursor-pointer">
                       <LogOut size={20} />
                     </button>
                   </form>
