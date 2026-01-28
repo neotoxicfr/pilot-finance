@@ -179,7 +179,7 @@ export async function authenticate(formData: FormData, isRegister: boolean) {
     }
 
     const decryptedEmail = decrypt(user.emailEncrypted);
-    await login({ id: user.id, email: decryptedEmail, role: user.role, sessionVersion: user.sessionVersion });
+    await login({ id: user.id, email: decryptedEmail, role: user.role ?? 'USER', sessionVersion: user.sessionVersion });
   }
 
   redirect('/');
