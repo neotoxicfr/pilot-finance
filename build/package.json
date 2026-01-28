@@ -1,7 +1,8 @@
 {
   "name": "pilot-finance",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "private": true,
+  "type": "module",
   "description": "Application de gestion financière personnelle optimisée pour Docker",
   "repository": {
     "type": "git",
@@ -13,6 +14,7 @@
   "homepage": "https://github.com/neotoxicfr/pilot-finance#readme",
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/generate-version.mjs",
     "build": "next build",
     "start": "node .next/standalone/server.js",
     "lint": "next lint",
@@ -27,6 +29,7 @@
     "@simplewebauthn/browser": "13.2.2",
     "@simplewebauthn/server": "13.2.2",
     "@simplewebauthn/types": "12.0.0",
+    "@tailwindcss/postcss": "4.1.18",
     "argon2": "^0.44.0",
     "autoprefixer": "10.4.23",
     "bcryptjs": "3.0.3",
@@ -48,10 +51,11 @@
     "react-dom": "19.2.4",
     "recharts": "3.7.0",
     "tailwind-merge": "3.4.0",
-    "tailwindcss": "3.4.17",
+    "tailwindcss": "4.1.18",
     "zod": "4.3.6"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.1.6",
     "@types/better-sqlite3": "7.6.13",
     "@types/node": "25.0.10",
     "@types/nodemailer": "7.0.5",
