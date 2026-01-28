@@ -170,7 +170,7 @@ export async function getAllUsers() {
   await checkAdmin();
 
   const rawUsers = await db.select().from(users).orderBy(desc(users.createdAt));
-  return rawUsers.map(u => ({
+  return rawUsers.map((u: any) => ({
     ...u,
     email: decrypt(u.emailEncrypted)
   }));
