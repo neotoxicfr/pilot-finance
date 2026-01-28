@@ -20,3 +20,4 @@ out/
 # Divers
 .DS_Store
 *.log
+.claude/
