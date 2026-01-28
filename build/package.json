@@ -49,10 +49,10 @@
     "recharts": "3.7.0",
     "tailwind-merge": "3.4.0",
     "tailwindcss": "4.1.18",
+    "@tailwindcss/postcss": "4.1.18",
     "zod": "4.3.6"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.18",
     "@types/better-sqlite3": "7.6.13",
     "@types/node": "25.0.10",
     "@types/nodemailer": "7.0.5",
