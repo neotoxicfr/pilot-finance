@@ -15,5 +15,5 @@ fi
 
 echo "✅ Pilot Finance est prêt."
 
-# 3. Lancement serveur
-exec node server.js
+# 3. Lancement serveur avec garbage collection manuel
+exec node --expose-gc server.js

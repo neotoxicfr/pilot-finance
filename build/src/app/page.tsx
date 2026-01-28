@@ -1,10 +1,29 @@
 'use client'
 export const dynamic = 'force-dynamic';
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { getDashboardData } from "@/src/actions";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { TrendingUp, PiggyBank, LayoutDashboard, ShieldCheck } from "lucide-react";
-const COLORS = ["#3b82f6", "#8b5cf6", "#10b981", "#06b6d4", "#f59e0b", "#f97316", "#ef4444", "#ec4899"];
+
+// Lazy load chart components for better initial bundle size
+const ProjectionChart = lazy(() => import('@/src/components/ProjectionChart'));
+const BalancePieChart = lazy(() => import('@/src/components/BalancePieChart'));
+
+// Skeleton components for chart loading states
+function ProjectionChartSkeleton() {
+  return (
+    <div className="h-[350px] w-full animate-pulse">
+      <div className="h-full w-full bg-accent/50 rounded-xl"></div>
+    </div>
+  );
+}
+
+function PieChartSkeleton() {
+  return (
+    <div className="flex-1 min-h-[300px] animate-pulse">
+      <div className="h-full w-full bg-accent/50 rounded-xl"></div>
+    </div>
+  );
+}
 const formatMoney = (amount: number) => {
     const decimals = amount % 1 === 0 ? 0 : 2;
     return new Intl.NumberFormat('fr-FR', { 
@@ -29,20 +48,6 @@ export default function Dashboard() {
   const pieData = accounts.filter((a:any) => a.balance > 0).map((a:any) => ({ name: a.name, value: a.balance, color: a.color }));
   return (
     <main className="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8">
-      <style jsx global>{`
-        .recharts-sector:focus, .recharts-wrapper:focus, .recharts-surface:focus { outline: none !important; }
-        .dashboard-card { border-color: var(--border) !important; }
-        input[type='range']::-webkit-slider-thumb {
-          appearance: none;
-          width: 18px;
-          height: 18px;
-          background: #3b82f6;
-          border-radius: 50%;
-          cursor: pointer;
-          border: 2px solid var(--background);
-          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
-      `}</style>
       {}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
          <div className="dashboard-card bg-background border p-6 rounded-2xl relative overflow-hidden transition-colors">
@@ -78,54 +83,16 @@ export default function Dashboard() {
                   />
               </div>
            </div>
-           <div className="h-[350px] w-full">
-             <ResponsiveContainer width="100%" height="100%">
-               <AreaChart data={projection} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                 <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} dy={10} />
-                 <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
-                 <RechartsTooltip 
-                    contentStyle={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)', borderRadius: '12px' }} 
-                    itemStyle={{ color: 'var(--foreground)', fontSize: '12px' }}
-                    labelStyle={{ color: 'var(--muted-foreground)', fontSize: '12px' }}
-                    formatter={(value: any, name: any) => [formatMoney(Number(value) || 0), name === 'totalMin' ? 'Pessimiste' : (name === 'totalMax' ? 'Optimiste' : name)]}
-                 />
-                 {accounts.map((acc: any) => (
-                   <Area key={acc.id} type="monotone" dataKey={acc.name} stackId="1" stroke={acc.color} fill={acc.color} fillOpacity={1} strokeWidth={2} />
-                 ))}
-                 <Area type="monotone" dataKey="totalMax" stroke="#10b981" strokeDasharray="5 5" strokeWidth={2} fill="transparent" />
-                 <Area type="monotone" dataKey="totalMin" stroke="#ef4444" strokeDasharray="5 5" strokeWidth={2} fill="transparent" />
-               </AreaChart>
-             </ResponsiveContainer>
-           </div>
+           <Suspense fallback={<ProjectionChartSkeleton />}>
+             <ProjectionChart projection={projection} accounts={accounts} formatMoney={formatMoney} />
+           </Suspense>
         </div>
         {}
         <div className="dashboard-card bg-background border rounded-2xl p-6 flex flex-col">
            <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2"><LayoutDashboard size={18} className="text-muted-foreground"/> Répartition</h3>
-           <div className="flex-1 min-h-[300px] relative">
-             <ResponsiveContainer width="100%" height="100%">
-               <PieChart>
-                 <Pie data={pieData} cx="50%" cy="50%" innerRadius="60%" outerRadius="85%" paddingAngle={4} dataKey="value" startAngle={90} endAngle={-270} stroke="none">
-                   {pieData.map((entry: any, index: number) => (
-                     <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
-                   ))}
-                 </Pie>
-                 {}
-                 <RechartsTooltip 
-                    formatter={(value: any) => formatMoney(Number(value) || 0)} 
-                    contentStyle={{ backgroundColor: 'var(--background)', borderColor: 'var(--border)', borderRadius: '12px' }}
-                    itemStyle={{ color: 'var(--foreground)', fontWeight: 'bold' }} 
-                 />
-                 <Legend verticalAlign="bottom" align="center" iconType="circle" wrapperStyle={{ fontSize: '11px', color: 'var(--muted-foreground)', paddingTop: '20px' }} />
-               </PieChart>
-             </ResponsiveContainer>
-             <div className="absolute inset-0 flex items-center justify-center pointer-events-none pb-8">
-                <div className="text-center">
-                    <div className="text-2xl font-bold text-foreground tracking-tight">{totalBalance > 10000 ? (totalBalance/1000).toFixed(0)+'k' : totalBalance}</div>
-                    <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Total</div>
-                </div>
-             </div>
-           </div>
+           <Suspense fallback={<PieChartSkeleton />}>
+             <BalancePieChart pieData={pieData} totalBalance={totalBalance} formatMoney={formatMoney} />
+           </Suspense>
         </div>
       </div>
     </main>
