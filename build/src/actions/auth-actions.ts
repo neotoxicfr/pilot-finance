@@ -240,7 +240,7 @@ export async function registerPasskeyStart() {
     userID: isoUint8Array.fromUTF8String(session.user.id.toString()),
     userName: decrypt(dbUser.emailEncrypted),
     attestationType: 'none',
-    excludeCredentials: userAuthenticators.map(auth => ({
+    excludeCredentials: userAuthenticators.map((auth: any) => ({
       id: auth.credentialID,
       transports: auth.transports ? JSON.parse(auth.transports) : undefined,
     })),
