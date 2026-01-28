@@ -66,6 +66,10 @@ services:
     image: ghcr.io/neotoxicfr/pilot-finance:latest
     container_name: pilot
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges=true
+    cap_drop:
+      - ALL
     environment:
       - TZ=Europe/Paris
       - HOST=pilot.votre-domaine.tld # Votre domaine sans https (ex: pilot.exemple.com)
@@ -77,13 +81,14 @@ services:
       - SMTP_PASS=
       - SMTP_FROM=
       - DATABASE_URL=file:/data/pilot.db
-      - ENCRYPTION_KEY=             # Obligatoire : openssl rand -hex 32
-      - BLIND_INDEX_KEY=            # Obligatoire : openssl rand -hex 32
-      - AUTH_SECRET=                # Obligatoire : openssl rand -hex 32
+      - ENCRYPTION_KEY=              # Obligatoire : openssl rand -hex 32
+      - BLIND_INDEX_KEY=             # Obligatoire : openssl rand -hex 32
+      - AUTH_SECRET=                 # Obligatoire : openssl rand -hex 32
+      - DB_ENCRYPTION_KEY=           # Optionnel : openssl rand -hex 32 (chiffrement BDD complet)
     volumes:
       - ./data:/data
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "[http://127.0.0.1:3000/login](http://127.0.0.1:3000/login)"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -107,6 +112,7 @@ L'application écoute sur le port **3000** à l'intérieur du conteneur.
 | **ENCRYPTION_KEY** | **Critique**. Clé de 32 octets (hex) pour le chiffrement AES des données. Si perdue, les données chiffrées sont irrécupérables. |
 | **BLIND_INDEX_KEY** | **Critique**. Clé de 32 octets (hex) pour les index de recherche sécurisés (emails). |
 | **AUTH_SECRET** | **Critique**. Clé de 32 octets min pour la signature des cookies de session et la sécurité NextAuth. |
+| **DB_ENCRYPTION_KEY** | **Optionnel**. Clé de 32 octets (hex) pour le chiffrement complet de la base de données SQLite (SQLCipher). Si activé et perdu, toute la base est irrécupérable. |
 | **ENABLE_MAIL** | Active la sécurité SMTP au démarrage et les fonctions de validation d'email / mot de passe oublié. |
 | **ALLOW_REGISTER** | Permet ou bloque la création de nouveaux comptes. Il est conseillé de la passer à `false` après votre inscription. |
 | **DATABASE_URL** | Chemin vers votre base de données SQLite (ex: `file:/data/pilot.db`). |

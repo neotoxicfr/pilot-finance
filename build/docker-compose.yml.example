@@ -3,9 +3,8 @@ services:
     image: ghcr.io/neotoxicfr/pilot-finance:latest
     container_name: pilot
     restart: unless-stopped
-    read_only: true
     security_opt:
-      - no-new-privileges:true
+      - no-new-privileges=true
     cap_drop:
       - ALL
     environment:
@@ -19,24 +18,15 @@ services:
       - SMTP_PASS=
       - SMTP_FROM=
       - DATABASE_URL=file:/data/pilot.db
-      - ENCRYPTION_KEY=
-      - BLIND_INDEX_KEY=
-      - AUTH_SECRET=
-      - DB_ENCRYPTION_KEY=
-      - LOG_LEVEL=info
+      - ENCRYPTION_KEY=                # Générer: openssl rand -hex 32
+      - BLIND_INDEX_KEY=               # Générer: openssl rand -hex 32
+      - AUTH_SECRET=                   # Générer: openssl rand -hex 32
+      - DB_ENCRYPTION_KEY=             # Optionnel: openssl rand -hex 32 (chiffrement BDD complet)
     volumes:
-      - ./data:/data:rw
-      - pilot-tmp:/tmp:rw
-      - pilot-cache:/app/.next/cache:rw
-    tmpfs:
-      - /tmp:size=100M,mode=1777
+      - ./data:/data
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
       start_period: 15s
-
-volumes:
-  pilot-tmp:
-  pilot-cache:
