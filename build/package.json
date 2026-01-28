@@ -2,7 +2,7 @@
   "name": "pilot-finance",
   "version": "1.2.1",
   "private": true,
-  "description": "Application de gestion financi\u00e8re personnelle optimis\u00e9e pour Docker",
+  "description": "Application de gestion financière personnelle optimisée pour Docker",
   "repository": {
     "type": "git",
     "url": "https://github.com/neotoxicfr/pilot-finance.git"
@@ -16,6 +16,8 @@
     "build": "next build",
     "start": "node .next/standalone/server.js",
     "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },
@@ -45,8 +47,8 @@
     "react-dom": "19.2.3",
     "recharts": "3.7.0",
     "tailwind-merge": "3.4.0",
-    "zod": "4.3.6",
-    "tailwindcss": "v3-lts"
+    "tailwindcss": "3.4.17",
+    "zod": "4.3.6"
   },
   "devDependencies": {
     "@types/better-sqlite3": "7.6.13",
