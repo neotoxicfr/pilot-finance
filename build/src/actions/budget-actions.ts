@@ -36,7 +36,7 @@ export async function createAccount(formData: FormData) {
   }
 
   const all = await db.select().from(accounts).where(eq(accounts.userId, user.id));
-  const maxPos = all.reduce((max, c) => Math.max(max, c.position || 0), 0);
+  const maxPos = all.reduce((max: number, c: any) => Math.max(max, c.position || 0), 0);
 
   await db.insert(accounts).values({
     userId: user.id,
