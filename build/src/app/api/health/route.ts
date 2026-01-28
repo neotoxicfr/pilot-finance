@@ -3,6 +3,9 @@ import { db } from '@/src/db';
 import { users } from '@/src/schema';
 import { sql } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 interface HealthCheck {
   status: 'healthy' | 'degraded' | 'unhealthy';
   timestamp: string;
