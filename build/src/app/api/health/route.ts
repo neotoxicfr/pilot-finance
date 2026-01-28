@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/src/db';
-import { users } from '@/src/schema';
 import { sql } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -44,6 +42,8 @@ export async function GET() {
   };
 
   try {
+    const { db } = await import('@/src/db');
+    const { users } = await import('@/src/schema');
     const dbStart = Date.now();
     await db.select({ count: sql<number>`1` }).from(users).limit(1);
     health.checks.database = {
