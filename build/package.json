@@ -2,6 +2,7 @@
   "name": "pilot-finance",
   "version": "1.4.0",
   "private": true,
+  "type": "module",
   "description": "Application de gestion financière personnelle optimisée pour Docker",
   "repository": {
     "type": "git",
