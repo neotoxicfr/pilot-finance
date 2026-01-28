@@ -23,7 +23,7 @@ export async function getAccounts() {
     .where(eq(accounts.userId, user.id))
     .orderBy(asc(accounts.position));
 
-  return rawAccounts.map(a => ({ ...a, name: decrypt(a.name) }));
+  return rawAccounts.map((a: any) => ({ ...a, name: decrypt(a.name) }));
 }
 
 export async function createAccount(formData: FormData) {
@@ -146,7 +146,7 @@ export async function getTransactions(accountId?: number, page: number = 1, limi
     .limit(limit)
     .offset(offset);
 
-  return rawTx.map(t => ({ ...t, description: decrypt(t.description) }));
+  return rawTx.map((t: any) => ({ ...t, description: decrypt(t.description) }));
 }
 
 export async function addTransaction(formData: FormData) {
@@ -203,7 +203,7 @@ export async function checkRecurringOperations() {
       inArray(accounts.id, Array.from(accountIds))
     ));
 
-  const accountMap = new Map(userAccounts.map(a => [a.id, a]));
+  const accountMap = new Map(userAccounts.map((a: any) => [a.id, a]));
 
   const existingTx = await db.select()
     .from(transactions)
@@ -213,7 +213,7 @@ export async function checkRecurringOperations() {
       inArray(transactions.accountId, Array.from(accountIds))
     ));
 
-  const existingDescriptions = new Set(existingTx.map(t => decrypt(t.description)));
+  const existingDescriptions = new Set(existingTx.map((t: any) => decrypt(t.description)));
 
   const balanceUpdates = new Map<number, number>();
 
@@ -275,9 +275,9 @@ export async function getRecurringOperations() {
     .where(eq(recurringOperations.userId, user.id));
 
   const accs = await getAccounts();
-  const accMap = new Map(accs.map(a => [a.id, a.name]));
+  const accMap = new Map(accs.map((a: any) => [a.id, a.name]));
 
-  return ops.map(o => ({
+  return ops.map((o: any) => ({
     ...o,
     description: decrypt(o.description),
     accountName: accMap.get(o.accountId) || 'Inconnu',
