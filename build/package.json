@@ -14,6 +14,7 @@
   "homepage": "https://github.com/neotoxicfr/pilot-finance#readme",
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/generate-version.mjs",
     "build": "next build",
     "start": "node .next/standalone/server.js",
     "lint": "next lint",
