@@ -40,10 +40,13 @@ function initializeDatabase(): Database.Database {
   return sqlite;
 }
 
-const sqlite = initializeDatabase();
-export const db = drizzle(sqlite);
+// Skip database initialization during Next.js build
+const isBuild = process.env.NEXT_PHASE === 'phase-production-build';
+const sqlite = isBuild ? null : initializeDatabase();
+export const db = sqlite ? drizzle(sqlite) : null as any;
 
 export function optimizeDatabase(): void {
+  if (!sqlite) return;
   sqlite.pragma('optimize');
   sqlite.pragma('incremental_vacuum(1000)');
   logger.info('Database optimization completed');
@@ -54,6 +57,7 @@ export function getDatabaseStats(): {
   pageCount: number;
   freePages: number;
 } {
+  if (!sqlite) return { size: 0, pageCount: 0, freePages: 0 };
   const pageCount = sqlite.pragma('page_count', { simple: true }) as number;
   const pageSize = sqlite.pragma('page_size', { simple: true }) as number;
   const freePages = sqlite.pragma('freelist_count', { simple: true }) as number;
@@ -66,6 +70,7 @@ export function getDatabaseStats(): {
 }
 
 export function closeDatabase(): void {
+  if (!sqlite) return;
   sqlite.pragma('optimize');
   sqlite.close();
   logger.info('Database connection closed');
