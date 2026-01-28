@@ -2,12 +2,14 @@
 
 ## Versions Supportées
 
-Seules les versions récentes bénéficient des correctifs de sécurité critiques (Audit v1.2).
+Seule la dernière version majeure bénéficie des correctifs de sécurité critiques.
 
 | Version | Supportée          |
 | ------- | ------------------ |
-| v1.2.X  | :white_check_mark: |
-| < 1.2.0 | :x:                |
+| v1.3.X  | :white_check_mark: |
+| < 1.3.0 | :x:                |
+
+**Note importante** : La v1.3.0 introduit des améliorations de sécurité majeures (Argon2id, middleware de sécurité renforcé, rate limiting avancé). Il est fortement recommandé de mettre à jour depuis les versions antérieures.
 
 ## Signaler une vulnérabilité
 
