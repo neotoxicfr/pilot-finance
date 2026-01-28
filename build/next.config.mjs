@@ -29,4 +29,10 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// Only enable bundle analyzer when explicitly requested via ANALYZE=true
+// This keeps @next/bundle-analyzer in devDependencies without breaking production builds
+export default process.env.ANALYZE === 'true'
+  ? (await import('@next/bundle-analyzer')).default({
+      enabled: true,
+    })(nextConfig)
+  : nextConfig;

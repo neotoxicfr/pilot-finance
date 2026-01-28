@@ -2,7 +2,7 @@
 
 ![Docker Build](https://github.com/neotoxicfr/pilot-finance/actions/workflows/docker-publish.yml/badge.svg)
 ![CodeQL](https://github.com/neotoxicfr/pilot-finance/actions/workflows/codeql.yml/badge.svg)
-![Version](https://img.shields.io/badge/version-1.3.0-emerald)
+![Version](https://img.shields.io/badge/version-1.4.0-emerald)
 ![Dependabot](https://img.shields.io/badge/dependabot-active-brightgreen?logo=dependabot)
 ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?logo=docker&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-black?logo=next.js&logoColor=white)
@@ -39,10 +39,12 @@
 - [x] 🛡️ **Durcissement Sécurité & Audit** (v1.2.0)
 - [x] 🔒 **Middleware de sécurité & Argon2id** (v1.3.0)
 - [x] 🏥 **Health Check API & Logger** (v1.3.0)
+- [x] ⚡ **Tailwind CSS 4 & Optimisations Performance** (v1.4.0)
+- [x] 📊 **Version Tracking & Health Metrics** (v1.4.0)
 - [ ] 🌍 Support multi-langues
 - [ ] 📊 Graphiques et statistiques avancées
 
-> **Note** : Les versions antérieures à la v1.3.0 ne sont plus supportées. Veuillez mettre à jour pour bénéficier des correctifs de sécurité.
+> **Note** : Les versions antérieures à la v1.3.0 ne sont plus supportées. Veuillez mettre à jour pour bénéficier des correctifs de sécurité et des optimisations de performance.
 
 ---
 
