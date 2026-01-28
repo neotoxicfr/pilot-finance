@@ -234,7 +234,7 @@ export async function checkRecurringOperations() {
             date: today
           });
 
-          const currentSourceBalance = balanceUpdates.get(op.accountId) ?? sourceAccount.balance;
+          const currentSourceBalance = balanceUpdates.get(op.accountId) ?? (sourceAccount as any).balance;
           balanceUpdates.set(op.accountId, currentSourceBalance + op.amount);
 
           if (op.toAccountId) {
@@ -248,7 +248,7 @@ export async function checkRecurringOperations() {
                 date: today
               });
 
-              const currentDestBalance = balanceUpdates.get(op.toAccountId) ?? destAccount.balance;
+              const currentDestBalance = balanceUpdates.get(op.toAccountId) ?? (destAccount as any).balance;
               balanceUpdates.set(op.toAccountId, currentDestBalance + Math.abs(op.amount));
             }
           }
