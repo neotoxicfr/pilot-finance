@@ -7,7 +7,6 @@ const ARGON2_OPTIONS: argon2.Options = {
   memoryCost: 65536,
   timeCost: 3,
   parallelism: 4,
-  saltLength: 16,
 };
 
 const BCRYPT_PREFIX = '$2a$';
