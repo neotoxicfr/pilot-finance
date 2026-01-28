@@ -79,8 +79,10 @@ export function closeDatabase(): void {
 // Manual garbage collection in production to reduce memory usage
 if (process.env.NODE_ENV === 'production' && !isBuild && global.gc) {
   setInterval(() => {
-    global.gc();
-    logger.debug('Manual garbage collection triggered');
+    if (global.gc) {
+      global.gc();
+      logger.debug('Manual garbage collection triggered');
+    }
   }, 60000); // Every 60 seconds
 }
 
