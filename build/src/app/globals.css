@@ -84,3 +84,12 @@ nav {
 .dashboard-card {
   border-color: var(--border) !important;
 }
+
+/* Fix Tailwind 4 button cursor (default changed to cursor: default) */
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+a {
+  cursor: pointer;
+}
