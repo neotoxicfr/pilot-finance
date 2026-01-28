@@ -3,25 +3,40 @@ services:
     image: ghcr.io/neotoxicfr/pilot-finance:latest
     container_name: pilot
     restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       - TZ=Europe/Paris
-      - HOST=pilot.votre-domaine.tld # Votre domaine sans https (ex: pilot.exemple.com)
-      - ALLOW_REGISTER=true          # Mettre à false après votre inscription initiale
-      - ENABLE_MAIL=false            # Passer à true pour activer les emails (SMTP requis)
+      - HOST=pilot.votre-domaine.tld
+      - ALLOW_REGISTER=true
+      - ENABLE_MAIL=false
       - SMTP_HOST=
       - SMTP_PORT=587
       - SMTP_USER=
       - SMTP_PASS=
       - SMTP_FROM=
       - DATABASE_URL=file:/data/pilot.db
-      - ENCRYPTION_KEY=             # Générez une clé : openssl rand -hex 32
-      - BLIND_INDEX_KEY=            # Générez une clé : openssl rand -hex 32
-      - AUTH_SECRET=                # Générez une clé : openssl rand -hex 32
+      - ENCRYPTION_KEY=
+      - BLIND_INDEX_KEY=
+      - AUTH_SECRET=
+      - DB_ENCRYPTION_KEY=
+      - LOG_LEVEL=info
     volumes:
-      - ./data:/data
+      - ./data:/data:rw
+      - pilot-tmp:/tmp:rw
+      - pilot-cache:/app/.next/cache:rw
+    tmpfs:
+      - /tmp:size=100M,mode=1777
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "[http://127.0.0.1:3000/login](http://127.0.0.1:3000/login)"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
       start_period: 15s
+
+volumes:
+  pilot-tmp:
+  pilot-cache:

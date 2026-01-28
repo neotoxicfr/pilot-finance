@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, real, index } from "drizzle-orm/sqlite-core";
+
 export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   emailEncrypted: text("email_encrypted").notNull(),
@@ -18,7 +19,9 @@ export const users = sqliteTable("users", {
 }, (table) => ({
   verifyTokenIdx: index("user_verify_token_idx").on(table.verification_token),
   resetTokenIdx: index("user_reset_token_idx").on(table.resetToken),
+  emailBlindIdx: index("user_email_blind_idx").on(table.emailBlindIndex),
 }));
+
 export const accounts = sqliteTable("accounts", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
@@ -38,7 +41,9 @@ export const accounts = sqliteTable("accounts", {
   targetAccountId: integer("target_account_id"),
 }, (table) => ({
   userIdIdx: index("account_user_id_idx").on(table.userId),
+  userPositionIdx: index("account_user_position_idx").on(table.userId, table.position),
 }));
+
 export const transactions = sqliteTable("transactions", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
@@ -52,7 +57,10 @@ export const transactions = sqliteTable("transactions", {
   userIdIdx: index("tx_user_id_idx").on(table.userId),
   accountIdIdx: index("tx_account_id_idx").on(table.accountId),
   dateIdx: index("tx_date_idx").on(table.date),
+  userAccountDateIdx: index("tx_user_account_date_idx").on(table.userId, table.accountId, table.date),
+  accountDateIdx: index("tx_account_date_idx").on(table.accountId, table.date),
 }));
+
 export const recurringOperations = sqliteTable("recurring_operations", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("user_id").references(() => users.id, { onDelete: 'cascade' }),
@@ -66,7 +74,9 @@ export const recurringOperations = sqliteTable("recurring_operations", {
 }, (table) => ({
   userIdIdx: index("rec_user_id_idx").on(table.userId),
   accountIdIdx: index("rec_account_id_idx").on(table.accountId),
+  userActiveIdx: index("rec_user_active_idx").on(table.userId, table.isActive),
 }));
+
 export const authenticators = sqliteTable("authenticators", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   credentialID: text("credential_id").notNull().unique(),
