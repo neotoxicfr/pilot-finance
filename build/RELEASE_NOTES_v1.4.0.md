@@ -1,56 +1,56 @@
-# Release Notes - Pilot Finance v1.4.0
+# Notes de version - Pilot Finance v1.4.0
 
-**Release Date:** 2026-01-28
+**Date de sortie :** 2026-01-28
 
-## 🎯 Overview
+## 🎯 Vue d'ensemble
 
-Version 1.4.0 brings major performance improvements through the migration to Tailwind CSS 4, comprehensive code optimization, and enhanced monitoring capabilities. This release focuses on build speed, bundle size reduction, and runtime performance.
+La version 1.4.0 apporte des améliorations majeures de performance grâce à la migration vers Tailwind CSS 4, une optimisation complète du code et des capacités de surveillance améliorées. Cette version se concentre sur la vitesse de build, la réduction de la taille du bundle et les performances d'exécution.
 
-## ⚡ Performance Highlights
+## ⚡ Points forts des performances
 
-- **Build Time:** 74% faster (15s → 4.7-5.2s)
-- **Initial Bundle:** 30% reduction via lazy loading
-- **RAM Usage:** 58% improvement (95% → 53%)
-- **Dependencies:** 62 fewer packages (429 → 367)
+- **Temps de build :** 74% plus rapide (15s → 4.7-5.2s)
+- **Bundle initial :** Réduction de 30% via lazy loading
+- **Utilisation RAM :** Amélioration de 58% (95% → 53%)
+- **Dépendances :** 62 packages en moins (429 → 367)
 
-## 🚀 Major Changes
+## 🚀 Changements majeurs
 
-### Tailwind CSS 4.1.18 Migration
+### Migration vers Tailwind CSS 4.1.18
 
-The migration to Tailwind CSS 4 brings significant improvements:
+La migration vers Tailwind CSS 4 apporte des améliorations significatives :
 
-- **Rust-based engine:** Dramatically faster compilation
-- **New PostCSS plugin:** `@tailwindcss/postcss` for optimal integration
-- **Updated syntax:** Modern `@config` and `@import` directives
-- **Breaking changes fixed:** Cursor styling for buttons and links restored
+- **Moteur basé sur Rust :** Compilation considérablement plus rapide
+- **Nouveau plugin PostCSS :** `@tailwindcss/postcss` pour une intégration optimale
+- **Syntaxe mise à jour :** Directives modernes `@config` et `@import`
+- **Corrections des breaking changes :** Style de curseur pour les boutons et liens restauré
 
-**Migration details:**
-- Updated `postcss.config.mjs` to use new plugin
-- Converted `globals.css` to Tailwind 4 syntax
-- Fixed Docker build dependencies
-- Resolved bundle analyzer compatibility
+**Détails de la migration :**
+- Mise à jour de `postcss.config.mjs` pour utiliser le nouveau plugin
+- Conversion de `globals.css` vers la syntaxe Tailwind 4
+- Correction des dépendances pour le build Docker
+- Résolution de la compatibilité avec le bundle analyzer
 
 ### Code Splitting & Lazy Loading
 
-Implemented strategic lazy loading for heavy chart components:
+Implémentation stratégique du lazy loading pour les composants graphiques lourds :
 
-- **ProjectionChart component:** Separated and lazy-loaded
-- **BalancePieChart component:** Separated and lazy-loaded
-- **Suspense boundaries:** Added with optimized skeleton loaders
-- **Result:** ~30% reduction in initial JavaScript bundle
+- **Composant ProjectionChart :** Séparé et chargé à la demande
+- **Composant BalancePieChart :** Séparé et chargé à la demande
+- **Limites Suspense :** Ajout avec skeleton loaders optimisés
+- **Résultat :** Réduction de ~30% du bundle JavaScript initial
 
-### Automatic Version Tracking
+### Suivi automatique de version
 
-New build-time version generation system:
+Nouveau système de génération de version au moment du build :
 
-- **Pre-build script:** `scripts/generate-version.mjs` extracts version from `package.json`
-- **Version file:** Auto-generated `src/version.json` with version and build date
-- **Health endpoint integration:** Accurate version reporting in `/api/health`
-- **No manual updates:** Version stays in sync automatically
+- **Script pre-build :** `scripts/generate-version.mjs` extrait la version depuis `package.json`
+- **Fichier de version :** `src/version.json` auto-généré avec version et date de build
+- **Intégration endpoint health :** Rapport de version précis dans `/api/health`
+- **Aucune mise à jour manuelle :** La version reste synchronisée automatiquement
 
-### Enhanced Health Monitoring
+### Surveillance health améliorée
 
-The `/api/health` endpoint now provides comprehensive metrics:
+L'endpoint `/api/health` fournit désormais des métriques complètes :
 
 ```json
 {
@@ -58,7 +58,7 @@ The `/api/health` endpoint now provides comprehensive metrics:
   "version": "1.4.0",
   "buildDate": "2026-01-28T16:43:49.213Z",
   "uptime": 172800,
-  "uptimeFormatted": "2d 0h 0m 0s",
+  "uptimeFormatted": "2j 0h 0m 0s",
   "checks": {
     "database": {
       "status": "connected",
@@ -78,66 +78,66 @@ The `/api/health` endpoint now provides comprehensive metrics:
 }
 ```
 
-### Manual Garbage Collection
+### Garbage Collection manuel
 
-Production runtime now includes automatic GC:
+L'exécution en production inclut désormais un GC automatique :
 
-- **Frequency:** Every 60 seconds
-- **Node flag:** `--expose-gc` added to entrypoint
-- **Memory optimization:** Proactive heap cleanup
-- **Result:** Reduced memory footprint from 95% to 53%
+- **Fréquence :** Toutes les 60 secondes
+- **Flag Node :** `--expose-gc` ajouté à l'entrypoint
+- **Optimisation mémoire :** Nettoyage proactif du heap
+- **Résultat :** Empreinte mémoire réduite de 95% à 53%
 
-## 📋 Complete Change Log
+## 📋 Journal complet des modifications
 
-### Added
-- Automatic version tracking system (`scripts/generate-version.mjs`)
-- Enhanced `/api/health` endpoint with version, uptime, DB size, and GC status
-- Manual garbage collection (60s interval in production)
-- Bundle analyzer for development (`@next/bundle-analyzer`)
-- Loading states on settings page
-- Lazy loading for chart components (ProjectionChart, BalancePieChart)
-- ES module type declaration in `package.json`
-- Prefetch for /accounts navigation
+### Ajouté
+- Système de suivi automatique de version (`scripts/generate-version.mjs`)
+- Endpoint `/api/health` enrichi avec version, uptime, taille BDD et statut GC
+- Garbage collection manuel (intervalle 60s en production)
+- Analyseur de bundle pour le développement (`@next/bundle-analyzer`)
+- États de chargement sur la page paramètres
+- Lazy loading pour les composants graphiques (ProjectionChart, BalancePieChart)
+- Déclaration de type ES module dans `package.json`
+- Prefetch pour la navigation /accounts
 
-### Changed
-- Upgraded Tailwind CSS from 3.4.17 to 4.1.18
-- Migrated to `@tailwindcss/postcss` plugin
-- Updated CSS to Tailwind 4 syntax (`@config`, `@import`)
-- Optimized bundle size with code splitting
-- Improved Docker build reliability
+### Modifié
+- Migration de Tailwind CSS 3.4.17 vers 4.1.18
+- Migration vers le plugin `@tailwindcss/postcss`
+- Mise à jour du CSS vers la syntaxe Tailwind 4 (`@config`, `@import`)
+- Optimisation de la taille du bundle avec code splitting
+- Amélioration de la fiabilité du build Docker
 
-### Fixed
-- Button and link cursor styling (Tailwind 4 breaking change)
-- Docker build: moved `@tailwindcss/postcss` to production dependencies
-- Bundle analyzer conditional import for Docker compatibility
-- Chart skeleton loader heights and layout shifts
-- TypeScript safety for `global.gc` calls
-- MODULE_TYPELESS_PACKAGE_JSON warning
+### Corrigé
+- Style de curseur pour boutons et liens (breaking change Tailwind 4)
+- Build Docker : déplacement de `@tailwindcss/postcss` vers les dépendances de production
+- Import conditionnel du bundle analyzer pour la compatibilité Docker
+- Hauteurs des skeleton loaders des graphiques et décalages de mise en page
+- Sécurité TypeScript pour les appels `global.gc`
+- Avertissement MODULE_TYPELESS_PACKAGE_JSON
 
-## 🔧 Technical Details
+## 🔧 Détails techniques
 
-### File Changes
+### Fichiers modifiés
 
-**New Files:**
-- `build/scripts/generate-version.mjs` - Version generation script
-- `build/src/version.json` - Auto-generated version info (gitignored)
-- `build/src/components/ProjectionChart.tsx` - Lazy-loaded projection chart
-- `build/src/components/BalancePieChart.tsx` - Lazy-loaded balance pie chart
-- `build/CHANGELOG.md` - Project changelog
+**Nouveaux fichiers :**
+- `build/scripts/generate-version.mjs` - Script de génération de version
+- `build/src/version.json` - Informations de version auto-générées (gitignored)
+- `build/src/components/ProjectionChart.tsx` - Graphique de projection en lazy loading
+- `build/src/components/BalancePieChart.tsx` - Graphique camembert des soldes en lazy loading
+- `build/CHANGELOG.md` - Journal des modifications du projet
 
-**Modified Files:**
-- `build/package.json` - Version 1.4.0, added prebuild script, ES module type
-- `build/postcss.config.mjs` - Updated to use `@tailwindcss/postcss`
-- `build/src/app/globals.css` - Tailwind 4 syntax, cursor fixes, extracted styles
-- `build/next.config.mjs` - Conditional bundle analyzer import
-- `build/src/db.ts` - Manual garbage collection implementation
-- `build/entrypoint.sh` - Added `--expose-gc` flag
-- `build/src/app/api/health/route.ts` - Enhanced with new metrics
-- `build/src/app/page.tsx` - Implemented lazy loading with Suspense
-- `build/src/app/settings/page.tsx` - Added loading state
-- `build/src/app/layout.tsx` - Added prefetch and cursor pointer classes
+**Fichiers modifiés :**
+- `build/package.json` - Version 1.4.0, ajout script prebuild, type ES module
+- `build/postcss.config.mjs` - Mise à jour pour utiliser `@tailwindcss/postcss`
+- `build/src/app/globals.css` - Syntaxe Tailwind 4, corrections curseurs, styles extraits
+- `build/next.config.mjs` - Import conditionnel du bundle analyzer
+- `build/src/db.ts` - Implémentation du garbage collection manuel
+- `build/entrypoint.sh` - Ajout du flag `--expose-gc`
+- `build/src/app/api/health/route.ts` - Enrichissement avec nouvelles métriques
+- `build/src/app/page.tsx` - Implémentation du lazy loading avec Suspense
+- `build/src/app/settings/page.tsx` - Ajout de l'état de chargement
+- `build/src/app/layout.tsx` - Ajout du prefetch et classes cursor pointer
 
-### Commit History
+### Historique des commits
 
 ```
 f0d240b feat: enhance health endpoint with accurate version and metrics
@@ -154,60 +154,60 @@ d0202aa perf: optimisations bundle et performances
 5aced3f feat: migrate to Tailwind CSS 4.1.18
 ```
 
-## 🔄 Migration Guide
+## 🔄 Guide de migration
 
-### Upgrading from v1.3.X
+### Mise à jour depuis v1.3.X
 
-1. **Pull the latest image:**
+1. **Téléchargez la dernière image :**
    ```bash
    docker pull ghcr.io/neotoxicfr/pilot-finance:latest
    ```
 
-2. **Restart your container:**
+2. **Redémarrez votre conteneur :**
    ```bash
    docker compose down
    docker compose up -d
    ```
 
-3. **Verify the update:**
-   - Check `/api/health` endpoint shows version "1.4.0"
-   - Confirm improved performance and reduced memory usage
+3. **Vérifiez la mise à jour :**
+   - Vérifiez que l'endpoint `/api/health` affiche la version "1.4.0"
+   - Confirmez l'amélioration des performances et la réduction de l'utilisation mémoire
 
-**No breaking changes** - This is a performance-focused release with full backward compatibility.
+**Aucun breaking change** - Il s'agit d'une version axée sur les performances avec une compatibilité ascendante complète.
 
-## 📊 Performance Benchmarks
+## 📊 Benchmarks de performance
 
-### Build Performance
-- **Before (v1.3.1):** ~15 seconds
-- **After (v1.4.0):** ~4.7-5.2 seconds
-- **Improvement:** 74% faster
+### Performance de build
+- **Avant (v1.3.1) :** ~15 secondes
+- **Après (v1.4.0) :** ~4.7-5.2 secondes
+- **Amélioration :** 74% plus rapide
 
-### Bundle Size
-- **Initial bundle reduction:** ~30%
-- **Recharts:** Now lazy-loaded on-demand
-- **Result:** Faster initial page load
+### Taille du bundle
+- **Réduction du bundle initial :** ~30%
+- **Recharts :** Désormais chargé à la demande
+- **Résultat :** Chargement initial de page plus rapide
 
-### Runtime Performance
-- **Memory usage:** 95% → 53% (58% improvement)
-- **Garbage collection:** Proactive cleanup every 60s
-- **Database size tracking:** Real-time monitoring
+### Performance d'exécution
+- **Utilisation mémoire :** 95% → 53% (amélioration de 58%)
+- **Garbage collection :** Nettoyage proactif toutes les 60s
+- **Suivi de la taille BDD :** Surveillance en temps réel
 
-### Dependency Optimization
-- **Before:** 429 packages
-- **After:** 367 packages
-- **Reduction:** 62 packages (-14.5%)
+### Optimisation des dépendances
+- **Avant :** 429 packages
+- **Après :** 367 packages
+- **Réduction :** 62 packages (-14.5%)
 
-## 🎉 Credits
+## 🎉 Crédits
 
-Developed with the assistance of Claude Code (Sonnet 4.5) for optimization analysis, performance tuning, and comprehensive testing.
+Développé avec l'assistance de Claude Code (Sonnet 4.5) pour l'analyse d'optimisation, le réglage des performances et les tests complets.
 
-## 🔗 Links
+## 🔗 Liens
 
-- [Full Changelog](./CHANGELOG.md)
-- [GitHub Repository](https://github.com/neotoxicfr/pilot-finance)
-- [Security Policy](../SECURITY.md)
+- [Journal complet des modifications](./CHANGELOG.md)
+- [Dépôt GitHub](https://github.com/neotoxicfr/pilot-finance)
+- [Politique de sécurité](../SECURITY.md)
 - [Docker Hub](https://ghcr.io/neotoxicfr/pilot-finance)
 
 ---
 
-**Questions or issues?** Please open an issue on [GitHub](https://github.com/neotoxicfr/pilot-finance/issues).
+**Questions ou problèmes ?** Veuillez ouvrir une issue sur [GitHub](https://github.com/neotoxicfr/pilot-finance/issues).
