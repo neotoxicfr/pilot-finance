@@ -84,7 +84,7 @@ export async function authenticate(formData: FormData, isRegister: boolean) {
         hashedVerificationToken = hashToken(verificationToken);
       }
 
-      const userId = await db.transaction(async (tx) => {
+      const userId = await db.transaction(async (tx: typeof db) => {
         const newUser = await tx.insert(users).values({
           emailEncrypted: encrypt(email),
           emailBlindIndex: emailIndex,
