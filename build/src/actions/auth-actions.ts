@@ -353,7 +353,7 @@ export async function loginPasskeyFinish(response: { id: string; [key: string]: 
     }
 
     const verification = await verifyAuthenticationResponse({
-      response: response as Parameters<typeof verifyAuthenticationResponse>[0]['response'],
+      response: response as unknown as Parameters<typeof verifyAuthenticationResponse>[0]['response'],
       expectedChallenge: challenge,
       expectedOrigin: getOrigin(),
       expectedRPID: getRpID(),
