@@ -380,7 +380,7 @@ export async function loginPasskeyFinish(response: { id: string; [key: string]: 
       await login({
         id: user.id,
         email: decrypt(user.emailEncrypted),
-        role: user.role,
+        role: user.role ?? 'USER',
         sessionVersion: user.sessionVersion
       });
       return { success: true };
