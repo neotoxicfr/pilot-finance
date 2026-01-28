@@ -1,239 +1,341 @@
 'use server'
+
 import { db } from "@/src/db";
-import { recurringOperations, accounts, transactions } from "@/src/schema";
-import { eq, desc, asc, and, sql } from "drizzle-orm";
+import { accounts, transactions, recurringOperations } from "@/src/schema";
+import { eq, desc, and, gte, inArray, asc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { getSession } from "@/src/lib/auth";
 import { encrypt, decrypt } from "@/src/lib/crypto";
-const roundCurrency = (amount: number) => Math.round((amount + Number.EPSILON) * 100) / 100;
+import { accountSchema, transactionSchema, recurringSchema } from "@/src/lib/validations";
+
 async function getUser() {
     const session = await getSession();
-    if (!session || !session.user) redirect('/login');
+    if (!session || !session.user) throw new Error("Non connecté");
     return session.user;
 }
-export async function getRecurringOperations() {
+
+export async function getAccounts() {
     const user = await getUser();
-    const ops = await db.select().from(recurringOperations).where(and(eq(recurringOperations.isActive, true), eq(recurringOperations.userId, user.id))).orderBy(desc(recurringOperations.id));
-    const rawAccounts = await db.select().from(accounts).where(eq(accounts.userId, user.id));
-    return ops.map(op => {
-        const source = rawAccounts.find(a => a.id === op.accountId);
-        const target = op.toAccountId ? rawAccounts.find(a => a.id === op.toAccountId) : null;
-        return { 
-            ...op, 
-            description: decrypt(op.description), 
-            accountName: source ? decrypt(source.name) : 'Compte supprimé', 
-            toAccountName: target ? decrypt(target.name) : null 
-        };
+    const rawAccounts = await db.select().from(accounts).where(eq(accounts.userId, user.id)).orderBy(asc(accounts.position));
+    return rawAccounts.map(a => ({ ...a, name: decrypt(a.name) }));
+}
+
+export async function createAccount(formData: FormData) {
+    const user = await getUser();
+    const rawData = Object.fromEntries(formData.entries());
+    const validation = accountSchema.safeParse(rawData);
+    
+    if (!validation.success) throw new Error(validation.error.issues[0].message);
+
+    const all = await db.select().from(accounts).where(eq(accounts.userId, user.id));
+    const maxPos = all.reduce((max, c) => Math.max(max, c.position || 0), 0);
+
+    await db.insert(accounts).values({
+        userId: user.id,
+        name: encrypt(validation.data.name),
+        balance: validation.data.balance,
+        color: validation.data.color,
+        isYieldActive: validation.data.isYieldActive,
+        yieldType: validation.data.yieldType || "FIXED",
+        yieldMin: validation.data.yieldMin || 0,
+        yieldMax: validation.data.yieldMax || 0,
+        yieldFrequency: validation.data.yieldFrequency || "YEARLY",
+        payoutFrequency: validation.data.payoutFrequency || "MONTHLY",
+        reinvestmentRate: validation.data.reinvestmentRate ?? 100,
+        targetAccountId: validation.data.targetAccountId,
+        position: maxPos + 1
+    });
+    revalidatePath("/"); 
+    revalidatePath("/accounts");
+}
+
+export async function updateAccountFull(formData: FormData) {
+    const user = await getUser();
+    const id = parseInt(formData.get("id") as string);
+    if (!id) return;
+
+    const rawData = Object.fromEntries(formData.entries());
+    const validation = accountSchema.safeParse(rawData);
+
+    if (!validation.success) throw new Error(validation.error.issues[0].message);
+
+    await db.update(accounts).set({
+        name: encrypt(validation.data.name),
+        balance: validation.data.balance,
+        color: validation.data.color,
+        isYieldActive: validation.data.isYieldActive,
+        yieldType: validation.data.yieldType || "FIXED",
+        yieldMin: validation.data.yieldMin || 0,
+        yieldMax: validation.data.yieldMax || 0,
+        yieldFrequency: validation.data.yieldFrequency || "YEARLY",
+        payoutFrequency: validation.data.payoutFrequency || "MONTHLY",
+        reinvestmentRate: validation.data.reinvestmentRate ?? 100,
+        targetAccountId: validation.data.targetAccountId,
+        updatedAt: new Date()
+    }).where(and(eq(accounts.id, id), eq(accounts.userId, user.id)));
+    revalidatePath("/"); 
+    revalidatePath("/accounts");
+}
+
+export async function updateBalanceDirect(formData: FormData) {
+    const user = await getUser();
+    const id = parseInt(formData.get("id") as string);
+    const balance = parseFloat(formData.get("balance") as string);
+    
+    if (!id || isNaN(balance)) return;
+
+    await db.update(accounts).set({ balance }).where(and(eq(accounts.id, id), eq(accounts.userId, user.id)));
+    revalidatePath("/"); 
+    revalidatePath("/accounts");
+}
+
+export async function deleteAccount(id: number) {
+    const user = await getUser();
+    await db.delete(accounts).where(and(eq(accounts.id, id), eq(accounts.userId, user.id)));
+    revalidatePath("/accounts");
+}
+
+export async function swapAccounts(id1: number, id2: number) {
+    const user = await getUser();
+    const allAccounts = await db.select().from(accounts).where(eq(accounts.userId, user.id)).orderBy(asc(accounts.position));
+    
+    const acc1 = allAccounts.find(a => a.id === id1);
+    const acc2 = allAccounts.find(a => a.id === id2);
+
+    if (acc1 && acc2) {
+        await db.transaction(async (tx) => {
+            await tx.update(accounts).set({ position: acc2.position }).where(eq(accounts.id, id1));
+            await tx.update(accounts).set({ position: acc1.position }).where(eq(accounts.id, id2));
+        });
+    }
+    revalidatePath("/accounts");
+}
+
+export async function getTransactions(accountId?: number, page: number = 1, limit: number = 50) {
+    const user = await getUser();
+    const offset = (page - 1) * limit;
+
+    // Correction: On définit d'abord la condition WHERE de base
+    let conditions = eq(transactions.userId, user.id);
+    
+    if (accountId) {
+        conditions = and(conditions, eq(transactions.accountId, accountId))!;
+    }
+
+    // Ensuite on construit la requête complète
+    const rawTx = await db.select()
+        .from(transactions)
+        .where(conditions)
+        .orderBy(desc(transactions.date))
+        .limit(limit)
+        .offset(offset);
+
+    return rawTx.map(t => ({ ...t, description: decrypt(t.description) }));
+}
+
+export async function addTransaction(formData: FormData) {
+    const user = await getUser();
+    const rawData = Object.fromEntries(formData.entries());
+    const validation = transactionSchema.safeParse(rawData);
+
+    if (!validation.success) throw new Error(validation.error.issues[0].message);
+
+    await db.transaction(async (tx) => {
+        await tx.insert(transactions).values({
+            userId: user.id,
+            accountId: validation.data.accountId,
+            amount: validation.data.amount,
+            description: encrypt(validation.data.description),
+            date: new Date(validation.data.date)
+        });
+
+        const [acc] = await tx.select().from(accounts).where(eq(accounts.id, validation.data.accountId));
+        if (acc) {
+            await tx.update(accounts)
+                .set({ balance: acc.balance + validation.data.amount })
+                .where(eq(accounts.id, validation.data.accountId));
+        }
+    });
+
+    revalidatePath("/");
+    revalidatePath("/accounts");
+}
+
+export async function checkRecurringOperations() {
+    const user = await getUser();
+    const ops = await db.select().from(recurringOperations)
+        .where(and(eq(recurringOperations.userId, user.id), eq(recurringOperations.isActive, true)));
+    
+    if (ops.length === 0) return;
+
+    const today = new Date();
+    const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    const existingTx = await db.select().from(transactions)
+        .where(and(
+            eq(transactions.userId, user.id),
+            gte(transactions.date, currentMonthStart),
+            inArray(transactions.accountId, ops.map(o => o.accountId))
+        ));
+
+    const existingDescriptions = new Set(existingTx.map(t => decrypt(t.description)));
+
+    await db.transaction(async (tx) => {
+        for (const op of ops) {
+            if (today.getDate() >= op.dayOfMonth) {
+                const opDesc = decrypt(op.description);
+                if (!existingDescriptions.has(opDesc)) {
+                     await tx.insert(transactions).values({
+                        userId: user.id,
+                        accountId: op.accountId,
+                        amount: op.amount,
+                        description: encrypt(opDesc),
+                        date: today
+                    });
+
+                    const [acc] = await tx.select().from(accounts).where(eq(accounts.id, op.accountId));
+                    if (acc) {
+                        await tx.update(accounts)
+                            .set({ balance: acc.balance + op.amount })
+                            .where(eq(accounts.id, op.accountId));
+                    }
+                    
+                    if (op.toAccountId) {
+                        const [dest] = await tx.select().from(accounts).where(eq(accounts.id, op.toAccountId));
+                        if(dest) {
+                             await tx.insert(transactions).values({
+                                userId: user.id,
+                                accountId: op.toAccountId,
+                                amount: Math.abs(op.amount),
+                                description: encrypt(opDesc),
+                                date: today
+                            });
+                            await tx.update(accounts).set({ balance: dest.balance + Math.abs(op.amount) }).where(eq(accounts.id, op.toAccountId));
+                        }
+                    }
+
+                    await tx.update(recurringOperations)
+                        .set({ lastRunDate: today })
+                        .where(eq(recurringOperations.id, op.id));
+                }
+            }
+        }
     });
 }
+
+export async function getRecurringOperations() {
+    const user = await getUser();
+    const ops = await db.select().from(recurringOperations).where(eq(recurringOperations.userId, user.id));
+    const accs = await getAccounts();
+    const accMap = new Map(accs.map(a => [a.id, a.name]));
+
+    return ops.map(o => ({
+        ...o,
+        description: decrypt(o.description),
+        accountName: accMap.get(o.accountId) || 'Inconnu',
+        toAccountName: o.toAccountId ? accMap.get(o.toAccountId) : null
+    }));
+}
+
 export async function createRecurring(formData: FormData) {
     const user = await getUser();
-    const accountId = parseInt(formData.get("accountId") as string);
-    if(!accountId) return;
-    const amountRaw = parseFloat(formData.get("amount") as string);
-    const type = formData.get("type") as string; 
-    let amount = 0;
-    if (type === 'transfer') amount = Math.abs(amountRaw);
-    else if (type === 'expense') amount = -Math.abs(amountRaw);
-    else amount = Math.abs(amountRaw);
-    await db.insert(recurringOperations).values({ 
-        userId: user.id, 
-        accountId, 
-        toAccountId: type === 'transfer' ? (formData.get("toAccountId") ? parseInt(formData.get("toAccountId") as string) : null) : null, 
-        amount: roundCurrency(amount), 
-        description: encrypt(formData.get("description") as string), 
-        dayOfMonth: parseInt(formData.get("dayOfMonth") as string), 
-        isActive: true 
+    const rawData = Object.fromEntries(formData.entries());
+    const validation = recurringSchema.safeParse(rawData);
+
+    if (!validation.success) throw new Error(validation.error.issues[0].message);
+
+    let finalAmount = validation.data.amount;
+    if (validation.data.type === 'expense' || validation.data.type === 'transfer') {
+        finalAmount = -Math.abs(finalAmount);
+    } else {
+        finalAmount = Math.abs(finalAmount);
+    }
+
+    await db.insert(recurringOperations).values({
+        userId: user.id,
+        accountId: validation.data.accountId,
+        toAccountId: validation.data.toAccountId || null,
+        amount: finalAmount,
+        description: encrypt(validation.data.description),
+        dayOfMonth: validation.data.dayOfMonth,
+        isActive: true
     });
     revalidatePath("/accounts");
 }
+
 export async function updateRecurring(formData: FormData) {
     const user = await getUser();
     const id = parseInt(formData.get("id") as string);
-    if(!id) return;
-    const accountId = parseInt(formData.get("accountId") as string);
-    const amountRaw = parseFloat(formData.get("amount") as string);
-    const type = formData.get("type") as string;
-    let amount = 0;
-    if (type === 'transfer') amount = Math.abs(amountRaw);
-    else if (type === 'expense') amount = -Math.abs(amountRaw);
-    else amount = Math.abs(amountRaw);
-    await db.update(recurringOperations).set({ 
-        accountId, 
-        toAccountId: type === 'transfer' ? (formData.get("toAccountId") ? parseInt(formData.get("toAccountId") as string) : null) : null, 
-        amount: roundCurrency(amount), 
-        description: encrypt(formData.get("description") as string), 
-        dayOfMonth: parseInt(formData.get("dayOfMonth") as string), 
-        isActive: true 
+    if (!id) return;
+
+    const rawData = Object.fromEntries(formData.entries());
+    const validation = recurringSchema.safeParse(rawData);
+
+    if (!validation.success) throw new Error(validation.error.issues[0].message);
+
+    let finalAmount = validation.data.amount;
+    if (validation.data.type === 'expense' || validation.data.type === 'transfer') {
+        finalAmount = -Math.abs(finalAmount);
+    } else {
+        finalAmount = Math.abs(finalAmount);
+    }
+
+    await db.update(recurringOperations).set({
+        accountId: validation.data.accountId,
+        toAccountId: validation.data.toAccountId || null,
+        amount: finalAmount,
+        description: encrypt(validation.data.description),
+        dayOfMonth: validation.data.dayOfMonth
     }).where(and(eq(recurringOperations.id, id), eq(recurringOperations.userId, user.id)));
     revalidatePath("/accounts");
 }
-export async function deleteRecurring(id: number) { 
+
+export async function deleteRecurring(id: number) {
     const user = await getUser();
-    await db.delete(recurringOperations).where(and(eq(recurringOperations.id, id), eq(recurringOperations.userId, user.id))); 
-    revalidatePath("/accounts"); 
+    await db.delete(recurringOperations).where(and(eq(recurringOperations.id, id), eq(recurringOperations.userId, user.id)));
+    revalidatePath("/accounts");
 }
-export async function getDashboardData(projectionYears: number = 5) {
-  const user = await getUser();
-  await checkRecurringOperations(user.id);
-  await processRealYields(user.id);
-  const rawAccounts = await db.select().from(accounts)
-    .where(eq(accounts.userId, user.id))
-    .orderBy(asc(accounts.position));
-  const allAccounts = rawAccounts.map(a => ({ ...a, name: decrypt(a.name) }));
-  const rawRecurrings = await db.select().from(recurringOperations)
-    .where(and(eq(recurringOperations.isActive, true), eq(recurringOperations.userId, user.id)))
-    .orderBy(asc(recurringOperations.dayOfMonth));
-  const recurrings = rawRecurrings.map(r => ({ ...r, description: decrypt(r.description) }));
-  const { dataPoints, totalInterests } = simulateProjection(allAccounts, recurrings, projectionYears);
-  return { accounts: allAccounts, projection: dataPoints, totalInterests, user };
-}
-async function checkRecurringOperations(userId: number) {
-  const today = new Date();
-  const currentDay = today.getDate();
-  const currentMonth = today.getMonth();
-  const currentYear = today.getFullYear();
-  const rawOps = await db.select().from(recurringOperations).where(and(eq(recurringOperations.isActive, true), eq(recurringOperations.userId, userId)));
-  for (const opRaw of rawOps) {
-    const op = { ...opRaw, description: decrypt(opRaw.description) };
-    const lastRun = op.lastRunDate ? new Date(op.lastRunDate) : null;
-    const isDue = currentDay >= op.dayOfMonth;
-    const alreadyRunThisMonth = lastRun && lastRun.getMonth() === currentMonth && lastRun.getFullYear() === currentYear;
-    if (isDue && !alreadyRunThisMonth) {
-      if (!op.accountId) continue;
-      if (op.toAccountId) {
-          const [rawSource] = await db.select().from(accounts).where(and(eq(accounts.id, op.accountId), eq(accounts.userId, userId)));
-          const [rawTarget] = await db.select().from(accounts).where(and(eq(accounts.id, op.toAccountId), eq(accounts.userId, userId)));
-          if (rawSource && rawTarget) {
-              const source = { ...rawSource, name: decrypt(rawSource.name) };
-              const target = { ...rawTarget, name: decrypt(rawTarget.name) };
-              const amount = Math.abs(op.amount);
-              await db.update(accounts).set({ balance: roundCurrency(source.balance - amount) }).where(eq(accounts.id, source.id));
-              await db.insert(transactions).values({ userId, accountId: source.id, amount: -amount, description: encrypt(`[Auto] Virement vers ${target.name} : ${op.description}`), category: 'Virement Sortant', date: new Date() });
-              await db.update(accounts).set({ balance: roundCurrency(target.balance + amount) }).where(eq(accounts.id, target.id));
-              await db.insert(transactions).values({ userId, accountId: target.id, amount: amount, description: encrypt(`[Auto] Virement de ${source.name} : ${op.description}`), category: 'Virement Entrant', date: new Date() });
-          }
-      } else {
-          await db.insert(transactions).values({ userId, accountId: op.accountId, amount: op.amount, description: encrypt(`[Auto] ${op.description}`), category: 'Récurrent', date: new Date() });
-          const [account] = await db.select().from(accounts).where(and(eq(accounts.id, op.accountId), eq(accounts.userId, userId)));
-          if (account) await db.update(accounts).set({ balance: roundCurrency(account.balance + op.amount) }).where(eq(accounts.id, op.accountId));
-      }
-      await db.update(recurringOperations).set({ lastRunDate: new Date() }).where(eq(recurringOperations.id, op.id));
+
+export async function getDashboardData(years: number = 5) {
+    const user = await getUser();
+    const accs = await getAccounts();
+    
+    let projection = [];
+    let totalInterests = 0;
+    
+    for (let i = 0; i <= years; i++) {
+        let yearData: any = { name: `Année ${i}`, totalMin: 0, totalMax: 0, totalAvg: 0 };
+        
+        accs.forEach(acc => {
+            if (!acc.isYieldActive) {
+                yearData[acc.name] = acc.balance;
+                yearData.totalMin += acc.balance;
+                yearData.totalMax += acc.balance;
+                yearData.totalAvg += acc.balance;
+            } else {
+                const rateMin = acc.yieldType === 'RANGE' ? acc.yieldMin : acc.yieldMin;
+                const rateMax = acc.yieldType === 'RANGE' ? acc.yieldMax : acc.yieldMin;
+                
+                const compoundMin = acc.balance * Math.pow(1 + (rateMin || 0) / 100, i);
+                const compoundMax = acc.balance * Math.pow(1 + (rateMax || 0) / 100, i);
+                const compoundAvg = (compoundMin + compoundMax) / 2;
+
+                yearData[acc.name] = Math.round(compoundAvg);
+                yearData.totalMin += compoundMin;
+                yearData.totalMax += compoundMax;
+                yearData.totalAvg += compoundAvg;
+
+                if (i === years) {
+                    totalInterests += (compoundAvg - acc.balance);
+                }
+            }
+        });
+        
+        yearData.totalMin = Math.round(yearData.totalMin);
+        yearData.totalMax = Math.round(yearData.totalMax);
+        yearData.totalAvg = Math.round(yearData.totalAvg);
+        projection.push(yearData);
     }
-  }
-}
-async function processRealYields(userId: number) {
-  const today = new Date();
-  const currentMonth = today.getMonth();
-  const currentYear = today.getFullYear(); 
-  const rawActiveAccounts = await db.select().from(accounts).where(and(eq(accounts.isYieldActive, true), eq(accounts.userId, userId)));
-  for (const accRaw of rawActiveAccounts) { 
-    const acc = { ...accRaw, name: decrypt(accRaw.name) };
-    const lastRun = acc.lastYieldDate ? new Date(acc.lastYieldDate) : null; 
-    let shouldRun = false;
-    if (acc.payoutFrequency === 'MONTHLY') { 
-        if (!lastRun || (lastRun.getMonth() !== currentMonth || lastRun.getFullYear() !== currentYear)) shouldRun = true; 
-    } else if (acc.payoutFrequency === 'YEARLY') { 
-        if ((!lastRun || lastRun.getFullYear() !== currentYear) && currentMonth === 11 && today.getDate() === 31) shouldRun = true;
-    } 
-    if (shouldRun) {
-        const yieldMin = acc.yieldMin ?? 0;
-        const yieldMax = acc.yieldMax ?? 0;
-        const reinvestmentRate = acc.reinvestmentRate ?? 0;
-        let rate = acc.yieldType === 'RANGE' ? (yieldMin + yieldMax) / 2 : yieldMin;
-        if (acc.yieldFrequency === 'YEARLY' && acc.payoutFrequency === 'MONTHLY') rate = rate / 12;
-        if (acc.yieldFrequency === 'MONTHLY' && acc.payoutFrequency === 'YEARLY') rate = rate * 12;
-        const gain = roundCurrency(acc.balance * (rate / 100)); 
-        const reinvestAmount = roundCurrency(gain * (reinvestmentRate / 100));
-        const payoutAmount = roundCurrency(gain - reinvestAmount); 
-        await db.update(accounts).set({ balance: roundCurrency(acc.balance + gain), lastYieldDate: new Date() }).where(eq(accounts.id, acc.id));
-        await db.insert(transactions).values({ userId, accountId: acc.id, amount: gain, description: encrypt("Intérêts / Dividendes"), category: "Rendement", date: new Date() });
-        if (payoutAmount > 0) { 
-            const targetId = acc.targetAccountId || acc.id;
-            const targetIdSafe = targetId || acc.id; 
-            if (targetIdSafe !== acc.id) { 
-                await db.update(accounts).set({ balance: sql`ROUND(balance - ${payoutAmount}, 2)` }).where(eq(accounts.id, acc.id));
-                await db.insert(transactions).values({ userId, accountId: acc.id, amount: -payoutAmount, description: encrypt(`Virement intérêts vers cpt ${targetIdSafe}`), category: "Virement Sortant", date: new Date() });
-                await db.update(accounts).set({ balance: sql`ROUND(balance + ${payoutAmount}, 2)` }).where(eq(accounts.id, targetIdSafe)); 
-                await db.insert(transactions).values({ userId, accountId: targetIdSafe, amount: payoutAmount, description: encrypt(`Reçu intérêts de ${acc.name}`), category: "Rendement", date: new Date() });
-            } 
-        } 
-    } 
-  }
-}
-function simulateProjection(initialAccounts: any[], recurrings: any[], years: number) {
-  let accountsAvg = initialAccounts.map(a => ({ ...a }));
-  let accountsMin = initialAccounts.map(a => ({ ...a }));
-  let accountsMax = initialAccounts.map(a => ({ ...a }));
-  const dataPoints = [];
-  const now = new Date();
-  let totalInterests = 0;
-  const showMonthly = years < 3;
-  const totalMonths = years * 12;
-  let startName = showMonthly ? now.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }) : now.getFullYear().toString();
-  const startTotal = Math.round(initialAccounts.reduce((sum, a) => sum + a.balance, 0));
-  const startPoint: any = { name: startName, totalMin: startTotal, totalMax: startTotal, totalAvg: startTotal };
-  initialAccounts.forEach(acc => { startPoint[acc.name] = Math.round(acc.balance); });
-  dataPoints.push(startPoint);
-  for (let m = 1; m <= totalMonths; m++) {
-    const isYearEnd = m % 12 === 0;
-    recurrings.forEach(op => {
-      [accountsAvg, accountsMin, accountsMax].forEach(universe => {
-         const source = universe.find(a => a.id === op.accountId);
-         if (op.toAccountId) {
-             const target = universe.find(a => a.id === op.toAccountId);
-             if (source && target) {
-                 source.balance = roundCurrency(source.balance - Math.abs(op.amount));
-                 target.balance = roundCurrency(target.balance + Math.abs(op.amount));
-             }
-         } else {
-             if (source) source.balance = roundCurrency(source.balance + op.amount);
-         }
-      });
-    });
-    const applyYield = (universe: any[], mode: 'MIN' | 'MAX' | 'AVG') => {
-       universe.forEach(acc => {
-          if (!acc.isYieldActive) return;
-          const isPayoutDue = (acc.payoutFrequency === 'MONTHLY') || (acc.payoutFrequency === 'YEARLY' && isYearEnd);
-          if (isPayoutDue) {
-             const yieldMin = acc.yieldMin ?? 0;
-             const yieldMax = acc.yieldMax ?? 0;
-             const reinvestmentRate = acc.reinvestmentRate ?? 0;
-             let rate = 0;
-             if (mode === 'MIN') rate = acc.yieldType === 'RANGE' ? yieldMin : yieldMin;
-             if (mode === 'MAX') rate = acc.yieldType === 'RANGE' ? yieldMax : yieldMin;
-             if (mode === 'AVG') rate = acc.yieldType === 'RANGE' ? (yieldMin + yieldMax) / 2 : yieldMin;
-             if (acc.yieldFrequency === 'YEARLY' && acc.payoutFrequency === 'MONTHLY') rate = rate / 12;
-             if (acc.yieldFrequency === 'MONTHLY' && acc.payoutFrequency === 'YEARLY') rate = rate * 12;
-             const gain = roundCurrency(acc.balance * (rate / 100));
-             if(mode === 'AVG') totalInterests += gain;
-             const reinvest = roundCurrency(gain * (reinvestmentRate / 100));
-             const payout = roundCurrency(gain - reinvest);
-             acc.balance = roundCurrency(acc.balance + reinvest);
-             if (payout > 0) {
-               const targetId = acc.targetAccountId || acc.id;
-               const targetAcc = universe.find(a => a.id === targetId);
-               if (targetAcc) targetAcc.balance = roundCurrency(targetAcc.balance + payout);
-             }
-          }
-       });
-    };
-    applyYield(accountsAvg, 'AVG');
-    applyYield(accountsMin, 'MIN');
-    applyYield(accountsMax, 'MAX');
-    if (showMonthly || isYearEnd) {
-        const futureDate = new Date(now.getFullYear(), now.getMonth() + m, 1);
-        let name = showMonthly ? futureDate.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }) : futureDate.getFullYear().toString();
-        const point: any = { 
-            name: name, 
-            totalMin: Math.round(accountsMin.reduce((sum, a) => sum + a.balance, 0)), 
-            totalMax: Math.round(accountsMax.reduce((sum, a) => sum + a.balance, 0)), 
-            totalAvg: Math.round(accountsAvg.reduce((sum, a) => sum + a.balance, 0)) 
-        };
-        accountsAvg.forEach(acc => { point[acc.name] = Math.round(acc.balance); });
-        dataPoints.push(point);
-    }
-  }
-  return { dataPoints, totalInterests };
+
+    return { accounts: accs, projection, totalInterests: Math.round(totalInterests) };
 }
