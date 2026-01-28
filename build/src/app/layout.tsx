@@ -67,7 +67,7 @@ export default async function RootLayout({
                       <LayoutDashboard size={20} />
                       <span className="hidden lg:inline">Dashboard</span>
                     </Link>
-                    <Link href="/accounts" className="flex items-center gap-2 px-2 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-accent rounded-lg transition-all cursor-pointer">
+                    <Link href="/accounts" prefetch={true} className="flex items-center gap-2 px-2 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-accent rounded-lg transition-all cursor-pointer">
                       <Wallet size={20} />
                       <span className="hidden lg:inline">Comptes</span>
                     </Link>
