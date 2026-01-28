@@ -20,7 +20,7 @@ export default function Dashboard() {
   useEffect(() => {
     const timer = setTimeout(() => {
         getDashboardData(sliderValue).then(setData);
-    }, 500);
+    }, 150);
     return () => clearTimeout(timer);
   }, [sliderValue]);
   if (!data) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Chargement...</div>;
