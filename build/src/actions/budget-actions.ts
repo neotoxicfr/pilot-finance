@@ -117,8 +117,8 @@ export async function swapAccounts(id1: number, id2: number) {
     .where(eq(accounts.userId, user.id))
     .orderBy(asc(accounts.position));
 
-  const acc1 = allAccounts.find(a => a.id === id1);
-  const acc2 = allAccounts.find(a => a.id === id2);
+  const acc1 = allAccounts.find((a: any) => a.id === id1);
+  const acc2 = allAccounts.find((a: any) => a.id === id2);
 
   if (acc1 && acc2) {
     await db.transaction(async (tx) => {
