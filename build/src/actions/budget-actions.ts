@@ -121,7 +121,7 @@ export async function swapAccounts(id1: number, id2: number) {
   const acc2 = allAccounts.find((a: any) => a.id === id2);
 
   if (acc1 && acc2) {
-    await db.transaction(async (tx) => {
+    await db.transaction(async (tx: typeof db) => {
       await tx.update(accounts).set({ position: acc2.position }).where(eq(accounts.id, id1));
       await tx.update(accounts).set({ position: acc1.position }).where(eq(accounts.id, id2));
     });
@@ -158,7 +158,7 @@ export async function addTransaction(formData: FormData) {
     throw new Error(validation.error.issues[0].message);
   }
 
-  await db.transaction(async (tx) => {
+  await db.transaction(async (tx: typeof db) => {
     await tx.insert(transactions).values({
       userId: user.id,
       accountId: validation.data.accountId,
@@ -217,7 +217,7 @@ export async function checkRecurringOperations() {
 
   const balanceUpdates = new Map<number, number>();
 
-  await db.transaction(async (tx) => {
+  await db.transaction(async (tx: typeof db) => {
     for (const op of ops) {
       if (today.getDate() >= op.dayOfMonth) {
         const opDesc = decrypt(op.description);
