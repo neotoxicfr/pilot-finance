@@ -49,7 +49,8 @@ export async function authenticate(formData: FormData, isRegister: boolean) {
     return { error: validation.error.issues[0].message };
   }
 
-  const { email, password, twoFactorCode } = validation.data;
+  const { email, password } = validation.data;
+  const twoFactorCode = isRegister ? undefined : (validation.data as { twoFactorCode?: string }).twoFactorCode;
   const emailIndex = computeBlindIndex(email);
 
   if (isRegister) {
