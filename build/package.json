@@ -27,6 +27,7 @@
     "@simplewebauthn/browser": "13.2.2",
     "@simplewebauthn/server": "13.2.2",
     "@simplewebauthn/types": "12.0.0",
+    "@tailwindcss/postcss": "4.1.18",
     "argon2": "^0.44.0",
     "autoprefixer": "10.4.23",
     "bcryptjs": "3.0.3",
@@ -49,10 +50,10 @@
     "recharts": "3.7.0",
     "tailwind-merge": "3.4.0",
     "tailwindcss": "4.1.18",
-    "@tailwindcss/postcss": "4.1.18",
     "zod": "4.3.6"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.1.6",
     "@types/better-sqlite3": "7.6.13",
     "@types/node": "25.0.10",
     "@types/nodemailer": "7.0.5",
