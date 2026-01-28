@@ -8,11 +8,19 @@ import { TrendingUp, PiggyBank, LayoutDashboard, ShieldCheck } from "lucide-reac
 const ProjectionChart = lazy(() => import('@/src/components/ProjectionChart'));
 const BalancePieChart = lazy(() => import('@/src/components/BalancePieChart'));
 
-// Skeleton component for chart loading state
-function ChartSkeleton() {
+// Skeleton components for chart loading states
+function ProjectionChartSkeleton() {
   return (
-    <div className="w-full h-full animate-pulse">
-      <div className="h-full w-full bg-accent rounded-xl"></div>
+    <div className="h-[350px] w-full animate-pulse">
+      <div className="h-full w-full bg-accent/50 rounded-xl"></div>
+    </div>
+  );
+}
+
+function PieChartSkeleton() {
+  return (
+    <div className="flex-1 min-h-[300px] animate-pulse">
+      <div className="h-full w-full bg-accent/50 rounded-xl"></div>
     </div>
   );
 }
@@ -75,14 +83,14 @@ export default function Dashboard() {
                   />
               </div>
            </div>
-           <Suspense fallback={<ChartSkeleton />}>
+           <Suspense fallback={<ProjectionChartSkeleton />}>
              <ProjectionChart projection={projection} accounts={accounts} formatMoney={formatMoney} />
            </Suspense>
         </div>
         {}
         <div className="dashboard-card bg-background border rounded-2xl p-6 flex flex-col">
            <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2"><LayoutDashboard size={18} className="text-muted-foreground"/> Répartition</h3>
-           <Suspense fallback={<ChartSkeleton />}>
+           <Suspense fallback={<PieChartSkeleton />}>
              <BalancePieChart pieData={pieData} totalBalance={totalBalance} formatMoney={formatMoney} />
            </Suspense>
         </div>
