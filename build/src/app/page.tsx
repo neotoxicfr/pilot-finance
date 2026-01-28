@@ -29,20 +29,6 @@ export default function Dashboard() {
   const pieData = accounts.filter((a:any) => a.balance > 0).map((a:any) => ({ name: a.name, value: a.balance, color: a.color }));
   return (
     <main className="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8">
-      <style jsx global>{`
-        .recharts-sector:focus, .recharts-wrapper:focus, .recharts-surface:focus { outline: none !important; }
-        .dashboard-card { border-color: var(--border) !important; }
-        input[type='range']::-webkit-slider-thumb {
-          appearance: none;
-          width: 18px;
-          height: 18px;
-          background: #3b82f6;
-          border-radius: 50%;
-          cursor: pointer;
-          border: 2px solid var(--background);
-          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
-      `}</style>
       {}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
          <div className="dashboard-card bg-background border p-6 rounded-2xl relative overflow-hidden transition-colors">
