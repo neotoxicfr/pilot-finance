@@ -52,7 +52,7 @@ function LoginForm() {
         return;
       }
       const asseResp = await startAuthentication({ optionsJSON: options as any });
-      const verification = await loginPasskeyFinish(asseResp);
+      const verification = await loginPasskeyFinish(asseResp as any);
       if (verification.success) {
         window.location.href = "/";
       } else {
