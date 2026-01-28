@@ -191,7 +191,7 @@ export async function checkRecurringOperations() {
   const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
   const accountIds = new Set<number>();
-  ops.forEach(op => {
+  ops.forEach((op: any) => {
     accountIds.add(op.accountId);
     if (op.toAccountId) accountIds.add(op.toAccountId);
   });
