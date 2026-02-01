@@ -87,8 +87,9 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if user.MFAEnabled {
 		if twoFactorCode == "" {
 			// Utiliser HX-Trigger pour que Alpine.js affiche le champ 2FA
+			// Note: Alpine écoute en minuscules
 			w.Header().Set("HX-Reswap", "none")
-			w.Header().Set("HX-Trigger", "requires2FA")
+			w.Header().Set("HX-Trigger", "requires2fa")
 			w.WriteHeader(http.StatusOK)
 			return
 		}
