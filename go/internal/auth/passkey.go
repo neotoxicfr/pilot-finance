@@ -2,6 +2,7 @@
 package auth
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -74,19 +75,25 @@ func BeginRegistration(user *PasskeyUser) (*protocol.CredentialCreation, string,
 		return nil, "", err
 	}
 
-	// Sérialiser la session pour stockage en cookie
+	// Sérialiser la session et encoder en base64 pour le cookie
 	sessionData, err := json.Marshal(session)
 	if err != nil {
 		return nil, "", err
 	}
 
-	return options, string(sessionData), nil
+	return options, base64.StdEncoding.EncodeToString(sessionData), nil
 }
 
 // FinishRegistration termine l'enregistrement d'une passkey
-func FinishRegistration(user *PasskeyUser, sessionDataJSON string, response *protocol.ParsedCredentialCreationData) (*webauthn.Credential, error) {
+func FinishRegistration(user *PasskeyUser, sessionDataBase64 string, response *protocol.ParsedCredentialCreationData) (*webauthn.Credential, error) {
+	// Décoder depuis base64
+	sessionDataJSON, err := base64.StdEncoding.DecodeString(sessionDataBase64)
+	if err != nil {
+		return nil, err
+	}
+
 	var session webauthn.SessionData
-	if err := json.Unmarshal([]byte(sessionDataJSON), &session); err != nil {
+	if err := json.Unmarshal(sessionDataJSON, &session); err != nil {
 		return nil, err
 	}
 
@@ -112,14 +119,20 @@ func BeginLogin() (*protocol.CredentialAssertion, string, error) {
 		return nil, "", err
 	}
 
-	return options, string(sessionData), nil
+	return options, base64.StdEncoding.EncodeToString(sessionData), nil
 }
 
 // FinishLogin termine l'authentification par passkey
 // Utilise la nouvelle API go-webauthn v0.10+
-func FinishLogin(sessionDataJSON string, r *http.Request, userHandler func(rawID, userHandle []byte) (webauthn.User, error)) (*PasskeyUser, *webauthn.Credential, error) {
+func FinishLogin(sessionDataBase64 string, r *http.Request, userHandler func(rawID, userHandle []byte) (webauthn.User, error)) (*PasskeyUser, *webauthn.Credential, error) {
+	// Décoder depuis base64
+	sessionDataJSON, err := base64.StdEncoding.DecodeString(sessionDataBase64)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	var session webauthn.SessionData
-	if err := json.Unmarshal([]byte(sessionDataJSON), &session); err != nil {
+	if err := json.Unmarshal(sessionDataJSON, &session); err != nil {
 		return nil, nil, err
 	}
 
