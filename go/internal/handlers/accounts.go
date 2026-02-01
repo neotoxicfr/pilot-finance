@@ -13,7 +13,7 @@ import (
 	"pilot-finance/internal/templates"
 )
 
-// CreateAccount cree un nouveau compte
+// CreateAccount cree ou met a jour un compte
 func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
@@ -26,6 +26,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	idStr := r.FormValue("id")
 	name := r.FormValue("name")
 	balanceStr := r.FormValue("balance")
 	color := r.FormValue("color")
@@ -49,20 +50,32 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		color = "#3b82f6"
 	}
 
-	// Recuperer la position max
-	accounts, _ := db.GetAccountsByUserID(user.ID)
-	position := len(accounts)
+	// Si un ID est fourni, c'est une mise a jour
+	if idStr != "" {
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			http.Error(w, "ID invalide", http.StatusBadRequest)
+			return
+		}
+		err = db.UpdateAccount(id, user.ID, name, balance, color)
+		if err != nil {
+			http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		// Creation d'un nouveau compte
+		accounts, _ := db.GetAccountsByUserID(user.ID)
+		position := len(accounts)
 
-	err := db.CreateAccount(user.ID, name, balance, color, position)
-	if err != nil {
-		http.Error(w, "Erreur creation", http.StatusInternalServerError)
-		return
+		err := db.CreateAccount(user.ID, name, balance, color, position)
+		if err != nil {
+			http.Error(w, "Erreur creation", http.StatusInternalServerError)
+			return
+		}
 	}
 
-	// Retourner la liste mise a jour
-	accounts, _ = db.GetAccountsByUserID(user.ID)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(accounts)
+	// Retourner la liste mise a jour en HTML
+	renderAccountsList(w, user.ID)
 }
 
 // UpdateAccount met a jour un compte
@@ -124,10 +137,8 @@ func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Retourner la liste mise a jour
-	accounts, _ := db.GetAccountsByUserID(user.ID)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(accounts)
+	// Retourner la liste mise a jour en HTML
+	renderAccountsList(w, user.ID)
 }
 
 // UpdateBalance met a jour le solde d'un compte

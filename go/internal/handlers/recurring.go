@@ -1,17 +1,18 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
+	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
+	"pilot-finance/internal/templates"
 )
 
-// CreateRecurring cree une operation recurrente
+// CreateRecurring cree ou met a jour une operation recurrente
 func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
@@ -24,6 +25,7 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	idStr := r.FormValue("id")
 	description := r.FormValue("description")
 	amountStr := r.FormValue("amount")
 	dayStr := r.FormValue("dayOfMonth")
@@ -62,20 +64,35 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Ajuster le signe selon le type
-	if opType == "expense" {
+	if opType == "expense" && amount > 0 {
+		amount = -amount
+	} else if opType == "income" && amount < 0 {
 		amount = -amount
 	}
 
-	err = db.CreateRecurring(user.ID, accountID, toAccountID, description, amount, day)
-	if err != nil {
-		http.Error(w, "Erreur creation", http.StatusInternalServerError)
-		return
+	// Si un ID est fourni, c'est une mise a jour
+	if idStr != "" {
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			http.Error(w, "ID invalide", http.StatusBadRequest)
+			return
+		}
+		err = db.UpdateRecurring(id, user.ID, description, amount, day, toAccountID)
+		if err != nil {
+			http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		// Creation
+		err = db.CreateRecurring(user.ID, accountID, toAccountID, description, amount, day)
+		if err != nil {
+			http.Error(w, "Erreur creation", http.StatusInternalServerError)
+			return
+		}
 	}
 
-	// Retourner la liste mise a jour
-	recurrings, _ := db.GetRecurringByUserID(user.ID)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(recurrings)
+	// Retourner la liste mise a jour en HTML
+	renderRecurringTable(w, user.ID)
 }
 
 // UpdateRecurring met a jour une operation recurrente
@@ -149,8 +166,23 @@ func DeleteRecurring(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Retourner la liste mise a jour
-	recurrings, _ := db.GetRecurringByUserID(user.ID)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(recurrings)
+	// Retourner la liste mise a jour en HTML
+	renderRecurringTable(w, user.ID)
+}
+
+// renderRecurringTable rend le tableau des operations recurrentes en HTML
+func renderRecurringTable(w http.ResponseWriter, userID int64) {
+	recurrings, _ := db.GetRecurringByUserID(userID)
+
+	// Dechiffrer les descriptions
+	for i := range recurrings {
+		if decrypted, err := crypto.Decrypt(recurrings[i].Description); err == nil {
+			recurrings[i].Description = decrypted
+		}
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	templates.RenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{
+		"Recurrings": recurrings,
+	})
 }
