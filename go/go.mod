@@ -4,6 +4,7 @@ go 1.25
 
 require (
 	github.com/go-chi/chi/v5 v5.2.3
+	github.com/go-chi/httprate v0.14.1
 	github.com/go-webauthn/webauthn v0.12.3
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/pquerna/otp v1.4.0
@@ -13,6 +14,7 @@ require (
 
 require (
 	github.com/boombuler/barcode v1.0.2 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fxamacker/cbor/v2 v2.8.0 // indirect
 	github.com/go-webauthn/x v0.1.20 // indirect
