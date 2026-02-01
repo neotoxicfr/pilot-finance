@@ -35,8 +35,9 @@ WORKDIR /app
 # Copier le binaire
 COPY --from=builder /server /app/server
 
-# Copier les fichiers statiques
+# Copier les fichiers statiques et templates
 COPY static /app/static
+COPY templates /app/templates
 
 # Permissions
 RUN chown -R appuser:appuser /app
