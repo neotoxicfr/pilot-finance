@@ -8,6 +8,7 @@ import (
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
+	"pilot-finance/internal/projection"
 	"pilot-finance/internal/templates"
 )
 
@@ -74,10 +75,13 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var totalBalance float64
+	// Calculer les projections avec interets composes
+	years := 5
+	projData := projection.Calculate(accounts, years)
+
+	// Donnees pour le graphique camembert
 	var pieData []map[string]interface{}
 	for _, acc := range accounts {
-		totalBalance += acc.Balance
 		if acc.Balance > 0 {
 			pieData = append(pieData, map[string]interface{}{
 				"name":  acc.Name,
@@ -87,8 +91,11 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	years := 5
-	projectionTotal := totalBalance * 1.05
+	// Projection finale (annee N)
+	var projectionTotal float64
+	if len(projData.Projection) > 0 {
+		projectionTotal = projData.Projection[len(projData.Projection)-1].TotalAvg
+	}
 
 	email, _ := crypto.Decrypt(user.EmailEncrypted)
 
@@ -96,11 +103,11 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 		"Title":           "Dashboard",
 		"User":            map[string]interface{}{"ID": user.ID, "Email": email, "Role": user.Role},
 		"Accounts":        accounts,
-		"TotalBalance":    totalBalance,
-		"TotalInterests":  0.0,
+		"TotalBalance":    projData.TotalBalance,
+		"TotalInterests":  projData.TotalInterests,
 		"Years":           years,
 		"ProjectionTotal": projectionTotal,
-		"ProjectionData":  []map[string]interface{}{},
+		"ProjectionData":  projData.Projection,
 		"PieData":         pieData,
 	}
 
