@@ -40,10 +40,20 @@ pilot-finance/
 └── README.md
 ```
 
-## Branches Git
+## Branches Git et Workflow
 
-- **main** : Production stable
-- **develop** : Développement actif (merger ici d'abord)
+**IMPORTANT** : Cette app est **publique** sur GitHub. L'image Docker est buildée automatiquement à chaque push sur main.
+
+- **main** : Production stable - **NE JAMAIS push directement dessus**
+- **develop** : Développement actif
+
+### Workflow obligatoire
+
+1. **Toujours travailler sur `develop`**
+2. **Tester les modifications** avant de merger
+3. **Quand tout est prêt** : créer une PR develop → main (ou merger localement)
+4. **Après le merge sur main** : créer un tag vX.X.X et une release GitHub
+5. **Ne pas merger sur main pour des petits fix** - les grouper en version cohérente
 
 ## Variables d'environnement clés
 
@@ -108,3 +118,11 @@ npm run test
 # Analyse bundle
 ANALYZE=true npm run build
 ```
+
+## Règles pour Claude
+
+1. **Git** : Ne JAMAIS push directement sur main. Travailler sur develop uniquement.
+2. **Langue** : Toute la documentation et les commits doivent être en français.
+3. **Versions** : Ne pas incrémenter la version pour chaque petit fix. Grouper les changements.
+4. **Release** : Une release = une version testée et validée par l'utilisateur.
+5. **Apprentissage** : Quand une nouvelle méthode de travail est définie, mettre à jour ce fichier.
