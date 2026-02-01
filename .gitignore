@@ -32,3 +32,8 @@ CLAUDE.md
 [Nn][Uu][Ll]
 *.tmp
 *.bak
+
+# Go
+go/server
+go/*.exe
+go/vendor/
