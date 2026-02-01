@@ -10,7 +10,8 @@ import (
 	"strings"
 )
 
-var templates *template.Template
+// pageTemplates stocke un template combiné (base + components + page) pour chaque page
+var pageTemplates = make(map[string]*template.Template)
 
 // FuncMap contient les fonctions personnalisees pour les templates
 var FuncMap = template.FuncMap{
@@ -30,50 +31,75 @@ var FuncMap = template.FuncMap{
 
 // Init charge tous les templates depuis le dossier templates
 func Init(templatesDir string) error {
-	templates = template.New("").Funcs(FuncMap)
+	// Trouver tous les fichiers de base (layouts + components)
+	baseFiles := []string{}
 
-	// Charger tous les fichiers HTML
-	patterns := []string{
-		filepath.Join(templatesDir, "layouts", "*.html"),
-		filepath.Join(templatesDir, "components", "*.html"),
-		filepath.Join(templatesDir, "pages", "*.html"),
+	layoutFiles, err := filepath.Glob(filepath.Join(templatesDir, "layouts", "*.html"))
+	if err != nil {
+		return err
+	}
+	baseFiles = append(baseFiles, layoutFiles...)
+
+	componentFiles, err := filepath.Glob(filepath.Join(templatesDir, "components", "*.html"))
+	if err != nil {
+		return err
+	}
+	baseFiles = append(baseFiles, componentFiles...)
+
+	// Trouver toutes les pages
+	pageFiles, err := filepath.Glob(filepath.Join(templatesDir, "pages", "*.html"))
+	if err != nil {
+		return err
 	}
 
-	for _, pattern := range patterns {
-		files, err := filepath.Glob(pattern)
+	// Pour chaque page, créer un template combiné
+	for _, pageFile := range pageFiles {
+		pageName := filepath.Base(pageFile)
+
+		// Créer un nouveau template avec les fonctions
+		tmpl := template.New("").Funcs(FuncMap)
+
+		// Parser tous les fichiers de base
+		for _, baseFile := range baseFiles {
+			content, err := os.ReadFile(baseFile)
+			if err != nil {
+				return fmt.Errorf("erreur lecture %s: %v", baseFile, err)
+			}
+			baseName := filepath.Base(baseFile)
+			_, err = tmpl.New(baseName).Parse(string(content))
+			if err != nil {
+				return fmt.Errorf("erreur parsing %s: %v", baseName, err)
+			}
+		}
+
+		// Parser la page (qui définit le bloc "content")
+		pageContent, err := os.ReadFile(pageFile)
 		if err != nil {
-			return err
+			return fmt.Errorf("erreur lecture %s: %v", pageFile, err)
 		}
 
-		for _, file := range files {
-			content, err := os.ReadFile(file)
-			if err != nil {
-				return err
-			}
-
-			name := filepath.Base(file)
-			_, err = templates.New(name).Parse(string(content))
-			if err != nil {
-				return fmt.Errorf("erreur parsing %s: %v", name, err)
-			}
+		// Parser le contenu de la page dans le template
+		_, err = tmpl.New(pageName).Parse(string(pageContent))
+		if err != nil {
+			return fmt.Errorf("erreur parsing %s: %v", pageName, err)
 		}
+
+		pageTemplates[pageName] = tmpl
 	}
 
 	return nil
 }
 
 // Render affiche un template avec les donnees fournies
+// Il exécute base.html qui inclut automatiquement le bloc "content" de la page
 func Render(w io.Writer, name string, data interface{}) error {
-	return templates.ExecuteTemplate(w, name, data)
-}
-
-// RenderPage affiche une page complete avec le layout de base
-func RenderPage(w io.Writer, pageName string, data map[string]interface{}) error {
-	pageTemplate := templates.Lookup(pageName)
-	if pageTemplate == nil {
-		return fmt.Errorf("template %s not found", pageName)
+	tmpl, ok := pageTemplates[name]
+	if !ok {
+		return fmt.Errorf("template %s not found", name)
 	}
-	return templates.ExecuteTemplate(w, "base.html", data)
+
+	// Exécuter base.html qui va inclure {{template "content" .}}
+	return tmpl.ExecuteTemplate(w, "base.html", data)
 }
 
 // formatMoney formate un montant en euros
@@ -161,7 +187,7 @@ func add(a, b float64) float64  { return a + b }
 func sub(a, b float64) float64  { return a - b }
 
 // Fonctions de comparaison
-func ge(a, b float64) bool        { return a >= b }
-func gt(a, b float64) bool        { return a > b }
+func ge(a, b float64) bool         { return a >= b }
+func gt(a, b float64) bool         { return a > b }
 func eqFunc(a, b interface{}) bool { return a == b }
 func neFunc(a, b interface{}) bool { return a != b }
