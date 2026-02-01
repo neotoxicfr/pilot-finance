@@ -1,0 +1,2 @@
+# CSS Tailwind compilé sera ici
+# output.css (généré par: npx tailwindcss -i input.css -o output.css --minify)
