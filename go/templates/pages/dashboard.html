@@ -87,109 +87,12 @@
 <div class="h-full w-full">
     <canvas id="projectionCanvas"></canvas>
 </div>
+<script id="projection-data" type="application/json">{{.ProjectionData | json}}</script>
 <script>
 (function() {
-    const ctx = document.getElementById('projectionCanvas');
-    if (!ctx || typeof Chart === 'undefined') return;
-
-    // Detruire le graphique existant si present
-    if (window.projectionChart) {
-        window.projectionChart.destroy();
-    }
-
-    const data = {{.ProjectionData | json}};
-
-    if (!data || data.length === 0) {
-        ctx.parentElement.innerHTML = '<div class="h-full flex items-center justify-center text-muted-foreground">Aucune donnee</div>';
-        return;
-    }
-
-    const isDark = document.documentElement.classList.contains('dark');
-    const gridColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.1)';
-    const textColor = isDark ? '#94a3b8' : '#64748b';
-
-    window.projectionChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: data.map(d => d.name || ('An ' + d.year)),
-            datasets: [{
-                label: 'Projection moyenne',
-                data: data.map(d => d.totalAvg),
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                borderWidth: 3,
-                fill: true,
-                tension: 0.3,
-                pointRadius: 4,
-                pointBackgroundColor: '#3b82f6',
-                pointBorderColor: isDark ? '#0f172a' : '#ffffff',
-                pointBorderWidth: 2,
-                pointHoverRadius: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'index'
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                    titleColor: isDark ? '#f1f5f9' : '#0f172a',
-                    bodyColor: isDark ? '#cbd5e1' : '#475569',
-                    borderColor: isDark ? '#334155' : '#e2e8f0',
-                    borderWidth: 1,
-                    padding: 12,
-                    displayColors: false,
-                    callbacks: {
-                        label: function(context) {
-                            return new Intl.NumberFormat('fr-FR', {
-                                style: 'currency',
-                                currency: 'EUR',
-                                maximumFractionDigits: 0
-                            }).format(context.raw);
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    grid: {
-                        color: gridColor,
-                        drawBorder: false
-                    },
-                    ticks: {
-                        color: textColor,
-                        font: { size: 11 }
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    grid: {
-                        color: gridColor,
-                        drawBorder: false
-                    },
-                    ticks: {
-                        color: textColor,
-                        font: { size: 11 },
-                        callback: function(value) {
-                            return new Intl.NumberFormat('fr-FR', {
-                                style: 'currency',
-                                currency: 'EUR',
-                                notation: 'compact',
-                                maximumFractionDigits: 0
-                            }).format(value);
-                        }
-                    }
-                }
-            }
-        }
-    });
+    setTimeout(function() {
+        window.initProjectionChart && window.initProjectionChart();
+    }, 10);
 })();
 </script>
 {{end}}
@@ -205,79 +108,12 @@
     </div>
     <div id="pieLegend" class="mt-4 flex flex-wrap justify-center gap-2"></div>
 </div>
+<script id="pie-data" type="application/json">{{.PieData | json}}</script>
 <script>
 (function() {
-    const ctx = document.getElementById('pieCanvas');
-    if (!ctx || typeof Chart === 'undefined') return;
-
-    // Detruire le graphique existant si present
-    if (window.pieChart) {
-        window.pieChart.destroy();
-    }
-
-    const accounts = {{.PieData | json}};
-    const isDark = document.documentElement.classList.contains('dark');
-
-    if (!accounts || accounts.length === 0) {
-        ctx.parentElement.querySelector('.absolute').innerHTML = `
-            <div class="text-muted-foreground text-sm">Aucun compte</div>
-        `;
-        return;
-    }
-
-    window.pieChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: accounts.map(a => a.name),
-            datasets: [{
-                data: accounts.map(a => a.value),
-                backgroundColor: accounts.map(a => a.color),
-                borderColor: isDark ? '#0f172a' : '#ffffff',
-                borderWidth: 3,
-                hoverOffset: 8
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            cutout: '65%',
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                    titleColor: isDark ? '#f1f5f9' : '#0f172a',
-                    bodyColor: isDark ? '#cbd5e1' : '#475569',
-                    borderColor: isDark ? '#334155' : '#e2e8f0',
-                    borderWidth: 1,
-                    padding: 12,
-                    callbacks: {
-                        label: function(context) {
-                            const value = new Intl.NumberFormat('fr-FR', {
-                                style: 'currency',
-                                currency: 'EUR',
-                                maximumFractionDigits: 0
-                            }).format(context.raw);
-                            const percent = ((context.raw / context.dataset.data.reduce((a, b) => a + b, 0)) * 100).toFixed(1);
-                            return `${value} (${percent}%)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-
-    // Legende personnalisee
-    const legendContainer = document.getElementById('pieLegend');
-    if (legendContainer) {
-        legendContainer.innerHTML = accounts.map(a => `
-            <div class="flex items-center gap-1.5 text-xs">
-                <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${a.color}"></span>
-                <span class="text-muted-foreground">${a.name}</span>
-            </div>
-        `).join('');
-    }
+    setTimeout(function() {
+        window.initPieChart && window.initPieChart();
+    }, 10);
 })();
 </script>
 {{end}}
