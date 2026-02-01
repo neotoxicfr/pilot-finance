@@ -1,5 +1,5 @@
-/* Tailwind CSS 4 - Variables et styles de base */
-@import "https://cdn.tailwindcss.com";
+/* Pilot Finance - Variables et styles de base */
+/* Tailwind CSS est chargé via CDN dans base.html */
 
 /* Theme Variables */
 :root {
