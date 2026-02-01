@@ -16,6 +16,7 @@ import (
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/handlers"
+	"pilot-finance/internal/mail"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/templates"
 )
@@ -56,6 +57,13 @@ func main() {
 	}
 	log.Println("✓ Templates chargés")
 
+	// Initialiser le mail (optionnel)
+	if err := mail.Init(); err != nil {
+		log.Printf("⚠ Mail non configuré: %v", err)
+	} else if mail.IsEnabled() {
+		log.Println("✓ Mail configuré")
+	}
+
 	// Créer le routeur
 	r := chi.NewRouter()
 
@@ -77,6 +85,12 @@ func main() {
 	r.Post("/logout", handlers.Logout)
 	r.Get("/api/health", handlers.HealthCheck)
 
+	// Routes mot de passe oublié
+	r.Get("/forgot-password", handlers.ForgotPasswordPage)
+	r.Post("/forgot-password", handlers.ForgotPasswordSubmit)
+	r.Get("/reset-password", handlers.ResetPasswordPage)
+	r.Post("/reset-password", handlers.ResetPasswordSubmit)
+
 	// Routes protégées
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireAuth)
@@ -95,6 +109,11 @@ func main() {
 
 		r.Get("/settings", handlers.SettingsPage)
 		r.Post("/settings/password", handlers.ChangePassword)
+
+		// API endpoints
+		r.Get("/api/dashboard", handlers.DashboardAPI)
+		r.Get("/api/accounts", handlers.AccountsAPI)
+		r.Get("/api/recurring", handlers.RecurringAPI)
 	})
 
 	// Routes admin
