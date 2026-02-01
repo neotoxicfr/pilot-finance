@@ -16,7 +16,7 @@ func LoginPage(w http.ResponseWriter, r *http.Request) {
 	data := map[string]interface{}{
 		"Title":          "Connexion",
 		"CanRegister":    os.Getenv("ALLOW_REGISTER") == "true",
-		"CanUsePasskeys": os.Getenv("PASSKEY_RP_ID") != "",
+		"CanUsePasskeys": os.Getenv("HOST") != "",
 		"MailEnabled":    os.Getenv("SMTP_HOST") != "",
 		"ResetSuccess":   r.URL.Query().Get("reset") == "success",
 	}
@@ -171,7 +171,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"Title":           "Parametres",
 		"User":            map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role},
 		"MFAEnabled":      mfaEnabled,
-		"PasskeysEnabled": os.Getenv("PASSKEY_RP_ID") != "",
+		"PasskeysEnabled": os.Getenv("HOST") != "",
 		"Passkeys":        []interface{}{},
 		"IsAdmin":         isAdmin,
 		"IsRegisterOpen":  os.Getenv("ALLOW_REGISTER") == "true",
