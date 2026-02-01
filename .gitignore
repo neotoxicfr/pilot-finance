@@ -21,3 +21,13 @@ out/
 .DS_Store
 *.log
 .claude/
+
+# IDE et éditeurs
+*.code-workspace
+.vscode/
+.idea/
+
+# Fichiers temporaires Windows
+[Nn][Uu][Ll]
+*.tmp
+*.bak
