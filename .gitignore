@@ -21,6 +21,7 @@ out/
 .DS_Store
 *.log
 .claude/
+CLAUDE.md
 
 # IDE et éditeurs
 *.code-workspace
