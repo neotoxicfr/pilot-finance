@@ -1,0 +1,136 @@
+{{define "content"}}
+<div class="min-h-screen bg-accent/20 flex flex-col items-center justify-center p-4">
+    <div class="dashboard-card bg-background border rounded-2xl p-8 w-full max-w-sm transition-all"
+         x-data="{
+            isRegister: false,
+            requires2FA: false,
+            loading: false,
+            error: '',
+            success: ''
+         }">
+        <div class="flex flex-col items-center mb-8">
+            <div class="bg-background border border-border p-4 rounded-full mb-4">
+                {{template "brand-logo" dict "Size" 42 "WithText" false}}
+            </div>
+            <h1 class="text-2xl font-bold text-foreground mb-1 text-center">Pilot Finance</h1>
+            <p class="text-muted-foreground text-sm text-center">Votre cockpit financier personnel</p>
+        </div>
+
+        {{if .ResetSuccess}}
+        <div class="mb-6 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center text-emerald-600 dark:text-emerald-400 text-sm font-bold">
+            Mot de passe reinitialise !
+        </div>
+        {{end}}
+
+        {{if .Error}}
+        <div class="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center text-red-600 dark:text-red-400 text-sm font-bold flex items-center justify-center gap-2">
+            {{template "icon-alert" dict "Size" 16}} {{.Error}}
+        </div>
+        {{end}}
+
+        {{if .CanUsePasskeys}}
+        <template x-if="!isRegister && !requires2FA">
+            <div>
+                <button hx-post="/api/passkey/login/start"
+                        hx-swap="none"
+                        class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl mb-6 flex items-center justify-center gap-2 transition-all">
+                    {{template "icon-fingerprint" dict "Size" 20}} Se connecter avec Passkey
+                </button>
+                <div class="relative flex py-2 items-center mb-6">
+                    <div class="flex-grow border-t border-border"></div>
+                    <span class="flex-shrink-0 mx-4 text-muted-foreground text-xs uppercase font-bold">Ou via email</span>
+                    <div class="flex-grow border-t border-border"></div>
+                </div>
+            </div>
+        </template>
+        {{end}}
+
+        <form hx-post="/login"
+              hx-target="body"
+              hx-swap="outerHTML"
+              @htmx:before-request="loading = true; error = ''"
+              @htmx:after-request="loading = false"
+              class="space-y-4">
+
+            <template x-if="!requires2FA">
+                <div class="space-y-4">
+                    <div class="relative group">
+                        <div class="absolute left-3 top-3 text-muted-foreground group-focus-within:text-blue-500 transition-colors">
+                            {{template "icon-mail" dict "Size" 18}}
+                        </div>
+                        <input name="email" type="email" required
+                               class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-none focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
+                               placeholder="Email">
+                    </div>
+                    <div>
+                        {{if .MailEnabled}}
+                        <div class="flex justify-end mb-2 px-1">
+                            <a href="/forgot-password" class="text-[10px] text-blue-500 hover:text-blue-400 font-medium">Mot de passe oublie ?</a>
+                        </div>
+                        {{end}}
+                        <div class="relative group">
+                            <div class="absolute left-3 top-3 text-muted-foreground group-focus-within:text-blue-500 transition-colors">
+                                {{template "icon-lock" dict "Size" 18}}
+                            </div>
+                            <input name="password" type="password" required
+                                   class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-none focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
+                                   placeholder="Mot de passe">
+                        </div>
+                    </div>
+
+                    <template x-if="isRegister">
+                        <div class="relative group">
+                            <div class="absolute left-3 top-3 text-muted-foreground group-focus-within:text-blue-500 transition-colors">
+                                {{template "icon-check" dict "Size" 18}}
+                            </div>
+                            <input name="confirmPassword" type="password" required
+                                   class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-none focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
+                                   placeholder="Confirmation">
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <template x-if="requires2FA">
+                <div class="bg-blue-500/5 p-4 rounded-xl border border-blue-500/20">
+                    <div class="flex items-center gap-2 text-blue-500 font-bold text-sm mb-3">
+                        {{template "icon-shield" dict "Size" 18}} Code Authenticator
+                    </div>
+                    <input name="twoFactorCode" type="text" inputmode="numeric" maxlength="6" autofocus required
+                           class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none text-center text-xl tracking-[0.5em] font-mono focus:border-blue-500 transition-colors"
+                           placeholder="000000">
+                    <p class="text-[10px] text-muted-foreground text-center mt-2">Entrez le code a 6 chiffres.</p>
+                </div>
+            </template>
+
+            <input type="hidden" name="action" :value="isRegister ? 'register' : 'login'">
+
+            <button type="submit"
+                    :disabled="loading"
+                    class="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all mt-2 flex items-center justify-center gap-2">
+                <span x-show="loading">Chargement...</span>
+                <span x-show="!loading && requires2FA">Verifier</span>
+                <span x-show="!loading && !requires2FA && isRegister">Creer un compte</span>
+                <span x-show="!loading && !requires2FA && !isRegister">Se connecter</span>
+                <template x-if="!loading">{{template "icon-arrow-right" dict "Size" 18}}</template>
+            </button>
+        </form>
+
+        {{if .CanRegister}}
+        <template x-if="!requires2FA">
+            <div class="mt-6 pt-6 border-t border-border text-center">
+                <button @click="isRegister = !isRegister; error = ''"
+                        class="text-xs text-muted-foreground hover:text-foreground transition-colors font-medium">
+                    <span x-show="isRegister">J'ai deja un compte ? Se connecter</span>
+                    <span x-show="!isRegister">Pas encore de compte ? S'inscrire</span>
+                </button>
+            </div>
+        </template>
+        {{end}}
+    </div>
+
+    <div class="mt-8 text-center text-[10px] text-muted-foreground uppercase tracking-widest opacity-50">
+        Securise par chiffrement AES-256
+    </div>
+</div>
+{{end}}

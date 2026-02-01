@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr" x-data="{ darkMode: localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches) }" :class="{ 'dark': darkMode }">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Pilot">
+    <title>{{if .Title}}{{.Title}} - {{end}}Pilot Finance</title>
+    <meta name="description" content="Cockpit financier personnel">
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
+    <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/static/apple-icon.png">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="stylesheet" href="/static/css/app.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"></script>
+</head>
+<body class="font-sans antialiased min-h-screen flex flex-col bg-background text-foreground" x-init="$watch('darkMode', val => localStorage.setItem('theme', val ? 'dark' : 'light'))">
+    {{if .User}}
+    <nav class="border-b border-border bg-background/50 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-[1400px] mx-auto px-2 sm:px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3 sm:gap-8">
+                <a href="/" class="hover:opacity-80 transition-opacity flex-shrink-0">
+                    {{template "brand-logo" dict "Size" 28}}
+                </a>
+                <div class="flex items-center gap-1">
+                    <a href="/" class="flex items-center gap-2 px-2 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-accent rounded-lg transition-all">
+                        {{template "icon-dashboard" dict "Size" 20}}
+                        <span class="hidden lg:inline">Dashboard</span>
+                    </a>
+                    <a href="/accounts" class="flex items-center gap-2 px-2 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-accent rounded-lg transition-all">
+                        {{template "icon-wallet" dict "Size" 20}}
+                        <span class="hidden lg:inline">Comptes</span>
+                    </a>
+                </div>
+            </div>
+            <div class="flex items-center gap-1 sm:gap-2">
+                <button @click="darkMode = !darkMode" class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-all" title="Changer le thème">
+                    <template x-if="darkMode">{{template "icon-sun" dict "Size" 20}}</template>
+                    <template x-if="!darkMode">{{template "icon-moon" dict "Size" 20}}</template>
+                </button>
+                <div class="h-4 w-px bg-border mx-0.5"></div>
+                <a href="/settings" class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-all">
+                    {{template "icon-settings" dict "Size" 20}}
+                </a>
+                <div class="h-4 w-px bg-border mx-0.5"></div>
+                <form action="/logout" method="POST">
+                    <button type="submit" class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all">
+                        {{template "icon-logout" dict "Size" 20}}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </nav>
+    {{end}}
+    <main class="flex-1">
+        {{template "content" .}}
+    </main>
+    {{template "htmx-config"}}
+</body>
+</html>
+
+{{define "htmx-config"}}
+<script>
+document.body.addEventListener('htmx:beforeSwap', function(evt) {
+    if (evt.detail.xhr.status === 401) {
+        window.location.href = '/login';
+    }
+});
+</script>
+{{end}}
