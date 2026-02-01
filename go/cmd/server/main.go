@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httprate"
 
 	"pilot-finance/internal/auth"
 	"pilot-finance/internal/config"
@@ -79,35 +80,39 @@ func main() {
 	r := chi.NewRouter()
 
 	// Middlewares globaux
+	r.Use(chimw.RealIP)
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Compress(5))
 	r.Use(securityHeaders)
+	r.Use(httprate.LimitByRealIP(100, time.Minute)) // 100 req/min global
 
-	// Fichiers statiques
+	// Fichiers statiques (pas de rate limit)
 	fileServer := http.FileServer(http.Dir("static"))
 	r.Handle("/static/*", http.StripPrefix("/static/", fileServer))
 
-	// Routes publiques
-	r.Get("/login", handlers.LoginPage)
-	r.Post("/login", handlers.LoginSubmit)
-	r.Get("/register", handlers.RegisterPage)
-	r.Post("/register", handlers.RegisterSubmit)
-	r.Post("/logout", handlers.Logout)
+	// Health check (pas de rate limit strict)
 	r.Get("/api/health", handlers.HealthCheck)
 
-	// Routes mot de passe oublié
-	r.Get("/forgot-password", handlers.ForgotPasswordPage)
-	r.Post("/forgot-password", handlers.ForgotPasswordSubmit)
-	r.Get("/reset-password", handlers.ResetPasswordPage)
-	r.Post("/reset-password", handlers.ResetPasswordSubmit)
+	// Routes auth avec rate limit strict (5 req/min anti-bruteforce)
+	r.Group(func(r chi.Router) {
+		r.Use(httprate.LimitByRealIP(5, time.Minute))
 
-	// Verification email
+		r.Get("/login", handlers.LoginPage)
+		r.Post("/login", handlers.LoginSubmit)
+		r.Get("/register", handlers.RegisterPage)
+		r.Post("/register", handlers.RegisterSubmit)
+		r.Get("/forgot-password", handlers.ForgotPasswordPage)
+		r.Post("/forgot-password", handlers.ForgotPasswordSubmit)
+		r.Get("/reset-password", handlers.ResetPasswordPage)
+		r.Post("/reset-password", handlers.ResetPasswordSubmit)
+		r.Post("/api/passkey/login/start", handlers.PasskeyLoginStart)
+		r.Post("/api/passkey/login/finish", handlers.PasskeyLoginFinish)
+	})
+
+	// Routes publiques sans rate limit strict
+	r.Post("/logout", handlers.Logout)
 	r.Get("/verify-email", handlers.VerifyEmailPage)
-
-	// Routes Passkey (publiques pour le login)
-	r.Post("/api/passkey/login/start", handlers.PasskeyLoginStart)
-	r.Post("/api/passkey/login/finish", handlers.PasskeyLoginFinish)
 
 	// Routes protégées
 	r.Group(func(r chi.Router) {
