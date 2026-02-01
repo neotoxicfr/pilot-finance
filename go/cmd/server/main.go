@@ -17,6 +17,7 @@ import (
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/handlers"
 	"pilot-finance/internal/middleware"
+	"pilot-finance/internal/templates"
 )
 
 func main() {
@@ -48,6 +49,12 @@ func main() {
 	}
 	defer db.Close()
 	log.Println("✓ Base de données connectée")
+
+	// Initialiser les templates
+	if err := templates.Init("templates"); err != nil {
+		log.Fatalf("Erreur templates: %v", err)
+	}
+	log.Println("✓ Templates chargés")
 
 	// Créer le routeur
 	r := chi.NewRouter()
@@ -128,11 +135,11 @@ func main() {
 // securityHeaders ajoute les headers de sécurité
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// CSP compatible Cloudflare
+		// CSP compatible HTMX + Alpine.js
 		w.Header().Set("Content-Security-Policy",
 			"default-src 'self'; "+
-			"script-src 'self' 'unsafe-inline'; "+
-			"style-src 'self' 'unsafe-inline'; "+
+			"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com; "+
+			"style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; "+
 			"img-src 'self' blob: data:; "+
 			"font-src 'self'; "+
 			"connect-src 'self'; "+

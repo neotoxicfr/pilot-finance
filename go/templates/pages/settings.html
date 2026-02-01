@@ -1,0 +1,291 @@
+{{define "content"}}
+<div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8 text-foreground">
+    <!-- Header -->
+    <div class="flex items-center gap-3 border-b border-border pb-4">
+        <span class="text-blue-500">{{template "icon-settings" dict "Size" 32}}</span>
+        <h1 class="text-2xl font-bold text-foreground">Parametres</h1>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="space-y-8">
+            <!-- 2FA Section -->
+            <div class="dashboard-card bg-background border rounded-2xl p-6"
+                 x-data="{ mfaSetup: null, mfaCode: '', mfaError: '', mfaLoading: false }">
+                <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
+                    <span class="text-blue-500">{{template "icon-smartphone" dict "Size" 20}}</span>
+                    Double Authentification (A2F)
+                </h2>
+
+                {{if .MFAEnabled}}
+                <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 flex items-center justify-between">
+                    <div class="flex items-center gap-3 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
+                        {{template "icon-shield" dict "Size" 24}} A2F Active
+                    </div>
+                    <button hx-post="/api/mfa/disable"
+                            hx-confirm="Desactiver l'A2F ?"
+                            hx-target="closest .dashboard-card"
+                            hx-swap="outerHTML"
+                            class="text-xs bg-background hover:bg-red-500/10 text-muted-foreground hover:text-red-500 px-3 py-2 rounded-lg border border-border hover:border-red-500/50 transition-colors">
+                        Desactiver
+                    </button>
+                </div>
+                {{else}}
+                <template x-if="!mfaSetup">
+                    <div class="space-y-4">
+                        <p class="text-sm text-muted-foreground">Protegez votre compte avec un code temporaire (Google Authenticator, Authy...).</p>
+                        <button @click="mfaLoading = true; fetch('/api/mfa/setup').then(r => r.json()).then(d => { mfaSetup = d; mfaLoading = false; })"
+                                :disabled="mfaLoading"
+                                class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all text-sm">
+                            <span x-show="mfaLoading">Chargement...</span>
+                            <span x-show="!mfaLoading">Configurer A2F</span>
+                        </button>
+                    </div>
+                </template>
+                <template x-if="mfaSetup">
+                    <div class="space-y-5">
+                        <div class="text-center bg-white p-4 rounded-xl w-fit mx-auto border border-border">
+                            <img :src="mfaSetup.imageUrl" alt="QR Code A2F" class="w-48 h-48">
+                        </div>
+                        <div class="text-center text-sm text-muted-foreground">Scannez ce QR Code avec votre application.</div>
+                        <div>
+                            <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Code (6 chiffres)</label>
+                            <input type="text" inputmode="numeric" maxlength="6" x-model="mfaCode"
+                                   class="w-full bg-accent/50 border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 text-center text-xl tracking-[0.5em] font-mono transition-colors"
+                                   placeholder="000000">
+                        </div>
+                        <template x-if="mfaError">
+                            <div class="text-red-500 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="mfaError"></div>
+                        </template>
+                        <div class="flex gap-3">
+                            <button @click="mfaSetup = null; mfaCode = ''; mfaError = ''"
+                                    class="flex-1 bg-accent hover:bg-accent/80 text-muted-foreground font-bold py-3 rounded-xl transition-all text-sm">
+                                Annuler
+                            </button>
+                            <button @click="fetch('/api/mfa/enable', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({secret: mfaSetup.secret, code: mfaCode})}).then(r => r.json()).then(d => { if(d.error) mfaError = d.error; else location.reload(); })"
+                                    :disabled="mfaCode.length !== 6"
+                                    class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all text-sm disabled:opacity-50">
+                                Activer
+                            </button>
+                        </div>
+                    </div>
+                </template>
+                {{end}}
+            </div>
+
+            <!-- Passkeys Section -->
+            {{if .PasskeysEnabled}}
+            <div class="dashboard-card bg-background border rounded-2xl p-6"
+                 x-data="{ passkeyLoading: false, passkeyMsg: '' }">
+                <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
+                    <span class="text-purple-500">{{template "icon-fingerprint" dict "Size" 20}}</span>
+                    Passkeys
+                </h2>
+                <p class="text-sm text-muted-foreground mb-4">Cles de securite enregistrees (FaceID, TouchID, YubiKey...).</p>
+
+                {{if .Passkeys}}
+                <div class="space-y-2 mb-6" id="passkeys-list">
+                    {{range .Passkeys}}
+                    <div class="flex items-center justify-between p-3 bg-accent/30 rounded-xl border border-border">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-purple-500/10 text-purple-500 rounded-lg">{{template "icon-fingerprint" dict "Size" 16}}</div>
+                            <div>
+                                <div class="font-bold text-sm text-foreground">{{or .Name "Cle sans nom"}}</div>
+                                <div class="text-[10px] text-muted-foreground uppercase font-bold">
+                                    {{if eq .CredentialDeviceType "singleDevice"}}Physique{{else}}Appareil{{end}}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="renamePasskey({{.ID}}, '{{.Name}}')"
+                                    class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-background rounded-lg transition-colors">
+                                {{template "icon-pencil" dict "Size" 14}}
+                            </button>
+                            <button hx-delete="/api/passkeys/{{.ID}}"
+                                    hx-confirm="Supprimer cette cle ?"
+                                    hx-target="closest .dashboard-card"
+                                    hx-swap="outerHTML"
+                                    class="p-2 text-muted-foreground hover:text-red-500 hover:bg-background rounded-lg transition-colors">
+                                {{template "icon-trash" dict "Size" 14}}
+                            </button>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+                {{end}}
+
+                <template x-if="passkeyMsg">
+                    <div class="mb-4 text-sm font-bold text-center" x-text="passkeyMsg"></div>
+                </template>
+
+                <button @click="registerPasskey()"
+                        :disabled="passkeyLoading"
+                        class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl transition-all text-sm flex items-center justify-center gap-2">
+                    {{template "icon-fingerprint" dict "Size" 18}}
+                    <span x-show="passkeyLoading">Enregistrement...</span>
+                    <span x-show="!passkeyLoading">Ajouter un Passkey</span>
+                </button>
+            </div>
+            {{end}}
+
+            <!-- Password Section -->
+            <div class="dashboard-card bg-background border rounded-2xl p-6"
+                 x-data="{ pwdSuccess: false, pwdError: '', pwdLoading: false }">
+                <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
+                    <span class="text-muted-foreground">{{template "icon-lock" dict "Size" 20}}</span>
+                    Mot de passe
+                </h2>
+
+                <template x-if="pwdSuccess">
+                    <div class="mb-6 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-3 text-emerald-600 dark:text-emerald-400 text-sm">
+                        {{template "icon-check-circle" dict "Size" 20}} Mot de passe modifie !
+                    </div>
+                </template>
+
+                <form hx-post="/api/password"
+                      hx-swap="none"
+                      @htmx:before-request="pwdLoading = true; pwdError = ''; pwdSuccess = false"
+                      @htmx:after-request="pwdLoading = false"
+                      @htmx:response-error="pwdError = event.detail.xhr.responseText"
+                      @htmx:after-settle="if(!event.detail.failed) { pwdSuccess = true; this.reset(); }"
+                      class="space-y-5">
+                    <div>
+                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Actuel</label>
+                        <input name="currentPassword" type="password" required
+                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 transition-colors">
+                    </div>
+                    <div>
+                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Nouveau</label>
+                        <input name="newPassword" type="password" required minlength="8"
+                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 transition-colors">
+                    </div>
+                    <div>
+                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Confirmation</label>
+                        <input name="confirmPassword" type="password" required
+                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 transition-colors">
+                    </div>
+
+                    <template x-if="pwdError">
+                        <div class="text-red-500 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="pwdError"></div>
+                    </template>
+
+                    <button type="submit" :disabled="pwdLoading"
+                            class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all">
+                        <span x-show="pwdLoading">Modification...</span>
+                        <span x-show="!pwdLoading">Changer le mot de passe</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Admin Section -->
+        {{if .IsAdmin}}
+        <div class="space-y-6">
+            <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden">
+                <div class="absolute left-0 top-0 bottom-0 w-1 {{if .IsRegisterOpen}}bg-emerald-500{{else}}bg-red-500{{end}}"></div>
+                <div class="flex items-center gap-4">
+                    <div class="p-3 rounded-full {{if .IsRegisterOpen}}bg-emerald-500/10 text-emerald-500{{else}}bg-red-500/10 text-red-500{{end}}">
+                        {{if .IsRegisterOpen}}{{template "icon-unlock" dict "Size" 24}}{{else}}{{template "icon-lock" dict "Size" 24}}{{end}}
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-foreground">Inscriptions {{if .IsRegisterOpen}}Ouvertes{{else}}Fermees{{end}}</h2>
+                        <p class="text-sm text-muted-foreground">Variable systeme : <code>ALLOW_REGISTER={{if .IsRegisterOpen}}true{{else}}false{{end}}</code></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-card bg-background border rounded-2xl p-6">
+                <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
+                    <span class="text-purple-500">{{template "icon-shield" dict "Size" 20}}</span>
+                    Administration ({{len .Users}})
+                </h2>
+                <div class="overflow-hidden rounded-xl border border-border">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-accent/50 text-muted-foreground uppercase font-bold text-xs">
+                            <tr>
+                                <th class="px-4 py-3">Utilisateur</th>
+                                <th class="hidden sm:table-cell px-4 py-3">Role</th>
+                                <th class="px-4 py-3 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border">
+                            {{range .Users}}
+                            <tr class="hover:bg-accent/50 transition-colors">
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 {{if eq .Role "ADMIN"}}bg-purple-500/10 text-purple-500{{else}}bg-blue-500/10 text-blue-500{{end}}">
+                                            {{template "icon-mail" dict "Size" 14}}
+                                        </div>
+                                        <div class="truncate max-w-[150px] sm:max-w-none">
+                                            <div class="font-bold text-foreground truncate">{{.Email}}</div>
+                                            <div class="sm:hidden text-[10px] text-muted-foreground uppercase font-bold mt-0.5">{{.Role}}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="hidden sm:table-cell px-4 py-3">
+                                    <span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide {{if eq .Role "ADMIN"}}bg-purple-500/10 text-purple-500 border border-purple-500/20{{else}}bg-accent text-muted-foreground border border-border{{end}}">
+                                        {{.Role}}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    {{if ne .Role "ADMIN"}}
+                                    <button hx-delete="/api/users/{{.ID}}"
+                                            hx-confirm="Supprimer l'utilisateur ?"
+                                            hx-target="closest tr"
+                                            hx-swap="outerHTML"
+                                            class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                            title="Supprimer ce compte">
+                                        {{template "icon-trash" dict "Size" 16}}
+                                    </button>
+                                    {{end}}
+                                </td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {{end}}
+    </div>
+</div>
+
+<script>
+async function registerPasskey() {
+    try {
+        const optionsRes = await fetch('/api/passkey/register/start', { method: 'POST' });
+        const options = await optionsRes.json();
+        if (options.error) throw new Error(options.error);
+
+        const { startRegistration } = await import('https://unpkg.com/@simplewebauthn/browser@11/dist/bundle/index.es5.umd.min.js');
+        const attResp = await startRegistration({ optionsJSON: options });
+
+        const verifyRes = await fetch('/api/passkey/register/finish', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(attResp)
+        });
+        const verify = await verifyRes.json();
+
+        if (verify.success) {
+            location.reload();
+        } else {
+            throw new Error(verify.error || 'Erreur verification');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Erreur: ' + e.message);
+    }
+}
+
+function renamePasskey(id, currentName) {
+    const newName = prompt("Nom de la cle:", currentName);
+    if (newName && newName !== currentName) {
+        fetch('/api/passkeys/' + id + '/rename', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: newName })
+        }).then(() => location.reload());
+    }
+}
+</script>
+{{end}}
