@@ -91,6 +91,9 @@ func main() {
 	r.Get("/reset-password", handlers.ResetPasswordPage)
 	r.Post("/reset-password", handlers.ResetPasswordSubmit)
 
+	// Verification email
+	r.Get("/verify-email", handlers.VerifyEmailPage)
+
 	// Routes protégées
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireAuth)

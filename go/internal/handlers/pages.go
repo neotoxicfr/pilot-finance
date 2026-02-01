@@ -211,3 +211,42 @@ func HealthCheck(w http.ResponseWriter, r *http.Request) {
 func RecurringPage(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/accounts", http.StatusSeeOther)
 }
+
+// VerifyEmailPage verifie l'email avec le token
+func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+
+	data := map[string]interface{}{
+		"Title":   "Verification email",
+		"Success": false,
+		"Error":   "",
+	}
+
+	if token == "" {
+		data["Error"] = "Jeton manquant."
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		templates.Render(w, "verify-email.html", data)
+		return
+	}
+
+	// Hasher le token pour la recherche
+	hashedToken := crypto.HashToken(token)
+
+	// Verifier le token
+	err := db.VerifyEmailByToken(hashedToken)
+	if err != nil {
+		if err == db.ErrTokenInvalid {
+			data["Error"] = "Jeton invalide ou expire."
+		} else {
+			data["Error"] = "Erreur serveur."
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		templates.Render(w, "verify-email.html", data)
+		return
+	}
+
+	data["Success"] = true
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	templates.Render(w, "verify-email.html", data)
+}
