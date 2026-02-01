@@ -18,7 +18,7 @@
 * 🔄 **Opérations récurrentes** : Automatisez le suivi de vos revenus et dépenses mensuelles.
 * 🔐 **Sécurité renforcée (v1.3.0)** :
     * **Middleware de sécurité** : CSP stricte, headers de sécurité (HSTS, X-Frame-Options), nonces dynamiques.
-    * **Argon2id** : Hashing moderne des mots de passe avec migration automatique depuis bcrypt.
+    * **bcrypt** : Hashing sécurisé des mots de passe.
     * **Rate Limiting avancé** : Protection multi-niveaux (login, register, 2FA, reset) avec tests unitaires.
     * Chiffrement AES-256-GCM des données sensibles (mail, noms de comptes, transactions).
     * **Session Versioning** : Déconnexion automatique de tous les appareils en cas de changement de mot de passe.
@@ -37,12 +37,11 @@
 - [x] 🎨 Design System unifié & E-mails HTML (v1.1.0)
 - [x] ⚡ **Optimisation BDD (Index SQL & Performance)** (v1.2.0)
 - [x] 🛡️ **Durcissement Sécurité & Audit** (v1.2.0)
-- [x] 🔒 **Middleware de sécurité & Argon2id** (v1.3.0)
+- [x] 🔒 **Middleware de sécurité & bcrypt** (v1.3.0)
 - [x] 🏥 **Health Check API & Logger** (v1.3.0)
 - [x] ⚡ **Tailwind CSS 4 & Optimisations Performance** (v1.4.0)
 - [x] 📊 **Version Tracking & Health Metrics** (v1.4.0)
 - [ ] 🌍 Support multi-langues
-- [ ] 📊 Graphiques et statistiques avancées
 
 > **Note** : Les versions antérieures à la v1.3.0 ne sont plus supportées. Veuillez mettre à jour pour bénéficier des correctifs de sécurité et des optimisations de performance.
 

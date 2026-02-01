@@ -44,15 +44,4 @@ const logger = pino({
   timestamp: pino.stdTimeFunctions.isoTime,
 });
 
-export function createRequestLogger(requestId: string, userId?: number) {
-  return logger.child({
-    requestId,
-    ...(userId && { userId }),
-  });
-}
-
-export function generateRequestId(): string {
-  return `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
-}
-
 export default logger;

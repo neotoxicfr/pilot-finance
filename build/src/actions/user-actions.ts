@@ -10,11 +10,10 @@ import { getSession } from "@/src/lib/auth";
 import { decrypt, computeBlindIndex, hashToken } from "@/src/lib/crypto";
 import { sendEmail } from "@/src/lib/mail";
 import { getHtmlTemplate } from "@/src/lib/email-templates";
-import { 
-  forgotPasswordSchema, 
-  resetPasswordSchema, 
-  changePasswordSchema,
-  validateEmail 
+import {
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  changePasswordSchema
 } from "@/src/lib/validations";
 import { checkRateLimit, RATE_LIMIT_CONFIGS } from "@/src/lib/rate-limit";
 import logger from "@/src/lib/logger";
