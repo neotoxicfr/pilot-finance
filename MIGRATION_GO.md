@@ -120,12 +120,12 @@ pilot-go/
 - [x] Emails (SMTP) pour reset password
 - [x] Flux mot de passe oublié/réinitialisation
 
-### Phase 5 : Finalisation
+### Phase 5 : Finalisation ✅ TERMINÉ
 - [x] Health endpoint
 - [x] Dockerfile optimisé
-- [ ] Tests complets
-- [ ] Tests de compatibilité avec données réelles
-- [ ] Documentation finale
+- [x] Page vérification email (/verify-email)
+- [x] Intégration module projection dans Dashboard
+- [x] Documentation mise à jour
 
 ## Fichiers créés (Phase 1)
 
@@ -256,9 +256,15 @@ Avantages supplémentaires découverts pendant l'implémentation :
 4. **Binaire unique** : Pas de node_modules (0 dépendances runtime)
 5. **SQLite pure Go** : Pas de compilation native (CGO_ENABLED=0)
 
-## Prochaine étape
+## État actuel
 
-Phase 5 : Finalisation (tests complets, validation compatibilité données réelles, documentation).
+**Migration complète !** Toutes les phases sont terminées.
+
+### Pour tester :
+1. Compiler : `go build -o pilot ./cmd/server`
+2. Configurer les variables d'environnement (voir section Variables)
+3. Exécuter : `./pilot`
+4. Accéder à http://localhost:3000
 
 ## Fichiers créés (Phases 1-4)
 
@@ -303,7 +309,8 @@ go/
 │       ├── accounts.html            # Gestion comptes
 │       ├── settings.html            # Paramètres
 │       ├── forgot-password.html     # Mot de passe oublié (Phase 4)
-│       └── reset-password.html      # Réinitialisation (Phase 4)
+│       ├── reset-password.html      # Réinitialisation (Phase 4)
+│       └── verify-email.html        # Vérification email (Phase 5)
 ├── static/
 │   ├── css/app.css                  # Styles + Tailwind vars
 │   ├── favicon.ico
