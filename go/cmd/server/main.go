@@ -183,27 +183,20 @@ func main() {
 	}
 }
 
-// securityHeaders ajoute les headers de sécurité
+// securityHeaders ajoute le CSP (les autres headers sont gérés par Traefik)
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// CSP compatible HTMX + Alpine.js + Chart.js
+		// CSP spécifique à l'app (HTMX + Alpine.js + Chart.js + Tailwind)
 		w.Header().Set("Content-Security-Policy",
 			"default-src 'self'; "+
-			"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "+
-			"style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; "+
-			"img-src 'self' blob: data: https://chart.googleapis.com; "+
-			"font-src 'self'; "+
-			"connect-src 'self'; "+
-			"frame-ancestors 'none'; "+
-			"base-uri 'self'; "+
-			"form-action 'self'")
-
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("X-Frame-Options", "DENY")
-		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-		// HSTS actif car derrière Traefik/Cloudflare (TLS terminé en amont)
-		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+				"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "+
+				"style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; "+
+				"img-src 'self' blob: data: https://chart.googleapis.com; "+
+				"font-src 'self'; "+
+				"connect-src 'self'; "+
+				"frame-ancestors 'none'; "+
+				"base-uri 'self'; "+
+				"form-action 'self'")
 
 		next.ServeHTTP(w, r)
 	})

@@ -2,7 +2,7 @@
 # Image finale: ~20MB
 
 # ============ BUILD STAGE ============
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -o /server ./cmd/server
 
 # ============ PRODUCTION STAGE ============
-FROM alpine:3.20
+FROM alpine:3.21
 
 # Certificats SSL et timezone
 RUN apk add --no-cache ca-certificates tzdata
