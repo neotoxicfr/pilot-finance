@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -87,8 +86,10 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// Vérifier 2FA si activé
 	if user.MFAEnabled {
 		if twoFactorCode == "" {
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]bool{"requires2FA": true})
+			// Utiliser HX-Trigger pour que Alpine.js affiche le champ 2FA
+			w.Header().Set("HX-Reswap", "none")
+			w.Header().Set("HX-Trigger", "requires2FA")
+			w.WriteHeader(http.StatusOK)
 			return
 		}
 
