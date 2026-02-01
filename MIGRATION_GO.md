@@ -113,12 +113,12 @@ pilot-go/
 - [x] Opérations récurrentes (CRUD)
 - [x] Page paramètres (mot de passe, 2FA, passkeys, admin)
 
-### Phase 4 : Fonctionnalités avancées
-- [ ] Calculs de rendements complets
-- [ ] Projections avec intérêts composés
-- [ ] Graphiques détaillés
-- [ ] Emails (SMTP) pour reset password
-- [ ] Optimisations performances
+### Phase 4 : Fonctionnalités avancées ✅ TERMINÉ
+- [x] Calculs de rendements complets
+- [x] Projections avec intérêts composés
+- [x] API endpoints pour dashboard
+- [x] Emails (SMTP) pour reset password
+- [x] Flux mot de passe oublié/réinitialisation
 
 ### Phase 5 : Finalisation
 - [x] Health endpoint
@@ -258,9 +258,9 @@ Avantages supplémentaires découverts pendant l'implémentation :
 
 ## Prochaine étape
 
-Implémenter Phase 4 : Fonctionnalités avancées (rendements, projections, emails).
+Phase 5 : Finalisation (tests complets, validation compatibilité données réelles, documentation).
 
-## Fichiers créés (Phases 1-3)
+## Fichiers créés (Phases 1-4)
 
 ```
 go/
@@ -284,7 +284,13 @@ go/
 │   │   ├── pages.go                 # Rendu des pages
 │   │   ├── accounts.go              # CRUD comptes
 │   │   ├── recurring.go             # CRUD opérations
-│   │   └── settings.go              # Paramètres
+│   │   ├── settings.go              # Paramètres
+│   │   ├── dashboard.go             # API dashboard (Phase 4)
+│   │   └── password_reset.go        # Mot de passe oublié (Phase 4)
+│   ├── mail/
+│   │   └── smtp.go                  # Module SMTP (Phase 4)
+│   ├── projection/
+│   │   └── projection.go            # Calculs rendements (Phase 4)
 │   ├── middleware/auth.go           # Auth middleware
 │   ├── ratelimit/limiter.go         # Rate limiting
 │   └── templates/templates.go       # Moteur de templates
@@ -295,7 +301,9 @@ go/
 │       ├── login.html               # Connexion/Inscription
 │       ├── dashboard.html           # Tableau de bord
 │       ├── accounts.html            # Gestion comptes
-│       └── settings.html            # Paramètres
+│       ├── settings.html            # Paramètres
+│       ├── forgot-password.html     # Mot de passe oublié (Phase 4)
+│       └── reset-password.html      # Réinitialisation (Phase 4)
 ├── static/
 │   ├── css/app.css                  # Styles + Tailwind vars
 │   ├── favicon.ico
