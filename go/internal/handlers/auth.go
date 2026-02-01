@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/ratelimit"
+	"pilot-finance/internal/templates"
 )
 
 // getClientIP extrait l'IP du client
@@ -86,11 +88,46 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// Vérifier 2FA si activé
 	if user.MFAEnabled {
 		if twoFactorCode == "" {
-			// Utiliser HX-Trigger pour que Alpine.js affiche le champ 2FA
-			// Note: Alpine écoute en minuscules
-			w.Header().Set("HX-Reswap", "none")
-			w.Header().Set("HX-Trigger", "requires2fa")
-			w.WriteHeader(http.StatusOK)
+			// Stocker l'ID utilisateur validé dans un cookie temporaire signé
+			pendingToken, err := auth.GeneratePending2FAToken(user.ID)
+			if err != nil {
+				http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+				return
+			}
+
+			http.SetCookie(w, &http.Cookie{
+				Name:     "pending_2fa",
+				Value:    pendingToken,
+				Path:     "/",
+				MaxAge:   300, // 5 minutes
+				HttpOnly: true,
+				Secure:   true,
+				SameSite: http.SameSiteLaxMode,
+			})
+
+			// Rendre la page login avec le formulaire 2FA visible
+			data := map[string]interface{}{
+				"Title":          "Connexion",
+				"CanRegister":    os.Getenv("ALLOW_REGISTER") == "true",
+				"CanUsePasskeys": os.Getenv("PASSKEY_RP_ID") != "",
+				"MailEnabled":    os.Getenv("SMTP_HOST") != "",
+				"Requires2FA":    true,
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			templates.Render(w, "login.html", data)
+			return
+		}
+
+		// Vérifier le cookie pending_2fa
+		pendingCookie, err := r.Cookie("pending_2fa")
+		if err != nil {
+			http.Error(w, "Session expirée, veuillez vous reconnecter", http.StatusUnauthorized)
+			return
+		}
+
+		pendingUserID, err := auth.ValidatePending2FAToken(pendingCookie.Value)
+		if err != nil || pendingUserID != user.ID {
+			http.Error(w, "Session invalide", http.StatusUnauthorized)
 			return
 		}
 
@@ -105,6 +142,14 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Code 2FA invalide", http.StatusUnauthorized)
 			return
 		}
+
+		// Supprimer le cookie pending_2fa
+		http.SetCookie(w, &http.Cookie{
+			Name:   "pending_2fa",
+			Value:  "",
+			Path:   "/",
+			MaxAge: -1,
+		})
 	}
 
 	// Déchiffrer l'email pour le token
