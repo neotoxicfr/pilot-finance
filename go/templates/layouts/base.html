@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" x-data="{ darkMode: localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches) }" :class="{ 'dark': darkMode }">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -14,12 +14,66 @@
     <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/static/apple-icon.png">
     <link rel="manifest" href="/static/manifest.json">
+    <script>
+        // Theme initial sans flash
+        (function() {
+            const stored = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const isDark = stored === 'dark' || (stored !== 'light' && prefersDark);
+            if (isDark) document.documentElement.classList.add('dark');
+        })();
+
+        // Theme data pour Alpine.js
+        function themeData() {
+            return {
+                theme: localStorage.getItem('theme') || 'system',
+                get isDark() {
+                    if (this.theme === 'system') {
+                        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    }
+                    return this.theme === 'dark';
+                },
+                toggleTheme() {
+                    if (this.theme === 'system') this.theme = 'light';
+                    else if (this.theme === 'light') this.theme = 'dark';
+                    else this.theme = 'system';
+                    localStorage.setItem('theme', this.theme);
+                    document.documentElement.classList.toggle('dark', this.isDark);
+                },
+                init() {
+                    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                        if (this.theme === 'system') {
+                            document.documentElement.classList.toggle('dark', this.isDark);
+                        }
+                    });
+                }
+            };
+        }
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        background: 'var(--background)',
+                        foreground: 'var(--foreground)',
+                        border: 'var(--border)',
+                        accent: 'var(--accent)',
+                        'muted-foreground': 'var(--muted-foreground)',
+                    }
+                }
+            }
+        }
+    </script>
     <link rel="stylesheet" href="/static/css/app.css">
     <script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script defer src="https://unpkg.com/alpinejs@3.14.8/dist/cdn.min.js"></script>
+    <script src="/static/js/passkey.js"></script>
 </head>
-<body class="font-sans antialiased min-h-screen flex flex-col bg-background text-foreground" x-init="$watch('darkMode', val => localStorage.setItem('theme', val ? 'dark' : 'light'))">
+<body class="font-sans antialiased min-h-screen flex flex-col bg-background text-foreground" x-data="themeData()" x-init="init()">
     {{if .User}}
     <nav class="border-b border-border bg-background/50 backdrop-blur-md sticky top-0 z-50">
         <div class="max-w-[1400px] mx-auto px-2 sm:px-4 h-16 flex items-center justify-between">
@@ -39,9 +93,10 @@
                 </div>
             </div>
             <div class="flex items-center gap-1 sm:gap-2">
-                <button @click="darkMode = !darkMode" class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-all" title="Changer le thème">
-                    <template x-if="darkMode">{{template "icon-sun" dict "Size" 20}}</template>
-                    <template x-if="!darkMode">{{template "icon-moon" dict "Size" 20}}</template>
+                <button @click="toggleTheme()" class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-all" :title="'Theme: ' + theme">
+                    <span x-show="theme === 'light'" x-cloak>{{template "icon-sun" dict "Size" 20}}</span>
+                    <span x-show="theme === 'dark'" x-cloak>{{template "icon-moon" dict "Size" 20}}</span>
+                    <span x-show="theme === 'system'" x-cloak>{{template "icon-monitor" dict "Size" 20}}</span>
                 </button>
                 <div class="h-4 w-px bg-border mx-0.5"></div>
                 <a href="/settings" class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-all">
