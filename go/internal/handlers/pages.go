@@ -1,0 +1,213 @@
+package handlers
+
+import (
+	"encoding/json"
+	"net/http"
+	"os"
+
+	"pilot-finance/internal/crypto"
+	"pilot-finance/internal/db"
+	"pilot-finance/internal/middleware"
+	"pilot-finance/internal/templates"
+)
+
+// LoginPage affiche la page de connexion
+func LoginPage(w http.ResponseWriter, r *http.Request) {
+	data := map[string]interface{}{
+		"Title":          "Connexion",
+		"CanRegister":    os.Getenv("ALLOW_REGISTER") == "true",
+		"CanUsePasskeys": os.Getenv("PASSKEY_RP_ID") != "",
+		"MailEnabled":    os.Getenv("MAIL_HOST") != "",
+		"ResetSuccess":   r.URL.Query().Get("reset") == "success",
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := templates.Render(w, "login.html", data); err != nil {
+		http.Error(w, "Erreur template", http.StatusInternalServerError)
+	}
+}
+
+// LoginSubmit traite la soumission du formulaire de connexion
+func LoginSubmit(w http.ResponseWriter, r *http.Request) {
+	HandleLogin(w, r)
+}
+
+// RegisterPage affiche la page d'inscription
+func RegisterPage(w http.ResponseWriter, r *http.Request) {
+	if os.Getenv("ALLOW_REGISTER") != "true" {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	LoginPage(w, r)
+}
+
+// RegisterSubmit traite la soumission du formulaire d'inscription
+func RegisterSubmit(w http.ResponseWriter, r *http.Request) {
+	HandleRegister(w, r)
+}
+
+// Logout deconnecte l'utilisateur
+func Logout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
+}
+
+// Dashboard affiche le tableau de bord
+func Dashboard(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	accounts, err := db.GetAccountsByUserID(user.ID)
+	if err != nil {
+		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		return
+	}
+
+	var totalBalance float64
+	var pieData []map[string]interface{}
+	for _, acc := range accounts {
+		totalBalance += acc.Balance
+		if acc.Balance > 0 {
+			pieData = append(pieData, map[string]interface{}{
+				"name":  acc.Name,
+				"value": acc.Balance,
+				"color": acc.Color,
+			})
+		}
+	}
+
+	years := 5
+	projectionTotal := totalBalance * 1.05
+
+	email, _ := crypto.Decrypt(user.EmailEncrypted)
+
+	data := map[string]interface{}{
+		"Title":           "Dashboard",
+		"User":            map[string]interface{}{"ID": user.ID, "Email": email, "Role": user.Role},
+		"Accounts":        accounts,
+		"TotalBalance":    totalBalance,
+		"TotalInterests":  0.0,
+		"Years":           years,
+		"ProjectionTotal": projectionTotal,
+		"ProjectionData":  []map[string]interface{}{},
+		"PieData":         pieData,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := templates.Render(w, "dashboard.html", data); err != nil {
+		http.Error(w, "Erreur template: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// AccountsPage affiche la page des comptes
+func AccountsPage(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	accounts, _ := db.GetAccountsByUserID(user.ID)
+	recurrings, _ := db.GetRecurringByUserID(user.ID)
+
+	var monthlyIncome, monthlyExpenses float64
+	for _, rec := range recurrings {
+		if rec.Amount > 0 {
+			monthlyIncome += rec.Amount
+		} else {
+			monthlyExpenses += -rec.Amount
+		}
+	}
+
+	email, _ := crypto.Decrypt(user.EmailEncrypted)
+
+	data := map[string]interface{}{
+		"Title":           "Comptes",
+		"User":            map[string]interface{}{"ID": user.ID, "Email": email, "Role": user.Role},
+		"Accounts":        accounts,
+		"Recurrings":      recurrings,
+		"MonthlyIncome":   monthlyIncome,
+		"MonthlyExpenses": monthlyExpenses,
+		"MonthlyNet":      monthlyIncome - monthlyExpenses,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := templates.Render(w, "accounts.html", data); err != nil {
+		http.Error(w, "Erreur template: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// SettingsPage affiche la page des parametres
+func SettingsPage(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUser(r)
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	email, _ := crypto.Decrypt(user.EmailEncrypted)
+	isAdmin := user.Role == "ADMIN"
+
+	data := map[string]interface{}{
+		"Title":           "Parametres",
+		"User":            map[string]interface{}{"ID": user.ID, "Email": email, "Role": user.Role},
+		"MFAEnabled":      user.MFAEnabled,
+		"PasskeysEnabled": os.Getenv("PASSKEY_RP_ID") != "",
+		"Passkeys":        []interface{}{},
+		"IsAdmin":         isAdmin,
+		"IsRegisterOpen":  os.Getenv("ALLOW_REGISTER") == "true",
+		"Users":           []interface{}{},
+	}
+
+	if isAdmin {
+		passkeys, _ := db.GetAuthenticatorsByUserID(user.ID)
+		data["Passkeys"] = passkeys
+
+		users, _ := db.GetAllUsers()
+		var usersWithEmail []map[string]interface{}
+		for _, u := range users {
+			uEmail, _ := crypto.Decrypt(u.EmailEncrypted)
+			usersWithEmail = append(usersWithEmail, map[string]interface{}{
+				"ID":    u.ID,
+				"Email": uEmail,
+				"Role":  u.Role,
+			})
+		}
+		data["Users"] = usersWithEmail
+	} else {
+		passkeys, _ := db.GetAuthenticatorsByUserID(user.ID)
+		data["Passkeys"] = passkeys
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := templates.Render(w, "settings.html", data); err != nil {
+		http.Error(w, "Erreur template: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// AdminPage affiche la page d'administration
+func AdminPage(w http.ResponseWriter, r *http.Request) {
+	SettingsPage(w, r)
+}
+
+// HealthCheck retourne l'etat du serveur
+func HealthCheck(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+// RecurringPage redirige vers la page des comptes
+func RecurringPage(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/accounts", http.StatusSeeOther)
+}
