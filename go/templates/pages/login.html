@@ -3,12 +3,11 @@
     <div class="dashboard-card bg-background border rounded-2xl p-8 w-full max-w-sm transition-all"
          x-data="{
             isRegister: false,
-            requires2FA: false,
+            requires2FA: {{if .Requires2FA}}true{{else}}false{{end}},
             loading: false,
             error: '',
             success: ''
-         }"
-         @requires2fa.window="requires2FA = true; loading = false">
+         }">
         <div class="flex flex-col items-center mb-8">
             <div class="bg-background border border-border p-4 rounded-full mb-4">
                 {{template "brand-logo" dict "Size" 42 "WithText" false}}
