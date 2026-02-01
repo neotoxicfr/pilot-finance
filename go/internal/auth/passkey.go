@@ -3,6 +3,7 @@ package auth
 
 import (
 	"encoding/json"
+	"net/http"
 	"time"
 
 	"github.com/go-webauthn/webauthn/protocol"
@@ -32,6 +33,10 @@ func (u *PasskeyUser) WebAuthnDisplayName() string {
 
 func (u *PasskeyUser) WebAuthnCredentials() []webauthn.Credential {
 	return u.Credentials
+}
+
+func (u *PasskeyUser) WebAuthnIcon() string {
+	return ""
 }
 
 // InitWebAuthn initialise le module WebAuthn
@@ -111,19 +116,20 @@ func BeginLogin() (*protocol.CredentialAssertion, string, error) {
 }
 
 // FinishLogin termine l'authentification par passkey
-func FinishLogin(sessionDataJSON string, response *protocol.ParsedCredentialAssertionData, userHandler func(rawID []byte) (*PasskeyUser, error)) (*PasskeyUser, *webauthn.Credential, error) {
+// Utilise la nouvelle API go-webauthn v0.10+
+func FinishLogin(sessionDataJSON string, r *http.Request, userHandler func(rawID, userHandle []byte) (webauthn.User, error)) (*PasskeyUser, *webauthn.Credential, error) {
 	var session webauthn.SessionData
 	if err := json.Unmarshal([]byte(sessionDataJSON), &session); err != nil {
 		return nil, nil, err
 	}
 
-	user, credential, err := webAuthn.FinishDiscoverableLogin(
-		func(rawID, userHandle []byte) (webauthn.User, error) {
-			return userHandler(rawID)
-		},
-		session,
-		response,
-	)
+	credential, err := webAuthn.FinishDiscoverableLogin(userHandler, session, r)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Récupérer l'utilisateur via le handler
+	user, err := userHandler(credential.ID, nil)
 	if err != nil {
 		return nil, nil, err
 	}

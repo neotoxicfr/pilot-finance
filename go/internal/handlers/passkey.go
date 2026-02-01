@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-webauthn/webauthn/protocol"
+	"github.com/go-webauthn/webauthn/webauthn"
 
 	"pilot-finance/internal/auth"
 	"pilot-finance/internal/crypto"
@@ -30,17 +31,19 @@ func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convertir en credentials WebAuthn
-	var credentials []auth.WebAuthnCredential
+	var credentials []webauthn.Credential
 	for _, a := range authenticators {
-		credentials = append(credentials, auth.WebAuthnCredential{
+		credentials = append(credentials, webauthn.Credential{
 			ID:        []byte(a.CredentialID),
 			PublicKey: []byte(a.CredentialPublicKey),
 		})
 	}
 
+	email, _ := crypto.Decrypt(user.EmailEncrypted)
 	passkeyUser := &auth.PasskeyUser{
-		ID:    user.ID,
-		Email: user.Email,
+		ID:          user.ID,
+		Email:       email,
+		Credentials: credentials,
 	}
 
 	options, sessionData, err := auth.BeginRegistration(passkeyUser)
@@ -92,9 +95,10 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	email, _ := crypto.Decrypt(user.EmailEncrypted)
 	passkeyUser := &auth.PasskeyUser{
 		ID:    user.ID,
-		Email: user.Email,
+		Email: email,
 	}
 
 	credential, err := auth.FinishRegistration(passkeyUser, cookie.Value, parsedResponse)
@@ -161,20 +165,8 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var response protocol.CredentialAssertionResponse
-	if err := json.NewDecoder(r.Body).Decode(&response); err != nil {
-		http.Error(w, "Réponse invalide", http.StatusBadRequest)
-		return
-	}
-
-	parsedResponse, err := response.Parse()
-	if err != nil {
-		http.Error(w, "Réponse invalide", http.StatusBadRequest)
-		return
-	}
-
 	// Callback pour récupérer l'utilisateur par credential ID
-	userHandler := func(rawID []byte) (*auth.PasskeyUser, error) {
+	userHandler := func(rawID, userHandle []byte) (webauthn.User, error) {
 		authenticator, err := db.GetAuthenticatorByCredentialID(string(rawID))
 		if err != nil || authenticator == nil {
 			return nil, err
@@ -187,13 +179,24 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 
 		email, _ := crypto.Decrypt(user.EmailEncrypted)
 
+		// Récupérer toutes les credentials de l'utilisateur
+		auths, _ := db.GetAuthenticatorsByUserID(user.ID)
+		var credentials []webauthn.Credential
+		for _, a := range auths {
+			credentials = append(credentials, webauthn.Credential{
+				ID:        []byte(a.CredentialID),
+				PublicKey: []byte(a.CredentialPublicKey),
+			})
+		}
+
 		return &auth.PasskeyUser{
-			ID:    user.ID,
-			Email: email,
+			ID:          user.ID,
+			Email:       email,
+			Credentials: credentials,
 		}, nil
 	}
 
-	passkeyUser, credential, err := auth.FinishLogin(cookie.Value, parsedResponse, userHandler)
+	passkeyUser, credential, err := auth.FinishLogin(cookie.Value, r, userHandler)
 	if err != nil {
 		http.Error(w, "Authentification échouée", http.StatusUnauthorized)
 		return
