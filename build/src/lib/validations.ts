@@ -84,11 +84,3 @@ export function validatePassword(password: string): { valid: boolean; error: str
   }
   return { valid: false, error: result.error.issues[0].message };
 }
-
-export function validateEmail(email: string): boolean {
-  return emailSchema.safeParse(email).success;
-}
-
-export function sanitizeString(input: string): string {
-  return input.trim().slice(0, 1000);
-}
