@@ -19,8 +19,14 @@
         (function() {
             const stored = localStorage.getItem('theme');
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const isDark = stored === 'dark' || (stored !== 'light' && prefersDark);
-            if (isDark) document.documentElement.classList.add('dark');
+            const html = document.documentElement;
+            if (stored === 'dark') {
+                html.classList.add('dark');
+            } else if (stored === 'light') {
+                html.classList.add('light');
+            } else if (prefersDark) {
+                html.classList.add('dark');
+            }
         })();
 
         // Theme data pour Alpine.js
@@ -33,17 +39,29 @@
                     }
                     return this.theme === 'dark';
                 },
+                applyTheme() {
+                    const html = document.documentElement;
+                    html.classList.remove('dark', 'light');
+                    if (this.theme === 'dark') {
+                        html.classList.add('dark');
+                    } else if (this.theme === 'light') {
+                        html.classList.add('light');
+                    } else if (this.isDark) {
+                        html.classList.add('dark');
+                    }
+                },
                 toggleTheme() {
                     if (this.theme === 'system') this.theme = 'light';
                     else if (this.theme === 'light') this.theme = 'dark';
                     else this.theme = 'system';
                     localStorage.setItem('theme', this.theme);
-                    document.documentElement.classList.toggle('dark', this.isDark);
+                    this.applyTheme();
                 },
                 init() {
+                    this.applyTheme();
                     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
                         if (this.theme === 'system') {
-                            document.documentElement.classList.toggle('dark', this.isDark);
+                            this.applyTheme();
                         }
                     });
                 }
