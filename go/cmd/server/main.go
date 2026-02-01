@@ -105,6 +105,10 @@ func main() {
 	// Verification email
 	r.Get("/verify-email", handlers.VerifyEmailPage)
 
+	// Routes Passkey (publiques pour le login)
+	r.Post("/api/passkey/login/start", handlers.PasskeyLoginStart)
+	r.Post("/api/passkey/login/finish", handlers.PasskeyLoginFinish)
+
 	// Routes protégées
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireAuth)
@@ -123,6 +127,11 @@ func main() {
 
 		r.Get("/settings", handlers.SettingsPage)
 		r.Post("/settings/password", handlers.ChangePassword)
+
+		// Routes Passkey (protégées pour l'enregistrement)
+		r.Post("/api/passkey/register/start", handlers.PasskeyRegistrationStart)
+		r.Post("/api/passkey/register/finish", handlers.PasskeyRegistrationFinish)
+		r.Delete("/api/passkey/{id}", handlers.DeletePasskey)
 
 		// API endpoints
 		r.Get("/api/dashboard", handlers.DashboardAPI)
