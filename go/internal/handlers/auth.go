@@ -109,7 +109,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 			data := map[string]interface{}{
 				"Title":          "Connexion",
 				"CanRegister":    os.Getenv("ALLOW_REGISTER") == "true",
-				"CanUsePasskeys": os.Getenv("PASSKEY_RP_ID") != "",
+				"CanUsePasskeys": os.Getenv("HOST") != "",
 				"MailEnabled":    os.Getenv("SMTP_HOST") != "",
 				"Requires2FA":    true,
 			}

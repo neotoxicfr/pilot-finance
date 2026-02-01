@@ -64,6 +64,17 @@ func main() {
 		log.Println("✓ Mail configuré")
 	}
 
+	// Initialiser WebAuthn/Passkeys si HOST est configuré
+	host := os.Getenv("HOST")
+	if host != "" {
+		rpOrigin := "https://" + host
+		if err := auth.InitWebAuthn(host, rpOrigin, "Pilot Finance"); err != nil {
+			log.Printf("⚠ Passkeys non configurés: %v", err)
+		} else {
+			log.Println("✓ Passkeys configurés")
+		}
+	}
+
 	// Créer le routeur
 	r := chi.NewRouter()
 
