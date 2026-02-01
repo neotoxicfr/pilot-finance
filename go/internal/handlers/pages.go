@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"os"
 
@@ -18,7 +17,7 @@ func LoginPage(w http.ResponseWriter, r *http.Request) {
 		"Title":          "Connexion",
 		"CanRegister":    os.Getenv("ALLOW_REGISTER") == "true",
 		"CanUsePasskeys": os.Getenv("PASSKEY_RP_ID") != "",
-		"MailEnabled":    os.Getenv("MAIL_HOST") != "",
+		"MailEnabled":    os.Getenv("SMTP_HOST") != "",
 		"ResetSuccess":   r.URL.Query().Get("reset") == "success",
 	}
 
@@ -97,11 +96,9 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 		projectionTotal = projData.Projection[len(projData.Projection)-1].TotalAvg
 	}
 
-	email, _ := crypto.Decrypt(user.EmailEncrypted)
-
 	data := map[string]interface{}{
 		"Title":           "Dashboard",
-		"User":            map[string]interface{}{"ID": user.ID, "Email": email, "Role": user.Role},
+		"User":            map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role},
 		"Accounts":        accounts,
 		"TotalBalance":    projData.TotalBalance,
 		"TotalInterests":  projData.TotalInterests,
@@ -137,11 +134,9 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	email, _ := crypto.Decrypt(user.EmailEncrypted)
-
 	data := map[string]interface{}{
 		"Title":           "Comptes",
-		"User":            map[string]interface{}{"ID": user.ID, "Email": email, "Role": user.Role},
+		"User":            map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role},
 		"Accounts":        accounts,
 		"Recurrings":      recurrings,
 		"MonthlyIncome":   monthlyIncome,
@@ -163,13 +158,19 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	email, _ := crypto.Decrypt(user.EmailEncrypted)
+	// Récupérer l'utilisateur complet pour MFAEnabled
+	dbUser, _ := db.GetUserByID(user.ID)
+	mfaEnabled := false
+	if dbUser != nil {
+		mfaEnabled = dbUser.MFAEnabled
+	}
+
 	isAdmin := user.Role == "ADMIN"
 
 	data := map[string]interface{}{
 		"Title":           "Parametres",
-		"User":            map[string]interface{}{"ID": user.ID, "Email": email, "Role": user.Role},
-		"MFAEnabled":      user.MFAEnabled,
+		"User":            map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role},
+		"MFAEnabled":      mfaEnabled,
 		"PasskeysEnabled": os.Getenv("PASSKEY_RP_ID") != "",
 		"Passkeys":        []interface{}{},
 		"IsAdmin":         isAdmin,
@@ -177,10 +178,10 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"Users":           []interface{}{},
 	}
 
-	if isAdmin {
-		passkeys, _ := db.GetAuthenticatorsByUserID(user.ID)
-		data["Passkeys"] = passkeys
+	passkeys, _ := db.GetAuthenticatorsByUserID(user.ID)
+	data["Passkeys"] = passkeys
 
+	if isAdmin {
 		users, _ := db.GetAllUsers()
 		var usersWithEmail []map[string]interface{}
 		for _, u := range users {
@@ -192,9 +193,6 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 		data["Users"] = usersWithEmail
-	} else {
-		passkeys, _ := db.GetAuthenticatorsByUserID(user.ID)
-		data["Passkeys"] = passkeys
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -206,12 +204,6 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 // AdminPage affiche la page d'administration
 func AdminPage(w http.ResponseWriter, r *http.Request) {
 	SettingsPage(w, r)
-}
-
-// HealthCheck retourne l'etat du serveur
-func HealthCheck(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // RecurringPage redirige vers la page des comptes

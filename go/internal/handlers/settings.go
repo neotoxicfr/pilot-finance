@@ -43,8 +43,15 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Récupérer l'utilisateur complet pour vérifier le mot de passe
+	dbUser, err := db.GetUserByID(user.ID)
+	if err != nil || dbUser == nil {
+		http.Error(w, "Utilisateur non trouve", http.StatusNotFound)
+		return
+	}
+
 	// Verifier le mot de passe actuel
-	if !crypto.VerifyPassword(currentPassword, user.Password) {
+	if !crypto.VerifyPassword(currentPassword, dbUser.Password) {
 		http.Error(w, "Mot de passe actuel incorrect", http.StatusUnauthorized)
 		return
 	}
