@@ -102,6 +102,18 @@ func Render(w io.Writer, name string, data interface{}) error {
 	return tmpl.ExecuteTemplate(w, "base.html", data)
 }
 
+// RenderPartial rend un bloc template sans le wrapper base.html
+// Utilisé pour les requêtes HTMX qui ne veulent qu'une partie de la page
+func RenderPartial(w io.Writer, pageName, blockName string, data interface{}) error {
+	tmpl, ok := pageTemplates[pageName]
+	if !ok {
+		return fmt.Errorf("template %s not found", pageName)
+	}
+
+	// Exécuter directement le bloc demandé
+	return tmpl.ExecuteTemplate(w, blockName, data)
+}
+
 // formatMoney formate un montant en euros
 func formatMoney(amount float64) string {
 	decimals := 0

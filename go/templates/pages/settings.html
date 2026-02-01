@@ -21,10 +21,10 @@
                     <div class="flex items-center gap-3 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
                         {{template "icon-shield" dict "Size" 24}} A2F Active
                     </div>
-                    <button hx-post="/api/mfa/disable"
+                    <button hx-post="/settings/mfa/disable"
                             hx-confirm="Desactiver l'A2F ?"
-                            hx-target="closest .dashboard-card"
-                            hx-swap="outerHTML"
+                            hx-swap="none"
+                            @htmx:after-request="if(event.detail.successful) location.reload()"
                             class="text-xs bg-background hover:bg-red-500/10 text-muted-foreground hover:text-red-500 px-3 py-2 rounded-lg border border-border hover:border-red-500/50 transition-colors">
                         Desactiver
                     </button>
@@ -33,7 +33,7 @@
                 <template x-if="!mfaSetup">
                     <div class="space-y-4">
                         <p class="text-sm text-muted-foreground">Protegez votre compte avec un code temporaire (Google Authenticator, Authy...).</p>
-                        <button @click="mfaLoading = true; fetch('/api/mfa/setup').then(r => r.json()).then(d => { mfaSetup = d; mfaLoading = false; })"
+                        <button @click="mfaLoading = true; fetch('/settings/mfa/setup').then(r => r.json()).then(d => { mfaSetup = d; mfaLoading = false; })"
                                 :disabled="mfaLoading"
                                 class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all text-sm">
                             <span x-show="mfaLoading">Chargement...</span>
@@ -61,7 +61,7 @@
                                     class="flex-1 bg-accent hover:bg-accent/80 text-muted-foreground font-bold py-3 rounded-xl transition-all text-sm">
                                 Annuler
                             </button>
-                            <button @click="fetch('/api/mfa/enable', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({secret: mfaSetup.secret, code: mfaCode})}).then(r => r.json()).then(d => { if(d.error) mfaError = d.error; else location.reload(); })"
+                            <button @click="fetch('/settings/mfa/enable', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({secret: mfaSetup.secret, code: mfaCode})}).then(r => r.json()).then(d => { if(d.error) mfaError = d.error; else location.reload(); })"
                                     :disabled="mfaCode.length !== 6"
                                     class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all text-sm disabled:opacity-50">
                                 Activer
@@ -100,10 +100,10 @@
                                     class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-background rounded-lg transition-colors">
                                 {{template "icon-pencil" dict "Size" 14}}
                             </button>
-                            <button hx-delete="/api/passkeys/{{.ID}}"
+                            <button hx-delete="/api/passkey/{{.ID}}"
                                     hx-confirm="Supprimer cette cle ?"
-                                    hx-target="closest .dashboard-card"
-                                    hx-swap="outerHTML"
+                                    hx-swap="none"
+                                    @htmx:after-request="if(event.detail.successful) location.reload()"
                                     class="p-2 text-muted-foreground hover:text-red-500 hover:bg-background rounded-lg transition-colors">
                                 {{template "icon-trash" dict "Size" 14}}
                             </button>
@@ -141,7 +141,7 @@
                     </div>
                 </template>
 
-                <form hx-post="/api/password"
+                <form hx-post="/settings/password"
                       hx-swap="none"
                       @htmx:before-request="pwdLoading = true; pwdError = ''; pwdSuccess = false"
                       @htmx:after-request="pwdLoading = false"
@@ -228,7 +228,7 @@
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     {{if ne .Role "ADMIN"}}
-                                    <button hx-delete="/api/users/{{.ID}}"
+                                    <button hx-delete="/admin/users/{{.ID}}"
                                             hx-confirm="Supprimer l'utilisateur ?"
                                             hx-target="closest tr"
                                             hx-swap="outerHTML"
@@ -280,7 +280,7 @@ async function registerPasskey() {
 function renamePasskey(id, currentName) {
     const newName = prompt("Nom de la cle:", currentName);
     if (newName && newName !== currentName) {
-        fetch('/api/passkeys/' + id + '/rename', {
+        fetch('/api/passkey/' + id + '/rename', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: newName })

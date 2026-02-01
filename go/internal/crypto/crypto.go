@@ -80,6 +80,7 @@ func Encrypt(plaintext string) (string, error) {
 
 // Decrypt déchiffre un texte chiffré avec AES-256-GCM
 // Accepte le format: IV_HEX:AUTH_TAG_HEX:CIPHERTEXT_HEX
+// Supporte les IV de 12 bytes (standard) et 16 bytes (Node.js legacy)
 func Decrypt(encrypted string) (string, error) {
 	// Si pas de séparateur, retourner tel quel (données non chiffrées)
 	if !strings.Contains(encrypted, ":") {
@@ -111,7 +112,13 @@ func Decrypt(encrypted string) (string, error) {
 		return "", err
 	}
 
-	gcm, err := cipher.NewGCM(block)
+	// Créer GCM avec la taille de nonce appropriée (12 ou 16 bytes)
+	var gcm cipher.AEAD
+	if len(iv) == 12 {
+		gcm, err = cipher.NewGCM(block)
+	} else {
+		gcm, err = cipher.NewGCMWithNonceSize(block, len(iv))
+	}
 	if err != nil {
 		return "", err
 	}

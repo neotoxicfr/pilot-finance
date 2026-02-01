@@ -114,11 +114,13 @@ func main() {
 		r.Use(middleware.RequireAuth)
 
 		r.Get("/", handlers.Dashboard)
+		r.Get("/dashboard-partial", handlers.DashboardPartial)
 		r.Get("/accounts", handlers.AccountsPage)
 		r.Post("/accounts", handlers.CreateAccount)
 		r.Put("/accounts/{id}", handlers.UpdateAccount)
 		r.Delete("/accounts/{id}", handlers.DeleteAccount)
 		r.Post("/accounts/{id}/balance", handlers.UpdateBalance)
+		r.Post("/accounts/{id}/move", handlers.MoveAccount)
 
 		r.Get("/recurring", handlers.RecurringPage)
 		r.Post("/recurring", handlers.CreateRecurring)
@@ -128,10 +130,16 @@ func main() {
 		r.Get("/settings", handlers.SettingsPage)
 		r.Post("/settings/password", handlers.ChangePassword)
 
+		// Routes MFA
+		r.Get("/settings/mfa/setup", handlers.MFASetup)
+		r.Post("/settings/mfa/enable", handlers.MFAEnable)
+		r.Post("/settings/mfa/disable", handlers.MFADisable)
+
 		// Routes Passkey (protégées pour l'enregistrement)
 		r.Post("/api/passkey/register/start", handlers.PasskeyRegistrationStart)
 		r.Post("/api/passkey/register/finish", handlers.PasskeyRegistrationFinish)
 		r.Delete("/api/passkey/{id}", handlers.DeletePasskey)
+		r.Put("/api/passkey/{id}/rename", handlers.RenamePasskey)
 
 		// API endpoints
 		r.Get("/api/dashboard", handlers.DashboardAPI)
@@ -177,12 +185,12 @@ func main() {
 // securityHeaders ajoute les headers de sécurité
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// CSP compatible HTMX + Alpine.js
+		// CSP compatible HTMX + Alpine.js + Chart.js
 		w.Header().Set("Content-Security-Policy",
 			"default-src 'self'; "+
-			"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com; "+
+			"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "+
 			"style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; "+
-			"img-src 'self' blob: data:; "+
+			"img-src 'self' blob: data: https://chart.googleapis.com; "+
 			"font-src 'self'; "+
 			"connect-src 'self'; "+
 			"frame-ancestors 'none'; "+

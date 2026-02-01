@@ -72,7 +72,7 @@
                         {{template "icon-x" dict "Size" 20}}
                     </button>
                     <h3 class="text-base font-bold text-blue-500 mb-5" x-text="editingAccount ? 'Modifier le compte' : 'Nouveau Compte'"></h3>
-                    <form hx-post="/api/accounts"
+                    <form hx-post="/accounts"
                           hx-target="#accounts-list"
                           hx-swap="innerHTML"
                           @htmx:after-settle="showAccountForm = false"
@@ -86,15 +86,22 @@
                                    :value="editingAccount?.balance || ''"
                                    class="bg-accent border border-border rounded-xl p-3 text-sm w-full font-mono outline-none focus:border-blue-500 text-foreground">
                         </div>
-                        <div>
+                        <div x-data="{ selectedColor: editingAccount?.color || '#3b82f6' }">
                             <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Couleur</label>
+                            <div class="flex flex-wrap gap-2 mb-3">
+                                <template x-for="c in ['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#10b981','#14b8a6','#06b6d4','#0ea5e9','#3b82f6','#6366f1','#8b5cf6','#a855f7','#d946ef','#ec4899','#f43f5e','#64748b']">
+                                    <button type="button" @click="selectedColor = c"
+                                            :class="selectedColor === c ? 'ring-2 ring-foreground scale-110' : 'opacity-60 hover:opacity-100'"
+                                            class="w-8 h-8 rounded-full transition-transform"
+                                            :style="'background-color:' + c"></button>
+                                </template>
+                            </div>
                             <div class="flex items-center gap-2 bg-accent border border-border rounded-xl p-2.5 w-full max-w-[200px]">
                                 {{template "icon-palette" dict "Size" 16}}
                                 <input type="text" name="color" placeholder="#RRGGBB"
-                                       :value="editingAccount?.color || '#3b82f6'"
+                                       x-model="selectedColor"
                                        class="bg-transparent text-sm w-full outline-none font-mono text-foreground uppercase">
-                                <input type="color" :value="editingAccount?.color || '#3b82f6'"
-                                       @input="$event.target.previousElementSibling.value = $event.target.value"
+                                <input type="color" x-model="selectedColor"
                                        class="w-6 h-6 rounded-full cursor-pointer">
                             </div>
                         </div>
@@ -106,10 +113,7 @@
             </template>
 
             <!-- Accounts List -->
-            <div class="space-y-3" id="accounts-list"
-                 hx-get="/api/accounts"
-                 hx-trigger="load"
-                 hx-swap="innerHTML">
+            <div class="space-y-3" id="accounts-list">
                 {{range .Accounts}}
                 {{template "account-row" .}}
                 {{end}}
@@ -137,7 +141,7 @@
                         {{template "icon-x" dict "Size" 18}}
                     </button>
                     <h3 class="text-sm font-bold text-blue-500 mb-4" x-text="editingRecurring ? 'Modifier' : 'Nouvelle Operation'"></h3>
-                    <form hx-post="/api/recurring"
+                    <form hx-post="/recurring"
                           hx-target="#recurring-list"
                           hx-swap="innerHTML"
                           @htmx:after-settle="showRecurringForm = false"
@@ -178,10 +182,7 @@
 
             <!-- Recurring List -->
             <div class="dashboard-card bg-background border rounded-2xl overflow-hidden">
-                <div class="max-h-[600px] overflow-y-auto" id="recurring-list"
-                     hx-get="/api/recurring"
-                     hx-trigger="load"
-                     hx-swap="innerHTML">
+                <div class="max-h-[600px] overflow-y-auto" id="recurring-list">
                     {{template "recurring-table" .}}
                 </div>
             </div>
@@ -204,13 +205,13 @@ function accountsPage() {
 {{define "account-row"}}
 <div class="dashboard-card group bg-background border hover:border-blue-500/30 rounded-2xl p-4 flex items-center gap-4 transition-all">
     <div class="flex flex-col gap-1">
-        <button hx-post="/api/accounts/{{.ID}}/move?direction=up"
+        <button hx-post="/accounts/{{.ID}}/move?direction=up"
                 hx-target="#accounts-list"
                 hx-swap="innerHTML"
                 class="p-1 hover:text-blue-500 text-muted-foreground transition-colors">
             {{template "icon-chevron-up" dict "Size" 20}}
         </button>
-        <button hx-post="/api/accounts/{{.ID}}/move?direction=down"
+        <button hx-post="/accounts/{{.ID}}/move?direction=down"
                 hx-target="#accounts-list"
                 hx-swap="innerHTML"
                 class="p-1 hover:text-blue-500 text-muted-foreground transition-colors">
@@ -230,7 +231,7 @@ function accountsPage() {
         {{end}}
     </div>
     <div class="flex items-center gap-3">
-        <form hx-post="/api/accounts/{{.ID}}/balance"
+        <form hx-post="/accounts/{{.ID}}/balance"
               hx-swap="none"
               class="flex items-baseline gap-1">
             <input type="text" inputmode="decimal" name="balance"
@@ -246,7 +247,7 @@ function accountsPage() {
                     class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
                 {{template "icon-pencil" dict "Size" 18}}
             </button>
-            <button hx-delete="/api/accounts/{{.ID}}"
+            <button hx-delete="/accounts/{{.ID}}"
                     hx-confirm="Supprimer ?"
                     hx-target="#accounts-list"
                     hx-swap="innerHTML"
@@ -262,22 +263,30 @@ function accountsPage() {
 <table class="w-full text-sm text-left text-muted-foreground table-fixed">
     <thead class="text-xs font-bold uppercase bg-background text-muted-foreground sticky top-0 z-20">
         <tr>
-            <th class="px-2 md:px-4 py-3 w-10 md:w-16">J</th>
-            <th class="px-2 md:px-4 py-3 w-auto">Libelle</th>
-            <th class="px-2 md:px-4 py-3 text-right w-32 md:w-40">Montant</th>
-            <th class="px-2 md:px-4 py-3 w-20 md:w-24"></th>
+            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border w-10 md:w-16">J</th>
+            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border w-auto">Libelle</th>
+            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border text-right w-32 md:w-40">Montant</th>
+            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border w-20 md:w-24"></th>
         </tr>
     </thead>
-    <tbody class="divide-y divide-border">
+    <tbody class="[&_tr:not(:last-child)]:border-b [&_tr]:border-border">
         {{range .Recurrings}}
         <tr class="hover:bg-accent transition-colors">
             <td class="px-2 md:px-4 py-3 font-mono text-sm text-muted-foreground text-center border-r border-border">{{.DayOfMonth}}</td>
             <td class="px-2 md:px-4 py-3">
                 <div class="text-foreground font-medium text-sm truncate">{{.Description}}</div>
-                <div class="text-[11px] text-muted-foreground truncate">{{.AccountName}}</div>
+                <div class="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
+                    {{if .ToAccountID}}
+                    <span class="flex items-center gap-1 text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 truncate">
+                        {{.AccountName}} {{template "icon-arrow-right" dict "Size" 10}} {{.ToAccountName}}
+                    </span>
+                    {{else}}
+                    <span class="truncate">{{.AccountName}}</span>
+                    {{end}}
+                </div>
             </td>
-            <td class="px-2 md:px-4 py-3 text-right font-mono font-bold text-sm whitespace-nowrap tabular-nums {{if gt .Amount 0.0}}text-emerald-500{{else}}text-foreground{{end}}">
-                {{if gt .Amount 0.0}}+{{end}}{{formatMoney .Amount}}
+            <td class="px-2 md:px-4 py-3 text-right font-mono font-bold text-sm whitespace-nowrap tabular-nums {{if .ToAccountID}}text-blue-500{{else if gt .Amount 0.0}}text-emerald-500{{else}}text-foreground{{end}}">
+                {{if not .ToAccountID}}{{if gt .Amount 0.0}}+{{end}}{{end}}{{formatMoney .Amount}}
             </td>
             <td class="px-2 py-3 text-right">
                 <div class="flex items-center justify-end gap-1">
@@ -285,7 +294,7 @@ function accountsPage() {
                             class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
                         {{template "icon-pencil" dict "Size" 18}}
                     </button>
-                    <button hx-delete="/api/recurring/{{.ID}}"
+                    <button hx-delete="/recurring/{{.ID}}"
                             hx-confirm="Supprimer cette operation ?"
                             hx-target="#recurring-list"
                             hx-swap="innerHTML"

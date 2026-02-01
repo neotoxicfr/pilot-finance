@@ -74,6 +74,13 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Déchiffrer les noms des comptes
+	for i := range accounts {
+		if decrypted, err := crypto.Decrypt(accounts[i].Name); err == nil {
+			accounts[i].Name = decrypted
+		}
+	}
+
 	// Calculer les projections avec interets composes
 	years := 5
 	projData := projection.Calculate(accounts, years)
@@ -125,20 +132,53 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	accounts, _ := db.GetAccountsByUserID(user.ID)
 	recurrings, _ := db.GetRecurringByUserID(user.ID)
 
+	// Déchiffrer les noms des comptes et créer un map pour lookup
+	accountMap := make(map[int64]string)
+	for i := range accounts {
+		if decrypted, err := crypto.Decrypt(accounts[i].Name); err == nil {
+			accounts[i].Name = decrypted
+		}
+		accountMap[accounts[i].ID] = accounts[i].Name
+	}
+
+	// Préparer les récurrents avec déchiffrement et nom de compte
 	var monthlyIncome, monthlyExpenses float64
+	recurringData := make([]map[string]interface{}, 0, len(recurrings))
 	for _, rec := range recurrings {
+		description := rec.Description
+		if decrypted, err := crypto.Decrypt(rec.Description); err == nil {
+			description = decrypted
+		}
+
 		if rec.Amount > 0 {
 			monthlyIncome += rec.Amount
 		} else {
 			monthlyExpenses += -rec.Amount
 		}
+
+		toAccountName := ""
+		if rec.ToAccountID != nil {
+			toAccountName = accountMap[*rec.ToAccountID]
+		}
+
+		recurringData = append(recurringData, map[string]interface{}{
+			"ID":            rec.ID,
+			"Description":   description,
+			"Amount":        rec.Amount,
+			"DayOfMonth":    rec.DayOfMonth,
+			"AccountID":     rec.AccountID,
+			"AccountName":   accountMap[rec.AccountID],
+			"ToAccountID":   rec.ToAccountID,
+			"ToAccountName": toAccountName,
+			"IsActive":      rec.IsActive,
+		})
 	}
 
 	data := map[string]interface{}{
 		"Title":           "Comptes",
 		"User":            map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role},
 		"Accounts":        accounts,
-		"Recurrings":      recurrings,
+		"Recurrings":      recurringData,
 		"MonthlyIncome":   monthlyIncome,
 		"MonthlyExpenses": monthlyExpenses,
 		"MonthlyNet":      monthlyIncome - monthlyExpenses,
