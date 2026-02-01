@@ -65,14 +65,14 @@ type Transaction struct {
 // RecurringOperation représente une opération récurrente
 type RecurringOperation struct {
 	ID          int64      `json:"id"`
-	UserID      int64      `json:"user_id"`
-	AccountID   int64      `json:"account_id"`
-	ToAccountID *int64     `json:"to_account_id"`
+	UserID      int64      `json:"userId"`
+	AccountID   int64      `json:"accountId"`
+	ToAccountID *int64     `json:"toAccountId"`
 	Amount      float64    `json:"amount"`
 	Description string     `json:"description"` // Chiffré en BDD
-	DayOfMonth  int        `json:"day_of_month"`
-	LastRunDate *time.Time `json:"last_run_date"`
-	IsActive    bool       `json:"is_active"`
+	DayOfMonth  int        `json:"dayOfMonth"`
+	LastRunDate *time.Time `json:"lastRunDate"`
+	IsActive    bool       `json:"isActive"`
 }
 
 // Authenticator représente une Passkey WebAuthn
