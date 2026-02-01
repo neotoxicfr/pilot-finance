@@ -25,10 +25,12 @@ function generateNonce(): string {
 function buildCSP(nonce: string): string {
   const directives = [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    // 'unsafe-inline' nécessaire pour Next.js + compatibilité Cloudflare (qui peut injecter/modifier des scripts)
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
     `style-src 'self' 'nonce-${nonce}' 'unsafe-inline'`,
     "img-src 'self' blob: data:",
     "font-src 'self'",
+    "connect-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -56,7 +58,7 @@ export async function middleware(request: NextRequest) {
     const response = NextResponse.redirect(loginUrl);
     response.headers.set('x-nonce', nonce);
     response.headers.set('Content-Security-Policy', csp);
-    response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(self)');
+    response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
     return response;
   }
 
@@ -69,7 +71,7 @@ export async function middleware(request: NextRequest) {
         response.cookies.delete('__Host-session');
         response.headers.set('x-nonce', nonce);
         response.headers.set('Content-Security-Policy', csp);
-        response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(self)');
+        response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
         return response;
       }
     } catch {
@@ -85,7 +87,7 @@ export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
   response.headers.set('x-nonce', nonce);
   response.headers.set('Content-Security-Policy', csp);
-  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(self)');
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
 
   return response;
 }
