@@ -39,10 +39,9 @@ func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	email, _ := crypto.Decrypt(user.EmailEncrypted)
 	passkeyUser := &auth.PasskeyUser{
 		ID:          user.ID,
-		Email:       email,
+		Email:       user.Email,
 		Credentials: credentials,
 	}
 
@@ -95,10 +94,9 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	email, _ := crypto.Decrypt(user.EmailEncrypted)
 	passkeyUser := &auth.PasskeyUser{
 		ID:    user.ID,
-		Email: email,
+		Email: user.Email,
 	}
 
 	credential, err := auth.FinishRegistration(passkeyUser, cookie.Value, parsedResponse)
