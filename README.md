@@ -33,17 +33,17 @@
 
 ## 🗺️ Roadmap
 
-- [x] 🌗 Mode Clair / Mode Sombre / Auto (System) (v1.1.0)
-- [x] 🎨 Design System unifié & E-mails HTML (v1.1.0)
-- [x] ⚡ **Optimisation BDD (Index SQL & Performance)** (v1.2.0)
-- [x] 🛡️ **Durcissement Sécurité & Audit** (v1.2.0)
-- [x] 🔒 **Middleware de sécurité & bcrypt** (v1.3.0)
-- [x] 🏥 **Health Check API & Logger** (v1.3.0)
-- [x] ⚡ **Tailwind CSS 4 & Optimisations Performance** (v1.4.0)
-- [x] 📊 **Version Tracking & Health Metrics** (v1.4.0)
-- [ ] 🌍 Support multi-langues
+**Version actuelle : 1.4.0** (Next.js, Tailwind 4, Passkeys, 2FA)
 
-> **Note** : Les versions antérieures à la v1.3.0 ne sont plus supportées. Veuillez mettre à jour pour bénéficier des correctifs de sécurité et des optimisations de performance.
+### Prochaines étapes
+
+- [ ] 🚀 **v2.0 - Migration Go + HTMX** : Refonte technique complète
+  - Backend Go (binaire unique ~15MB)
+  - Frontend HTMX + Alpine.js (~30KB JS)
+  - Image Docker : 300MB → 20MB
+  - RAM : 200MB → 30MB
+  - 0 vulnérabilités npm
+- [ ] 🌍 **Support multi-langues** (après v2.0)
 
 ---
 
