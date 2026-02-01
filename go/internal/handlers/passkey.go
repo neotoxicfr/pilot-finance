@@ -257,23 +257,29 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 func DeletePasskey(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
+		log.Printf("DeletePasskey: user not authenticated")
 		http.Error(w, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
+	log.Printf("DeletePasskey: attempting to delete passkey ID=%s for user ID=%d", idStr, user.ID)
+
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
+		log.Printf("DeletePasskey: invalid ID format: %v", err)
 		http.Error(w, "ID invalide", http.StatusBadRequest)
 		return
 	}
 
 	err = db.DeleteAuthenticator(id, user.ID)
 	if err != nil {
+		log.Printf("DeletePasskey: error deleting authenticator: %v", err)
 		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
 		return
 	}
 
+	log.Printf("DeletePasskey: successfully deleted passkey ID=%d", id)
 	w.WriteHeader(http.StatusNoContent)
 }
 
