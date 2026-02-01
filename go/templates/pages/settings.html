@@ -256,8 +256,8 @@ async function registerPasskey() {
         const options = await optionsRes.json();
         if (options.error) throw new Error(options.error);
 
-        const { startRegistration } = await import('https://unpkg.com/@simplewebauthn/browser@11/dist/bundle/index.es5.umd.min.js');
-        const attResp = await startRegistration({ optionsJSON: options });
+        const SimpleWebAuthnBrowser = await import('https://cdn.jsdelivr.net/npm/@simplewebauthn/browser@11/dist/bundle/index.js');
+        const attResp = await SimpleWebAuthnBrowser.startRegistration({ optionsJSON: options });
 
         const verifyRes = await fetch('/api/passkey/register/finish', {
             method: 'POST',
