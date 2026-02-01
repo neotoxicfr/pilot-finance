@@ -156,7 +156,17 @@ func formatWithSpaces(n int64) string {
 }
 
 func formatFloat(f float64) string {
-	return strings.Replace(fmt.Sprintf("%.2f", f), ".", ",", 1)
+	// Separer partie entiere et decimale
+	intPart := int64(f)
+	decPart := int((f - float64(intPart)) * 100)
+	if decPart < 0 {
+		decPart = -decPart
+	}
+
+	// Formater avec separateurs de milliers
+	intStr := formatWithSpaces(intPart)
+
+	return fmt.Sprintf("%s,%02d", intStr, decPart)
 }
 
 // dict cree un dictionnaire pour passer des parametres aux templates
