@@ -1,7 +1,15 @@
 // Package db contient les modèles et la connexion SQLite
 package db
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+// Erreurs communes
+var (
+	ErrTokenInvalid = errors.New("token invalide ou expiré")
+)
 
 // User représente un utilisateur
 type User struct {

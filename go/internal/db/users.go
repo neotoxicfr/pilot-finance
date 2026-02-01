@@ -130,6 +130,35 @@ func DeleteUser(userID int64) error {
 	return err
 }
 
+// SetVerificationToken définit le token de vérification email
+func SetVerificationToken(userID int64, hashedToken string) error {
+	_, err := DB.Exec(`
+		UPDATE users SET verification_token = ?, email_verified = 0
+		WHERE id = ?
+	`, hashedToken, userID)
+
+	return err
+}
+
+// VerifyEmailByToken vérifie l'email avec le token
+func VerifyEmailByToken(hashedToken string) error {
+	result, err := DB.Exec(`
+		UPDATE users SET email_verified = 1, verification_token = NULL
+		WHERE verification_token = ?
+	`, hashedToken)
+
+	if err != nil {
+		return err
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return ErrTokenInvalid
+	}
+
+	return nil
+}
+
 // GetAllUsers récupère tous les utilisateurs (admin)
 func GetAllUsers() ([]User, error) {
 	rows, err := DB.Query(`
