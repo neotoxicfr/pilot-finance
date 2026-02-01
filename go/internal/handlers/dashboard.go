@@ -102,6 +102,8 @@ func DashboardPartial(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	section := r.URL.Query().Get("section")
+
 	accounts, err := db.GetAccountsByUserID(user.ID)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
@@ -148,7 +150,16 @@ func DashboardPartial(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	templates.Render(w, "dashboard-cards", templateData)
+
+	// Rendre la section demandee
+	switch section {
+	case "kpi":
+		templates.RenderPartial(w, "dashboard.html", "kpi-cards", templateData)
+	case "projection":
+		templates.RenderPartial(w, "dashboard.html", "projection-chart", templateData)
+	default:
+		templates.RenderPartial(w, "dashboard.html", "dashboard-cards", templateData)
+	}
 }
 
 // AccountsAPI retourne les comptes en JSON

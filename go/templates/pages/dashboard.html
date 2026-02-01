@@ -1,22 +1,59 @@
 {{define "content"}}
 <div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8"
-     x-data="{ sliderValue: 5 }"
-     hx-get="/api/dashboard"
-     hx-trigger="load, sliderChange from:body"
-     hx-vals="js:{years: document.querySelector('[name=years]')?.value || 5}"
-     hx-target="#dashboard-content"
-     hx-swap="innerHTML">
+     x-data="{ sliderValue: {{.Years}} }">
 
-    <input type="hidden" name="years" :value="sliderValue" @change="$dispatch('sliderChange')">
+    <input type="hidden" name="years" :value="sliderValue">
 
-    <div id="dashboard-content">
-        {{template "dashboard-cards" .}}
+    <!-- KPI Cards -->
+    <div id="kpi-cards"
+         hx-get="/dashboard-partial?section=kpi"
+         hx-trigger="sliderChange from:body"
+         hx-vals="js:{years: document.querySelector('[name=years]')?.value || 5}"
+         hx-swap="innerHTML">
+        {{template "kpi-cards" .}}
+    </div>
+
+    <!-- Charts Section -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <!-- Projection Chart -->
+        <div class="dashboard-card md:col-span-2 bg-background border rounded-2xl p-6">
+            <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+                <h3 class="text-lg font-bold text-foreground flex items-center gap-2">
+                    {{template "icon-trending-up" dict "Size" 18}} Trajectoire
+                </h3>
+                <div class="dashboard-card flex items-center gap-4 bg-accent px-4 py-2 rounded-xl border w-full md:w-auto">
+                    <span class="text-xs text-muted-foreground whitespace-nowrap font-medium">
+                        Projection : <strong x-text="sliderValue + ' ans'">{{.Years}} ans</strong>
+                    </span>
+                    <input type="range" min="1" max="30"
+                           x-model="sliderValue"
+                           @change="htmx.trigger(document.body, 'sliderChange')"
+                           class="w-full md:w-48 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                </div>
+            </div>
+            <div class="h-[350px] w-full" id="projection-chart"
+                 hx-get="/dashboard-partial?section=projection"
+                 hx-trigger="sliderChange from:body"
+                 hx-vals="js:{years: document.querySelector('[name=years]')?.value || 5}"
+                 hx-swap="innerHTML">
+                {{template "projection-chart" .}}
+            </div>
+        </div>
+
+        <!-- Pie Chart -->
+        <div class="dashboard-card bg-background border rounded-2xl p-6 flex flex-col">
+            <h3 class="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                {{template "icon-dashboard" dict "Size" 18}} Repartition
+            </h3>
+            <div class="flex-1 min-h-[300px]" id="pie-chart">
+                {{template "pie-chart" .}}
+            </div>
+        </div>
     </div>
 </div>
 {{end}}
 
-{{define "dashboard-cards"}}
-<!-- KPI Cards -->
+{{define "kpi-cards"}}
 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
     <div class="dashboard-card bg-background border p-6 rounded-2xl relative overflow-hidden transition-colors">
         <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
@@ -36,125 +73,122 @@
         <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
             {{template "icon-piggybank" dict "Size" 80}}
         </div>
-        <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Projection a <span x-text="sliderValue">{{.Years}}</span> ans</p>
+        <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Projection a {{.Years}} ans</p>
         <h2 class="text-3xl md:text-4xl font-bold text-blue-500 font-mono tracking-tight">{{formatMoney .ProjectionTotal}}</h2>
-    </div>
-</div>
-
-<!-- Charts Section -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-    <!-- Projection Chart -->
-    <div class="dashboard-card md:col-span-2 bg-background border rounded-2xl p-6">
-        <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
-            <h3 class="text-lg font-bold text-foreground flex items-center gap-2">
-                {{template "icon-trending-up" dict "Size" 18}} Trajectoire
-            </h3>
-            <div class="dashboard-card flex items-center gap-4 bg-accent px-4 py-2 rounded-xl border w-full md:w-auto">
-                <span class="text-xs text-muted-foreground whitespace-nowrap font-medium">
-                    Projection : <strong x-text="sliderValue + ' ans'">{{.Years}} ans</strong>
-                </span>
-                <input type="range" min="1" max="30"
-                       x-model="sliderValue"
-                       @change="htmx.trigger(document.body, 'sliderChange')"
-                       class="w-full md:w-48 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600">
-            </div>
-        </div>
-        <div class="h-[350px] w-full" id="projection-chart">
-            {{template "projection-chart" .}}
-        </div>
-    </div>
-
-    <!-- Pie Chart -->
-    <div class="dashboard-card bg-background border rounded-2xl p-6 flex flex-col">
-        <h3 class="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-            {{template "icon-dashboard" dict "Size" 18}} Repartition
-        </h3>
-        <div class="flex-1 min-h-[300px]" id="pie-chart">
-            {{template "pie-chart" .}}
-        </div>
     </div>
 </div>
 {{end}}
 
+{{define "dashboard-cards"}}
+{{template "kpi-cards" .}}
+{{end}}
+
 {{define "projection-chart"}}
-<div class="h-full w-full flex items-center justify-center text-muted-foreground">
-    <canvas id="projectionCanvas" class="w-full h-full"></canvas>
+<div class="h-full w-full">
+    <canvas id="projectionCanvas"></canvas>
 </div>
 <script>
 (function() {
     const ctx = document.getElementById('projectionCanvas');
-    if (!ctx) return;
+    if (!ctx || typeof Chart === 'undefined') return;
+
+    // Detruire le graphique existant si present
+    if (window.projectionChart) {
+        window.projectionChart.destroy();
+    }
 
     const data = {{.ProjectionData | json}};
-    const accounts = {{.Accounts | json}};
-
-    // Simple line chart with vanilla JS + Canvas
-    const canvas = ctx.getContext('2d');
-    const width = ctx.parentElement.clientWidth;
-    const height = ctx.parentElement.clientHeight;
-    ctx.width = width;
-    ctx.height = height;
 
     if (!data || data.length === 0) {
-        canvas.fillStyle = '#64748b';
-        canvas.textAlign = 'center';
-        canvas.font = '14px system-ui';
-        canvas.fillText('Aucune donnee', width/2, height/2);
+        ctx.parentElement.innerHTML = '<div class="h-full flex items-center justify-center text-muted-foreground">Aucune donnee</div>';
         return;
     }
 
-    const padding = 60;
-    const maxVal = Math.max(...data.map(d => d.totalMax || d.totalAvg || 0));
-    const minVal = 0;
+    const isDark = document.documentElement.classList.contains('dark');
+    const gridColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.1)';
+    const textColor = isDark ? '#94a3b8' : '#64748b';
 
-    // Draw axes
-    canvas.strokeStyle = '#334155';
-    canvas.lineWidth = 1;
-    canvas.beginPath();
-    canvas.moveTo(padding, padding);
-    canvas.lineTo(padding, height - padding);
-    canvas.lineTo(width - padding, height - padding);
-    canvas.stroke();
-
-    // Draw area
-    const getX = (i) => padding + (i / (data.length - 1)) * (width - 2 * padding);
-    const getY = (v) => height - padding - ((v - minVal) / (maxVal - minVal)) * (height - 2 * padding);
-
-    // Fill area
-    canvas.fillStyle = 'rgba(59, 130, 246, 0.1)';
-    canvas.beginPath();
-    canvas.moveTo(getX(0), height - padding);
-    data.forEach((d, i) => canvas.lineTo(getX(i), getY(d.totalAvg)));
-    canvas.lineTo(getX(data.length - 1), height - padding);
-    canvas.closePath();
-    canvas.fill();
-
-    // Draw line
-    canvas.strokeStyle = '#3b82f6';
-    canvas.lineWidth = 3;
-    canvas.beginPath();
-    data.forEach((d, i) => {
-        if (i === 0) canvas.moveTo(getX(i), getY(d.totalAvg));
-        else canvas.lineTo(getX(i), getY(d.totalAvg));
-    });
-    canvas.stroke();
-
-    // Labels
-    canvas.fillStyle = '#64748b';
-    canvas.font = '11px system-ui';
-    canvas.textAlign = 'center';
-
-    // X axis labels
-    [0, Math.floor(data.length/2), data.length-1].forEach(i => {
-        if (data[i]) canvas.fillText(data[i].year, getX(i), height - padding + 20);
-    });
-
-    // Y axis labels
-    canvas.textAlign = 'right';
-    [0, 0.5, 1].forEach(f => {
-        const v = minVal + f * (maxVal - minVal);
-        const formatted = new Intl.NumberFormat('fr-FR', {style: 'currency', currency: 'EUR', maximumFractionDigits: 0}).format(v);
-        canvas.fillText(formatted, padding - 10, getY(v) + 4);
+    window.projectionChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.map(d => d.name || ('An ' + d.year)),
+            datasets: [{
+                label: 'Projection moyenne',
+                data: data.map(d => d.totalAvg),
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 4,
+                pointBackgroundColor: '#3b82f6',
+                pointBorderColor: isDark ? '#0f172a' : '#ffffff',
+                pointBorderWidth: 2,
+                pointHoverRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    titleColor: isDark ? '#f1f5f9' : '#0f172a',
+                    bodyColor: isDark ? '#cbd5e1' : '#475569',
+                    borderColor: isDark ? '#334155' : '#e2e8f0',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: false,
+                    callbacks: {
+                        label: function(context) {
+                            return new Intl.NumberFormat('fr-FR', {
+                                style: 'currency',
+                                currency: 'EUR',
+                                maximumFractionDigits: 0
+                            }).format(context.raw);
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: gridColor,
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: textColor,
+                        font: { size: 11 }
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: gridColor,
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: textColor,
+                        font: { size: 11 },
+                        callback: function(value) {
+                            return new Intl.NumberFormat('fr-FR', {
+                                style: 'currency',
+                                currency: 'EUR',
+                                notation: 'compact',
+                                maximumFractionDigits: 0
+                            }).format(value);
+                        }
+                    }
+                }
+            }
+        }
     });
 })();
 </script>
@@ -162,58 +196,88 @@
 
 {{define "pie-chart"}}
 <div class="h-full w-full flex flex-col items-center justify-center">
-    <canvas id="pieCanvas" class="w-full max-w-[250px]" style="aspect-ratio: 1;"></canvas>
-    <div class="mt-4 text-center">
-        <div class="text-2xl font-bold font-mono text-foreground">{{formatMoney .TotalBalance}}</div>
-        <div class="text-xs text-muted-foreground uppercase font-bold">Total</div>
+    <div class="relative w-full max-w-[250px]" style="aspect-ratio: 1;">
+        <canvas id="pieCanvas"></canvas>
+        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <div class="text-2xl font-bold font-mono text-foreground">{{formatMoney .TotalBalance}}</div>
+            <div class="text-xs text-muted-foreground uppercase font-bold">Total</div>
+        </div>
     </div>
+    <div id="pieLegend" class="mt-4 flex flex-wrap justify-center gap-2"></div>
 </div>
 <script>
 (function() {
     const ctx = document.getElementById('pieCanvas');
-    if (!ctx) return;
+    if (!ctx || typeof Chart === 'undefined') return;
+
+    // Detruire le graphique existant si present
+    if (window.pieChart) {
+        window.pieChart.destroy();
+    }
 
     const accounts = {{.PieData | json}};
-    const canvas = ctx.getContext('2d');
-    const size = Math.min(ctx.parentElement.clientWidth, 250);
-    ctx.width = size;
-    ctx.height = size;
+    const isDark = document.documentElement.classList.contains('dark');
 
     if (!accounts || accounts.length === 0) {
-        canvas.fillStyle = '#334155';
-        canvas.beginPath();
-        canvas.arc(size/2, size/2, size/2 - 10, 0, Math.PI * 2);
-        canvas.fill();
+        ctx.parentElement.querySelector('.absolute').innerHTML = `
+            <div class="text-muted-foreground text-sm">Aucun compte</div>
+        `;
         return;
     }
 
-    const total = accounts.reduce((s, a) => s + a.value, 0);
-    const cx = size / 2;
-    const cy = size / 2;
-    const radius = size / 2 - 10;
-    const innerRadius = radius * 0.6;
-
-    let startAngle = -Math.PI / 2;
-
-    accounts.forEach(acc => {
-        const sliceAngle = (acc.value / total) * Math.PI * 2;
-
-        canvas.fillStyle = acc.color;
-        canvas.beginPath();
-        canvas.moveTo(cx, cy);
-        canvas.arc(cx, cy, radius, startAngle, startAngle + sliceAngle);
-        canvas.closePath();
-        canvas.fill();
-
-        startAngle += sliceAngle;
+    window.pieChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: accounts.map(a => a.name),
+            datasets: [{
+                data: accounts.map(a => a.value),
+                backgroundColor: accounts.map(a => a.color),
+                borderColor: isDark ? '#0f172a' : '#ffffff',
+                borderWidth: 3,
+                hoverOffset: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            cutout: '65%',
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    titleColor: isDark ? '#f1f5f9' : '#0f172a',
+                    bodyColor: isDark ? '#cbd5e1' : '#475569',
+                    borderColor: isDark ? '#334155' : '#e2e8f0',
+                    borderWidth: 1,
+                    padding: 12,
+                    callbacks: {
+                        label: function(context) {
+                            const value = new Intl.NumberFormat('fr-FR', {
+                                style: 'currency',
+                                currency: 'EUR',
+                                maximumFractionDigits: 0
+                            }).format(context.raw);
+                            const percent = ((context.raw / context.dataset.data.reduce((a, b) => a + b, 0)) * 100).toFixed(1);
+                            return `${value} (${percent}%)`;
+                        }
+                    }
+                }
+            }
+        }
     });
 
-    // Inner circle (donut)
-    const isDark = document.documentElement.classList.contains('dark');
-    canvas.fillStyle = isDark ? '#0f172a' : '#ffffff';
-    canvas.beginPath();
-    canvas.arc(cx, cy, innerRadius, 0, Math.PI * 2);
-    canvas.fill();
+    // Legende personnalisee
+    const legendContainer = document.getElementById('pieLegend');
+    if (legendContainer) {
+        legendContainer.innerHTML = accounts.map(a => `
+            <div class="flex items-center gap-1.5 text-xs">
+                <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${a.color}"></span>
+                <span class="text-muted-foreground">${a.name}</span>
+            </div>
+        `).join('');
+    }
 })();
 </script>
 {{end}}

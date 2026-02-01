@@ -31,8 +31,8 @@
         {{if .CanUsePasskeys}}
         <template x-if="!isRegister && !requires2FA">
             <div>
-                <button hx-post="/api/passkey/login/start"
-                        hx-swap="none"
+                <button type="button"
+                        onclick="loginWithPasskey()"
                         class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl mb-6 flex items-center justify-center gap-2 transition-all">
                     {{template "icon-fingerprint" dict "Size" 20}} Se connecter avec Passkey
                 </button>

@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -30,12 +32,14 @@ func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convertir en credentials WebAuthn
+	// Convertir en credentials WebAuthn (base64 decode)
 	var credentials []webauthn.Credential
 	for _, a := range authenticators {
+		credID, _ := base64.StdEncoding.DecodeString(a.CredentialID)
+		pubKey, _ := base64.StdEncoding.DecodeString(a.CredentialPublicKey)
 		credentials = append(credentials, webauthn.Credential{
-			ID:        []byte(a.CredentialID),
-			PublicKey: []byte(a.CredentialPublicKey),
+			ID:        credID,
+			PublicKey: pubKey,
 		})
 	}
 
@@ -105,11 +109,11 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Sauvegarder la passkey en BDD
+	// Sauvegarder la passkey en BDD (base64 encode)
 	transports, _ := json.Marshal(credential.Transport)
 	err = db.CreateAuthenticator(
-		string(credential.ID),
-		string(credential.PublicKey),
+		base64.StdEncoding.EncodeToString(credential.ID),
+		base64.StdEncoding.EncodeToString(credential.PublicKey),
 		int(credential.Authenticator.SignCount),
 		"multiDevice",
 		credential.Flags.BackupState,
@@ -163,27 +167,35 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Callback pour récupérer l'utilisateur par credential ID
+	// Callback pour récupérer l'utilisateur par credential ID (base64 encoded)
 	userHandler := func(rawID, userHandle []byte) (webauthn.User, error) {
-		authenticator, err := db.GetAuthenticatorByCredentialID(string(rawID))
+		// rawID est en bytes, on le convertit en base64 pour chercher en BDD
+		credIDBase64 := base64.StdEncoding.EncodeToString(rawID)
+		log.Printf("Passkey login: searching for credential ID: %s", credIDBase64)
+
+		authenticator, err := db.GetAuthenticatorByCredentialID(credIDBase64)
 		if err != nil || authenticator == nil {
+			log.Printf("Passkey login: authenticator not found: %v", err)
 			return nil, err
 		}
 
 		user, err := db.GetUserByID(authenticator.UserID)
 		if err != nil || user == nil {
+			log.Printf("Passkey login: user not found: %v", err)
 			return nil, err
 		}
 
 		email, _ := crypto.Decrypt(user.EmailEncrypted)
 
-		// Récupérer toutes les credentials de l'utilisateur
+		// Récupérer toutes les credentials de l'utilisateur (base64 decode)
 		auths, _ := db.GetAuthenticatorsByUserID(user.ID)
 		var credentials []webauthn.Credential
 		for _, a := range auths {
+			credID, _ := base64.StdEncoding.DecodeString(a.CredentialID)
+			pubKey, _ := base64.StdEncoding.DecodeString(a.CredentialPublicKey)
 			credentials = append(credentials, webauthn.Credential{
-				ID:        []byte(a.CredentialID),
-				PublicKey: []byte(a.CredentialPublicKey),
+				ID:        credID,
+				PublicKey: pubKey,
 			})
 		}
 
@@ -196,12 +208,13 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 
 	passkeyUser, credential, err := auth.FinishLogin(cookie.Value, r, userHandler)
 	if err != nil {
+		log.Printf("Passkey login failed: %v", err)
 		http.Error(w, "Authentification échouée", http.StatusUnauthorized)
 		return
 	}
 
-	// Mettre à jour le compteur
-	db.UpdateAuthenticatorCounter(string(credential.ID), int(credential.Authenticator.SignCount))
+	// Mettre à jour le compteur (base64 encode credential ID)
+	db.UpdateAuthenticatorCounter(base64.StdEncoding.EncodeToString(credential.ID), int(credential.Authenticator.SignCount))
 
 	// Récupérer l'utilisateur complet
 	user, err := db.GetUserByID(passkeyUser.ID)
@@ -262,4 +275,37 @@ func DeletePasskey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// RenamePasskey renomme une passkey
+func RenamePasskey(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUser(r)
+	if user == nil {
+		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "ID invalide", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Données invalides", http.StatusBadRequest)
+		return
+	}
+
+	err = db.RenameAuthenticator(id, user.ID, req.Name)
+	if err != nil {
+		http.Error(w, "Erreur renommage", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
