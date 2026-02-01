@@ -43,9 +43,80 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	twoFactorCode := r.FormValue("twoFactorCode")
+
+	// Vérifier s'il y a un pending_2fa cookie (deuxième étape de login avec 2FA)
+	pendingCookie, _ := r.Cookie("pending_2fa")
+	if pendingCookie != nil && twoFactorCode != "" {
+		// Validation du code 2FA
+		pendingUserID, err := auth.ValidatePending2FAToken(pendingCookie.Value)
+		if err != nil {
+			http.Error(w, "Session expirée, veuillez vous reconnecter", http.StatusUnauthorized)
+			return
+		}
+
+		user, err := db.GetUserByID(pendingUserID)
+		if err != nil || user == nil {
+			http.Error(w, "Utilisateur non trouvé", http.StatusUnauthorized)
+			return
+		}
+
+		// Déchiffrer le secret MFA
+		secret, err := crypto.Decrypt(*user.MFASecret)
+		if err != nil {
+			http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+			return
+		}
+
+		if !auth.ValidateTOTP(secret, twoFactorCode) {
+			http.Error(w, "Code 2FA invalide", http.StatusUnauthorized)
+			return
+		}
+
+		// Supprimer le cookie pending_2fa
+		http.SetCookie(w, &http.Cookie{
+			Name:   "pending_2fa",
+			Value:  "",
+			Path:   "/",
+			MaxAge: -1,
+		})
+
+		// Déchiffrer l'email pour le token
+		decryptedEmail, err := crypto.Decrypt(user.EmailEncrypted)
+		if err != nil {
+			http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+			return
+		}
+
+		// Générer le token JWT
+		token, err := auth.GenerateToken(user.ID, decryptedEmail, user.Role, user.SessionVersion)
+		if err != nil {
+			http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+			return
+		}
+
+		// Définir le cookie de session
+		http.SetCookie(w, &http.Cookie{
+			Name:     "session",
+			Value:    token,
+			Path:     "/",
+			MaxAge:   86400,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		})
+
+		// Réinitialiser le rate limiter
+		ratelimit.Reset(clientIP, "login")
+
+		// Rediriger vers le dashboard
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	// Login normal (première étape)
 	email := strings.TrimSpace(r.FormValue("email"))
 	password := r.FormValue("password")
-	twoFactorCode := r.FormValue("twoFactorCode")
 
 	if email == "" || password == "" {
 		http.Error(w, "Email et mot de passe requis", http.StatusBadRequest)
@@ -74,7 +145,6 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Vérifier le mot de passe
 	if !crypto.VerifyPassword(password, user.Password) {
-		// Incrémenter les échecs
 		handleFailedLogin(user)
 		http.Error(w, "Identifiants incorrects", http.StatusUnauthorized)
 		return
@@ -87,69 +157,34 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Vérifier 2FA si activé
 	if user.MFAEnabled {
-		if twoFactorCode == "" {
-			// Stocker l'ID utilisateur validé dans un cookie temporaire signé
-			pendingToken, err := auth.GeneratePending2FAToken(user.ID)
-			if err != nil {
-				http.Error(w, "Erreur serveur", http.StatusInternalServerError)
-				return
-			}
-
-			http.SetCookie(w, &http.Cookie{
-				Name:     "pending_2fa",
-				Value:    pendingToken,
-				Path:     "/",
-				MaxAge:   300, // 5 minutes
-				HttpOnly: true,
-				Secure:   true,
-				SameSite: http.SameSiteLaxMode,
-			})
-
-			// Rendre la page login avec le formulaire 2FA visible
-			data := map[string]interface{}{
-				"Title":          "Connexion",
-				"CanRegister":    os.Getenv("ALLOW_REGISTER") == "true",
-				"CanUsePasskeys": os.Getenv("HOST") != "",
-				"MailEnabled":    os.Getenv("SMTP_HOST") != "",
-				"Requires2FA":    true,
-			}
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			templates.Render(w, "login.html", data)
-			return
-		}
-
-		// Vérifier le cookie pending_2fa
-		pendingCookie, err := r.Cookie("pending_2fa")
-		if err != nil {
-			http.Error(w, "Session expirée, veuillez vous reconnecter", http.StatusUnauthorized)
-			return
-		}
-
-		pendingUserID, err := auth.ValidatePending2FAToken(pendingCookie.Value)
-		if err != nil || pendingUserID != user.ID {
-			http.Error(w, "Session invalide", http.StatusUnauthorized)
-			return
-		}
-
-		// Déchiffrer le secret MFA
-		secret, err := crypto.Decrypt(*user.MFASecret)
+		// Stocker l'ID utilisateur validé dans un cookie temporaire signé
+		pendingToken, err := auth.GeneratePending2FAToken(user.ID)
 		if err != nil {
 			http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 			return
 		}
 
-		if !auth.ValidateTOTP(secret, twoFactorCode) {
-			http.Error(w, "Code 2FA invalide", http.StatusUnauthorized)
-			return
-		}
-
-		// Supprimer le cookie pending_2fa
 		http.SetCookie(w, &http.Cookie{
-			Name:   "pending_2fa",
-			Value:  "",
-			Path:   "/",
-			MaxAge: -1,
+			Name:     "pending_2fa",
+			Value:    pendingToken,
+			Path:     "/",
+			MaxAge:   300, // 5 minutes
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
 		})
+
+		// Rendre la page login avec le formulaire 2FA visible
+		data := map[string]interface{}{
+			"Title":          "Connexion",
+			"CanRegister":    os.Getenv("ALLOW_REGISTER") == "true",
+			"CanUsePasskeys": os.Getenv("HOST") != "",
+			"MailEnabled":    os.Getenv("SMTP_HOST") != "",
+			"Requires2FA":    true,
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		templates.Render(w, "login.html", data)
+		return
 	}
 
 	// Déchiffrer l'email pour le token
