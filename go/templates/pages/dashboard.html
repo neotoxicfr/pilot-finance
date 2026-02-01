@@ -1,0 +1,219 @@
+{{define "content"}}
+<div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8"
+     x-data="{ sliderValue: 5 }"
+     hx-get="/api/dashboard"
+     hx-trigger="load, sliderChange from:body"
+     hx-vals="js:{years: document.querySelector('[name=years]')?.value || 5}"
+     hx-target="#dashboard-content"
+     hx-swap="innerHTML">
+
+    <input type="hidden" name="years" :value="sliderValue" @change="$dispatch('sliderChange')">
+
+    <div id="dashboard-content">
+        {{template "dashboard-cards" .}}
+    </div>
+</div>
+{{end}}
+
+{{define "dashboard-cards"}}
+<!-- KPI Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+    <div class="dashboard-card bg-background border p-6 rounded-2xl relative overflow-hidden transition-colors">
+        <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
+            {{template "icon-shield-check" dict "Size" 80}}
+        </div>
+        <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Patrimoine Net</p>
+        <h2 class="text-3xl md:text-4xl font-bold text-foreground font-mono tracking-tight">{{formatMoney .TotalBalance}}</h2>
+    </div>
+    <div class="dashboard-card bg-background border p-6 rounded-2xl relative overflow-hidden transition-colors">
+        <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
+            {{template "icon-trending-up" dict "Size" 80}}
+        </div>
+        <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Interets Composes</p>
+        <h2 class="text-3xl md:text-4xl font-bold text-emerald-500 font-mono tracking-tight">+{{formatMoney .TotalInterests}}</h2>
+    </div>
+    <div class="dashboard-card bg-background border p-6 rounded-2xl relative overflow-hidden transition-colors sm:col-span-2 md:col-span-1">
+        <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
+            {{template "icon-piggybank" dict "Size" 80}}
+        </div>
+        <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Projection a <span x-text="sliderValue">{{.Years}}</span> ans</p>
+        <h2 class="text-3xl md:text-4xl font-bold text-blue-500 font-mono tracking-tight">{{formatMoney .ProjectionTotal}}</h2>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+    <!-- Projection Chart -->
+    <div class="dashboard-card md:col-span-2 bg-background border rounded-2xl p-6">
+        <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+            <h3 class="text-lg font-bold text-foreground flex items-center gap-2">
+                {{template "icon-trending-up" dict "Size" 18}} Trajectoire
+            </h3>
+            <div class="dashboard-card flex items-center gap-4 bg-accent px-4 py-2 rounded-xl border w-full md:w-auto">
+                <span class="text-xs text-muted-foreground whitespace-nowrap font-medium">
+                    Projection : <strong x-text="sliderValue + ' ans'">{{.Years}} ans</strong>
+                </span>
+                <input type="range" min="1" max="30"
+                       x-model="sliderValue"
+                       @change="htmx.trigger(document.body, 'sliderChange')"
+                       class="w-full md:w-48 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600">
+            </div>
+        </div>
+        <div class="h-[350px] w-full" id="projection-chart">
+            {{template "projection-chart" .}}
+        </div>
+    </div>
+
+    <!-- Pie Chart -->
+    <div class="dashboard-card bg-background border rounded-2xl p-6 flex flex-col">
+        <h3 class="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+            {{template "icon-dashboard" dict "Size" 18}} Repartition
+        </h3>
+        <div class="flex-1 min-h-[300px]" id="pie-chart">
+            {{template "pie-chart" .}}
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{define "projection-chart"}}
+<div class="h-full w-full flex items-center justify-center text-muted-foreground">
+    <canvas id="projectionCanvas" class="w-full h-full"></canvas>
+</div>
+<script>
+(function() {
+    const ctx = document.getElementById('projectionCanvas');
+    if (!ctx) return;
+
+    const data = {{.ProjectionData | json}};
+    const accounts = {{.Accounts | json}};
+
+    // Simple line chart with vanilla JS + Canvas
+    const canvas = ctx.getContext('2d');
+    const width = ctx.parentElement.clientWidth;
+    const height = ctx.parentElement.clientHeight;
+    ctx.width = width;
+    ctx.height = height;
+
+    if (!data || data.length === 0) {
+        canvas.fillStyle = '#64748b';
+        canvas.textAlign = 'center';
+        canvas.font = '14px system-ui';
+        canvas.fillText('Aucune donnee', width/2, height/2);
+        return;
+    }
+
+    const padding = 60;
+    const maxVal = Math.max(...data.map(d => d.totalMax || d.totalAvg || 0));
+    const minVal = 0;
+
+    // Draw axes
+    canvas.strokeStyle = '#334155';
+    canvas.lineWidth = 1;
+    canvas.beginPath();
+    canvas.moveTo(padding, padding);
+    canvas.lineTo(padding, height - padding);
+    canvas.lineTo(width - padding, height - padding);
+    canvas.stroke();
+
+    // Draw area
+    const getX = (i) => padding + (i / (data.length - 1)) * (width - 2 * padding);
+    const getY = (v) => height - padding - ((v - minVal) / (maxVal - minVal)) * (height - 2 * padding);
+
+    // Fill area
+    canvas.fillStyle = 'rgba(59, 130, 246, 0.1)';
+    canvas.beginPath();
+    canvas.moveTo(getX(0), height - padding);
+    data.forEach((d, i) => canvas.lineTo(getX(i), getY(d.totalAvg)));
+    canvas.lineTo(getX(data.length - 1), height - padding);
+    canvas.closePath();
+    canvas.fill();
+
+    // Draw line
+    canvas.strokeStyle = '#3b82f6';
+    canvas.lineWidth = 3;
+    canvas.beginPath();
+    data.forEach((d, i) => {
+        if (i === 0) canvas.moveTo(getX(i), getY(d.totalAvg));
+        else canvas.lineTo(getX(i), getY(d.totalAvg));
+    });
+    canvas.stroke();
+
+    // Labels
+    canvas.fillStyle = '#64748b';
+    canvas.font = '11px system-ui';
+    canvas.textAlign = 'center';
+
+    // X axis labels
+    [0, Math.floor(data.length/2), data.length-1].forEach(i => {
+        if (data[i]) canvas.fillText(data[i].year, getX(i), height - padding + 20);
+    });
+
+    // Y axis labels
+    canvas.textAlign = 'right';
+    [0, 0.5, 1].forEach(f => {
+        const v = minVal + f * (maxVal - minVal);
+        const formatted = new Intl.NumberFormat('fr-FR', {style: 'currency', currency: 'EUR', maximumFractionDigits: 0}).format(v);
+        canvas.fillText(formatted, padding - 10, getY(v) + 4);
+    });
+})();
+</script>
+{{end}}
+
+{{define "pie-chart"}}
+<div class="h-full w-full flex flex-col items-center justify-center">
+    <canvas id="pieCanvas" class="w-full max-w-[250px]" style="aspect-ratio: 1;"></canvas>
+    <div class="mt-4 text-center">
+        <div class="text-2xl font-bold font-mono text-foreground">{{formatMoney .TotalBalance}}</div>
+        <div class="text-xs text-muted-foreground uppercase font-bold">Total</div>
+    </div>
+</div>
+<script>
+(function() {
+    const ctx = document.getElementById('pieCanvas');
+    if (!ctx) return;
+
+    const accounts = {{.PieData | json}};
+    const canvas = ctx.getContext('2d');
+    const size = Math.min(ctx.parentElement.clientWidth, 250);
+    ctx.width = size;
+    ctx.height = size;
+
+    if (!accounts || accounts.length === 0) {
+        canvas.fillStyle = '#334155';
+        canvas.beginPath();
+        canvas.arc(size/2, size/2, size/2 - 10, 0, Math.PI * 2);
+        canvas.fill();
+        return;
+    }
+
+    const total = accounts.reduce((s, a) => s + a.value, 0);
+    const cx = size / 2;
+    const cy = size / 2;
+    const radius = size / 2 - 10;
+    const innerRadius = radius * 0.6;
+
+    let startAngle = -Math.PI / 2;
+
+    accounts.forEach(acc => {
+        const sliceAngle = (acc.value / total) * Math.PI * 2;
+
+        canvas.fillStyle = acc.color;
+        canvas.beginPath();
+        canvas.moveTo(cx, cy);
+        canvas.arc(cx, cy, radius, startAngle, startAngle + sliceAngle);
+        canvas.closePath();
+        canvas.fill();
+
+        startAngle += sliceAngle;
+    });
+
+    // Inner circle (donut)
+    const isDark = document.documentElement.classList.contains('dark');
+    canvas.fillStyle = isDark ? '#0f172a' : '#ffffff';
+    canvas.beginPath();
+    canvas.arc(cx, cy, innerRadius, 0, Math.PI * 2);
+    canvas.fill();
+})();
+</script>
+{{end}}
