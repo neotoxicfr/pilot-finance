@@ -98,32 +98,34 @@ pilot-go/
 - [x] Dockerfile optimisé
 - [ ] Tests de compatibilité avec données réelles
 
-### Phase 2 : Authentification
-- [ ] Sessions JWT complètes
-- [ ] Login/Register avec bcrypt
-- [ ] Rate limiting
-- [ ] Passkeys (WebAuthn)
-- [ ] 2FA TOTP
+### Phase 2 : Authentification ✅ TERMINÉ
+- [x] Sessions JWT complètes
+- [x] Login/Register avec bcrypt
+- [x] Rate limiting (sliding window en mémoire)
+- [x] Passkeys (WebAuthn avec go-webauthn)
+- [x] 2FA TOTP (pquerna/otp)
 
-### Phase 3 : Pages principales
-- [ ] Layout de base (HTMX + Alpine)
-- [ ] Page login
-- [ ] Dashboard (patrimoine total)
-- [ ] Page comptes (CRUD)
-- [ ] Opérations récurrentes (CRUD)
+### Phase 3 : Pages principales ✅ TERMINÉ
+- [x] Layout de base (HTMX + Alpine.js)
+- [x] Page login avec passkeys
+- [x] Dashboard (patrimoine, projections, graphiques)
+- [x] Page comptes (CRUD complet)
+- [x] Opérations récurrentes (CRUD)
+- [x] Page paramètres (mot de passe, 2FA, passkeys, admin)
 
 ### Phase 4 : Fonctionnalités avancées
-- [ ] Rendements et projections
-- [ ] Graphiques (Chart.js ou équivalent léger)
-- [ ] Page settings
-- [ ] Gestion admin
-- [ ] Emails (SMTP)
+- [ ] Calculs de rendements complets
+- [ ] Projections avec intérêts composés
+- [ ] Graphiques détaillés
+- [ ] Emails (SMTP) pour reset password
+- [ ] Optimisations performances
 
 ### Phase 5 : Finalisation
-- [ ] Health endpoint ✅
-- [ ] Dockerfile optimisé ✅
+- [x] Health endpoint
+- [x] Dockerfile optimisé
 - [ ] Tests complets
-- [ ] Documentation
+- [ ] Tests de compatibilité avec données réelles
+- [ ] Documentation finale
 
 ## Fichiers créés (Phase 1)
 
@@ -256,4 +258,50 @@ Avantages supplémentaires découverts pendant l'implémentation :
 
 ## Prochaine étape
 
-Implémenter Phase 2 : Authentification complète avec Passkeys et 2FA.
+Implémenter Phase 4 : Fonctionnalités avancées (rendements, projections, emails).
+
+## Fichiers créés (Phases 1-3)
+
+```
+go/
+├── cmd/server/main.go               # Point d'entrée + routing + middlewares
+├── internal/
+│   ├── auth/
+│   │   ├── jwt.go                   # Génération/validation JWT
+│   │   ├── passkey.go               # WebAuthn (go-webauthn)
+│   │   └── totp.go                  # 2FA TOTP
+│   ├── config/config.go             # Configuration env
+│   ├── crypto/crypto.go             # AES-256-GCM compatible Node.js
+│   ├── db/
+│   │   ├── models.go                # Structures de données
+│   │   ├── sqlite.go                # Connexion SQLite
+│   │   ├── users.go                 # Requêtes users
+│   │   ├── accounts.go              # Requêtes accounts
+│   │   └── authenticators.go        # Requêtes passkeys
+│   ├── handlers/
+│   │   ├── auth.go                  # Login/Register
+│   │   ├── passkey.go               # Endpoints passkeys
+│   │   ├── pages.go                 # Rendu des pages
+│   │   ├── accounts.go              # CRUD comptes
+│   │   ├── recurring.go             # CRUD opérations
+│   │   └── settings.go              # Paramètres
+│   ├── middleware/auth.go           # Auth middleware
+│   ├── ratelimit/limiter.go         # Rate limiting
+│   └── templates/templates.go       # Moteur de templates
+├── templates/
+│   ├── layouts/base.html            # Layout principal
+│   ├── components/icons.html        # Icônes SVG
+│   └── pages/
+│       ├── login.html               # Connexion/Inscription
+│       ├── dashboard.html           # Tableau de bord
+│       ├── accounts.html            # Gestion comptes
+│       └── settings.html            # Paramètres
+├── static/
+│   ├── css/app.css                  # Styles + Tailwind vars
+│   ├── favicon.ico
+│   ├── logo.svg
+│   └── manifest.json
+├── Dockerfile
+├── go.mod
+└── go.sum
+```
