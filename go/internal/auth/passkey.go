@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-webauthn/webauthn/protocol"
@@ -21,7 +22,7 @@ type PasskeyUser struct {
 }
 
 func (u *PasskeyUser) WebAuthnID() []byte {
-	return []byte(string(rune(u.ID)))
+	return []byte(strconv.FormatInt(u.ID, 10))
 }
 
 func (u *PasskeyUser) WebAuthnName() string {
@@ -66,9 +67,10 @@ func InitWebAuthn(rpID, rpOrigin, rpName string) error {
 // BeginRegistration démarre l'enregistrement d'une passkey
 func BeginRegistration(user *PasskeyUser) (*protocol.CredentialCreation, string, error) {
 	options, session, err := webAuthn.BeginRegistration(user,
-		webauthn.WithResidentKeyRequirement(protocol.ResidentKeyRequirementPreferred),
+		webauthn.WithResidentKeyRequirement(protocol.ResidentKeyRequirementRequired),
 		webauthn.WithAuthenticatorSelection(protocol.AuthenticatorSelection{
 			UserVerification: protocol.VerificationPreferred,
+			ResidentKey:      protocol.ResidentKeyRequirementRequired,
 		}),
 	)
 	if err != nil {
