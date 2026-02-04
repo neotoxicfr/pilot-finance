@@ -42,6 +42,13 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Chiffrer le nom du compte
+	encryptedName, err := crypto.Encrypt(name)
+	if err != nil {
+		http.Error(w, "Erreur chiffrement", http.StatusInternalServerError)
+		return
+	}
+
 	balance := 0.0
 	if balanceStr != "" {
 		var err error
@@ -80,7 +87,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "ID invalide", http.StatusBadRequest)
 			return
 		}
-		err = db.UpdateAccountWithYield(id, user.ID, name, balance, color, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate)
+		err = db.UpdateAccountWithYield(id, user.ID, encryptedName, balance, color, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate)
 		if err != nil {
 			http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
 			return
@@ -90,7 +97,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		accounts, _ := db.GetAccountsByUserID(user.ID)
 		position := len(accounts)
 
-		err := db.CreateAccountWithYield(user.ID, name, balance, color, position, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate)
+		err := db.CreateAccountWithYield(user.ID, encryptedName, balance, color, position, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate)
 		if err != nil {
 			http.Error(w, "Erreur creation", http.StatusInternalServerError)
 			return
@@ -125,12 +132,19 @@ func UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	balanceStr := r.FormValue("balance")
 	color := r.FormValue("color")
 
+	// Chiffrer le nom du compte
+	encryptedName, encErr := crypto.Encrypt(name)
+	if encErr != nil {
+		http.Error(w, "Erreur chiffrement", http.StatusInternalServerError)
+		return
+	}
+
 	balance := 0.0
 	if balanceStr != "" {
 		balance, _ = strconv.ParseFloat(balanceStr, 64)
 	}
 
-	err = db.UpdateAccount(id, user.ID, name, balance, color)
+	err = db.UpdateAccount(id, user.ID, encryptedName, balance, color)
 	if err != nil {
 		http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
 		return

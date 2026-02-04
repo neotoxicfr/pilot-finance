@@ -38,6 +38,13 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Chiffrer la description
+	encryptedDesc, err := crypto.Encrypt(description)
+	if err != nil {
+		http.Error(w, "Erreur chiffrement", http.StatusInternalServerError)
+		return
+	}
+
 	amount, err := strconv.ParseFloat(amountStr, 64)
 	if err != nil {
 		http.Error(w, "Montant invalide", http.StatusBadRequest)
@@ -77,14 +84,14 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "ID invalide", http.StatusBadRequest)
 			return
 		}
-		err = db.UpdateRecurring(id, user.ID, description, amount, day, toAccountID)
+		err = db.UpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
 		if err != nil {
 			http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
 			return
 		}
 	} else {
 		// Creation
-		err = db.CreateRecurring(user.ID, accountID, toAccountID, description, amount, day)
+		err = db.CreateRecurring(user.ID, accountID, toAccountID, encryptedDesc, amount, day)
 		if err != nil {
 			http.Error(w, "Erreur creation", http.StatusInternalServerError)
 			return
@@ -121,6 +128,13 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 	opType := r.FormValue("type")
 	toAccountIDStr := r.FormValue("toAccountId")
 
+	// Chiffrer la description
+	encryptedDesc, encErr := crypto.Encrypt(description)
+	if encErr != nil {
+		http.Error(w, "Erreur chiffrement", http.StatusInternalServerError)
+		return
+	}
+
 	amount, _ := strconv.ParseFloat(amountStr, 64)
 	day, _ := strconv.Atoi(dayStr)
 
@@ -136,7 +150,7 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 		amount = -amount
 	}
 
-	err = db.UpdateRecurring(id, user.ID, description, amount, day, toAccountID)
+	err = db.UpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
 	if err != nil {
 		http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
 		return
