@@ -120,11 +120,27 @@ func sendTLS(addr string, auth smtp.Auth, from, to string, msg []byte) error {
 	return w.Close()
 }
 
+// sanitizeHeader supprime les caractères de contrôle pour prévenir l'injection d'en-têtes
+func sanitizeHeader(s string) string {
+	// Supprimer CR, LF et autres caractères de contrôle
+	result := strings.Map(func(r rune) rune {
+		if r == '\r' || r == '\n' || r == '\x00' {
+			return -1
+		}
+		return r
+	}, s)
+	return result
+}
+
 func buildMessage(to, subject, body string) []byte {
+	// Sanitize headers pour prévenir l'injection
+	safeTo := sanitizeHeader(to)
+	safeSubject := sanitizeHeader(subject)
+
 	headers := make(map[string]string)
 	headers["From"] = config.From
-	headers["To"] = to
-	headers["Subject"] = subject
+	headers["To"] = safeTo
+	headers["Subject"] = safeSubject
 	headers["MIME-Version"] = "1.0"
 	headers["Content-Type"] = "text/html; charset=UTF-8"
 
