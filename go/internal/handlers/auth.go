@@ -75,10 +75,13 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 		// Supprimer le cookie pending_2fa
 		http.SetCookie(w, &http.Cookie{
-			Name:   "pending_2fa",
-			Value:  "",
-			Path:   "/",
-			MaxAge: -1,
+			Name:     "pending_2fa",
+			Value:    "",
+			Path:     "/",
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
 		})
 
 		// Déchiffrer l'email pour le token
