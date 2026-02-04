@@ -149,6 +149,7 @@ document.body.addEventListener('htmx:beforeSwap', function(evt) {
 window.initProjectionChart = function() {
     const ctx = document.getElementById('projectionCanvas');
     const dataEl = document.getElementById('projection-data');
+    const colorsEl = document.getElementById('account-colors');
     if (!ctx || !dataEl || typeof Chart === 'undefined') return;
 
     if (window.projectionChart) {
@@ -156,9 +157,10 @@ window.initProjectionChart = function() {
         window.projectionChart = null;
     }
 
-    let data;
+    let data, accountColors;
     try {
         data = JSON.parse(dataEl.textContent);
+        accountColors = colorsEl ? JSON.parse(colorsEl.textContent) : [];
     } catch(e) {
         console.error('Invalid projection data:', e);
         return;
@@ -173,31 +175,64 @@ window.initProjectionChart = function() {
     const gridColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.1)';
     const textColor = isDark ? '#94a3b8' : '#64748b';
 
+    // Fonction pour eclaircir une couleur
+    function lightenColor(color, amount) {
+        const hex = color.replace('#', '');
+        const r = Math.min(255, parseInt(hex.substr(0, 2), 16) + amount);
+        const g = Math.min(255, parseInt(hex.substr(2, 2), 16) + amount);
+        const b = Math.min(255, parseInt(hex.substr(4, 2), 16) + amount);
+        return `rgba(${r}, ${g}, ${b}, 0.6)`;
+    }
+
+    // Creer les datasets pour chaque compte (stacked area)
+    const datasets = [];
+    if (accountColors && accountColors.length > 0 && data[0].accounts) {
+        accountColors.forEach((acc, index) => {
+            datasets.push({
+                label: acc.name,
+                data: data.map(d => d.accounts ? (d.accounts[acc.name] || 0) : 0),
+                borderColor: acc.color,
+                backgroundColor: lightenColor(acc.color, isDark ? 30 : 60),
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                pointBackgroundColor: acc.color,
+                pointBorderColor: isDark ? '#0f172a' : '#ffffff',
+                pointBorderWidth: 2
+            });
+        });
+    } else {
+        // Fallback: graphique simple avec totalAvg
+        datasets.push({
+            label: 'Projection moyenne',
+            data: data.map(d => d.totalAvg),
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4,
+            pointBackgroundColor: '#3b82f6',
+            pointBorderColor: isDark ? '#0f172a' : '#ffffff',
+            pointBorderWidth: 2,
+            pointHoverRadius: 6
+        });
+    }
+
     window.projectionChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: data.map(d => d.name || ('An ' + d.year)),
-            datasets: [{
-                label: 'Projection moyenne',
-                data: data.map(d => d.totalAvg),
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                borderWidth: 3,
-                fill: true,
-                tension: 0.3,
-                pointRadius: 4,
-                pointBackgroundColor: '#3b82f6',
-                pointBorderColor: isDark ? '#0f172a' : '#ffffff',
-                pointBorderWidth: 2,
-                pointHoverRadius: 6
-            }]
+            datasets: datasets
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             interaction: { intersect: false, mode: 'index' },
             plugins: {
-                legend: { display: false },
+                legend: { display: accountColors && accountColors.length > 1 },
                 tooltip: {
                     backgroundColor: isDark ? '#1e293b' : '#ffffff',
                     titleColor: isDark ? '#f1f5f9' : '#0f172a',
@@ -205,17 +240,25 @@ window.initProjectionChart = function() {
                     borderColor: isDark ? '#334155' : '#e2e8f0',
                     borderWidth: 1,
                     padding: 12,
-                    displayColors: false,
                     callbacks: {
                         label: function(context) {
-                            return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(context.raw);
+                            const value = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(context.raw);
+                            return context.dataset.label + ': ' + value;
+                        },
+                        footer: function(items) {
+                            const total = items.reduce((sum, item) => sum + item.raw, 0);
+                            return 'Total: ' + new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(total);
                         }
                     }
                 }
             },
             scales: {
-                x: { grid: { color: gridColor, drawBorder: false }, ticks: { color: textColor, font: { size: 11 } } },
+                x: {
+                    grid: { color: gridColor, drawBorder: false },
+                    ticks: { color: textColor, font: { size: 11 } }
+                },
                 y: {
+                    stacked: accountColors && accountColors.length > 0,
                     beginAtZero: true,
                     grid: { color: gridColor, drawBorder: false },
                     ticks: {
