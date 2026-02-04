@@ -7,7 +7,7 @@ on:
       - '.dockerignore'
       - '.github/**'
       - '.gitignore'
-      - 'build/public/**'
+      - 'go/static/**'
       - 'CODE_OF_CONDUCT.md'
       - 'CONTRIBUTING.md'
       - 'LICENSE'
@@ -19,7 +19,7 @@ on:
       - '.dockerignore'
       - '.github/**'
       - '.gitignore'
-      - 'build/public/**'
+      - 'go/static/**'
       - 'CODE_OF_CONDUCT.md'
       - 'CONTRIBUTING.md'
       - 'LICENSE'
@@ -44,12 +44,19 @@ jobs:
         include:
           - language: actions
             build-mode: none
-          - language: javascript-typescript
-            build-mode: none
+          - language: go
+            build-mode: autobuild
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+
+      - name: Setup Go
+        if: matrix.language == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go/go.mod'
+          cache-dependency-path: 'go/go.sum'
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
