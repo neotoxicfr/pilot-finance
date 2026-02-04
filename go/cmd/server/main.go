@@ -94,9 +94,9 @@ func main() {
 	// Health check (pas de rate limit strict)
 	r.Get("/api/health", handlers.HealthCheck)
 
-	// Routes auth avec rate limit strict (5 req/min anti-bruteforce)
+	// Routes auth avec rate limit (20 req/min anti-bruteforce)
 	r.Group(func(r chi.Router) {
-		r.Use(httprate.LimitByRealIP(5, time.Minute))
+		r.Use(httprate.LimitByRealIP(20, time.Minute))
 
 		r.Get("/login", handlers.LoginPage)
 		r.Post("/login", handlers.LoginSubmit)
