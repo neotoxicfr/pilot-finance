@@ -1,12 +1,11 @@
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/build"
+  - package-ecosystem: "gomod"
+    directory: "/go"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
-    versioning-strategy: increase
-    
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

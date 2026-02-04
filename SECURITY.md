@@ -6,15 +6,14 @@ Seule la dernière version majeure bénéficie des correctifs de sécurité crit
 
 | Version | Supportée          |
 | ------- | ------------------ |
-| v1.4.X  | :white_check_mark: |
-| v1.3.X  | :white_check_mark: |
-| < 1.3.0 | :x:                |
+| v2.0.X  | :white_check_mark: |
+| < 2.0.0 | :x:                |
 
-**Note importante** : La v1.4.0 apporte des optimisations de performance majeures (Tailwind CSS 4, lazy loading, garbage collection). La v1.3.0 a introduit des améliorations de sécurité majeures (Argon2id, middleware de sécurité renforcé, rate limiting avancé). Il est fortement recommandé de mettre à jour depuis les versions antérieures.
+**Note importante** : La v2.0.0 est une refonte technique complète (Go + HTMX) avec des améliorations de sécurité majeures et zéro dépendance npm. Les versions antérieures (Next.js) ne sont plus supportées.
 
 ## Signaler une vulnérabilité
 
-Si vous découvrez une faille de sécurité, merci de ne pas ouvrir d'issue publique. 
+Si vous découvrez une faille de sécurité, merci de ne pas ouvrir d'issue publique.
 
 Vous pouvez me contacter directement pour un signalement privé :
 * **Discord** : neo_sportbike
