@@ -252,7 +252,9 @@ window.initProjectionChart = function(data, accountColors) {
                         color: colors.textColor,
                         font: { size: 11 },
                         callback: function(value) {
-                            return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', notation: 'compact', maximumFractionDigits: 0 }).format(value);
+                            if (value >= 1000000) return (value / 1000000).toFixed(1).replace('.0', '') + 'M €';
+                            if (value >= 1000) return Math.round(value / 1000) + 'k €';
+                            return value + ' €';
                         }
                     }
                 }
@@ -278,7 +280,7 @@ window.updateProjectionChart = function(data, accountColors) {
             chart.data.datasets[i].data = ds.data;
         }
     });
-    chart.update('none');
+    chart.update();
 };
 
 // Initialisation du camembert
@@ -295,16 +297,20 @@ window.initPieChart = function(accounts) {
 
     const colors = getChartColors();
 
+    // Bordures de meme couleur pour antialiasing
+    const bgColors = accounts.map(a => a.color);
+
     window.pieChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: accounts.map(a => a.name),
             datasets: [{
                 data: accounts.map(a => a.value),
-                backgroundColor: accounts.map(a => a.color),
-                borderWidth: 0,
+                backgroundColor: bgColors,
+                borderColor: bgColors,
+                borderWidth: 1,
                 hoverOffset: 0,
-                hoverBorderWidth: 0
+                hoverBorderWidth: 1
             }]
         },
         options: {
@@ -315,18 +321,31 @@ window.initPieChart = function(accounts) {
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: colors.tooltipBg,
-                    titleColor: colors.tooltipTitle,
-                    bodyColor: colors.tooltipBody,
-                    borderColor: colors.tooltipBorder,
-                    borderWidth: 1,
-                    padding: 12,
-                    callbacks: {
-                        label: function(context) {
-                            const value = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(context.raw);
-                            const percent = ((context.raw / context.dataset.data.reduce((a, b) => a + b, 0)) * 100).toFixed(1);
-                            return value + ' (' + percent + '%)';
+                    enabled: false,
+                    external: function(context) {
+                        let tooltip = document.getElementById('pie-tooltip');
+                        if (!tooltip) {
+                            tooltip = document.createElement('div');
+                            tooltip.id = 'pie-tooltip';
+                            tooltip.style.cssText = 'position:fixed;pointer-events:none;padding:8px 12px;border-radius:8px;font-size:13px;z-index:9999;transition:opacity 0.15s;';
+                            document.body.appendChild(tooltip);
                         }
+                        const tooltipModel = context.tooltip;
+                        if (tooltipModel.opacity === 0) {
+                            tooltip.style.opacity = 0;
+                            return;
+                        }
+                        const data = tooltipModel.dataPoints[0];
+                        const value = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(data.raw);
+                        const total = data.dataset.data.reduce((a, b) => a + b, 0);
+                        const percent = ((data.raw / total) * 100).toFixed(1);
+                        tooltip.innerHTML = '<strong>' + data.label + '</strong><br>' + value + ' (' + percent + '%)';
+                        tooltip.style.backgroundColor = colors.tooltipBg;
+                        tooltip.style.color = colors.tooltipBody;
+                        tooltip.style.border = '1px solid ' + colors.tooltipBorder;
+                        tooltip.style.opacity = 1;
+                        tooltip.style.left = tooltipModel.caretX + 'px';
+                        tooltip.style.top = tooltipModel.caretY + 'px';
                     }
                 }
             }
