@@ -361,6 +361,25 @@ window.initPieChart = function(accounts) {
             '<div class="flex items-center gap-1.5 text-xs"><span class="w-2.5 h-2.5 rounded-full" style="background-color: ' + a.color + '"></span><span class="text-muted-foreground">' + a.name + '</span></div>'
         ).join('');
     }
+
+    // Sauvegarder les donnees pour reinitialisation au changement de theme
+    window.pieChartData = accounts;
 };
+
+// Observer les changements de theme pour mettre a jour le camembert
+(function() {
+    let lastTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+    const observer = new MutationObserver(function(mutations) {
+        const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        if (currentTheme !== lastTheme) {
+            lastTheme = currentTheme;
+            // Reinitialiser le camembert avec la nouvelle couleur de fond
+            if (window.pieChartData && window.pieChartData.length > 0) {
+                window.initPieChart(window.pieChartData);
+            }
+        }
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+})();
 </script>
 {{end}}
