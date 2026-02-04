@@ -103,10 +103,20 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 		projectionTotal = projData.Projection[len(projData.Projection)-1].TotalAvg
 	}
 
+	// Preparer la liste des comptes avec couleurs pour le graphique
+	accountColors := make([]map[string]interface{}, 0)
+	for _, acc := range accounts {
+		accountColors = append(accountColors, map[string]interface{}{
+			"name":  acc.Name,
+			"color": acc.Color,
+		})
+	}
+
 	data := map[string]interface{}{
 		"Title":           "Dashboard",
 		"User":            map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role},
 		"Accounts":        accounts,
+		"AccountColors":   accountColors,
 		"TotalBalance":    projData.TotalBalance,
 		"TotalInterests":  projData.TotalInterests,
 		"Years":           years,

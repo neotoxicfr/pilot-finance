@@ -1,6 +1,6 @@
 {{define "content"}}
 <div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8"
-     x-data="{ sliderValue: {{.Years}} }">
+     x-data="{ sliderValue: {{.Years}}, sliderTimeout: null }">
 
     <input type="hidden" name="years" :value="sliderValue">
 
@@ -27,7 +27,7 @@
                     </span>
                     <input type="range" min="1" max="30"
                            x-model="sliderValue"
-                           @change="htmx.trigger(document.body, 'sliderChange')"
+                           @input="clearTimeout(sliderTimeout); sliderTimeout = setTimeout(() => htmx.trigger(document.body, 'sliderChange'), 150)"
                            class="w-full md:w-48 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600">
                 </div>
             </div>
@@ -88,6 +88,7 @@
     <canvas id="projectionCanvas"></canvas>
 </div>
 <script id="projection-data" type="application/json">{{.ProjectionData | json}}</script>
+<script id="account-colors" type="application/json">{{.AccountColors | json}}</script>
 <script>
 (function() {
     setTimeout(function() {
@@ -102,7 +103,7 @@
     <div class="relative w-full max-w-[250px]" style="aspect-ratio: 1;">
         <canvas id="pieCanvas"></canvas>
         <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <div class="text-2xl font-bold font-mono text-foreground">{{formatMoney .TotalBalance}}</div>
+            <div class="text-xl font-bold font-mono text-foreground">{{formatMoneyCompact .TotalBalance}}</div>
             <div class="text-xs text-muted-foreground uppercase font-bold">Total</div>
         </div>
     </div>

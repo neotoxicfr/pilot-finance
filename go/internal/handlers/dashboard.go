@@ -66,10 +66,21 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 	for i, p := range data.Projection {
 		projectionData[i] = map[string]interface{}{
 			"year":     p.Year,
+			"name":     p.Name,
 			"totalAvg": p.TotalAvg,
 			"totalMin": p.TotalMin,
 			"totalMax": p.TotalMax,
+			"accounts": p.Accounts,
 		}
+	}
+
+	// Preparer la liste des comptes avec couleurs pour le graphique
+	accountColors := make([]map[string]interface{}, 0)
+	for _, acc := range accounts {
+		accountColors = append(accountColors, map[string]interface{}{
+			"name":  acc.Name,
+			"color": acc.Color,
+		})
 	}
 
 	response := map[string]interface{}{
@@ -133,14 +144,26 @@ func DashboardPartial(w http.ResponseWriter, r *http.Request) {
 	for i, p := range data.Projection {
 		projectionData[i] = map[string]interface{}{
 			"year":     p.Year,
+			"name":     p.Name,
 			"totalAvg": p.TotalAvg,
 			"totalMin": p.TotalMin,
 			"totalMax": p.TotalMax,
+			"accounts": p.Accounts,
 		}
+	}
+
+	// Preparer la liste des comptes avec couleurs pour le graphique
+	accountColors := make([]map[string]interface{}, 0)
+	for _, acc := range accounts {
+		accountColors = append(accountColors, map[string]interface{}{
+			"name":  acc.Name,
+			"color": acc.Color,
+		})
 	}
 
 	templateData := map[string]interface{}{
 		"Accounts":        accounts,
+		"AccountColors":   accountColors,
 		"TotalBalance":    data.TotalBalance,
 		"TotalInterests":  data.TotalInterests,
 		"ProjectionTotal": data.Projection[len(data.Projection)-1].TotalAvg,
