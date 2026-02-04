@@ -83,6 +83,7 @@ type Authenticator struct {
 	Counter              int    `json:"counter"`
 	CredentialDeviceType string `json:"credential_device_type"`
 	CredentialBackedUp   bool   `json:"credential_backed_up"`
+	BackupEligible       bool   `json:"backup_eligible"`
 	Transports           string `json:"transports"`
 	UserID               int64  `json:"user_id"`
 	Name                 string `json:"name"`
