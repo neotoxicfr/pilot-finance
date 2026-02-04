@@ -297,8 +297,8 @@ window.initPieChart = function(accounts) {
 
     const colors = getChartColors();
     const bgColors = accounts.map(a => a.color);
-    // Bordure de la couleur du fond pour creer un espacement visuel fixe
-    const cardBg = colors.isDark ? '#0f172a' : '#ffffff';
+    // Recuperer la couleur de fond via CSS pour l'espacement
+    const cardBg = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
 
     window.pieChart = new Chart(ctx, {
         type: 'doughnut',
@@ -308,10 +308,10 @@ window.initPieChart = function(accounts) {
                 data: accounts.map(a => a.value),
                 backgroundColor: bgColors,
                 borderColor: cardBg,
-                borderWidth: 4,
+                borderWidth: 2,
                 hoverOffset: 0,
                 hoverBorderColor: cardBg,
-                hoverBorderWidth: 4
+                hoverBorderWidth: 2
             }]
         },
         options: {
