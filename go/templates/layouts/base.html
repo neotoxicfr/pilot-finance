@@ -175,15 +175,6 @@ window.initProjectionChart = function() {
     const gridColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.1)';
     const textColor = isDark ? '#94a3b8' : '#64748b';
 
-    // Fonction pour eclaircir une couleur
-    function lightenColor(color, amount) {
-        const hex = color.replace('#', '');
-        const r = Math.min(255, parseInt(hex.substr(0, 2), 16) + amount);
-        const g = Math.min(255, parseInt(hex.substr(2, 2), 16) + amount);
-        const b = Math.min(255, parseInt(hex.substr(4, 2), 16) + amount);
-        return `rgba(${r}, ${g}, ${b}, 0.6)`;
-    }
-
     // Creer les datasets pour chaque compte (stacked area)
     const datasets = [];
     if (accountColors && accountColors.length > 0 && data[0].accounts) {
@@ -191,16 +182,14 @@ window.initProjectionChart = function() {
             datasets.push({
                 label: acc.name,
                 data: data.map(d => d.accounts ? (d.accounts[acc.name] || 0) : 0),
-                borderColor: acc.color,
-                backgroundColor: lightenColor(acc.color, isDark ? 30 : 60),
-                borderWidth: 2,
+                backgroundColor: acc.color,
+                borderWidth: 0,
                 fill: true,
                 tension: 0.3,
                 pointRadius: 0,
                 pointHoverRadius: 4,
                 pointBackgroundColor: acc.color,
-                pointBorderColor: isDark ? '#0f172a' : '#ffffff',
-                pointBorderWidth: 2
+                pointBorderWidth: 0
             });
         });
     } else {
@@ -208,16 +197,14 @@ window.initProjectionChart = function() {
         datasets.push({
             label: 'Projection moyenne',
             data: data.map(d => d.totalAvg),
-            borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59, 130, 246, 0.2)',
-            borderWidth: 3,
+            backgroundColor: '#3b82f6',
+            borderWidth: 0,
             fill: true,
             tension: 0.3,
-            pointRadius: 4,
+            pointRadius: 0,
+            pointHoverRadius: 4,
             pointBackgroundColor: '#3b82f6',
-            pointBorderColor: isDark ? '#0f172a' : '#ffffff',
-            pointBorderWidth: 2,
-            pointHoverRadius: 6
+            pointBorderWidth: 0
         });
     }
 
@@ -306,7 +293,7 @@ window.initPieChart = function() {
             datasets: [{
                 data: accounts.map(a => a.value),
                 backgroundColor: accounts.map(a => a.color),
-                borderColor: isDark ? '#0f172a' : '#ffffff',
+                borderColor: 'transparent',
                 borderWidth: 3,
                 hoverOffset: 8
             }]
