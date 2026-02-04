@@ -67,6 +67,7 @@
             <!-- Account Form -->
             <template x-if="showAccountForm">
                 <div class="dashboard-card bg-background border border-blue-500/50 rounded-2xl p-5 mb-4 relative"
+                     x-init="$nextTick(() => htmx.process($el))"
                      x-data="{
                          selectedColor: editingAccount?.color || '#3b82f6',
                          isYieldActive: editingAccount?.is_yield_active || false,
@@ -201,6 +202,7 @@
             <!-- Recurring Form -->
             <template x-if="showRecurringForm">
                 <div class="dashboard-card bg-background border border-blue-500/50 rounded-2xl p-4 relative"
+                     x-init="$nextTick(() => htmx.process($el))"
                      x-data="{
                          get opType() {
                              if (!editingRecurring) return 'expense';
