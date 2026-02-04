@@ -1,7 +1,0 @@
-.github
-.next
-.npm
-docker-compose.yml.example
-Dockerfile
-node_modules
-out
