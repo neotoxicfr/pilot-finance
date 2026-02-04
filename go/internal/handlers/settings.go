@@ -38,8 +38,8 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(newPassword) < 8 {
-		http.Error(w, "Mot de passe trop court (min 8 caracteres)", http.StatusBadRequest)
+	if err := crypto.ValidatePassword(newPassword); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
