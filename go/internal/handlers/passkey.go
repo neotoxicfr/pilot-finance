@@ -135,10 +135,13 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 
 	// Supprimer le cookie de challenge
 	http.SetCookie(w, &http.Cookie{
-		Name:   "passkey_challenge",
-		Value:  "",
-		Path:   "/",
-		MaxAge: -1,
+		Name:     "passkey_challenge",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	w.Header().Set("Content-Type", "application/json")
@@ -247,10 +250,13 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 
 	// Supprimer le cookie de challenge
 	http.SetCookie(w, &http.Cookie{
-		Name:   "passkey_auth_challenge",
-		Value:  "",
-		Path:   "/",
-		MaxAge: -1,
+		Name:     "passkey_auth_challenge",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	// Définir le cookie de session
