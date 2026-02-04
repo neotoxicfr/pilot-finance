@@ -139,247 +139,81 @@
 
 {{define "htmx-config"}}
 <script>
-document.body.addEventListener('htmx:beforeSwap', function(evt) {
-    if (evt.detail.xhr.status === 401) {
-        window.location.href = '/login';
-    }
-});
+document.body.addEventListener('htmx:beforeSwap', e => { if (e.detail.xhr.status === 401) location.href = '/login'; });
 
-// Couleurs et options communes pour les charts
-function getChartColors() {
-    const isDark = document.documentElement.classList.contains('dark');
-    return {
-        isDark,
-        gridColor: isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.1)',
-        textColor: isDark ? '#94a3b8' : '#64748b',
-        tooltipBg: isDark ? '#1e293b' : '#ffffff',
-        tooltipTitle: isDark ? '#f1f5f9' : '#0f172a',
-        tooltipBody: isDark ? '#cbd5e1' : '#475569',
-        tooltipBorder: isDark ? '#334155' : '#e2e8f0'
-    };
-}
+// Utilitaires
+const fmt = v => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(v);
+const fmtAxis = v => v >= 1e6 ? (v/1e6).toFixed(1).replace('.0','')+'M €' : v >= 1e3 ? Math.round(v/1e3)+'k €' : v+' €';
+const getColors = () => {
+    const d = document.documentElement.classList.contains('dark');
+    return { isDark: d, grid: d ? 'rgba(148,163,184,.1)' : 'rgba(100,116,139,.1)', text: d ? '#94a3b8' : '#64748b', tipBg: d ? '#1e293b' : '#fff', tipTitle: d ? '#f1f5f9' : '#0f172a', tipBody: d ? '#cbd5e1' : '#475569', tipBorder: d ? '#334155' : '#e2e8f0' };
+};
+const dsOpts = (c) => ({ backgroundColor: c, borderWidth: 0, fill: true, tension: .3, pointRadius: 0, pointHoverRadius: 4, pointBackgroundColor: c, pointBorderWidth: 0 });
 
-// Creer les datasets pour le graphique de projection
-function createProjectionDatasets(data, accountColors) {
-    if (accountColors && accountColors.length > 0 && data[0] && data[0].accounts) {
-        return accountColors.map(acc => ({
-            label: acc.name,
-            data: data.map(d => d.accounts ? (d.accounts[acc.name] || 0) : 0),
-            backgroundColor: acc.color,
-            borderWidth: 0,
-            fill: true,
-            tension: 0.3,
-            pointRadius: 0,
-            pointHoverRadius: 4,
-            pointBackgroundColor: acc.color,
-            pointBorderWidth: 0
-        }));
-    }
-    return [{
-        label: 'Projection moyenne',
-        data: data.map(d => d.totalAvg),
-        backgroundColor: '#3b82f6',
-        borderWidth: 0,
-        fill: true,
-        tension: 0.3,
-        pointRadius: 0,
-        pointHoverRadius: 4,
-        pointBackgroundColor: '#3b82f6',
-        pointBorderWidth: 0
-    }];
-}
+// Creer datasets projection
+const createDS = (data, acc) => acc?.length && data[0]?.accounts ? acc.map(a => ({ label: a.name, data: data.map(d => d.accounts?.[a.name] || 0), ...dsOpts(a.color) })) : [{ label: 'Projection', data: data.map(d => d.totalAvg), ...dsOpts('#3b82f6') }];
 
-// Initialisation du graphique de projection
-window.initProjectionChart = function(data, accountColors) {
+// Chart projection
+window.initProjectionChart = (data, acc) => {
     const ctx = document.getElementById('projectionCanvas');
     if (!ctx || typeof Chart === 'undefined') return;
-
-    if (window.projectionChart) {
-        window.projectionChart.destroy();
-        window.projectionChart = null;
-    }
-
-    if (!data || data.length === 0) {
-        ctx.parentElement.innerHTML = '<div class="h-full flex items-center justify-center text-muted-foreground">Aucune donnee</div>';
-        return;
-    }
-
-    const colors = getChartColors();
-    const datasets = createProjectionDatasets(data, accountColors);
-
+    window.projectionChart?.destroy();
+    if (!data?.length) { ctx.parentElement.innerHTML = '<div class="h-full flex items-center justify-center text-muted-foreground">Aucune donnee</div>'; return; }
+    const c = getColors();
     window.projectionChart = new Chart(ctx, {
         type: 'line',
-        data: {
-            labels: data.map(d => d.name || ('An ' + d.year)),
-            datasets: datasets
-        },
+        data: { labels: data.map(d => d.name || 'An '+d.year), datasets: createDS(data, acc) },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: { duration: 400, easing: 'easeOutQuart' },
-            interaction: { intersect: false, mode: 'index' },
-            plugins: {
-                legend: { display: accountColors && accountColors.length > 1 },
-                tooltip: {
-                    backgroundColor: colors.tooltipBg,
-                    titleColor: colors.tooltipTitle,
-                    bodyColor: colors.tooltipBody,
-                    borderColor: colors.tooltipBorder,
-                    borderWidth: 1,
-                    padding: 12,
-                    callbacks: {
-                        label: function(context) {
-                            const value = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(context.raw);
-                            return context.dataset.label + ': ' + value;
-                        },
-                        footer: function(items) {
-                            const total = items.reduce((sum, item) => sum + item.raw, 0);
-                            return 'Total: ' + new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(total);
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    grid: { color: colors.gridColor, drawBorder: false },
-                    ticks: { color: colors.textColor, font: { size: 11 } }
-                },
-                y: {
-                    stacked: accountColors && accountColors.length > 0,
-                    beginAtZero: true,
-                    grid: { color: colors.gridColor, drawBorder: false },
-                    ticks: {
-                        color: colors.textColor,
-                        font: { size: 11 },
-                        callback: function(value) {
-                            if (value >= 1000000) return (value / 1000000).toFixed(1).replace('.0', '') + 'M €';
-                            if (value >= 1000) return Math.round(value / 1000) + 'k €';
-                            return value + ' €';
-                        }
-                    }
-                }
-            }
+            responsive: true, maintainAspectRatio: false, animation: { duration: 400, easing: 'easeOutQuart' }, interaction: { intersect: false, mode: 'index' },
+            plugins: { legend: { display: acc?.length > 1 }, tooltip: { backgroundColor: c.tipBg, titleColor: c.tipTitle, bodyColor: c.tipBody, borderColor: c.tipBorder, borderWidth: 1, padding: 12, callbacks: { label: ctx => ctx.dataset.label+': '+fmt(ctx.raw), footer: items => 'Total: '+fmt(items.reduce((s,i) => s+i.raw, 0)) } } },
+            scales: { x: { grid: { color: c.grid, drawBorder: false }, ticks: { color: c.text, font: { size: 11 } } }, y: { stacked: acc?.length > 0, beginAtZero: true, grid: { color: c.grid, drawBorder: false }, ticks: { color: c.text, font: { size: 11 }, callback: fmtAxis } } }
         }
     });
 };
 
-// Mise a jour du graphique de projection (transitions fluides)
-window.updateProjectionChart = function(data, accountColors) {
-    if (!window.projectionChart || !data || data.length === 0) {
-        window.initProjectionChart(data, accountColors);
-        return;
-    }
-
-    const chart = window.projectionChart;
-    const newLabels = data.map(d => d.name || ('An ' + d.year));
-    const newDatasets = createProjectionDatasets(data, accountColors);
-
-    chart.data.labels = newLabels;
-    newDatasets.forEach((ds, i) => {
-        if (chart.data.datasets[i]) {
-            chart.data.datasets[i].data = ds.data;
-        }
-    });
-    chart.update();
+window.updateProjectionChart = (data, acc) => {
+    if (!window.projectionChart || !data?.length) { window.initProjectionChart(data, acc); return; }
+    const ch = window.projectionChart;
+    ch.data.labels = data.map(d => d.name || 'An '+d.year);
+    createDS(data, acc).forEach((ds, i) => { if (ch.data.datasets[i]) ch.data.datasets[i].data = ds.data; });
+    ch.update();
 };
 
-// Initialisation du camembert
-window.initPieChart = function(accounts) {
+// Chart camembert
+window.initPieChart = accounts => {
     const ctx = document.getElementById('pieCanvas');
     if (!ctx || typeof Chart === 'undefined') return;
-
-    if (window.pieChart) {
-        window.pieChart.destroy();
-        window.pieChart = null;
-    }
-
-    if (!accounts || accounts.length === 0) return;
-
-    const colors = getChartColors();
-    const bgColors = accounts.map(a => a.color);
-    // Recuperer la couleur de fond via CSS pour l'espacement
-    const cardBg = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
-
+    window.pieChart?.destroy();
+    if (!accounts?.length) return;
+    const c = getColors(), bg = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
     window.pieChart = new Chart(ctx, {
         type: 'doughnut',
-        data: {
-            labels: accounts.map(a => a.name),
-            datasets: [{
-                data: accounts.map(a => a.value),
-                backgroundColor: bgColors,
-                borderColor: cardBg,
-                borderWidth: 2,
-                hoverOffset: 0,
-                hoverBorderColor: cardBg,
-                hoverBorderWidth: 2
-            }]
-        },
+        data: { labels: accounts.map(a => a.name), datasets: [{ data: accounts.map(a => a.value), backgroundColor: accounts.map(a => a.color), borderColor: bg, borderWidth: 2, hoverOffset: 0, hoverBorderColor: bg, hoverBorderWidth: 2 }] },
         options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            cutout: '65%',
-            animation: { duration: 400, easing: 'easeOutQuart' },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    enabled: false,
-                    external: function(context) {
-                        let tooltip = document.getElementById('pie-tooltip');
-                        if (!tooltip) {
-                            tooltip = document.createElement('div');
-                            tooltip.id = 'pie-tooltip';
-                            tooltip.style.cssText = 'position:fixed;pointer-events:none;padding:8px 12px;border-radius:8px;font-size:13px;z-index:9999;transition:opacity 0.15s;';
-                            document.body.appendChild(tooltip);
-                        }
-                        const tooltipModel = context.tooltip;
-                        if (tooltipModel.opacity === 0) {
-                            tooltip.style.opacity = 0;
-                            return;
-                        }
-                        const currentColors = getChartColors();
-                        const data = tooltipModel.dataPoints[0];
-                        const value = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(data.raw);
-                        const total = data.dataset.data.reduce((a, b) => a + b, 0);
-                        const percent = ((data.raw / total) * 100).toFixed(1);
-                        tooltip.innerHTML = '<strong>' + data.label + '</strong><br>' + value + ' (' + percent + '%)';
-                        tooltip.style.backgroundColor = currentColors.tooltipBg;
-                        tooltip.style.color = currentColors.tooltipBody;
-                        tooltip.style.border = '1px solid ' + currentColors.tooltipBorder;
-                        tooltip.style.opacity = 1;
-                        const canvasRect = context.chart.canvas.getBoundingClientRect();
-                        tooltip.style.left = (canvasRect.left + tooltipModel.caretX + 10) + 'px';
-                        tooltip.style.top = (canvasRect.top + tooltipModel.caretY - 10) + 'px';
-                    }
-                }
-            }
+            responsive: true, maintainAspectRatio: true, cutout: '65%', animation: { duration: 400, easing: 'easeOutQuart' },
+            plugins: { legend: { display: false }, tooltip: { enabled: false, external: ctx => {
+                let t = document.getElementById('pie-tooltip');
+                if (!t) { t = document.createElement('div'); t.id = 'pie-tooltip'; t.style.cssText = 'position:fixed;pointer-events:none;padding:8px 12px;border-radius:8px;font-size:13px;z-index:9999;transition:opacity .15s'; document.body.appendChild(t); }
+                const tm = ctx.tooltip;
+                if (!tm.opacity) { t.style.opacity = 0; return; }
+                const cc = getColors(), d = tm.dataPoints[0], total = d.dataset.data.reduce((a,b) => a+b, 0);
+                t.innerHTML = '<strong>'+d.label+'</strong><br>'+fmt(d.raw)+' ('+(d.raw/total*100).toFixed(1)+'%)';
+                Object.assign(t.style, { backgroundColor: cc.tipBg, color: cc.tipBody, border: '1px solid '+cc.tipBorder, opacity: 1, left: (ctx.chart.canvas.getBoundingClientRect().left+tm.caretX+10)+'px', top: (ctx.chart.canvas.getBoundingClientRect().top+tm.caretY-10)+'px' });
+            } } }
         }
     });
-
-    const legendContainer = document.getElementById('pieLegend');
-    if (legendContainer) {
-        legendContainer.innerHTML = accounts.map(a =>
-            '<div class="flex items-center gap-1.5 text-xs"><span class="w-2.5 h-2.5 rounded-full" style="background-color: ' + a.color + '"></span><span class="text-muted-foreground">' + a.name + '</span></div>'
-        ).join('');
-    }
-
-    // Sauvegarder les donnees pour reinitialisation au changement de theme
+    const leg = document.getElementById('pieLegend');
+    if (leg) leg.innerHTML = accounts.map(a => '<div class="flex items-center gap-1.5 text-xs"><span class="w-2.5 h-2.5 rounded-full" style="background:'+a.color+'"></span><span class="text-muted-foreground">'+a.name+'</span></div>').join('');
     window.pieChartData = accounts;
 };
 
-// Observer les changements de theme pour mettre a jour le camembert
+// Theme observer
 (function() {
-    let lastTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-    const observer = new MutationObserver(function(mutations) {
-        const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-        if (currentTheme !== lastTheme) {
-            lastTheme = currentTheme;
-            // Reinitialiser le camembert avec la nouvelle couleur de fond
-            if (window.pieChartData && window.pieChartData.length > 0) {
-                window.initPieChart(window.pieChartData);
-            }
-        }
-    });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    let last = document.documentElement.classList.contains('dark');
+    new MutationObserver(() => {
+        const cur = document.documentElement.classList.contains('dark');
+        if (cur !== last) { last = cur; window.pieChartData?.length && window.initPieChart(window.pieChartData); }
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 })();
 </script>
 {{end}}

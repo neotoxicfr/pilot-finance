@@ -129,7 +129,7 @@
 
             <!-- Password Section -->
             <div class="dashboard-card bg-background border rounded-2xl p-6"
-                 x-data="{ pwdSuccess: false, pwdError: '', pwdLoading: false }">
+                 x-data="{ pwdSuccess: false, pwdError: '', pwdLoading: false, password: '', confirm: '', get pwdStrength() { return (this.password.length >= 8 ? 1 : 0) + (/[A-Z]/.test(this.password) ? 1 : 0) + (/[a-z]/.test(this.password) ? 1 : 0) + (/[0-9]/.test(this.password) ? 1 : 0) + (/[!@#$%^&*(),.?\":{}|<>]/.test(this.password) ? 1 : 0); } }">
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-muted-foreground">{{template "icon-lock" dict "Size" 20}}</span>
                     Mot de passe
@@ -146,7 +146,7 @@
                       @htmx:before-request="pwdLoading = true; pwdError = ''; pwdSuccess = false"
                       @htmx:after-request="pwdLoading = false"
                       @htmx:response-error="pwdError = event.detail.xhr.responseText"
-                      @htmx:after-settle="if(!event.detail.failed) { pwdSuccess = true; this.reset(); }"
+                      @htmx:after-settle="if(!event.detail.failed) { pwdSuccess = true; this.reset(); password = ''; confirm = ''; }"
                       class="space-y-5">
                     <div>
                         <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Actuel</label>
@@ -155,21 +155,23 @@
                     </div>
                     <div>
                         <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Nouveau</label>
-                        <input name="newPassword" type="password" required minlength="8"
+                        <input name="newPassword" type="password" required minlength="8" x-model="password"
                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 transition-colors">
                     </div>
                     <div>
                         <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Confirmation</label>
-                        <input name="confirmPassword" type="password" required
+                        <input name="confirmPassword" type="password" required x-model="confirm"
                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 transition-colors">
                     </div>
+
+                    {{template "password-feedback"}}
 
                     <template x-if="pwdError">
                         <div class="text-red-500 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="pwdError"></div>
                     </template>
 
-                    <button type="submit" :disabled="pwdLoading"
-                            class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all">
+                    <button type="submit" :disabled="pwdLoading || pwdStrength < 3 || (confirm && password !== confirm)"
+                            class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50">
                         <span x-show="pwdLoading">Modification...</span>
                         <span x-show="!pwdLoading">Changer le mot de passe</span>
                     </button>
