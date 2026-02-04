@@ -7,7 +7,7 @@ require (
 	github.com/go-chi/httprate v0.14.1
 	github.com/go-webauthn/webauthn v0.15.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
-	github.com/pquerna/otp v1.4.0
+	github.com/pquerna/otp v1.5.0
 	golang.org/x/crypto v0.43.0
 	modernc.org/sqlite v1.35.0
 )
