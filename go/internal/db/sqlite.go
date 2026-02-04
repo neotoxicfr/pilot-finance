@@ -57,8 +57,27 @@ func Init(cfg Config) error {
 		return fmt.Errorf("ping DB: %w", err)
 	}
 
+	// Migrations automatiques
+	runMigrations()
+
 	log.Println("Base de données connectée:", cfg.Path)
 	return nil
+}
+
+// runMigrations exécute les migrations de schéma
+func runMigrations() {
+	migrations := []string{
+		// Ajouter backup_eligible aux authenticators (pour go-webauthn)
+		`ALTER TABLE authenticators ADD COLUMN backup_eligible INTEGER DEFAULT 0`,
+	}
+
+	for _, migration := range migrations {
+		_, err := DB.Exec(migration)
+		if err != nil {
+			// Ignorer les erreurs "column already exists"
+			// log.Printf("Migration skipped: %v", err)
+		}
+	}
 }
 
 // Close ferme la connexion à la base de données
