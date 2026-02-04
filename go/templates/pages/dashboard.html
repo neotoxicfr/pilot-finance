@@ -1,16 +1,30 @@
 {{define "content"}}
 <div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8"
-     x-data="{ sliderValue: {{.Years}}, sliderTimeout: null }">
-
-    <input type="hidden" name="years" :value="sliderValue">
+     x-data="dashboardData()" x-init="init()">
 
     <!-- KPI Cards -->
-    <div id="kpi-cards"
-         hx-get="/dashboard-partial?section=kpi"
-         hx-trigger="sliderChange from:body"
-         hx-vals="js:{years: document.querySelector('[name=years]')?.value || 5}"
-         hx-swap="innerHTML">
-        {{template "kpi-cards" .}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        <div class="dashboard-card bg-background border p-6 rounded-2xl relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
+                {{template "icon-shield-check" dict "Size" 80}}
+            </div>
+            <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Patrimoine Net</p>
+            <h2 class="text-3xl md:text-4xl font-bold text-foreground font-mono tracking-tight" x-text="formatMoney(totalBalance)"></h2>
+        </div>
+        <div class="dashboard-card bg-background border p-6 rounded-2xl relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
+                {{template "icon-trending-up" dict "Size" 80}}
+            </div>
+            <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Interets Composes</p>
+            <h2 class="text-3xl md:text-4xl font-bold text-emerald-500 font-mono tracking-tight" x-text="'+' + formatMoney(totalInterests)"></h2>
+        </div>
+        <div class="dashboard-card bg-background border p-6 rounded-2xl relative overflow-hidden sm:col-span-2 md:col-span-1">
+            <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
+                {{template "icon-piggybank" dict "Size" 80}}
+            </div>
+            <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Projection a <span x-text="years"></span> ans</p>
+            <h2 class="text-3xl md:text-4xl font-bold text-blue-500 font-mono tracking-tight" x-text="formatMoney(projectionTotal)"></h2>
+        </div>
     </div>
 
     <!-- Charts Section -->
@@ -21,22 +35,18 @@
                 <h3 class="text-lg font-bold text-foreground flex items-center gap-2">
                     {{template "icon-trending-up" dict "Size" 18}} Trajectoire
                 </h3>
-                <div class="dashboard-card flex items-center gap-4 bg-accent px-4 py-2 rounded-xl border w-full md:w-auto">
+                <div class="flex items-center gap-4 bg-accent px-4 py-2 rounded-xl border w-full md:w-auto">
                     <span class="text-xs text-muted-foreground whitespace-nowrap font-medium">
-                        Projection : <strong x-text="sliderValue + ' ans'">{{.Years}} ans</strong>
+                        Projection : <strong x-text="years + ' ans'"></strong>
                     </span>
                     <input type="range" min="1" max="30"
-                           x-model="sliderValue"
-                           @input="clearTimeout(sliderTimeout); sliderTimeout = setTimeout(() => htmx.trigger(document.body, 'sliderChange'), 150)"
+                           x-model="years"
+                           @input="debouncedUpdate()"
                            class="w-full md:w-48 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600">
                 </div>
             </div>
-            <div class="h-[350px] w-full" id="projection-chart"
-                 hx-get="/dashboard-partial?section=projection"
-                 hx-trigger="sliderChange from:body"
-                 hx-vals="js:{years: document.querySelector('[name=years]')?.value || 5}"
-                 hx-swap="innerHTML">
-                {{template "projection-chart" .}}
+            <div class="h-[350px] w-full">
+                <canvas id="projectionCanvas"></canvas>
             </div>
         </div>
 
@@ -45,69 +55,85 @@
             <h3 class="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                 {{template "icon-dashboard" dict "Size" 18}} Repartition
             </h3>
-            <div class="flex-1 min-h-[300px]" id="pie-chart">
-                {{template "pie-chart" .}}
+            <div class="flex-1 min-h-[300px] flex flex-col items-center justify-center">
+                <div class="relative w-full max-w-[250px]" style="aspect-ratio: 1;">
+                    <canvas id="pieCanvas"></canvas>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <div class="text-xl font-bold font-mono text-foreground" x-text="formatMoneyCompact(totalBalance)"></div>
+                        <div class="text-xs text-muted-foreground uppercase font-bold">Total</div>
+                    </div>
+                </div>
+                <div id="pieLegend" class="mt-4 flex flex-wrap justify-center gap-2"></div>
             </div>
         </div>
     </div>
 </div>
-{{end}}
 
-{{define "kpi-cards"}}
-<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-    <div class="dashboard-card bg-background border p-6 rounded-2xl relative overflow-hidden transition-colors">
-        <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
-            {{template "icon-shield-check" dict "Size" 80}}
-        </div>
-        <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Patrimoine Net</p>
-        <h2 class="text-3xl md:text-4xl font-bold text-foreground font-mono tracking-tight">{{formatMoney .TotalBalance}}</h2>
-    </div>
-    <div class="dashboard-card bg-background border p-6 rounded-2xl relative overflow-hidden transition-colors">
-        <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
-            {{template "icon-trending-up" dict "Size" 80}}
-        </div>
-        <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Interets Composes</p>
-        <h2 class="text-3xl md:text-4xl font-bold text-emerald-500 font-mono tracking-tight">+{{formatMoney .TotalInterests}}</h2>
-    </div>
-    <div class="dashboard-card bg-background border p-6 rounded-2xl relative overflow-hidden transition-colors sm:col-span-2 md:col-span-1">
-        <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
-            {{template "icon-piggybank" dict "Size" 80}}
-        </div>
-        <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Projection a {{.Years}} ans</p>
-        <h2 class="text-3xl md:text-4xl font-bold text-blue-500 font-mono tracking-tight">{{formatMoney .ProjectionTotal}}</h2>
-    </div>
-</div>
-{{end}}
+<script id="initial-data" type="application/json">{
+    "years": {{.Years}},
+    "totalBalance": {{.TotalBalance}},
+    "totalInterests": {{.TotalInterests}},
+    "projectionTotal": {{.ProjectionTotal}},
+    "projectionData": {{.ProjectionData | json}},
+    "accountColors": {{.AccountColors | json}},
+    "pieData": {{.PieData | json}}
+}</script>
 
-{{define "dashboard-cards"}}
-{{template "kpi-cards" .}}
-{{end}}
-
-{{define "projection-chart"}}
-<div class="h-full w-full">
-    <canvas id="projectionCanvas"></canvas>
-</div>
-<script id="projection-data" type="application/json">{{.ProjectionData | json}}</script>
-<script id="account-colors" type="application/json">{{.AccountColors | json}}</script>
-{{end}}
-
-{{define "pie-chart"}}
-<div class="h-full w-full flex flex-col items-center justify-center">
-    <div class="relative w-full max-w-[250px]" style="aspect-ratio: 1;">
-        <canvas id="pieCanvas"></canvas>
-        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <div class="text-xl font-bold font-mono text-foreground">{{formatMoneyCompact .TotalBalance}}</div>
-            <div class="text-xs text-muted-foreground uppercase font-bold">Total</div>
-        </div>
-    </div>
-    <div id="pieLegend" class="mt-4 flex flex-wrap justify-center gap-2"></div>
-</div>
-<script id="pie-data" type="application/json">{{.PieData | json}}</script>
 <script>
-(function() {
-    setTimeout(function() {
-        window.initPieChart && window.initPieChart();
-    }, 10);
-})();
+function dashboardData() {
+    // Charger les donnees initiales immediatement pour eviter le flash
+    const initialEl = document.getElementById('initial-data');
+    const initial = initialEl ? JSON.parse(initialEl.textContent) : {};
+
+    return {
+        years: initial.years || 5,
+        totalBalance: initial.totalBalance || 0,
+        totalInterests: initial.totalInterests || 0,
+        projectionTotal: initial.projectionTotal || 0,
+        accountColors: initial.accountColors || [],
+        updateTimeout: null,
+
+        formatMoney(value) {
+            return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(value) + ' EUR';
+        },
+
+        formatMoneyCompact(value) {
+            if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M EUR';
+            if (value >= 10000) return Math.round(value / 1000) + 'k EUR';
+            if (value >= 1000) return (value / 1000).toFixed(1) + 'k EUR';
+            return Math.round(value) + ' EUR';
+        },
+
+        debouncedUpdate() {
+            clearTimeout(this.updateTimeout);
+            this.updateTimeout = setTimeout(() => this.fetchData(), 150);
+        },
+
+        async fetchData() {
+            try {
+                const resp = await fetch('/api/dashboard?years=' + this.years);
+                if (!resp.ok) return;
+                const data = await resp.json();
+
+                this.totalBalance = data.totalBalance;
+                this.totalInterests = data.totalInterests;
+                this.projectionTotal = data.projectionTotal;
+
+                window.updateProjectionChart(data.projection, this.accountColors);
+            } catch (e) {
+                console.error('Erreur fetch dashboard:', e);
+            }
+        },
+
+        init() {
+            const initial = JSON.parse(document.getElementById('initial-data').textContent);
+            // Initialiser les charts (les valeurs sont deja chargees dans le constructeur)
+            this.$nextTick(() => {
+                window.initProjectionChart(initial.projectionData, this.accountColors);
+                window.initPieChart(initial.pieData);
+            });
+        }
+    };
+}
 </script>
 {{end}}

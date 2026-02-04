@@ -145,35 +145,58 @@ document.body.addEventListener('htmx:beforeSwap', function(evt) {
     }
 });
 
-// Reinitialiser le graphique APRES que HTMX a termine le swap et le DOM est stable
-document.body.addEventListener('htmx:afterSettle', function(evt) {
-    if (evt.detail.target && evt.detail.target.id === 'projection-chart') {
-        // Attendre que le DOM soit completement pret
-        setTimeout(function() {
-            window.initProjectionChart && window.initProjectionChart();
-        }, 50);
+// Couleurs et options communes pour les charts
+function getChartColors() {
+    const isDark = document.documentElement.classList.contains('dark');
+    return {
+        isDark,
+        gridColor: isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.1)',
+        textColor: isDark ? '#94a3b8' : '#64748b',
+        tooltipBg: isDark ? '#1e293b' : '#ffffff',
+        tooltipTitle: isDark ? '#f1f5f9' : '#0f172a',
+        tooltipBody: isDark ? '#cbd5e1' : '#475569',
+        tooltipBorder: isDark ? '#334155' : '#e2e8f0'
+    };
+}
+
+// Creer les datasets pour le graphique de projection
+function createProjectionDatasets(data, accountColors) {
+    if (accountColors && accountColors.length > 0 && data[0] && data[0].accounts) {
+        return accountColors.map(acc => ({
+            label: acc.name,
+            data: data.map(d => d.accounts ? (d.accounts[acc.name] || 0) : 0),
+            backgroundColor: acc.color,
+            borderWidth: 0,
+            fill: true,
+            tension: 0.3,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            pointBackgroundColor: acc.color,
+            pointBorderWidth: 0
+        }));
     }
-});
+    return [{
+        label: 'Projection moyenne',
+        data: data.map(d => d.totalAvg),
+        backgroundColor: '#3b82f6',
+        borderWidth: 0,
+        fill: true,
+        tension: 0.3,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointBackgroundColor: '#3b82f6',
+        pointBorderWidth: 0
+    }];
+}
 
 // Initialisation du graphique de projection
-window.initProjectionChart = function() {
+window.initProjectionChart = function(data, accountColors) {
     const ctx = document.getElementById('projectionCanvas');
-    const dataEl = document.getElementById('projection-data');
-    const colorsEl = document.getElementById('account-colors');
-    if (!ctx || !dataEl || typeof Chart === 'undefined') return;
+    if (!ctx || typeof Chart === 'undefined') return;
 
     if (window.projectionChart) {
         window.projectionChart.destroy();
         window.projectionChart = null;
-    }
-
-    let data, accountColors;
-    try {
-        data = JSON.parse(dataEl.textContent);
-        accountColors = colorsEl ? JSON.parse(colorsEl.textContent) : [];
-    } catch(e) {
-        console.error('Invalid projection data:', e);
-        return;
     }
 
     if (!data || data.length === 0) {
@@ -181,42 +204,8 @@ window.initProjectionChart = function() {
         return;
     }
 
-    const isDark = document.documentElement.classList.contains('dark');
-    const gridColor = isDark ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.1)';
-    const textColor = isDark ? '#94a3b8' : '#64748b';
-
-    // Creer les datasets pour chaque compte (stacked area)
-    const datasets = [];
-    if (accountColors && accountColors.length > 0 && data[0].accounts) {
-        accountColors.forEach((acc, index) => {
-            datasets.push({
-                label: acc.name,
-                data: data.map(d => d.accounts ? (d.accounts[acc.name] || 0) : 0),
-                backgroundColor: acc.color,
-                borderWidth: 0,
-                fill: true,
-                tension: 0.3,
-                pointRadius: 0,
-                pointHoverRadius: 4,
-                pointBackgroundColor: acc.color,
-                pointBorderWidth: 0
-            });
-        });
-    } else {
-        // Fallback: graphique simple avec totalAvg
-        datasets.push({
-            label: 'Projection moyenne',
-            data: data.map(d => d.totalAvg),
-            backgroundColor: '#3b82f6',
-            borderWidth: 0,
-            fill: true,
-            tension: 0.3,
-            pointRadius: 0,
-            pointHoverRadius: 4,
-            pointBackgroundColor: '#3b82f6',
-            pointBorderWidth: 0
-        });
-    }
+    const colors = getChartColors();
+    const datasets = createProjectionDatasets(data, accountColors);
 
     window.projectionChart = new Chart(ctx, {
         type: 'line',
@@ -227,23 +216,15 @@ window.initProjectionChart = function() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: {
-                duration: 750,
-                easing: 'easeInOutQuart'
-            },
-            transitions: {
-                active: {
-                    animation: { duration: 200 }
-                }
-            },
+            animation: { duration: 400, easing: 'easeOutQuart' },
             interaction: { intersect: false, mode: 'index' },
             plugins: {
                 legend: { display: accountColors && accountColors.length > 1 },
                 tooltip: {
-                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                    titleColor: isDark ? '#f1f5f9' : '#0f172a',
-                    bodyColor: isDark ? '#cbd5e1' : '#475569',
-                    borderColor: isDark ? '#334155' : '#e2e8f0',
+                    backgroundColor: colors.tooltipBg,
+                    titleColor: colors.tooltipTitle,
+                    bodyColor: colors.tooltipBody,
+                    borderColor: colors.tooltipBorder,
                     borderWidth: 1,
                     padding: 12,
                     callbacks: {
@@ -260,15 +241,15 @@ window.initProjectionChart = function() {
             },
             scales: {
                 x: {
-                    grid: { color: gridColor, drawBorder: false },
-                    ticks: { color: textColor, font: { size: 11 } }
+                    grid: { color: colors.gridColor, drawBorder: false },
+                    ticks: { color: colors.textColor, font: { size: 11 } }
                 },
                 y: {
                     stacked: accountColors && accountColors.length > 0,
                     beginAtZero: true,
-                    grid: { color: gridColor, drawBorder: false },
+                    grid: { color: colors.gridColor, drawBorder: false },
                     ticks: {
-                        color: textColor,
+                        color: colors.textColor,
                         font: { size: 11 },
                         callback: function(value) {
                             return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', notation: 'compact', maximumFractionDigits: 0 }).format(value);
@@ -280,33 +261,39 @@ window.initProjectionChart = function() {
     });
 };
 
+// Mise a jour du graphique de projection (transitions fluides)
+window.updateProjectionChart = function(data, accountColors) {
+    if (!window.projectionChart || !data || data.length === 0) {
+        window.initProjectionChart(data, accountColors);
+        return;
+    }
+
+    const chart = window.projectionChart;
+    const newLabels = data.map(d => d.name || ('An ' + d.year));
+    const newDatasets = createProjectionDatasets(data, accountColors);
+
+    chart.data.labels = newLabels;
+    newDatasets.forEach((ds, i) => {
+        if (chart.data.datasets[i]) {
+            chart.data.datasets[i].data = ds.data;
+        }
+    });
+    chart.update('none');
+};
+
 // Initialisation du camembert
-window.initPieChart = function() {
+window.initPieChart = function(accounts) {
     const ctx = document.getElementById('pieCanvas');
-    const dataEl = document.getElementById('pie-data');
-    if (!ctx || !dataEl || typeof Chart === 'undefined') return;
+    if (!ctx || typeof Chart === 'undefined') return;
 
     if (window.pieChart) {
         window.pieChart.destroy();
         window.pieChart = null;
     }
 
-    let accounts;
-    try {
-        accounts = JSON.parse(dataEl.textContent);
-    } catch(e) {
-        console.error('Invalid pie data:', e);
-        return;
-    }
+    if (!accounts || accounts.length === 0) return;
 
-    const isDark = document.documentElement.classList.contains('dark');
-
-    if (!accounts || accounts.length === 0) {
-        return;
-    }
-
-    // Utiliser la couleur de fond du theme pour les bordures (antialiasing)
-    const bgColor = isDark ? '#0f172a' : '#ffffff';
+    const colors = getChartColors();
 
     window.pieChart = new Chart(ctx, {
         type: 'doughnut',
@@ -315,9 +302,8 @@ window.initPieChart = function() {
             datasets: [{
                 data: accounts.map(a => a.value),
                 backgroundColor: accounts.map(a => a.color),
-                borderColor: bgColor,
-                borderWidth: 2,
-                hoverOffset: 8,
+                borderWidth: 0,
+                hoverOffset: 0,
                 hoverBorderWidth: 0
             }]
         },
@@ -325,19 +311,14 @@ window.initPieChart = function() {
             responsive: true,
             maintainAspectRatio: true,
             cutout: '65%',
-            animation: {
-                animateRotate: true,
-                animateScale: true,
-                duration: 600,
-                easing: 'easeOutQuart'
-            },
+            animation: { duration: 400, easing: 'easeOutQuart' },
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                    titleColor: isDark ? '#f1f5f9' : '#0f172a',
-                    bodyColor: isDark ? '#cbd5e1' : '#475569',
-                    borderColor: isDark ? '#334155' : '#e2e8f0',
+                    backgroundColor: colors.tooltipBg,
+                    titleColor: colors.tooltipTitle,
+                    bodyColor: colors.tooltipBody,
+                    borderColor: colors.tooltipBorder,
                     borderWidth: 1,
                     padding: 12,
                     callbacks: {
@@ -359,11 +340,5 @@ window.initPieChart = function() {
         ).join('');
     }
 };
-
-// Initialiser les charts au chargement de la page
-document.addEventListener('DOMContentLoaded', function() {
-    window.initProjectionChart && window.initProjectionChart();
-    window.initPieChart && window.initPieChart();
-});
 </script>
 {{end}}
