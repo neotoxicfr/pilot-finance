@@ -66,7 +66,15 @@
 
             <!-- Account Form -->
             <template x-if="showAccountForm">
-                <div class="dashboard-card bg-background border border-blue-500/50 rounded-2xl p-5 mb-4 relative">
+                <div class="dashboard-card bg-background border border-blue-500/50 rounded-2xl p-5 mb-4 relative"
+                     x-data="{
+                         selectedColor: editingAccount?.color || '#3b82f6',
+                         isYieldActive: editingAccount?.is_yield_active || false,
+                         yieldType: editingAccount?.yield_type || 'FIXED',
+                         yieldMin: editingAccount?.yield_min || '',
+                         yieldMax: editingAccount?.yield_max || '',
+                         reinvestmentRate: editingAccount?.reinvestment_rate ?? 100
+                     }">
                     <button @click="showAccountForm = false; editingAccount = null"
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 20}}
@@ -86,7 +94,7 @@
                                    :value="editingAccount?.balance || ''"
                                    class="bg-accent border border-border rounded-xl p-3 text-sm w-full font-mono outline-none focus:border-blue-500 text-foreground">
                         </div>
-                        <div x-data="{ selectedColor: editingAccount?.color || '#3b82f6' }">
+                        <div>
                             <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Couleur</label>
                             <div class="flex flex-wrap gap-2 mb-3">
                                 <template x-for="c in ['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#10b981','#14b8a6','#06b6d4','#0ea5e9','#3b82f6','#6366f1','#8b5cf6','#a855f7','#d946ef','#ec4899','#f43f5e','#64748b']">
@@ -105,6 +113,63 @@
                                        class="w-6 h-6 rounded-full cursor-pointer">
                             </div>
                         </div>
+
+                        <!-- Section Rendement -->
+                        <div class="border-t border-border pt-4">
+                            <label class="flex items-center gap-3 cursor-pointer">
+                                <input type="checkbox" name="isYieldActive" x-model="isYieldActive"
+                                       class="w-5 h-5 rounded border-border accent-emerald-500">
+                                <span class="text-sm font-medium text-foreground flex items-center gap-2">
+                                    {{template "icon-trending-up" dict "Size" 16}}
+                                    Compte avec rendement
+                                </span>
+                            </label>
+
+                            <div x-show="isYieldActive" x-cloak class="mt-4 space-y-4 pl-8">
+                                <div>
+                                    <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Type de taux</label>
+                                    <div class="flex gap-3">
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="radio" name="yieldType" value="FIXED" x-model="yieldType"
+                                                   class="accent-emerald-500">
+                                            <span class="text-sm text-foreground">Fixe</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="radio" name="yieldType" value="RANGE" x-model="yieldType"
+                                                   class="accent-emerald-500">
+                                            <span class="text-sm text-foreground">Fourchette</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="grid gap-4" :class="yieldType === 'RANGE' ? 'grid-cols-2' : 'grid-cols-1'">
+                                    <div>
+                                        <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider"
+                                               x-text="yieldType === 'RANGE' ? 'Taux min (%)' : 'Taux (%)'"></label>
+                                        <input type="number" step="0.01" name="yieldMin" x-model="yieldMin" placeholder="3.5"
+                                               class="bg-accent border border-border rounded-xl p-2.5 text-sm w-full font-mono outline-none focus:border-emerald-500 text-foreground">
+                                    </div>
+                                    <div x-show="yieldType === 'RANGE'">
+                                        <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Taux max (%)</label>
+                                        <input type="number" step="0.01" name="yieldMax" x-model="yieldMax" placeholder="5.0"
+                                               class="bg-accent border border-border rounded-xl p-2.5 text-sm w-full font-mono outline-none focus:border-emerald-500 text-foreground">
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">
+                                        Reinvestissement: <span x-text="reinvestmentRate + '%'" class="text-emerald-500"></span>
+                                    </label>
+                                    <input type="range" min="0" max="100" step="5" name="reinvestmentRate" x-model="reinvestmentRate"
+                                           class="w-full h-2 bg-accent rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                                    <div class="flex justify-between text-[10px] text-muted-foreground mt-1">
+                                        <span>0% (tout retirer)</span>
+                                        <span>100% (tout reinvestir)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <button class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl text-sm font-bold transition-all">
                             Valider
                         </button>
@@ -135,7 +200,18 @@
 
             <!-- Recurring Form -->
             <template x-if="showRecurringForm">
-                <div class="dashboard-card bg-background border border-blue-500/50 rounded-2xl p-4 relative">
+                <div class="dashboard-card bg-background border border-blue-500/50 rounded-2xl p-4 relative"
+                     x-data="{
+                         get opType() {
+                             if (!editingRecurring) return 'expense';
+                             if (editingRecurring.ToAccountID) return 'transfer';
+                             return editingRecurring.Amount > 0 ? 'income' : 'expense';
+                         },
+                         get absAmount() {
+                             if (!editingRecurring) return '';
+                             return Math.abs(editingRecurring.Amount);
+                         }
+                     }">
                     <button @click="showRecurringForm = false; editingRecurring = null"
                             class="absolute top-3 right-3 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 18}}
@@ -146,26 +222,27 @@
                           hx-swap="innerHTML"
                           @htmx:after-settle="showRecurringForm = false"
                           class="space-y-4">
-                        <input type="hidden" name="id" :value="editingRecurring?.id || ''">
+                        <input type="hidden" name="id" :value="editingRecurring?.ID || ''">
                         <div class="flex gap-3">
                             <input type="text" name="description" placeholder="Libelle" required
-                                   :value="editingRecurring?.description || ''"
+                                   :value="editingRecurring?.Description || ''"
                                    class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-none focus:border-blue-500">
                             <input type="number" step="0.01" name="amount" placeholder="EUR" required
-                                   :value="editingRecurring?.amount || ''"
+                                   :value="absAmount"
                                    class="w-24 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-none font-mono focus:border-blue-500">
                             <input type="number" min="1" max="31" name="dayOfMonth" placeholder="J" required
-                                   :value="editingRecurring?.dayOfMonth || ''"
+                                   :value="editingRecurring?.DayOfMonth || ''"
                                    class="w-14 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-none text-center focus:border-blue-500">
                         </div>
                         <div class="flex gap-3">
-                            <select name="type"
+                            <select name="type" x-model="opType"
                                     class="w-28 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-none focus:border-blue-500">
                                 <option value="expense">Sortie</option>
                                 <option value="income">Entree</option>
                                 <option value="transfer">Virement</option>
                             </select>
                             <select name="accountId" required
+                                    :value="editingRecurring?.AccountID || ''"
                                     class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-none focus:border-blue-500">
                                 <option value="">Compte...</option>
                                 {{range .Accounts}}

@@ -173,16 +173,46 @@ func DeleteRecurring(w http.ResponseWriter, r *http.Request) {
 // renderRecurringTable rend le tableau des operations recurrentes en HTML
 func renderRecurringTable(w http.ResponseWriter, userID int64) {
 	recurrings, _ := db.GetRecurringByUserID(userID)
+	accounts, _ := db.GetAccountsByUserID(userID)
 
-	// Dechiffrer les descriptions
-	for i := range recurrings {
-		if decrypted, err := crypto.Decrypt(recurrings[i].Description); err == nil {
-			recurrings[i].Description = decrypted
+	// Creer un map des noms de comptes
+	accountMap := make(map[int64]string)
+	for _, acc := range accounts {
+		name := acc.Name
+		if decrypted, err := crypto.Decrypt(acc.Name); err == nil {
+			name = decrypted
 		}
+		accountMap[acc.ID] = name
+	}
+
+	// Preparer les donnees avec noms de comptes
+	recurringData := make([]map[string]interface{}, 0, len(recurrings))
+	for _, rec := range recurrings {
+		description := rec.Description
+		if decrypted, err := crypto.Decrypt(rec.Description); err == nil {
+			description = decrypted
+		}
+
+		toAccountName := ""
+		if rec.ToAccountID != nil {
+			toAccountName = accountMap[*rec.ToAccountID]
+		}
+
+		recurringData = append(recurringData, map[string]interface{}{
+			"ID":            rec.ID,
+			"Description":   description,
+			"Amount":        rec.Amount,
+			"DayOfMonth":    rec.DayOfMonth,
+			"AccountID":     rec.AccountID,
+			"AccountName":   accountMap[rec.AccountID],
+			"ToAccountID":   rec.ToAccountID,
+			"ToAccountName": toAccountName,
+			"IsActive":      rec.IsActive,
+		})
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	templates.RenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{
-		"Recurrings": recurrings,
+		"Recurrings": recurringData,
 	})
 }
