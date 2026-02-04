@@ -30,6 +30,13 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	balanceStr := r.FormValue("balance")
 	color := r.FormValue("color")
 
+	// Champs rendement
+	isYieldActive := r.FormValue("isYieldActive") == "on" || r.FormValue("isYieldActive") == "true"
+	yieldType := r.FormValue("yieldType")
+	yieldMinStr := r.FormValue("yieldMin")
+	yieldMaxStr := r.FormValue("yieldMax")
+	reinvestmentRateStr := r.FormValue("reinvestmentRate")
+
 	if name == "" {
 		http.Error(w, "Nom requis", http.StatusBadRequest)
 		return
@@ -49,6 +56,23 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		color = "#3b82f6"
 	}
 
+	// Parser les valeurs de rendement
+	if yieldType == "" {
+		yieldType = "FIXED"
+	}
+	yieldMin := 0.0
+	yieldMax := 0.0
+	reinvestmentRate := 100
+	if yieldMinStr != "" {
+		yieldMin, _ = strconv.ParseFloat(yieldMinStr, 64)
+	}
+	if yieldMaxStr != "" {
+		yieldMax, _ = strconv.ParseFloat(yieldMaxStr, 64)
+	}
+	if reinvestmentRateStr != "" {
+		reinvestmentRate, _ = strconv.Atoi(reinvestmentRateStr)
+	}
+
 	// Si un ID est fourni, c'est une mise a jour
 	if idStr != "" {
 		id, err := strconv.ParseInt(idStr, 10, 64)
@@ -56,7 +80,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "ID invalide", http.StatusBadRequest)
 			return
 		}
-		err = db.UpdateAccount(id, user.ID, name, balance, color)
+		err = db.UpdateAccountWithYield(id, user.ID, name, balance, color, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate)
 		if err != nil {
 			http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
 			return
@@ -66,7 +90,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		accounts, _ := db.GetAccountsByUserID(user.ID)
 		position := len(accounts)
 
-		err := db.CreateAccount(user.ID, name, balance, color, position)
+		err := db.CreateAccountWithYield(user.ID, name, balance, color, position, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate)
 		if err != nil {
 			http.Error(w, "Erreur creation", http.StatusInternalServerError)
 			return

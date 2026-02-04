@@ -15,18 +15,20 @@ var pageTemplates = make(map[string]*template.Template)
 
 // FuncMap contient les fonctions personnalisees pour les templates
 var FuncMap = template.FuncMap{
-	"formatMoney":   formatMoney,
-	"formatBalance": formatBalance,
-	"dict":          dict,
-	"or":            orFunc,
-	"json":          toJSON,
-	"mult":          mult,
-	"add":           add,
-	"sub":           sub,
-	"ge":            ge,
-	"gt":            gt,
-	"eq":            eqFunc,
-	"ne":            neFunc,
+	"formatMoney":        formatMoney,
+	"formatMoneyCompact": formatMoneyCompact,
+	"formatBalance":      formatBalance,
+	"dict":               dict,
+	"or":                 orFunc,
+	"json":               toJSON,
+	"mult":               mult,
+	"add":                add,
+	"sub":                sub,
+	"ge":                 ge,
+	"gt":                 gt,
+	"eq":                 eqFunc,
+	"ne":                 neFunc,
+	"abs":                absFunc,
 }
 
 // Init charge tous les templates depuis le dossier templates
@@ -127,6 +129,23 @@ func formatMoney(amount float64) string {
 	return fmt.Sprintf("%s EUR", formatFloat(amount))
 }
 
+// formatMoneyCompact formate un montant en notation compacte (k, M)
+func formatMoneyCompact(amount float64) string {
+	if amount < 0 {
+		return "-" + formatMoneyCompact(-amount)
+	}
+	if amount >= 1000000 {
+		return fmt.Sprintf("%.1fM EUR", amount/1000000)
+	}
+	if amount >= 10000 {
+		return fmt.Sprintf("%.0fk EUR", amount/1000)
+	}
+	if amount >= 1000 {
+		return fmt.Sprintf("%.1fk EUR", amount/1000)
+	}
+	return fmt.Sprintf("%.0f EUR", amount)
+}
+
 // formatBalance formate un solde pour l'input
 func formatBalance(amount float64) string {
 	if amount == float64(int64(amount)) {
@@ -213,3 +232,11 @@ func ge(a, b float64) bool         { return a >= b }
 func gt(a, b float64) bool         { return a > b }
 func eqFunc(a, b interface{}) bool { return a == b }
 func neFunc(a, b interface{}) bool { return a != b }
+
+// Fonction valeur absolue
+func absFunc(a float64) float64 {
+	if a < 0 {
+		return -a
+	}
+	return a
+}
