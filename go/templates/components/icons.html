@@ -87,20 +87,51 @@
 
 {{define "icon-loader"}}<svg xmlns="http://www.w3.org/2000/svg" width="{{or .Size 24}}" height="{{or .Size 24}}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{.Class}}"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>{{end}}
 
-{{define "pwd-check"}}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>{{end}}
-{{define "pwd-x"}}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>{{end}}
-{{define "pwd-req"}}<div class="flex items-center gap-1.5" :class="{{.Test}} ? 'text-emerald-500' : 'text-muted-foreground'"><template x-if="{{.Test}}">{{template "pwd-check"}}</template><template x-if="!({{.Test}})">{{template "pwd-x"}}</template><span>{{.Label}}</span></div>{{end}}
-
 {{define "password-feedback"}}
-<div class="space-y-3" x-show="password.length > 0" x-transition x-init="$nextTick(() => htmx.process($el))">
-    <div class="h-1.5 w-full bg-accent rounded-full overflow-hidden"><div class="h-full transition-all duration-300" :class="pwdStrength >= 5 ? 'bg-emerald-500' : pwdStrength >= 4 ? 'bg-yellow-500' : pwdStrength >= 3 ? 'bg-orange-500' : 'bg-red-500'" :style="'width:' + (pwdStrength * 20) + '%'"></div></div>
-    <div class="grid grid-cols-2 gap-1.5 text-xs">
-        {{template "pwd-req" dict "Test" "password.length >= 8" "Label" "8 caracteres min."}}
-        {{template "pwd-req" dict "Test" "/[A-Z]/.test(password)" "Label" "1 majuscule"}}
-        {{template "pwd-req" dict "Test" "/[a-z]/.test(password)" "Label" "1 minuscule"}}
-        {{template "pwd-req" dict "Test" "/[0-9]/.test(password)" "Label" "1 chiffre"}}
-        <div class="flex items-center gap-1.5 col-span-2" :class="/[!@#$%^&*(),.?&quot;:{}|<>]/.test(password) ? 'text-emerald-500' : 'text-muted-foreground'"><template x-if="/[!@#$%^&*(),.?&quot;:{}|<>]/.test(password)">{{template "pwd-check"}}</template><template x-if="!/[!@#$%^&*(),.?&quot;:{}|<>]/.test(password)">{{template "pwd-x"}}</template><span>1 caractere special</span></div>
+<div class="space-y-3" x-show="password.length > 0" x-transition>
+    <div class="h-1.5 w-full bg-accent rounded-full overflow-hidden"><div class="h-full transition-all duration-300" :class="pwdStrength === 5 ? 'bg-emerald-500' : pwdStrength >= 4 ? 'bg-yellow-500' : pwdStrength >= 3 ? 'bg-orange-500' : 'bg-red-500'" :style="'width:' + (pwdStrength * 20) + '%'"></div></div>
+    <div class="grid grid-cols-2 gap-1.5 text-xs"
+         x-data="{
+            hasLen: false, hasUp: false, hasLow: false, hasNum: false, hasSpec: false,
+            check() {
+                this.hasLen = password.length >= 8;
+                this.hasUp = /[A-Z]/.test(password);
+                this.hasLow = /[a-z]/.test(password);
+                this.hasNum = /[0-9]/.test(password);
+                this.hasSpec = /[!@#$%^&*(),.?\":{}|<>]/.test(password);
+            }
+         }"
+         x-effect="check()">
+        <div class="flex items-center gap-1.5" :class="hasLen ? 'text-emerald-500' : 'text-muted-foreground'">
+            <svg x-show="hasLen" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg x-show="!hasLen" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            <span>8 caracteres min.</span>
+        </div>
+        <div class="flex items-center gap-1.5" :class="hasUp ? 'text-emerald-500' : 'text-muted-foreground'">
+            <svg x-show="hasUp" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg x-show="!hasUp" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            <span>1 majuscule</span>
+        </div>
+        <div class="flex items-center gap-1.5" :class="hasLow ? 'text-emerald-500' : 'text-muted-foreground'">
+            <svg x-show="hasLow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg x-show="!hasLow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            <span>1 minuscule</span>
+        </div>
+        <div class="flex items-center gap-1.5" :class="hasNum ? 'text-emerald-500' : 'text-muted-foreground'">
+            <svg x-show="hasNum" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg x-show="!hasNum" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            <span>1 chiffre</span>
+        </div>
+        <div class="flex items-center gap-1.5 col-span-2" :class="hasSpec ? 'text-emerald-500' : 'text-muted-foreground'">
+            <svg x-show="hasSpec" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg x-show="!hasSpec" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            <span>1 caractere special (!@#$...)</span>
+        </div>
     </div>
-    <div x-show="confirm.length > 0" class="flex items-center gap-1.5 text-xs font-medium" :class="password === confirm ? 'text-emerald-500' : 'text-red-500'"><template x-if="password === confirm">{{template "pwd-check"}}</template><template x-if="password !== confirm">{{template "pwd-x"}}</template><span x-text="password === confirm ? 'Mots de passe identiques' : 'Mots de passe differents'"></span></div>
+    <div x-show="confirm.length > 0" class="flex items-center gap-1.5 text-xs font-medium" :class="password === confirm ? 'text-emerald-500' : 'text-red-500'">
+        <svg x-show="password === confirm" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+        <svg x-show="password !== confirm" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        <span x-text="password === confirm ? 'Mots de passe identiques' : 'Mots de passe differents'"></span>
+    </div>
 </div>
 {{end}}

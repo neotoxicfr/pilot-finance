@@ -162,3 +162,44 @@ func HashPassword(password string) (string, error) {
 func VerifyPassword(password, hash string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
 }
+
+// ValidatePassword vérifie que le mot de passe respecte les 5 critères
+// Returns nil si valide, sinon une erreur descriptive
+func ValidatePassword(password string) error {
+	if len(password) < 8 {
+		return errors.New("minimum 8 caracteres requis")
+	}
+
+	hasUpper := false
+	hasLower := false
+	hasDigit := false
+	hasSpecial := false
+
+	for _, c := range password {
+		switch {
+		case c >= 'A' && c <= 'Z':
+			hasUpper = true
+		case c >= 'a' && c <= 'z':
+			hasLower = true
+		case c >= '0' && c <= '9':
+			hasDigit = true
+		case strings.ContainsRune("!@#$%^&*(),.?\":{}|<>", c):
+			hasSpecial = true
+		}
+	}
+
+	if !hasUpper {
+		return errors.New("une majuscule requise")
+	}
+	if !hasLower {
+		return errors.New("une minuscule requise")
+	}
+	if !hasDigit {
+		return errors.New("un chiffre requis")
+	}
+	if !hasSpecial {
+		return errors.New("un caractere special requis (!@#$...)")
+	}
+
+	return nil
+}

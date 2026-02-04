@@ -140,11 +140,11 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(password) < 8 {
+	if err := crypto.ValidatePassword(password); err != nil {
 		data := map[string]interface{}{
 			"Title": "Nouveau mot de passe",
 			"Token": token,
-			"Error": "Mot de passe trop court (min 8 caracteres)",
+			"Error": err.Error(),
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		templates.Render(w, "reset-password.html", data)
