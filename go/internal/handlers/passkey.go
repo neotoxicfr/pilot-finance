@@ -40,6 +40,13 @@ func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 		credentials = append(credentials, webauthn.Credential{
 			ID:        credID,
 			PublicKey: pubKey,
+			Flags: webauthn.CredentialFlags{
+				BackupEligible: a.BackupEligible,
+				BackupState:    a.CredentialBackedUp,
+			},
+			Authenticator: webauthn.Authenticator{
+				SignCount: uint32(a.Counter),
+			},
 		})
 	}
 
@@ -117,6 +124,7 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 		int(credential.Authenticator.SignCount),
 		"multiDevice",
 		credential.Flags.BackupState,
+		credential.Flags.BackupEligible,
 		string(transports),
 		user.ID,
 	)
@@ -196,6 +204,13 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 			credentials = append(credentials, webauthn.Credential{
 				ID:        credID,
 				PublicKey: pubKey,
+				Flags: webauthn.CredentialFlags{
+					BackupEligible: a.BackupEligible,
+					BackupState:    a.CredentialBackedUp,
+				},
+				Authenticator: webauthn.Authenticator{
+					SignCount: uint32(a.Counter),
+				},
 			})
 		}
 
