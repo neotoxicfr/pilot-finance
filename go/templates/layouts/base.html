@@ -308,9 +308,10 @@ window.initPieChart = function(accounts) {
                 data: accounts.map(a => a.value),
                 backgroundColor: bgColors,
                 borderColor: bgColors,
-                borderWidth: 1,
+                borderWidth: 2,
                 hoverOffset: 0,
-                hoverBorderWidth: 1
+                hoverBorderWidth: 2,
+                spacing: 3
             }]
         },
         options: {
@@ -335,14 +336,15 @@ window.initPieChart = function(accounts) {
                             tooltip.style.opacity = 0;
                             return;
                         }
+                        const currentColors = getChartColors();
                         const data = tooltipModel.dataPoints[0];
                         const value = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(data.raw);
                         const total = data.dataset.data.reduce((a, b) => a + b, 0);
                         const percent = ((data.raw / total) * 100).toFixed(1);
                         tooltip.innerHTML = '<strong>' + data.label + '</strong><br>' + value + ' (' + percent + '%)';
-                        tooltip.style.backgroundColor = colors.tooltipBg;
-                        tooltip.style.color = colors.tooltipBody;
-                        tooltip.style.border = '1px solid ' + colors.tooltipBorder;
+                        tooltip.style.backgroundColor = currentColors.tooltipBg;
+                        tooltip.style.color = currentColors.tooltipBody;
+                        tooltip.style.border = '1px solid ' + currentColors.tooltipBorder;
                         tooltip.style.opacity = 1;
                         const canvasRect = context.chart.canvas.getBoundingClientRect();
                         tooltip.style.left = (canvasRect.left + tooltipModel.caretX + 10) + 'px';
