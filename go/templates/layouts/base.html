@@ -227,6 +227,15 @@ window.initProjectionChart = function() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: {
+                duration: 750,
+                easing: 'easeInOutQuart'
+            },
+            transitions: {
+                active: {
+                    animation: { duration: 200 }
+                }
+            },
             interaction: { intersect: false, mode: 'index' },
             plugins: {
                 legend: { display: accountColors && accountColors.length > 1 },
@@ -296,6 +305,9 @@ window.initPieChart = function() {
         return;
     }
 
+    // Utiliser la couleur de fond du theme pour les bordures (antialiasing)
+    const bgColor = isDark ? '#0f172a' : '#ffffff';
+
     window.pieChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
@@ -303,15 +315,22 @@ window.initPieChart = function() {
             datasets: [{
                 data: accounts.map(a => a.value),
                 backgroundColor: accounts.map(a => a.color),
-                borderColor: 'transparent',
-                borderWidth: 3,
-                hoverOffset: 8
+                borderColor: bgColor,
+                borderWidth: 2,
+                hoverOffset: 8,
+                hoverBorderWidth: 0
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: true,
             cutout: '65%',
+            animation: {
+                animateRotate: true,
+                animateScale: true,
+                duration: 600,
+                easing: 'easeOutQuart'
+            },
             plugins: {
                 legend: { display: false },
                 tooltip: {
