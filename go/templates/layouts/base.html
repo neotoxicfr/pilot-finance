@@ -143,6 +143,13 @@ document.body.addEventListener('htmx:beforeSwap', function(evt) {
     if (evt.detail.xhr.status === 401) {
         window.location.href = '/login';
     }
+    // Detruire le graphique avant le swap pour eviter les problemes
+    if (evt.detail.target && evt.detail.target.id === 'projection-chart') {
+        if (window.projectionChart) {
+            window.projectionChart.destroy();
+            window.projectionChart = null;
+        }
+    }
 });
 
 // Initialisation du graphique de projection
