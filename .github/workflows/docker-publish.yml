@@ -8,7 +8,7 @@ on:
       - 'LICENSE'
       - 'SECURITY.md'
       - '.gitignore'
-      - 'build/public/**'
+      - 'go/static/logo.svg'
     tags: [ 'v*.*.*' ]
 
 env:
@@ -48,7 +48,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: ./build
+          context: ./go
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
