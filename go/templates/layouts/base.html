@@ -344,8 +344,9 @@ window.initPieChart = function(accounts) {
                         tooltip.style.color = colors.tooltipBody;
                         tooltip.style.border = '1px solid ' + colors.tooltipBorder;
                         tooltip.style.opacity = 1;
-                        tooltip.style.left = tooltipModel.caretX + 'px';
-                        tooltip.style.top = tooltipModel.caretY + 'px';
+                        const canvasRect = context.chart.canvas.getBoundingClientRect();
+                        tooltip.style.left = (canvasRect.left + tooltipModel.caretX + 10) + 'px';
+                        tooltip.style.top = (canvasRect.top + tooltipModel.caretY - 10) + 'px';
                     }
                 }
             }
