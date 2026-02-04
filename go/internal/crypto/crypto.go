@@ -183,7 +183,7 @@ func ValidatePassword(password string) error {
 			hasLower = true
 		case c >= '0' && c <= '9':
 			hasDigit = true
-		case strings.ContainsRune("!@#$%^&*(),.?\":{}|<>", c):
+		case strings.ContainsRune("!@#$%^&*(),.?:{}|", c):
 			hasSpecial = true
 		}
 	}

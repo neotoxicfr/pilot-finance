@@ -129,7 +129,7 @@
 
             <!-- Password Section -->
             <div class="dashboard-card bg-background border rounded-2xl p-6"
-                 x-data="{ pwdSuccess: false, pwdError: '', pwdLoading: false, password: '', confirm: '', get pwdStrength() { return (this.password.length >= 8 ? 1 : 0) + (/[A-Z]/.test(this.password) ? 1 : 0) + (/[a-z]/.test(this.password) ? 1 : 0) + (/[0-9]/.test(this.password) ? 1 : 0) + (/[!@#$%^&*(),.?\":{}|<>]/.test(this.password) ? 1 : 0); } }">
+                 x-data="{ pwdSuccess: false, pwdError: '', pwdLoading: false, password: '', confirm: '', get pwdStrength() { return (this.password.length >= 8 ? 1 : 0) + (/[A-Z]/.test(this.password) ? 1 : 0) + (/[a-z]/.test(this.password) ? 1 : 0) + (/[0-9]/.test(this.password) ? 1 : 0) + (/[!@#$%^&*(),.?:{}|]/.test(this.password) ? 1 : 0); } }">
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-muted-foreground">{{template "icon-lock" dict "Size" 20}}</span>
                     Mot de passe
