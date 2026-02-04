@@ -6,7 +6,10 @@
             requires2FA: {{if .Requires2FA}}true{{else}}false{{end}},
             loading: false,
             error: '',
-            success: ''
+            success: '',
+            password: '',
+            confirm: '',
+            get pwdStrength() { return (this.password.length >= 8 ? 1 : 0) + (/[A-Z]/.test(this.password) ? 1 : 0) + (/[a-z]/.test(this.password) ? 1 : 0) + (/[0-9]/.test(this.password) ? 1 : 0) + (/[!@#$%^&*(),.?\":{}|<>]/.test(this.password) ? 1 : 0); }
          }">
         <div class="flex flex-col items-center mb-8">
             <div class="bg-background border border-border p-4 rounded-full mb-4">
@@ -72,20 +75,23 @@
                             <div class="absolute left-3 top-3 text-muted-foreground group-focus-within:text-blue-500 transition-colors">
                                 {{template "icon-lock" dict "Size" 18}}
                             </div>
-                            <input name="password" type="password" required
+                            <input name="password" type="password" required x-model="password"
                                    class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-none focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
                                    placeholder="Mot de passe">
                         </div>
                     </div>
 
                     <template x-if="isRegister">
-                        <div class="relative group">
-                            <div class="absolute left-3 top-3 text-muted-foreground group-focus-within:text-blue-500 transition-colors">
-                                {{template "icon-check" dict "Size" 18}}
+                        <div class="space-y-4">
+                            <div class="relative group">
+                                <div class="absolute left-3 top-3 text-muted-foreground group-focus-within:text-blue-500 transition-colors">
+                                    {{template "icon-check" dict "Size" 18}}
+                                </div>
+                                <input name="confirmPassword" type="password" required x-model="confirm"
+                                       class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-none focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
+                                       placeholder="Confirmation">
                             </div>
-                            <input name="confirmPassword" type="password" required
-                                   class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-none focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
-                                   placeholder="Confirmation">
+                            {{template "password-feedback"}}
                         </div>
                     </template>
                 </div>
