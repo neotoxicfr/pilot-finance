@@ -143,12 +143,15 @@ document.body.addEventListener('htmx:beforeSwap', function(evt) {
     if (evt.detail.xhr.status === 401) {
         window.location.href = '/login';
     }
-    // Detruire le graphique avant le swap pour eviter les problemes
+});
+
+// Reinitialiser le graphique APRES que HTMX a termine le swap et le DOM est stable
+document.body.addEventListener('htmx:afterSettle', function(evt) {
     if (evt.detail.target && evt.detail.target.id === 'projection-chart') {
-        if (window.projectionChart) {
-            window.projectionChart.destroy();
-            window.projectionChart = null;
-        }
+        // Attendre que le DOM soit completement pret
+        setTimeout(function() {
+            window.initProjectionChart && window.initProjectionChart();
+        }, 50);
     }
 });
 

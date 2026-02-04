@@ -89,14 +89,6 @@
 </div>
 <script id="projection-data" type="application/json">{{.ProjectionData | json}}</script>
 <script id="account-colors" type="application/json">{{.AccountColors | json}}</script>
-<script>
-(function() {
-    // Attendre que le DOM soit pret et le canvas visible
-    requestAnimationFrame(function() {
-        window.initProjectionChart && window.initProjectionChart();
-    });
-})();
-</script>
 {{end}}
 
 {{define "pie-chart"}}
