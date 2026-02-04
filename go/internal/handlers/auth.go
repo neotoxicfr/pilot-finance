@@ -250,8 +250,8 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(password) < 8 {
-		http.Error(w, "Mot de passe trop court (min 8 caractères)", http.StatusBadRequest)
+	if err := crypto.ValidatePassword(password); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
