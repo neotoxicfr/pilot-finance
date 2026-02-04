@@ -91,9 +91,10 @@
 <script id="account-colors" type="application/json">{{.AccountColors | json}}</script>
 <script>
 (function() {
-    setTimeout(function() {
+    // Attendre que le DOM soit pret et le canvas visible
+    requestAnimationFrame(function() {
         window.initProjectionChart && window.initProjectionChart();
-    }, 10);
+    });
 })();
 </script>
 {{end}}
