@@ -297,7 +297,6 @@ window.initPieChart = function(accounts) {
 
     const colors = getChartColors();
 
-    // Bordures de meme couleur pour antialiasing
     const bgColors = accounts.map(a => a.color);
 
     window.pieChart = new Chart(ctx, {
@@ -307,11 +306,10 @@ window.initPieChart = function(accounts) {
             datasets: [{
                 data: accounts.map(a => a.value),
                 backgroundColor: bgColors,
-                borderColor: bgColors,
-                borderWidth: 2,
+                borderWidth: 0,
                 hoverOffset: 0,
-                hoverBorderWidth: 2,
-                spacing: 8
+                hoverBorderWidth: 0,
+                spacing: 6
             }]
         },
         options: {
