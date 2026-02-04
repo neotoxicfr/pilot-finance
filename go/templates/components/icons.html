@@ -90,41 +90,30 @@
 {{define "password-feedback"}}
 <div class="space-y-3" x-show="password.length > 0" x-transition>
     <div class="h-1.5 w-full bg-accent rounded-full overflow-hidden"><div class="h-full transition-all duration-300" :class="pwdStrength === 5 ? 'bg-emerald-500' : pwdStrength >= 4 ? 'bg-yellow-500' : pwdStrength >= 3 ? 'bg-orange-500' : 'bg-red-500'" :style="'width:' + (pwdStrength * 20) + '%'"></div></div>
-    <div class="grid grid-cols-2 gap-1.5 text-xs"
-         x-data="{
-            hasLen: false, hasUp: false, hasLow: false, hasNum: false, hasSpec: false,
-            check() {
-                this.hasLen = password.length >= 8;
-                this.hasUp = /[A-Z]/.test(password);
-                this.hasLow = /[a-z]/.test(password);
-                this.hasNum = /[0-9]/.test(password);
-                this.hasSpec = /[!@#$%^&*(),.?\":{}|<>]/.test(password);
-            }
-         }"
-         x-effect="check()">
-        <div class="flex items-center gap-1.5" :class="hasLen ? 'text-emerald-500' : 'text-muted-foreground'">
-            <svg x-show="hasLen" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
-            <svg x-show="!hasLen" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    <div class="grid grid-cols-2 gap-1.5 text-xs">
+        <div class="flex items-center gap-1.5" :class="password.length >= 8 ? 'text-emerald-500' : 'text-muted-foreground'">
+            <svg x-show="password.length >= 8" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg x-show="password.length < 8" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
             <span>8 caracteres min.</span>
         </div>
-        <div class="flex items-center gap-1.5" :class="hasUp ? 'text-emerald-500' : 'text-muted-foreground'">
-            <svg x-show="hasUp" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
-            <svg x-show="!hasUp" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        <div class="flex items-center gap-1.5" :class="/[A-Z]/.test(password) ? 'text-emerald-500' : 'text-muted-foreground'">
+            <svg x-show="/[A-Z]/.test(password)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg x-show="!/[A-Z]/.test(password)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
             <span>1 majuscule</span>
         </div>
-        <div class="flex items-center gap-1.5" :class="hasLow ? 'text-emerald-500' : 'text-muted-foreground'">
-            <svg x-show="hasLow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
-            <svg x-show="!hasLow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        <div class="flex items-center gap-1.5" :class="/[a-z]/.test(password) ? 'text-emerald-500' : 'text-muted-foreground'">
+            <svg x-show="/[a-z]/.test(password)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg x-show="!/[a-z]/.test(password)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
             <span>1 minuscule</span>
         </div>
-        <div class="flex items-center gap-1.5" :class="hasNum ? 'text-emerald-500' : 'text-muted-foreground'">
-            <svg x-show="hasNum" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
-            <svg x-show="!hasNum" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        <div class="flex items-center gap-1.5" :class="/[0-9]/.test(password) ? 'text-emerald-500' : 'text-muted-foreground'">
+            <svg x-show="/[0-9]/.test(password)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg x-show="!/[0-9]/.test(password)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
             <span>1 chiffre</span>
         </div>
-        <div class="flex items-center gap-1.5 col-span-2" :class="hasSpec ? 'text-emerald-500' : 'text-muted-foreground'">
-            <svg x-show="hasSpec" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
-            <svg x-show="!hasSpec" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        <div class="flex items-center gap-1.5 col-span-2" :class="/[!@#$%^&amp;*(),.?:{}|&lt;&gt;]/.test(password) ? 'text-emerald-500' : 'text-muted-foreground'">
+            <svg x-show="/[!@#$%^&amp;*(),.?:{}|&lt;&gt;]/.test(password)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg x-show="!/[!@#$%^&amp;*(),.?:{}|&lt;&gt;]/.test(password)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
             <span>1 caractere special (!@#$...)</span>
         </div>
     </div>
