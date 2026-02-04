@@ -170,7 +170,7 @@
                         <div class="text-red-500 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="pwdError"></div>
                     </template>
 
-                    <button type="submit" :disabled="pwdLoading || pwdStrength < 3 || (confirm && password !== confirm)"
+                    <button type="submit" :disabled="pwdLoading || pwdStrength < 5 || password !== confirm"
                             class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50">
                         <span x-show="pwdLoading">Modification...</span>
                         <span x-show="!pwdLoading">Changer le mot de passe</span>
