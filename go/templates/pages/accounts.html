@@ -3,51 +3,8 @@
      x-data="accountsPage()">
 
     <!-- Summary Cards -->
-    <div class="dashboard-card bg-background border rounded-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-border">
-        <!-- Monthly -->
-        <div class="p-5 min-w-0">
-            <div class="flex items-center gap-2 mb-4">
-                <span class="bg-blue-500/10 text-blue-500 px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider">Mensuel</span>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-                <div class="min-w-0">
-                    <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Entrees</div>
-                    <div class="text-lg sm:text-2xl font-mono font-bold text-emerald-500">+{{formatMoney .MonthlyIncome}}</div>
-                </div>
-                <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
-                    <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Sorties</div>
-                    <div class="text-lg sm:text-2xl font-mono font-bold text-foreground">-{{formatMoney .MonthlyExpenses}}</div>
-                </div>
-                <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
-                    <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Reste</div>
-                    <div class="text-lg sm:text-2xl font-mono font-bold {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
-                        {{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney .MonthlyNet}}
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- Yearly -->
-        <div class="p-5 bg-accent/20 min-w-0">
-            <div class="flex items-center gap-2 mb-4">
-                <span class="bg-purple-500/10 text-purple-500 px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider">Annuel (Proj.)</span>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 opacity-90">
-                <div class="min-w-0">
-                    <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Entrees</div>
-                    <div class="text-base sm:text-xl font-mono font-bold text-emerald-500">+{{formatMoney (mult .MonthlyIncome 12)}}</div>
-                </div>
-                <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
-                    <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Sorties</div>
-                    <div class="text-base sm:text-xl font-mono font-bold text-foreground">-{{formatMoney (mult .MonthlyExpenses 12)}}</div>
-                </div>
-                <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
-                    <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Reste</div>
-                    <div class="text-base sm:text-xl font-mono font-bold {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
-                        {{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney (mult .MonthlyNet 12)}}
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div id="summary-card">
+        {{template "summary-card" .}}
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -428,4 +385,53 @@ function accountsPage() {
         {{end}}
     </tbody>
 </table>
+{{end}}
+
+{{define "summary-card"}}
+<div class="dashboard-card bg-background border rounded-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-border">
+    <!-- Monthly -->
+    <div class="p-5 min-w-0">
+        <div class="flex items-center gap-2 mb-4">
+            <span class="bg-blue-500/10 text-blue-500 px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider">Mensuel</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+            <div class="min-w-0">
+                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Entrees</div>
+                <div class="text-lg sm:text-2xl font-mono font-bold text-emerald-500">+{{formatMoney .MonthlyIncome}}</div>
+            </div>
+            <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
+                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Sorties</div>
+                <div class="text-lg sm:text-2xl font-mono font-bold text-foreground">-{{formatMoney .MonthlyExpenses}}</div>
+            </div>
+            <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
+                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Reste</div>
+                <div class="text-lg sm:text-2xl font-mono font-bold {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
+                    {{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney .MonthlyNet}}
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Yearly -->
+    <div class="p-5 bg-accent/20 min-w-0">
+        <div class="flex items-center gap-2 mb-4">
+            <span class="bg-purple-500/10 text-purple-500 px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider">Annuel (Proj.)</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 opacity-90">
+            <div class="min-w-0">
+                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Entrees</div>
+                <div class="text-base sm:text-xl font-mono font-bold text-emerald-500">+{{formatMoney (mult .MonthlyIncome 12)}}</div>
+            </div>
+            <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
+                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Sorties</div>
+                <div class="text-base sm:text-xl font-mono font-bold text-foreground">-{{formatMoney (mult .MonthlyExpenses 12)}}</div>
+            </div>
+            <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
+                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Reste</div>
+                <div class="text-base sm:text-xl font-mono font-bold {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
+                    {{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney (mult .MonthlyNet 12)}}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {{end}}
