@@ -9,6 +9,7 @@ import (
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
+	"pilot-finance/internal/projection"
 	"pilot-finance/internal/templates"
 )
 
@@ -199,8 +200,29 @@ func renderRecurringTable(w http.ResponseWriter, userID int64) {
 		accountMap[acc.ID] = name
 	}
 
+	// Calculer les yield payouts
+	yieldPayouts := projection.CalculateYieldPayouts(accounts, accountMap)
+
 	// Preparer les donnees avec noms de comptes
-	recurringData := make([]map[string]interface{}, 0, len(recurrings))
+	recurringData := make([]map[string]interface{}, 0, len(recurrings)+len(yieldPayouts))
+
+	// Ajouter les yield payouts en premier
+	for _, payout := range yieldPayouts {
+		recurringData = append(recurringData, map[string]interface{}{
+			"ID":            int64(0),
+			"Description":   "Interets " + payout.SourceAccountName,
+			"Amount":        payout.Amount,
+			"DayOfMonth":    1,
+			"AccountID":     payout.SourceAccountID,
+			"AccountName":   payout.SourceAccountName,
+			"ToAccountID":   payout.TargetAccountID,
+			"ToAccountName": payout.TargetAccountName,
+			"IsActive":      true,
+			"IsYieldPayout": true,
+			"YieldRate":     payout.Rate,
+		})
+	}
+
 	for _, rec := range recurrings {
 		description := rec.Description
 		if decrypted, err := crypto.Decrypt(rec.Description); err == nil {
@@ -222,6 +244,7 @@ func renderRecurringTable(w http.ResponseWriter, userID int64) {
 			"ToAccountID":   rec.ToAccountID,
 			"ToAccountName": toAccountName,
 			"IsActive":      rec.IsActive,
+			"IsYieldPayout": false,
 		})
 	}
 
