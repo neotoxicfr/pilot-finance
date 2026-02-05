@@ -151,9 +151,31 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 		accountMap[accounts[i].ID] = accounts[i].Name
 	}
 
+	// Calculer les yield payouts (intérêts non réinvestis)
+	yieldPayouts := projection.CalculateYieldPayouts(accounts, accountMap)
+
 	// Préparer les récurrents avec déchiffrement et nom de compte
 	var monthlyIncome, monthlyExpenses float64
-	recurringData := make([]map[string]interface{}, 0, len(recurrings))
+	recurringData := make([]map[string]interface{}, 0, len(recurrings)+len(yieldPayouts))
+
+	// Ajouter les yield payouts en premier (opérations virtuelles)
+	for _, payout := range yieldPayouts {
+		monthlyIncome += payout.Amount
+		recurringData = append(recurringData, map[string]interface{}{
+			"ID":            int64(0),
+			"Description":   "Interets " + payout.SourceAccountName,
+			"Amount":        payout.Amount,
+			"DayOfMonth":    1, // Premier du mois
+			"AccountID":     payout.SourceAccountID,
+			"AccountName":   payout.SourceAccountName,
+			"ToAccountID":   payout.TargetAccountID,
+			"ToAccountName": payout.TargetAccountName,
+			"IsActive":      true,
+			"IsYieldPayout": true,
+			"YieldRate":     payout.Rate,
+		})
+	}
+
 	for _, rec := range recurrings {
 		description := rec.Description
 		if decrypted, err := crypto.Decrypt(rec.Description); err == nil {
@@ -181,6 +203,7 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 			"ToAccountID":   rec.ToAccountID,
 			"ToAccountName": toAccountName,
 			"IsActive":      rec.IsActive,
+			"IsYieldPayout": false,
 		})
 	}
 
