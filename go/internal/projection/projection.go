@@ -26,9 +26,8 @@ type DashboardData struct {
 	TotalBalance   float64           `json:"totalBalance"`
 }
 
-// Calculate calcule les projections sur N annees
+// Calculate calcule les projections sur N annees avec simulation mois par mois
 func Calculate(accounts []db.Account, years int) DashboardData {
-	var totalInterests float64
 	var totalBalance float64
 
 	// Calculer le solde total actuel
@@ -36,100 +35,107 @@ func Calculate(accounts []db.Account, years int) DashboardData {
 		totalBalance += acc.Balance
 	}
 
-	// Pour les projections courtes (<=2 ans), utiliser des mois
-	// Pour les projections longues, utiliser des annees
+	// Creer des maps pour la simulation
+	// balances[id] = solde courant du compte
+	balances := make(map[int64]float64)
+	accountByID := make(map[int64]*db.Account)
+	nameByID := make(map[int64]string)
+
+	for i := range accounts {
+		acc := &accounts[i]
+		balances[acc.ID] = acc.Balance
+		accountByID[acc.ID] = acc
+		nameByID[acc.ID] = acc.Name
+	}
+
+	// Pour les projections courtes (<=2 ans), afficher par mois
+	// Pour les projections longues, afficher par annee
 	useMonths := years <= 2
+	totalMonths := years * 12
 	var projection []YearData
 
-	if useMonths {
-		totalMonths := years * 12
-		projection = make([]YearData, 0, totalMonths+1)
-
-		for m := 0; m <= totalMonths; m++ {
-			yearFraction := float64(m) / 12.0
-			yearData := YearData{
-				Year:     m,
-				Name:     formatMonthName(m),
-				Accounts: make(map[string]float64),
-			}
-
-			for _, acc := range accounts {
-				if !acc.IsYieldActive {
-					yearData.Accounts[acc.Name] = acc.Balance
-					yearData.TotalMin += acc.Balance
-					yearData.TotalMax += acc.Balance
-					yearData.TotalAvg += acc.Balance
-				} else {
-					rateMin := acc.YieldMin
-					rateMax := acc.YieldMax
-					if acc.YieldType == "FIXED" || acc.YieldType == "" {
-						rateMax = rateMin
-					}
-
-					compoundMin := acc.Balance * math.Pow(1+rateMin/100, yearFraction)
-					compoundMax := acc.Balance * math.Pow(1+rateMax/100, yearFraction)
-					compoundAvg := (compoundMin + compoundMax) / 2
-
-					yearData.Accounts[acc.Name] = math.Round(compoundAvg)
-					yearData.TotalMin += compoundMin
-					yearData.TotalMax += compoundMax
-					yearData.TotalAvg += compoundAvg
-
-					if m == totalMonths {
-						totalInterests += (compoundAvg - acc.Balance)
-					}
-				}
-			}
-
-			yearData.TotalMin = math.Round(yearData.TotalMin)
-			yearData.TotalMax = math.Round(yearData.TotalMax)
-			yearData.TotalAvg = math.Round(yearData.TotalAvg)
-			projection = append(projection, yearData)
+	// Fonction pour creer un YearData a partir des soldes actuels
+	createYearData := func(index int, name string) YearData {
+		yearData := YearData{
+			Year:     index,
+			Name:     name,
+			Accounts: make(map[string]float64),
 		}
+		for id, balance := range balances {
+			accName := nameByID[id]
+			yearData.Accounts[accName] = math.Round(balance)
+			yearData.TotalAvg += balance
+		}
+		yearData.TotalMin = yearData.TotalAvg
+		yearData.TotalMax = yearData.TotalAvg
+		yearData.TotalMin = math.Round(yearData.TotalMin)
+		yearData.TotalMax = math.Round(yearData.TotalMax)
+		yearData.TotalAvg = math.Round(yearData.TotalAvg)
+		return yearData
+	}
+
+	// Point de depart (mois 0)
+	if useMonths {
+		projection = append(projection, createYearData(0, formatMonthName(0)))
 	} else {
-		projection = make([]YearData, 0, years+1)
+		projection = append(projection, createYearData(0, formatYearName(0)))
+	}
 
-		for i := 0; i <= years; i++ {
-			yearData := YearData{
-				Year:     i,
-				Name:     formatYearName(i),
-				Accounts: make(map[string]float64),
+	// Simuler mois par mois
+	for m := 1; m <= totalMonths; m++ {
+		// Calculer les interets de chaque compte avec rendement
+		// et les redistribuer selon le taux de reinvestissement
+		payouts := make(map[int64]float64) // payouts a ajouter aux comptes cibles
+
+		for id, acc := range accountByID {
+			if !acc.IsYieldActive {
+				continue
 			}
 
-			for _, acc := range accounts {
-				if !acc.IsYieldActive {
-					yearData.Accounts[acc.Name] = acc.Balance
-					yearData.TotalMin += acc.Balance
-					yearData.TotalMax += acc.Balance
-					yearData.TotalAvg += acc.Balance
-				} else {
-					rateMin := acc.YieldMin
-					rateMax := acc.YieldMax
-					if acc.YieldType == "FIXED" || acc.YieldType == "" {
-						rateMax = rateMin
-					}
+			currentBalance := balances[id]
 
-					compoundMin := acc.Balance * math.Pow(1+rateMin/100, float64(i))
-					compoundMax := acc.Balance * math.Pow(1+rateMax/100, float64(i))
-					compoundAvg := (compoundMin + compoundMax) / 2
-
-					yearData.Accounts[acc.Name] = math.Round(compoundAvg)
-					yearData.TotalMin += compoundMin
-					yearData.TotalMax += compoundMax
-					yearData.TotalAvg += compoundAvg
-
-					if i == years {
-						totalInterests += (compoundAvg - acc.Balance)
-					}
-				}
+			// Taux moyen mensuel
+			rate := acc.YieldMin
+			if acc.YieldType == "RANGE" {
+				rate = (acc.YieldMin + acc.YieldMax) / 2
 			}
+			monthlyRate := rate / 100 / 12
 
-			yearData.TotalMin = math.Round(yearData.TotalMin)
-			yearData.TotalMax = math.Round(yearData.TotalMax)
-			yearData.TotalAvg = math.Round(yearData.TotalAvg)
-			projection = append(projection, yearData)
+			// Interet du mois
+			monthlyInterest := currentBalance * monthlyRate
+
+			// Partie reinvestie (reste sur le compte)
+			reinvestRatio := float64(acc.ReinvestmentRate) / 100
+			reinvested := monthlyInterest * reinvestRatio
+			balances[id] = currentBalance + reinvested
+
+			// Partie non reinvestie (va vers le compte cible si defini)
+			payout := monthlyInterest - reinvested
+			if payout > 0 && acc.TargetAccountID != nil {
+				payouts[*acc.TargetAccountID] += payout
+			}
+		}
+
+		// Ajouter les payouts aux comptes cibles
+		for targetID, amount := range payouts {
+			balances[targetID] += amount
+		}
+
+		// Enregistrer le point de donnees selon le mode d'affichage
+		if useMonths {
+			projection = append(projection, createYearData(m, formatMonthName(m)))
+		} else if m%12 == 0 {
+			yearIndex := m / 12
+			projection = append(projection, createYearData(yearIndex, formatYearName(yearIndex)))
 		}
 	}
+
+	// Calculer les interets totaux (difference entre solde final et initial)
+	var finalTotal float64
+	for _, balance := range balances {
+		finalTotal += balance
+	}
+	totalInterests := finalTotal - totalBalance
 
 	return DashboardData{
 		Accounts:       accounts,
@@ -137,6 +143,16 @@ func Calculate(accounts []db.Account, years int) DashboardData {
 		TotalInterests: math.Round(totalInterests),
 		TotalBalance:   totalBalance,
 	}
+}
+
+// YieldPayout represente un paiement d'interets non reinvestis
+type YieldPayout struct {
+	SourceAccountID   int64
+	SourceAccountName string
+	TargetAccountID   *int64
+	TargetAccountName string
+	Amount            float64
+	Rate              float64
 }
 
 // CalculateMonthlyYieldPayout calcule les revenus mensuels de rendement
@@ -162,6 +178,46 @@ func CalculateMonthlyYieldPayout(accounts []db.Account) float64 {
 	}
 
 	return monthlyPayout
+}
+
+// CalculateYieldPayouts calcule les payouts detailles par compte
+func CalculateYieldPayouts(accounts []db.Account, accountNames map[int64]string) []YieldPayout {
+	var payouts []YieldPayout
+
+	for _, acc := range accounts {
+		if acc.IsYieldActive && acc.ReinvestmentRate < 100 && acc.TargetAccountID != nil {
+			// Taux moyen
+			rate := acc.YieldMin
+			if acc.YieldType == "RANGE" {
+				rate = (acc.YieldMin + acc.YieldMax) / 2
+			}
+
+			// Gain annuel
+			annualGain := acc.Balance * (rate / 100)
+			// Gain mensuel
+			monthlyGain := annualGain / 12
+			// Payout (partie non reinvestie)
+			payout := monthlyGain * (1 - float64(acc.ReinvestmentRate)/100)
+
+			if payout > 0 {
+				targetName := ""
+				if acc.TargetAccountID != nil {
+					targetName = accountNames[*acc.TargetAccountID]
+				}
+
+				payouts = append(payouts, YieldPayout{
+					SourceAccountID:   acc.ID,
+					SourceAccountName: accountNames[acc.ID],
+					TargetAccountID:   acc.TargetAccountID,
+					TargetAccountName: targetName,
+					Amount:            payout,
+					Rate:              rate,
+				})
+			}
+		}
+	}
+
+	return payouts
 }
 
 // CalculateMonthlySummary calcule le resume mensuel

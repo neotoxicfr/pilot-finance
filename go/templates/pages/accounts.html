@@ -168,6 +168,23 @@
                                         <span>100% (tout reinvestir)</span>
                                     </div>
                                 </div>
+
+                                <div x-show="reinvestmentRate < 100" x-cloak>
+                                    <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">
+                                        Compte destinataire des interets
+                                    </label>
+                                    <select name="targetAccountId"
+                                            :value="editingAccount?.target_account_id || ''"
+                                            class="w-full bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-none focus:border-emerald-500">
+                                        <option value="">Aucun (non comptabilise)</option>
+                                        {{range .Accounts}}
+                                        <option value="{{.ID}}">{{.Name}}</option>
+                                        {{end}}
+                                    </select>
+                                    <p class="text-[10px] text-muted-foreground mt-1">
+                                        Les interets non reinvestis seront verses sur ce compte
+                                    </p>
+                                </div>
                             </div>
                         </div>
 
@@ -350,6 +367,30 @@ function accountsPage() {
     </thead>
     <tbody class="[&_tr:not(:last-child)]:border-b [&_tr]:border-border">
         {{range .Recurrings}}
+        {{if .IsYieldPayout}}
+        <tr class="bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors">
+            <td class="px-2 md:px-4 py-3 font-mono text-sm text-emerald-500 text-center border-r border-border">
+                {{template "icon-trending-up" dict "Size" 14}}
+            </td>
+            <td class="px-2 md:px-4 py-3">
+                <div class="text-emerald-600 dark:text-emerald-400 font-medium text-sm truncate flex items-center gap-1.5">
+                    {{.Description}}
+                    <span class="text-[10px] text-emerald-500 bg-emerald-500/20 px-1.5 py-0.5 rounded font-bold">{{printf "%.2f" .YieldRate}}%</span>
+                </div>
+                <div class="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
+                    <span class="flex items-center gap-1 text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 truncate">
+                        {{.AccountName}} {{template "icon-arrow-right" dict "Size" 10}} {{.ToAccountName}}
+                    </span>
+                </div>
+            </td>
+            <td class="px-2 md:px-4 py-3 text-right font-mono font-bold text-sm whitespace-nowrap tabular-nums text-emerald-500">
+                +{{formatMoney .Amount}}
+            </td>
+            <td class="px-2 py-3 text-right">
+                <span class="text-[10px] text-muted-foreground italic">auto</span>
+            </td>
+        </tr>
+        {{else}}
         <tr class="hover:bg-accent transition-colors">
             <td class="px-2 md:px-4 py-3 font-mono text-sm text-muted-foreground text-center border-r border-border">{{.DayOfMonth}}</td>
             <td class="px-2 md:px-4 py-3">
@@ -383,6 +424,7 @@ function accountsPage() {
                 </div>
             </td>
         </tr>
+        {{end}}
         {{end}}
     </tbody>
 </table>
