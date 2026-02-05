@@ -12,11 +12,11 @@ func CreateAccount(userID int64, name string, balance float64, color string, pos
 }
 
 // CreateAccountWithYield cree un nouveau compte avec rendement
-func CreateAccountWithYield(userID int64, name string, balance float64, color string, position int, isYieldActive bool, yieldType string, yieldMin, yieldMax float64, reinvestmentRate int) error {
+func CreateAccountWithYield(userID int64, name string, balance float64, color string, position int, isYieldActive bool, yieldType string, yieldMin, yieldMax float64, reinvestmentRate int, targetAccountID *int64) error {
 	_, err := DB.Exec(`
-		INSERT INTO accounts (user_id, name, balance, color, position, updated_at, is_yield_active, yield_type, yield_min, yield_max, reinvestment_rate)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, userID, name, balance, color, position, time.Now().Unix(), isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate)
+		INSERT INTO accounts (user_id, name, balance, color, position, updated_at, is_yield_active, yield_type, yield_min, yield_max, reinvestment_rate, target_account_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, userID, name, balance, color, position, time.Now().Unix(), isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID)
 	return err
 }
 
@@ -30,12 +30,12 @@ func UpdateAccount(id, userID int64, name string, balance float64, color string)
 }
 
 // UpdateAccountWithYield met a jour un compte avec rendement
-func UpdateAccountWithYield(id, userID int64, name string, balance float64, color string, isYieldActive bool, yieldType string, yieldMin, yieldMax float64, reinvestmentRate int) error {
+func UpdateAccountWithYield(id, userID int64, name string, balance float64, color string, isYieldActive bool, yieldType string, yieldMin, yieldMax float64, reinvestmentRate int, targetAccountID *int64) error {
 	_, err := DB.Exec(`
 		UPDATE accounts SET name = ?, balance = ?, color = ?, updated_at = ?,
-		is_yield_active = ?, yield_type = ?, yield_min = ?, yield_max = ?, reinvestment_rate = ?
+		is_yield_active = ?, yield_type = ?, yield_min = ?, yield_max = ?, reinvestment_rate = ?, target_account_id = ?
 		WHERE id = ? AND user_id = ?
-	`, name, balance, color, time.Now().Unix(), isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, id, userID)
+	`, name, balance, color, time.Now().Unix(), isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, id, userID)
 	return err
 }
 

@@ -36,6 +36,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	yieldMinStr := r.FormValue("yieldMin")
 	yieldMaxStr := r.FormValue("yieldMax")
 	reinvestmentRateStr := r.FormValue("reinvestmentRate")
+	targetAccountIDStr := r.FormValue("targetAccountId")
 
 	if name == "" {
 		http.Error(w, "Nom requis", http.StatusBadRequest)
@@ -80,6 +81,15 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		reinvestmentRate, _ = strconv.Atoi(reinvestmentRateStr)
 	}
 
+	// Parser le compte cible pour les interets non reinvestis
+	var targetAccountID *int64
+	if targetAccountIDStr != "" && targetAccountIDStr != "0" {
+		targetID, err := strconv.ParseInt(targetAccountIDStr, 10, 64)
+		if err == nil {
+			targetAccountID = &targetID
+		}
+	}
+
 	// Si un ID est fourni, c'est une mise a jour
 	if idStr != "" {
 		id, err := strconv.ParseInt(idStr, 10, 64)
@@ -87,7 +97,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "ID invalide", http.StatusBadRequest)
 			return
 		}
-		err = db.UpdateAccountWithYield(id, user.ID, encryptedName, balance, color, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate)
+		err = db.UpdateAccountWithYield(id, user.ID, encryptedName, balance, color, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID)
 		if err != nil {
 			http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
 			return
@@ -97,7 +107,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		accounts, _ := db.GetAccountsByUserID(user.ID)
 		position := len(accounts)
 
-		err := db.CreateAccountWithYield(user.ID, encryptedName, balance, color, position, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate)
+		err := db.CreateAccountWithYield(user.ID, encryptedName, balance, color, position, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID)
 		if err != nil {
 			http.Error(w, "Erreur creation", http.StatusInternalServerError)
 			return
