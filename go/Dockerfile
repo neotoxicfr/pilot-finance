@@ -9,15 +9,12 @@ WORKDIR /app
 # Installer les dépendances de build
 RUN apk add --no-cache git
 
-# Copier les fichiers de dépendances
-COPY go.mod go.sum ./
-RUN go mod download
-
-# Copier le code source
+# Copier les fichiers de dépendances et le code source
 COPY . .
 
-# Build optimisé
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+# Télécharger les dépendances et build
+RUN go mod tidy && go mod download && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-s -w -X main.Version=2.0.0" \
     -o /server ./cmd/server
 
