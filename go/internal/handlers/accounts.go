@@ -9,6 +9,7 @@ import (
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
+	"pilot-finance/internal/projection"
 	"pilot-finance/internal/templates"
 )
 
@@ -292,15 +293,96 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	renderAccountsList(w, user.ID)
 }
 
-// renderAccountsList rend la liste des comptes en HTML
+// renderAccountsList rend la liste des comptes en HTML avec OOB updates
 func renderAccountsList(w http.ResponseWriter, userID int64) {
 	accounts, _ := db.GetAccountsByUserID(userID)
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	for _, acc := range accounts {
-		// Dechiffrer le nom
-		if decrypted, err := crypto.Decrypt(acc.Name); err == nil {
-			acc.Name = decrypted
+	recurrings, _ := db.GetRecurringByUserID(userID)
+
+	// Dechiffrer les noms et creer le map
+	accountMap := make(map[int64]string)
+	for i := range accounts {
+		if decrypted, err := crypto.Decrypt(accounts[i].Name); err == nil {
+			accounts[i].Name = decrypted
 		}
+		accountMap[accounts[i].ID] = accounts[i].Name
+	}
+
+	// Calculer les yield payouts
+	yieldPayouts := projection.CalculateYieldPayouts(accounts, accountMap)
+
+	// Calculer les totaux mensuels
+	var monthlyIncome, monthlyExpenses float64
+	for _, payout := range yieldPayouts {
+		monthlyIncome += payout.Amount
+	}
+	for _, rec := range recurrings {
+		if rec.Amount > 0 {
+			monthlyIncome += rec.Amount
+		} else {
+			monthlyExpenses += -rec.Amount
+		}
+	}
+
+	// Preparer les donnees des recurrents
+	recurringData := make([]map[string]interface{}, 0, len(recurrings)+len(yieldPayouts))
+	for _, payout := range yieldPayouts {
+		recurringData = append(recurringData, map[string]interface{}{
+			"ID":            int64(0),
+			"Description":   "Interets " + payout.SourceAccountName,
+			"Amount":        payout.Amount,
+			"DayOfMonth":    1,
+			"AccountID":     payout.SourceAccountID,
+			"AccountName":   payout.SourceAccountName,
+			"ToAccountID":   payout.TargetAccountID,
+			"ToAccountName": payout.TargetAccountName,
+			"IsActive":      true,
+			"IsYieldPayout": true,
+			"YieldRate":     payout.Rate,
+		})
+	}
+	for _, rec := range recurrings {
+		description := rec.Description
+		if decrypted, err := crypto.Decrypt(rec.Description); err == nil {
+			description = decrypted
+		}
+		toAccountName := ""
+		if rec.ToAccountID != nil {
+			toAccountName = accountMap[*rec.ToAccountID]
+		}
+		recurringData = append(recurringData, map[string]interface{}{
+			"ID":            rec.ID,
+			"Description":   description,
+			"Amount":        rec.Amount,
+			"DayOfMonth":    rec.DayOfMonth,
+			"AccountID":     rec.AccountID,
+			"AccountName":   accountMap[rec.AccountID],
+			"ToAccountID":   rec.ToAccountID,
+			"ToAccountName": toAccountName,
+			"IsActive":      rec.IsActive,
+			"IsYieldPayout": false,
+		})
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	// Rendre la liste des comptes
+	for _, acc := range accounts {
 		templates.RenderPartial(w, "accounts.html", "account-row", acc)
 	}
+
+	// OOB: Rendre le summary card
+	w.Write([]byte(`<div id="summary-card" hx-swap-oob="innerHTML">`))
+	templates.RenderPartial(w, "accounts.html", "summary-card", map[string]interface{}{
+		"MonthlyIncome":   monthlyIncome,
+		"MonthlyExpenses": monthlyExpenses,
+		"MonthlyNet":      monthlyIncome - monthlyExpenses,
+	})
+	w.Write([]byte(`</div>`))
+
+	// OOB: Rendre le tableau des recurrents
+	w.Write([]byte(`<div id="recurring-list" hx-swap-oob="innerHTML">`))
+	templates.RenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{
+		"Recurrings": recurringData,
+	})
+	w.Write([]byte(`</div>`))
 }
