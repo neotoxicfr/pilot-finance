@@ -1,22 +1,35 @@
 # Pilot Finance v2.0 - Go + HTMX
 # Image finale: ~20MB
 
-# ============ BUILD STAGE ============
+# ============ CSS BUILD STAGE ============
+FROM node:22-alpine AS css
+
+WORKDIR /app
+
+# Installer Tailwind CSS v3
+RUN npm install -g tailwindcss@3
+
+# Copier les fichiers nécessaires pour la compilation CSS
+COPY tailwind.config.js .
+COPY static/css/input.css static/css/
+COPY templates templates/
+
+# Compiler Tailwind CSS
+RUN npx tailwindcss -i static/css/input.css -o static/css/tailwind.css --minify -c tailwind.config.js
+
+# ============ GO BUILD STAGE ============
 FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
 # Installer les dépendances de build
-RUN apk add --no-cache git curl libstdc++ libgcc
+RUN apk add --no-cache git
 
 # Copier les fichiers de dépendances et le code source
 COPY . .
 
-# Compiler Tailwind CSS (standalone CLI, pas besoin de Node.js)
-RUN curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.17/tailwindcss-linux-x64-musl && \
-    chmod +x tailwindcss-linux-x64-musl && \
-    ./tailwindcss-linux-x64-musl -i static/css/input.css -o static/css/tailwind.css --minify -c tailwind.config.js && \
-    rm tailwindcss-linux-x64-musl
+# Copier le CSS compilé depuis le stage CSS
+COPY --from=css /app/static/css/tailwind.css static/css/tailwind.css
 
 # Télécharger les dépendances et build
 RUN go mod tidy && go mod download && \
