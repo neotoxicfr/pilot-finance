@@ -13,10 +13,10 @@ RUN apk add --no-cache git curl
 COPY . .
 
 # Compiler Tailwind CSS (standalone CLI, pas besoin de Node.js)
-RUN curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64 && \
-    chmod +x tailwindcss-linux-x64 && \
-    ./tailwindcss-linux-x64 -i static/css/input.css -o static/css/tailwind.css --minify -c tailwind.config.js && \
-    rm tailwindcss-linux-x64
+RUN curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64-musl && \
+    chmod +x tailwindcss-linux-x64-musl && \
+    ./tailwindcss-linux-x64-musl -i static/css/input.css -o static/css/tailwind.css --minify -c tailwind.config.js && \
+    rm tailwindcss-linux-x64-musl
 
 # Télécharger les dépendances et build
 RUN go mod tidy && go mod download && \
