@@ -38,7 +38,7 @@ RUN go mod tidy && go mod download && \
     -o /server ./cmd/server
 
 # ============ PRODUCTION STAGE ============
-FROM alpine:3.21
+FROM alpine:3.23
 
 # Certificats SSL et timezone
 RUN apk add --no-cache ca-certificates tzdata
