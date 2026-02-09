@@ -15,7 +15,7 @@ COPY . .
 # Télécharger les dépendances et build
 RUN go mod tidy && go mod download && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags="-s -w -X main.Version=2.0.0" \
+    -ldflags="-s -w -X main.Version=2.0.1" \
     -o /server ./cmd/server
 
 # ============ PRODUCTION STAGE ============
