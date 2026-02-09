@@ -7,10 +7,16 @@ FROM golang:1.25-alpine AS builder
 WORKDIR /app
 
 # Installer les dépendances de build
-RUN apk add --no-cache git
+RUN apk add --no-cache git curl
 
 # Copier les fichiers de dépendances et le code source
 COPY . .
+
+# Compiler Tailwind CSS (standalone CLI, pas besoin de Node.js)
+RUN curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-linux-x64 && \
+    chmod +x tailwindcss-linux-x64 && \
+    ./tailwindcss-linux-x64 -i static/css/input.css -o static/css/tailwind.css --minify -c tailwind.config.js && \
+    rm tailwindcss-linux-x64
 
 # Télécharger les dépendances et build
 RUN go mod tidy && go mod download && \
@@ -32,8 +38,8 @@ WORKDIR /app
 # Copier le binaire
 COPY --from=builder /server /app/server
 
-# Copier les fichiers statiques et templates
-COPY static /app/static
+# Copier les fichiers statiques (avec tailwind.css compilé) et templates
+COPY --from=builder /app/static /app/static
 COPY templates /app/templates
 
 # Permissions

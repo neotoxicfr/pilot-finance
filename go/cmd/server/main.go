@@ -191,12 +191,12 @@ func main() {
 // securityHeaders ajoute le CSP (les autres headers sont gérés par Traefik)
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// CSP spécifique à l'app (HTMX + Alpine.js + Chart.js + Tailwind)
+		// CSP spécifique à l'app (tout est self-hosted)
 		w.Header().Set("Content-Security-Policy",
 			"default-src 'self'; "+
-				"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "+
-				"style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; "+
-				"img-src 'self' blob: data: https://chart.googleapis.com; "+
+				"script-src 'self' 'unsafe-inline' 'unsafe-eval'; "+
+				"style-src 'self' 'unsafe-inline'; "+
+				"img-src 'self' blob: data:; "+
 				"font-src 'self'; "+
 				"connect-src 'self'; "+
 				"frame-ancestors 'none'; "+
