@@ -27,13 +27,13 @@
     * **Health Check API** : Monitoring de l'état de la base de données et de la mémoire.
 * 📧 **Gestion des Emails** (Optionnel) : Validation des comptes à l'inscription et récupération de mot de passe.
 * 📱 **Interface Responsive** : Expérience fluide sur tous les supports (mobile, tablette et ordinateur).
-* ⚡ **Performance optimale** : Backend Go ultra-léger (~15MB binaire), frontend HTMX + Alpine.js (~30KB JS).
+* ⚡ **Performance optimale** : Backend Go ultra-léger (~15MB binaire), frontend HTMX + Alpine.js (~30KB JS), zéro requête CDN externe.
 
 ---
 
-## 🚀 Nouveautés v2.0.0
+## 🚀 Nouveautés v2.0
 
-La version 2.0.0 est une **refonte technique complète** :
+La version 2.0 est une **refonte technique complète** :
 
 | Métrique | v1.x (Next.js) | v2.0 (Go) |
 |----------|----------------|-----------|
@@ -41,13 +41,14 @@ La version 2.0.0 est une **refonte technique complète** :
 | RAM utilisée | ~200 MB | ~30 MB |
 | Temps démarrage | ~5s | <1s |
 | JS Frontend | ~500 KB | ~30 KB |
-| Vulnérabilités npm | Variables | **0** |
+| Dépendances CDN | Multiples | **0** (self-hosted) |
 
 ### Stack technique
 - **Backend** : Go 1.25 + chi router
-- **Frontend** : HTMX 2.0 + Alpine.js 3.15 + Tailwind CSS
+- **Frontend** : HTMX 2.0 + Alpine.js 3.15 + Tailwind CSS (compilé au build)
 - **Base de données** : SQLite (mode WAL)
 - **Graphiques** : Chart.js 4.5
+- **Zéro dépendance externe** : tous les assets JS/CSS sont self-hosted
 
 ---
 
@@ -136,6 +137,7 @@ L'application écoute sur le port **3000** à l'intérieur du conteneur.
 Pilot Finance a été construit avec la sécurité par défaut :
 
 * **Zéro stockage en clair** : Les noms de comptes et libellés de transactions sont chiffrés. Seul votre serveur avec sa clé unique peut les lire.
+* **Zéro dépendance externe** : Aucune requête vers des CDN ou services tiers. Tous les assets sont compilés et servis localement.
 * **Vérification au démarrage** : Le système refuse de démarrer si les clés de chiffrement sont manquantes ou trop faibles.
 * **Protection Passkeys** : L'utilisation des Passkeys offre une protection robuste contre le phishing et élimine le besoin de mémoriser des mots de passe complexes.
 * **Validation mot de passe** : 5 critères obligatoires (longueur, majuscule, minuscule, chiffre, caractère spécial).
