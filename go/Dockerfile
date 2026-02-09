@@ -7,7 +7,7 @@ FROM golang:1.25-alpine AS builder
 WORKDIR /app
 
 # Installer les dépendances de build
-RUN apk add --no-cache git curl
+RUN apk add --no-cache git curl libstdc++ libgcc
 
 # Copier les fichiers de dépendances et le code source
 COPY . .
