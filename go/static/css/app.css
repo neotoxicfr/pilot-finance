@@ -1,5 +1,4 @@
 /* Pilot Finance - Variables et styles de base */
-/* Tailwind CSS est chargé via CDN dans base.html */
 
 /* Alpine.js x-cloak */
 [x-cloak] { display: none !important; }
