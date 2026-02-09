@@ -2,7 +2,7 @@
 
 ![Docker Build](https://github.com/neotoxicfr/pilot-finance/actions/workflows/docker-publish.yml/badge.svg)
 ![CodeQL](https://github.com/neotoxicfr/pilot-finance/actions/workflows/codeql.yml/badge.svg)
-![Version](https://img.shields.io/badge/version-2.0.0-emerald)
+![Version](https://img.shields.io/badge/version-2.0.1-emerald)
 ![Dependabot](https://img.shields.io/badge/dependabot-active-brightgreen?logo=dependabot)
 ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?logo=docker&logoColor=white)
 ![Go](https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white)
@@ -15,7 +15,7 @@
 ## ✨ Fonctionnalités
 
 * 💰 **Suivi de patrimoine** : Visualisez l'évolution globale de vos actifs.
-* 📈 **Simulation de rendements** : Gérez vos intérêts composés et projetez vos gains sur plusieurs années.
+* 📈 **Simulation de rendements** : Gérez vos intérêts composés et projetez vos gains sur plusieurs années, avec versement automatique des intérêts non réinvestis vers un compte cible.
 * 🔄 **Opérations récurrentes** : Automatisez le suivi de vos revenus et dépenses mensuelles.
 * 🔐 **Sécurité renforcée** :
     * **Middleware de sécurité** : CSP stricte, headers de sécurité (HSTS, X-Frame-Options), nonces dynamiques.
@@ -53,7 +53,7 @@ La version 2.0.0 est une **refonte technique complète** :
 
 ## 🗺️ Roadmap
 
-**Version actuelle : 2.0.0** (Go, HTMX, Alpine.js, Passkeys, 2FA)
+**Version actuelle : 2.0.1** (Go, HTMX, Alpine.js, Passkeys, 2FA)
 
 ### Prochaines étapes
 
