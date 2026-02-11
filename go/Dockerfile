@@ -2,7 +2,7 @@
 # Image finale: ~20MB
 
 # ============ CSS BUILD STAGE ============
-FROM node:22-alpine AS css
+FROM node:25-alpine AS css
 
 WORKDIR /app
 
@@ -34,11 +34,11 @@ COPY --from=css /app/static/css/tailwind.css static/css/tailwind.css
 # Télécharger les dépendances et build
 RUN go mod tidy && go mod download && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags="-s -w -X main.Version=2.0.1" \
+    -ldflags="-s -w -X main.Version=2.0.2" \
     -o /server ./cmd/server
 
 # ============ PRODUCTION STAGE ============
-FROM alpine:3.21
+FROM alpine:3.23
 
 # Certificats SSL et timezone
 RUN apk add --no-cache ca-certificates tzdata
