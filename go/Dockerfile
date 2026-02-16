@@ -18,7 +18,7 @@ COPY templates templates/
 RUN npx tailwindcss -i static/css/input.css -o static/css/tailwind.css --minify -c tailwind.config.js
 
 # ============ GO BUILD STAGE ============
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /app
 
