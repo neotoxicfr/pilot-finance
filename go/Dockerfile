@@ -18,7 +18,7 @@ COPY templates templates/
 RUN npx tailwindcss -i static/css/input.css -o static/css/tailwind.css --minify -c tailwind.config.js
 
 # ============ GO BUILD STAGE ============
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /app
 
@@ -34,7 +34,7 @@ COPY --from=css /app/static/css/tailwind.css static/css/tailwind.css
 # Télécharger les dépendances et build
 RUN go mod tidy && go mod download && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags="-s -w -X main.Version=2.0.2" \
+    -ldflags="-s -w -X main.Version=2.0.3" \
     -o /server ./cmd/server
 
 # ============ PRODUCTION STAGE ============
