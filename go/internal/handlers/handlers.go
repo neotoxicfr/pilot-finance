@@ -10,6 +10,9 @@ import (
 	"pilot-finance/internal/db"
 )
 
+// Version est définie par ldflags au build
+var Version = "dev"
+
 // HealthResponse représente la réponse du health check
 type HealthResponse struct {
 	Status    string    `json:"status"`
@@ -38,7 +41,7 @@ func HealthCheck(w http.ResponseWriter, r *http.Request) {
 	response := HealthResponse{
 		Status:    "ok",
 		Timestamp: time.Now(),
-		Version:   "2.0.0",
+		Version:   Version,
 		Database:  dbStatus,
 	}
 	response.Memory.Alloc = m.Alloc / 1024 / 1024
