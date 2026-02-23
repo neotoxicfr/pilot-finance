@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/base64"
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -182,17 +181,14 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 	userHandler := func(rawID, userHandle []byte) (webauthn.User, error) {
 		// rawID est en bytes, on le convertit en base64 pour chercher en BDD
 		credIDBase64 := base64.StdEncoding.EncodeToString(rawID)
-		log.Printf("Passkey login: searching for credential ID: %s", credIDBase64)
 
 		authenticator, err := db.GetAuthenticatorByCredentialID(credIDBase64)
 		if err != nil || authenticator == nil {
-			log.Printf("Passkey login: authenticator not found: %v", err)
 			return nil, err
 		}
 
 		user, err := db.GetUserByID(authenticator.UserID)
 		if err != nil || user == nil {
-			log.Printf("Passkey login: user not found: %v", err)
 			return nil, err
 		}
 
@@ -226,7 +222,6 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 
 	passkeyUser, credential, err := auth.FinishLogin(cookie.Value, r, userHandler)
 	if err != nil {
-		log.Printf("Passkey login failed: %v", err)
 		http.Error(w, "Authentification échouée", http.StatusUnauthorized)
 		return
 	}
@@ -278,29 +273,23 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 func DeletePasskey(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		log.Printf("DeletePasskey: user not authenticated")
 		http.Error(w, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
-	log.Printf("DeletePasskey: attempting to delete passkey ID=%s for user ID=%d", idStr, user.ID)
-
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		log.Printf("DeletePasskey: invalid ID format: %v", err)
 		http.Error(w, "ID invalide", http.StatusBadRequest)
 		return
 	}
 
 	err = db.DeleteAuthenticator(id, user.ID)
 	if err != nil {
-		log.Printf("DeletePasskey: error deleting authenticator: %v", err)
 		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("DeletePasskey: successfully deleted passkey ID=%d", id)
 	w.WriteHeader(http.StatusNoContent)
 }
 

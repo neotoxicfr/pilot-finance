@@ -1,10 +1,11 @@
 package handlers
 
 import (
+	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"net/http"
-	"net/url"
+
+	qrcode "github.com/skip2/go-qrcode"
 
 	"pilot-finance/internal/auth"
 	"pilot-finance/internal/crypto"
@@ -30,14 +31,18 @@ func MFASetup(w http.ResponseWriter, r *http.Request) {
 	// Generer l'URI pour le QR code
 	otpauthURI := auth.GenerateTOTPURI(secret, user.Email)
 
-	// Utiliser un service externe pour generer le QR code (Google Charts API)
-	qrURL := fmt.Sprintf("https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=%s",
-		url.QueryEscape(otpauthURI))
+	// Generer le QR code localement (zéro dépendance externe)
+	png, err := qrcode.Encode(otpauthURI, qrcode.Medium, 200)
+	if err != nil {
+		http.Error(w, "Erreur generation QR", http.StatusInternalServerError)
+		return
+	}
+	qrDataURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"secret":   secret,
-		"imageUrl": qrURL,
+		"imageUrl": qrDataURI,
 	})
 }
 

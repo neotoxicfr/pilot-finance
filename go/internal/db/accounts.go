@@ -2,15 +2,6 @@ package db
 
 import "time"
 
-// CreateAccount cree un nouveau compte
-func CreateAccount(userID int64, name string, balance float64, color string, position int) error {
-	_, err := DB.Exec(`
-		INSERT INTO accounts (user_id, name, balance, color, position, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?)
-	`, userID, name, balance, color, position, time.Now().Unix())
-	return err
-}
-
 // CreateAccountWithYield cree un nouveau compte avec rendement
 func CreateAccountWithYield(userID int64, name string, balance float64, color string, position int, isYieldActive bool, yieldType string, yieldMin, yieldMax float64, reinvestmentRate int, targetAccountID *int64) error {
 	_, err := DB.Exec(`

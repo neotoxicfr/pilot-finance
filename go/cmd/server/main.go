@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -22,8 +24,14 @@ import (
 	"pilot-finance/internal/templates"
 )
 
+// Version est définie par ldflags au build (-X main.Version=x.y.z)
+var Version = "dev"
+
 func main() {
-	log.Println("Pilot Finance v2.0 - Démarrage...")
+	// Propager la version au package handlers (health check)
+	handlers.Version = Version
+
+	log.Printf("Pilot Finance %s - Démarrage...", Version)
 
 	// Charger la configuration
 	cfg, err := config.Load()
@@ -87,9 +95,9 @@ func main() {
 	r.Use(securityHeaders)
 	r.Use(httprate.LimitByRealIP(100, time.Minute)) // 100 req/min global
 
-	// Fichiers statiques (pas de rate limit)
+	// Fichiers statiques avec cache (pas de rate limit)
 	fileServer := http.FileServer(http.Dir("static"))
-	r.Handle("/static/*", http.StripPrefix("/static/", fileServer))
+	r.Handle("/static/*", http.StripPrefix("/static/", cacheStatic(fileServer)))
 
 	// Health check (pas de rate limit strict)
 	r.Get("/api/health", handlers.HealthCheck)
@@ -179,13 +187,28 @@ func main() {
 		<-sigChan
 
 		log.Println("Arrêt en cours...")
-		server.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		server.Shutdown(ctx)
 	}()
 
 	log.Printf("✓ Serveur démarré sur http://localhost%s", addr)
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
 		log.Fatalf("Erreur serveur: %v", err)
 	}
+}
+
+// cacheStatic ajoute des headers de cache pour les fichiers statiques
+func cacheStatic(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if strings.HasSuffix(path, ".js") || strings.HasSuffix(path, ".css") {
+			w.Header().Set("Cache-Control", "public, max-age=604800") // 7 jours
+		} else {
+			w.Header().Set("Cache-Control", "public, max-age=2592000") // 30 jours (images, icônes)
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // securityHeaders ajoute le CSP (les autres headers sont gérés par Traefik)
