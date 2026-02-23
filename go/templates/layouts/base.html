@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" id="theme-color" content="#ffffff">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Pilot">
     <title>{{if .Title}}{{.Title}} - {{end}}Pilot Finance</title>
     <meta name="description" content="Cockpit financier personnel">
@@ -20,13 +19,11 @@
             const stored = localStorage.getItem('theme');
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             const html = document.documentElement;
-            if (stored === 'dark') {
-                html.classList.add('dark');
-            } else if (stored === 'light') {
-                html.classList.add('light');
-            } else if (prefersDark) {
-                html.classList.add('dark');
-            }
+            const dark = stored === 'dark' || (stored !== 'light' && prefersDark);
+            if (stored === 'dark') html.classList.add('dark');
+            else if (stored === 'light') html.classList.add('light');
+            else if (prefersDark) html.classList.add('dark');
+            document.getElementById('theme-color')?.setAttribute('content', dark ? '#0f172a' : '#ffffff');
         })();
 
         // Theme data pour Alpine.js
@@ -49,6 +46,8 @@
                     } else if (this.isDark) {
                         html.classList.add('dark');
                     }
+                    const dark = html.classList.contains('dark');
+                    document.getElementById('theme-color')?.setAttribute('content', dark ? '#0f172a' : '#ffffff');
                 },
                 toggleTheme() {
                     if (this.theme === 'system') this.theme = 'light';
