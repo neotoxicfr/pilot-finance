@@ -33,8 +33,8 @@ COPY --from=css /app/static/css/tailwind.css static/css/tailwind.css
 
 # Télécharger les dépendances et build
 RUN go mod tidy && go mod download && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -ldflags="-s -w -X main.Version=2.0.4" \
+    CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
+    -ldflags="-s -w -X main.Version=2.0.5" \
     -o /server ./cmd/server
 
 # ============ PRODUCTION STAGE ============
