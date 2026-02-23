@@ -1,36 +1,22 @@
-name: "CodeQL Advanced"
+name: "CodeQL"
 
 on:
   push:
     branches: [ "main" ]
-    paths-ignore:
-      - '.dockerignore'
-      - '.github/**'
-      - '.gitignore'
-      - 'go/static/**'
-      - 'CODE_OF_CONDUCT.md'
-      - 'CONTRIBUTING.md'
-      - 'LICENSE'
-      - 'README.md'
-      - 'SECURITY.md'
+    paths:
+      - 'go/**'
+      - '!go/static/**'
   pull_request:
     branches: [ "main" ]
-    paths-ignore:
-      - '.dockerignore'
-      - '.github/**'
-      - '.gitignore'
-      - 'go/static/**'
-      - 'CODE_OF_CONDUCT.md'
-      - 'CONTRIBUTING.md'
-      - 'LICENSE'
-      - 'README.md'
-      - 'SECURITY.md'
+    paths:
+      - 'go/**'
+      - '!go/static/**'
   schedule:
     - cron: '34 13 * * 6'
 
 jobs:
   analyze:
-    name: Analyze (${{ matrix.language }})
+    name: Analyze Go
     runs-on: ubuntu-latest
     permissions:
       security-events: write
@@ -38,21 +24,11 @@ jobs:
       actions: read
       contents: read
 
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - language: actions
-            build-mode: none
-          - language: go
-            build-mode: autobuild
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Setup Go
-        if: matrix.language == 'go'
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go/go.mod'
@@ -61,10 +37,10 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
+          languages: go
+          build-mode: autobuild
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
-          category: "/language:${{matrix.language}}"
+          category: "/language:go"

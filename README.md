@@ -56,7 +56,7 @@ La version 2.0 est une **refonte technique complète** :
 
 ## 🗺️ Roadmap
 
-**Version actuelle : 2.0.4** (Go, HTMX, Alpine.js, Passkeys, 2FA)
+**Version actuelle : 2.0.5** (Go, HTMX, Alpine.js, Passkeys, 2FA)
 
 ### Prochaines étapes
 
