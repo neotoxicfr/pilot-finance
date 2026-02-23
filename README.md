@@ -1,12 +1,14 @@
 # <img src="go/static/logo.svg" alt="Pilot Logo" width="35" style="vertical-align: middle;"> Pilot Finance
 
+![GitHub Release](https://img.shields.io/github/v/release/neotoxicfr/pilot-finance?logo=github&label=Version&color=grey)
+![GitHub repo size](https://img.shields.io/github/repo-size/neotoxicfr/pilot-finance?logo=github&label=Repo%20size&color=grey)
+![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?logo=docker&logoColor=white)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/neotoxicfr/pilot-finance?filename=go%2Fgo.mod&logo=go&logoColor=white&labelColor=deepskyblue&color=deepskyblue)
+![HTMX](https://img.shields.io/badge/HTMX-3D72D7?logo=htmx&logoColor=white)
 ![Docker Build](https://github.com/neotoxicfr/pilot-finance/actions/workflows/docker-publish.yml/badge.svg)
 ![CodeQL](https://github.com/neotoxicfr/pilot-finance/actions/workflows/codeql.yml/badge.svg)
-![Version](https://img.shields.io/badge/version-2.0.3-emerald)
-![Dependabot](https://img.shields.io/badge/dependabot-active-brightgreen?logo=dependabot)
-![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?logo=docker&logoColor=white)
-![Go](https://img.shields.io/badge/Go-00ADD8?logo=go&logoColor=white)
-![HTMX](https://img.shields.io/badge/HTMX-3D72D7?logo=htmx&logoColor=white)
+![Dependabot](https://img.shields.io/badge/dependabot-active-limegreen?logo=dependabot&label=Dependabot)
+![GitHub License](https://img.shields.io/github/license/neotoxicfr/pilot-finance?color=limegreen)
 
 **Pilot Finance** est un cockpit financier personnel conçu pour l'auto-hébergement. Une application simple et sécurisée pour suivre votre patrimoine net, vos rendements et vos opérations récurrentes en toute confidentialité.
 
