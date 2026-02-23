@@ -40,7 +40,7 @@
 /* Base Styles */
 html {
     background-color: var(--background);
-    height: 100%;
+    min-height: 100%;
     -webkit-tap-highlight-color: transparent;
 }
 
@@ -76,10 +76,23 @@ body {
 ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #64748b; }
 
+/* Safe area for pages without nav (login, register) */
+body:not(:has(nav)) {
+    padding-top: env(safe-area-inset-top);
+}
+
+/* Safe area horizontal (landscape) */
+main {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+}
+
 /* Navigation */
 nav {
     border-color: var(--border) !important;
     padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
 }
 
 /* Cards */
