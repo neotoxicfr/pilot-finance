@@ -50,18 +50,6 @@ type Account struct {
 	TargetAccountID  *int64     `json:"target_account_id"`
 }
 
-// Transaction représente une transaction
-type Transaction struct {
-	ID          int64     `json:"id"`
-	UserID      int64     `json:"user_id"`
-	AccountID   int64     `json:"account_id"`
-	Amount      float64   `json:"amount"`
-	Description string    `json:"description"` // Chiffré en BDD
-	Category    *string   `json:"category"`
-	Date        time.Time `json:"date"`
-	CreatedAt   time.Time `json:"created_at"`
-}
-
 // RecurringOperation représente une opération récurrente
 type RecurringOperation struct {
 	ID          int64      `json:"id"`

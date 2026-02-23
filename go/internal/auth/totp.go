@@ -6,9 +6,7 @@ import (
 	"encoding/base32"
 	"fmt"
 	"net/url"
-	"time"
 
-	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 )
 
@@ -48,12 +46,3 @@ func ValidateTOTP(secret, code string) bool {
 	return totp.Validate(code, secret)
 }
 
-// ValidateTOTPWithWindow vérifie un code TOTP avec une fenêtre de tolérance
-func ValidateTOTPWithWindow(secret, code string) (bool, error) {
-	return totp.ValidateCustom(code, secret, time.Now(), totp.ValidateOpts{
-		Period:    totpPeriod,
-		Skew:      1, // Accepte 1 période avant/après
-		Digits:    otp.DigitsSix,
-		Algorithm: otp.AlgorithmSHA1,
-	})
-}

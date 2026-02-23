@@ -37,7 +37,7 @@ func Init() error {
 		Host:     host,
 		Port:     port,
 		Username: os.Getenv("SMTP_USER"),
-		Password: os.Getenv("SMTP_PASSWORD"),
+		Password: os.Getenv("SMTP_PASS"),
 		From:     os.Getenv("SMTP_FROM"),
 		Secure:   os.Getenv("SMTP_SECURE") == "true",
 	}

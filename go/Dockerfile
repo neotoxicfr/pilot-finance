@@ -20,21 +20,27 @@ RUN npx tailwindcss -i static/css/input.css -o static/css/tailwind.css --minify 
 # ============ GO BUILD STAGE ============
 FROM golang:1.26-alpine AS builder
 
+ARG TARGETARCH
+ARG VERSION=dev
+
 WORKDIR /app
 
 # Installer les dépendances de build
 RUN apk add --no-cache git
 
-# Copier les fichiers de dépendances et le code source
+# Copier les fichiers de dépendances en premier (cache layer)
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copier le reste du code source
 COPY . .
 
 # Copier le CSS compilé depuis le stage CSS
 COPY --from=css /app/static/css/tailwind.css static/css/tailwind.css
 
-# Télécharger les dépendances et build
-RUN go mod tidy && go mod download && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
-    -ldflags="-s -w -X main.Version=2.0.5" \
+# Build
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
+    -ldflags="-s -w -X main.Version=${VERSION}" \
     -o /server ./cmd/server
 
 # ============ PRODUCTION STAGE ============
