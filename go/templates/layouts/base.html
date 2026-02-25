@@ -15,7 +15,7 @@
     <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/static/apple-icon.png">
     <link rel="manifest" href="/static/manifest.json">
-    <script>
+    <script nonce="{{.Nonce}}">
         // Theme initial sans flash
         (function() {
             const stored = localStorage.getItem('theme');
@@ -69,7 +69,7 @@
             };
         }
     </script>
-    <script>window.PILOT_LOCALE="{{.Locale}}";window.PILOT_CURRENCY="{{.Currency}}";</script>
+    <script nonce="{{.Nonce}}">window.PILOT_LOCALE="{{.Locale}}";window.PILOT_CURRENCY="{{.Currency}}";</script>
     <link rel="stylesheet" href="/static/css/tailwind.css">
     <link rel="stylesheet" href="/static/css/app.css">
     <script src="/static/js/htmx.min.js"></script>
@@ -119,12 +119,12 @@
     <main class="flex-1">
         {{template "content" .}}
     </main>
-    {{template "htmx-config"}}
+    {{template "htmx-config" .}}
 </body>
 </html>
 
 {{define "htmx-config"}}
-<script>
+<script nonce="{{.Nonce}}">
 document.body.addEventListener('htmx:beforeSwap', e => { if (e.detail.xhr.status === 401) location.href = '/login'; });
 
 // Utilitaires

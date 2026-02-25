@@ -35,12 +35,7 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Dechiffrer les noms des comptes
-	for i := range accounts {
-		if decrypted, err := crypto.Decrypt(accounts[i].Name); err == nil {
-			accounts[i].Name = decrypted
-		}
-	}
+	decryptAccountNames(accounts)
 
 	// Calculer les projections
 	data := projection.Calculate(accounts, years, user.Language)
@@ -121,11 +116,7 @@ func DashboardPartial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for i := range accounts {
-		if decrypted, err := crypto.Decrypt(accounts[i].Name); err == nil {
-			accounts[i].Name = decrypted
-		}
-	}
+	decryptAccountNames(accounts)
 
 	data := projection.Calculate(accounts, years, user.Language)
 
@@ -199,12 +190,7 @@ func AccountsAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Dechiffrer les noms
-	for i := range accounts {
-		if decrypted, err := crypto.Decrypt(accounts[i].Name); err == nil {
-			accounts[i].Name = decrypted
-		}
-	}
+	decryptAccountNames(accounts)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(accounts)
@@ -224,21 +210,15 @@ func RecurringAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Dechiffrer les descriptions et ajouter les noms de compte
+	// Dechiffrer les noms de comptes
 	accounts, _ := db.GetAccountsByUserID(user.ID)
-	accountMap := make(map[int64]string)
-	for _, acc := range accounts {
-		name := acc.Name
-		if decrypted, err := crypto.Decrypt(acc.Name); err == nil {
-			name = decrypted
-		}
-		accountMap[acc.ID] = name
-	}
+	decryptAccountNames(accounts)
+	accountMap := buildAccountMap(accounts)
 
 	result := make([]map[string]interface{}, len(recurrings))
 	for i, rec := range recurrings {
 		description := rec.Description
-		if decrypted, err := crypto.Decrypt(rec.Description); err == nil {
+		if decrypted, err2 := crypto.Decrypt(rec.Description); err2 == nil {
 			description = decrypted
 		}
 

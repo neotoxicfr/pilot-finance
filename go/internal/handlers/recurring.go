@@ -137,7 +137,12 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	amount, _ := strconv.ParseFloat(amountStr, 64)
+	amount, err := strconv.ParseFloat(amountStr, 64)
+	if err != nil {
+		http.Error(w, "Montant invalide", http.StatusBadRequest)
+		return
+	}
+
 	day, _ := strconv.Atoi(dayStr)
 
 	var toAccountID *int64
@@ -188,78 +193,19 @@ func DeleteRecurring(w http.ResponseWriter, r *http.Request) {
 
 // renderRecurringTable rend le tableau des operations recurrentes en HTML
 func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
-	currency := "EUR"
-	lang := "fr"
-	if user != nil {
-		if user.Currency != "" {
-			currency = user.Currency
-		}
-		if user.Language != "" {
-			lang = user.Language
-		}
-	}
+	lang, currency := userLocale(user)
 
 	recurrings, _ := db.GetRecurringByUserID(user.ID)
 	accounts, _ := db.GetAccountsByUserID(user.ID)
 
-	// Creer un map des noms de comptes
-	accountMap := make(map[int64]string)
-	for _, acc := range accounts {
-		name := acc.Name
-		if decrypted, err := crypto.Decrypt(acc.Name); err == nil {
-			name = decrypted
-		}
-		accountMap[acc.ID] = name
-	}
+	decryptAccountNames(accounts)
+	accountMap := buildAccountMap(accounts)
 
 	// Calculer les yield payouts
 	yieldPayouts := projection.CalculateYieldPayouts(accounts, accountMap)
 	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
 
-	// Preparer les donnees avec noms de comptes
-	recurringData := make([]map[string]interface{}, 0, len(recurrings)+len(yieldPayouts))
-
-	// Ajouter les yield payouts en premier
-	for _, payout := range yieldPayouts {
-		recurringData = append(recurringData, map[string]interface{}{
-			"ID":            int64(0),
-			"Description":   interestPrefix + " " + payout.SourceAccountName,
-			"Amount":        payout.Amount,
-			"DayOfMonth":    1,
-			"AccountID":     payout.SourceAccountID,
-			"AccountName":   payout.SourceAccountName,
-			"ToAccountID":   payout.TargetAccountID,
-			"ToAccountName": payout.TargetAccountName,
-			"IsActive":      true,
-			"IsYieldPayout": true,
-			"YieldRate":     payout.Rate,
-		})
-	}
-
-	for _, rec := range recurrings {
-		description := rec.Description
-		if decrypted, err := crypto.Decrypt(rec.Description); err == nil {
-			description = decrypted
-		}
-
-		toAccountName := ""
-		if rec.ToAccountID != nil {
-			toAccountName = accountMap[*rec.ToAccountID]
-		}
-
-		recurringData = append(recurringData, map[string]interface{}{
-			"ID":            rec.ID,
-			"Description":   description,
-			"Amount":        rec.Amount,
-			"DayOfMonth":    rec.DayOfMonth,
-			"AccountID":     rec.AccountID,
-			"AccountName":   accountMap[rec.AccountID],
-			"ToAccountID":   rec.ToAccountID,
-			"ToAccountName": toAccountName,
-			"IsActive":      rec.IsActive,
-			"IsYieldPayout": false,
-		})
-	}
+	recurringData := buildRecurringData(yieldPayouts, recurrings, accountMap, interestPrefix)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	templates.RenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{

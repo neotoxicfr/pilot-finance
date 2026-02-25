@@ -79,7 +79,7 @@
     "pieData": {{.PieData | json}}
 }</script>
 
-<script>
+<script nonce="{{.Nonce}}">
 function dashboardData() {
     const initialEl = document.getElementById('initial-data');
     const initial = initialEl ? JSON.parse(initialEl.textContent) : {};

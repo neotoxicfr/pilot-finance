@@ -219,13 +219,15 @@ func cacheStatic(next http.Handler) http.Handler {
 	})
 }
 
-// securityHeaders ajoute le CSP (les autres headers sont gérés par Traefik)
+// securityHeaders génère un nonce par requête et l'intègre dans la CSP
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// CSP spécifique à l'app (tout est self-hosted)
+		nonce := middleware.GenerateNonce()
+		r = r.WithContext(middleware.WithNonce(r.Context(), nonce))
+
 		w.Header().Set("Content-Security-Policy",
 			"default-src 'self'; "+
-				"script-src 'self' 'unsafe-inline' 'unsafe-eval'; "+
+				"script-src 'self' 'nonce-"+nonce+"' 'unsafe-eval'; "+
 				"style-src 'self' 'unsafe-inline'; "+
 				"img-src 'self' blob: data:; "+
 				"font-src 'self'; "+
@@ -233,6 +235,8 @@ func securityHeaders(next http.Handler) http.Handler {
 				"frame-ancestors 'none'; "+
 				"base-uri 'self'; "+
 				"form-action 'self'")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 
 		next.ServeHTTP(w, r)
 	})
