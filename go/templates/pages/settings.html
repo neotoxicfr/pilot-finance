@@ -7,6 +7,7 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Colonne gauche : Authentification multi-facteur -->
         <div class="space-y-8">
             <!-- 2FA Section -->
             <div class="dashboard-card bg-background border rounded-2xl p-6"
@@ -126,7 +127,10 @@
                 </button>
             </div>
             {{end}}
+        </div>
 
+        <!-- Colonne droite : Compte -->
+        <div class="space-y-8">
             <!-- Password Section -->
             <div class="dashboard-card bg-background border rounded-2xl p-6"
                  x-data="{ pwdSuccess: false, pwdError: '', pwdLoading: false, password: '', confirm: '', get pwdStrength() { return (this.password.length >= 8 ? 1 : 0) + (/[A-Z]/.test(this.password) ? 1 : 0) + (/[a-z]/.test(this.password) ? 1 : 0) + (/[0-9]/.test(this.password) ? 1 : 0) + (/[!@#$%^&*(),.?:{}|]/.test(this.password) ? 1 : 0); } }">
@@ -217,76 +221,76 @@
                 </form>
             </div>
         </div>
+    </div>
 
-        <!-- Admin Section -->
-        {{if .IsAdmin}}
-        <div class="space-y-6">
-            <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden">
-                <div class="absolute left-0 top-0 bottom-0 w-1 {{if .IsRegisterOpen}}bg-emerald-500{{else}}bg-red-500{{end}}"></div>
-                <div class="flex items-center gap-4">
-                    <div class="p-3 rounded-full {{if .IsRegisterOpen}}bg-emerald-500/10 text-emerald-500{{else}}bg-red-500/10 text-red-500{{end}}">
-                        {{if .IsRegisterOpen}}{{template "icon-unlock" dict "Size" 24}}{{else}}{{template "icon-lock" dict "Size" 24}}{{end}}
-                    </div>
-                    <div>
-                        <h2 class="text-lg font-bold text-foreground">{{if .IsRegisterOpen}}{{index .T "settings.register_open"}}{{else}}{{index .T "settings.register_closed"}}{{end}}</h2>
-                        <p class="text-sm text-muted-foreground">{{index .T "settings.register_env_var"}} <code>ALLOW_REGISTER={{if .IsRegisterOpen}}true{{else}}false{{end}}</code></p>
-                    </div>
+    <!-- Admin Section — pleine largeur -->
+    {{if .IsAdmin}}
+    <div class="space-y-6">
+        <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden">
+            <div class="absolute left-0 top-0 bottom-0 w-1 {{if .IsRegisterOpen}}bg-emerald-500{{else}}bg-red-500{{end}}"></div>
+            <div class="flex items-center gap-4">
+                <div class="p-3 rounded-full {{if .IsRegisterOpen}}bg-emerald-500/10 text-emerald-500{{else}}bg-red-500/10 text-red-500{{end}}">
+                    {{if .IsRegisterOpen}}{{template "icon-unlock" dict "Size" 24}}{{else}}{{template "icon-lock" dict "Size" 24}}{{end}}
                 </div>
-            </div>
-
-            <div class="dashboard-card bg-background border rounded-2xl p-6">
-                <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
-                    <span class="text-purple-500">{{template "icon-shield" dict "Size" 20}}</span>
-                    {{index .T "settings.admin_title"}} ({{len .Users}})
-                </h2>
-                <div class="overflow-hidden rounded-xl border border-border">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-accent/50 text-muted-foreground uppercase font-bold text-xs">
-                            <tr>
-                                <th class="px-4 py-3">{{index .T "settings.admin_user_col"}}</th>
-                                <th class="hidden sm:table-cell px-4 py-3">{{index .T "settings.admin_role_col"}}</th>
-                                <th class="px-4 py-3 text-right">{{index .T "settings.admin_action_col"}}</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-border">
-                            {{range .Users}}
-                            <tr class="hover:bg-accent/50 transition-colors">
-                                <td class="px-4 py-3">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 {{if eq .Role "ADMIN"}}bg-purple-500/10 text-purple-500{{else}}bg-blue-500/10 text-blue-500{{end}}">
-                                            {{template "icon-mail" dict "Size" 14}}
-                                        </div>
-                                        <div class="truncate max-w-[150px] sm:max-w-none">
-                                            <div class="font-bold text-foreground truncate">{{.Email}}</div>
-                                            <div class="sm:hidden text-[10px] text-muted-foreground uppercase font-bold mt-0.5">{{.Role}}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="hidden sm:table-cell px-4 py-3">
-                                    <span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide {{if eq .Role "ADMIN"}}bg-purple-500/10 text-purple-500 border border-purple-500/20{{else}}bg-accent text-muted-foreground border border-border{{end}}">
-                                        {{.Role}}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3 text-right">
-                                    {{if ne .Role "ADMIN"}}
-                                    <button hx-delete="/admin/users/{{.ID}}"
-                                            hx-confirm="{{index $.T "settings.admin_delete_confirm"}}"
-                                            hx-target="closest tr"
-                                            hx-swap="outerHTML"
-                                            class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all">
-                                        {{template "icon-trash" dict "Size" 16}}
-                                    </button>
-                                    {{end}}
-                                </td>
-                            </tr>
-                            {{end}}
-                        </tbody>
-                    </table>
+                <div>
+                    <h2 class="text-lg font-bold text-foreground">{{if .IsRegisterOpen}}{{index .T "settings.register_open"}}{{else}}{{index .T "settings.register_closed"}}{{end}}</h2>
+                    <p class="text-sm text-muted-foreground">{{index .T "settings.register_env_var"}} <code>ALLOW_REGISTER={{if .IsRegisterOpen}}true{{else}}false{{end}}</code></p>
                 </div>
             </div>
         </div>
-        {{end}}
+
+        <div class="dashboard-card bg-background border rounded-2xl p-6">
+            <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
+                <span class="text-purple-500">{{template "icon-shield" dict "Size" 20}}</span>
+                {{index .T "settings.admin_title"}} ({{len .Users}})
+            </h2>
+            <div class="overflow-hidden rounded-xl border border-border">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-accent/50 text-muted-foreground uppercase font-bold text-xs">
+                        <tr>
+                            <th class="px-4 py-3">{{index .T "settings.admin_user_col"}}</th>
+                            <th class="hidden sm:table-cell px-4 py-3">{{index .T "settings.admin_role_col"}}</th>
+                            <th class="px-4 py-3 text-right">{{index .T "settings.admin_action_col"}}</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                        {{range .Users}}
+                        <tr class="hover:bg-accent/50 transition-colors">
+                            <td class="px-4 py-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 {{if eq .Role "ADMIN"}}bg-purple-500/10 text-purple-500{{else}}bg-blue-500/10 text-blue-500{{end}}">
+                                        {{template "icon-mail" dict "Size" 14}}
+                                    </div>
+                                    <div class="truncate max-w-[150px] sm:max-w-none">
+                                        <div class="font-bold text-foreground truncate">{{.Email}}</div>
+                                        <div class="sm:hidden text-[10px] text-muted-foreground uppercase font-bold mt-0.5">{{.Role}}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="hidden sm:table-cell px-4 py-3">
+                                <span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide {{if eq .Role "ADMIN"}}bg-purple-500/10 text-purple-500 border border-purple-500/20{{else}}bg-accent text-muted-foreground border border-border{{end}}">
+                                    {{.Role}}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                {{if ne .Role "ADMIN"}}
+                                <button hx-delete="/admin/users/{{.ID}}"
+                                        hx-confirm="{{index $.T "settings.admin_delete_confirm"}}"
+                                        hx-target="closest tr"
+                                        hx-swap="outerHTML"
+                                        class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all">
+                                    {{template "icon-trash" dict "Size" 16}}
+                                </button>
+                                {{end}}
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
+    {{end}}
 </div>
 
 <script nonce="{{.Nonce}}">
