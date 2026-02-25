@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="flex items-center gap-3 border-b border-border pb-4">
         <span class="text-blue-500">{{template "icon-settings" dict "Size" 32}}</span>
-        <h1 class="text-2xl font-bold text-foreground">Parametres</h1>
+        <h1 class="text-2xl font-bold text-foreground">{{index .T "settings.title"}}</h1>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -13,42 +13,42 @@
                  x-data="{ mfaSetup: null, mfaCode: '', mfaError: '', mfaLoading: false }">
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-blue-500">{{template "icon-smartphone" dict "Size" 20}}</span>
-                    Double Authentification (A2F)
+                    {{index .T "settings.mfa_title"}}
                 </h2>
 
                 {{if .MFAEnabled}}
                 <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 flex items-center justify-between">
                     <div class="flex items-center gap-3 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
-                        {{template "icon-shield" dict "Size" 24}} A2F Active
+                        {{template "icon-shield" dict "Size" 24}} {{index .T "settings.mfa_active"}}
                     </div>
                     <button hx-post="/settings/mfa/disable"
-                            hx-confirm="Desactiver l'A2F ?"
+                            hx-confirm="{{index .T "settings.mfa_disable_confirm"}}"
                             hx-swap="none"
                             @htmx:after-request="if(event.detail.successful) location.reload()"
                             class="text-xs bg-background hover:bg-red-500/10 text-muted-foreground hover:text-red-500 px-3 py-2 rounded-lg border border-border hover:border-red-500/50 transition-colors">
-                        Desactiver
+                        {{index .T "settings.mfa_disable_btn"}}
                     </button>
                 </div>
                 {{else}}
                 <template x-if="!mfaSetup">
                     <div class="space-y-4">
-                        <p class="text-sm text-muted-foreground">Protegez votre compte avec un code temporaire (Google Authenticator, Authy...).</p>
+                        <p class="text-sm text-muted-foreground">{{index .T "settings.mfa_description"}}</p>
                         <button @click="mfaLoading = true; fetch('/settings/mfa/setup').then(r => r.json()).then(d => { mfaSetup = d; mfaLoading = false; })"
                                 :disabled="mfaLoading"
                                 class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all text-sm">
-                            <span x-show="mfaLoading">Chargement...</span>
-                            <span x-show="!mfaLoading">Configurer A2F</span>
+                            <span x-show="mfaLoading">{{index .T "settings.mfa_loading"}}</span>
+                            <span x-show="!mfaLoading">{{index .T "settings.mfa_setup_btn"}}</span>
                         </button>
                     </div>
                 </template>
                 <template x-if="mfaSetup">
                     <div class="space-y-5">
                         <div class="text-center bg-white p-4 rounded-xl w-fit mx-auto border border-border">
-                            <img :src="mfaSetup.imageUrl" alt="QR Code A2F" class="w-48 h-48">
+                            <img :src="mfaSetup.imageUrl" alt="{{index .T "settings.mfa_qr_alt"}}" class="w-48 h-48">
                         </div>
-                        <div class="text-center text-sm text-muted-foreground">Scannez ce QR Code avec votre application.</div>
+                        <div class="text-center text-sm text-muted-foreground">{{index .T "settings.mfa_scan"}}</div>
                         <div>
-                            <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Code (6 chiffres)</label>
+                            <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.mfa_code_label"}}</label>
                             <input type="text" inputmode="numeric" maxlength="6" x-model="mfaCode"
                                    class="w-full bg-accent/50 border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 text-center text-xl tracking-[0.5em] font-mono transition-colors"
                                    placeholder="000000">
@@ -59,12 +59,12 @@
                         <div class="flex gap-3">
                             <button @click="mfaSetup = null; mfaCode = ''; mfaError = ''"
                                     class="flex-1 bg-accent hover:bg-accent/80 text-muted-foreground font-bold py-3 rounded-xl transition-all text-sm">
-                                Annuler
+                                {{index .T "settings.mfa_cancel"}}
                             </button>
                             <button @click="fetch('/settings/mfa/enable', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({secret: mfaSetup.secret, code: mfaCode})}).then(r => r.json()).then(d => { if(d.error) mfaError = d.error; else location.reload(); })"
                                     :disabled="mfaCode.length !== 6"
                                     class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all text-sm disabled:opacity-50">
-                                Activer
+                                {{index .T "settings.mfa_enable_btn"}}
                             </button>
                         </div>
                     </div>
@@ -78,9 +78,9 @@
                  x-data="{ passkeyLoading: false, passkeyMsg: '' }">
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-purple-500">{{template "icon-fingerprint" dict "Size" 20}}</span>
-                    Passkeys
+                    {{index .T "settings.passkeys_title"}}
                 </h2>
-                <p class="text-sm text-muted-foreground mb-4">Cles de securite enregistrees (FaceID, TouchID, YubiKey...).</p>
+                <p class="text-sm text-muted-foreground mb-4">{{index .T "settings.passkeys_description"}}</p>
 
                 {{if .Passkeys}}
                 <div class="space-y-2 mb-6" id="passkeys-list">
@@ -89,9 +89,9 @@
                         <div class="flex items-center gap-3">
                             <div class="p-2 bg-purple-500/10 text-purple-500 rounded-lg">{{template "icon-fingerprint" dict "Size" 16}}</div>
                             <div>
-                                <div class="font-bold text-sm text-foreground">{{or .Name "Cle sans nom"}}</div>
+                                <div class="font-bold text-sm text-foreground">{{or .Name (index $.T "settings.passkey_unnamed")}}</div>
                                 <div class="text-[10px] text-muted-foreground uppercase font-bold">
-                                    {{if eq .CredentialDeviceType "singleDevice"}}Physique{{else}}Appareil{{end}}
+                                    {{if eq .CredentialDeviceType "singleDevice"}}{{index $.T "settings.passkey_physical"}}{{else}}{{index $.T "settings.passkey_device"}}{{end}}
                                 </div>
                             </div>
                         </div>
@@ -101,7 +101,7 @@
                                 {{template "icon-pencil" dict "Size" 14}}
                             </button>
                             <button hx-delete="/api/passkey/{{.ID}}"
-                                    hx-confirm="Supprimer cette cle ?"
+                                    hx-confirm="{{index $.T "settings.passkey_delete_confirm"}}"
                                     hx-swap="none"
                                     @htmx:after-request="if(event.detail.successful) location.reload()"
                                     class="p-2 text-muted-foreground hover:text-red-500 hover:bg-background rounded-lg transition-colors">
@@ -121,8 +121,8 @@
                         :disabled="passkeyLoading"
                         class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl transition-all text-sm flex items-center justify-center gap-2">
                     {{template "icon-fingerprint" dict "Size" 18}}
-                    <span x-show="passkeyLoading">Enregistrement...</span>
-                    <span x-show="!passkeyLoading">Ajouter un Passkey</span>
+                    <span x-show="passkeyLoading">{{index .T "settings.passkey_registering"}}</span>
+                    <span x-show="!passkeyLoading">{{index .T "settings.passkey_add_btn"}}</span>
                 </button>
             </div>
             {{end}}
@@ -132,12 +132,12 @@
                  x-data="{ pwdSuccess: false, pwdError: '', pwdLoading: false, password: '', confirm: '', get pwdStrength() { return (this.password.length >= 8 ? 1 : 0) + (/[A-Z]/.test(this.password) ? 1 : 0) + (/[a-z]/.test(this.password) ? 1 : 0) + (/[0-9]/.test(this.password) ? 1 : 0) + (/[!@#$%^&*(),.?:{}|]/.test(this.password) ? 1 : 0); } }">
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-muted-foreground">{{template "icon-lock" dict "Size" 20}}</span>
-                    Mot de passe
+                    {{index .T "settings.password_title"}}
                 </h2>
 
                 <template x-if="pwdSuccess">
                     <div class="mb-6 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-3 text-emerald-600 dark:text-emerald-400 text-sm">
-                        {{template "icon-check-circle" dict "Size" 20}} Mot de passe modifie !
+                        {{template "icon-check-circle" dict "Size" 20}} {{index .T "settings.password_success"}}
                     </div>
                 </template>
 
@@ -149,17 +149,17 @@
                       @htmx:after-settle="if(!event.detail.failed) { pwdSuccess = true; this.reset(); password = ''; confirm = ''; }"
                       class="space-y-5">
                     <div>
-                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Actuel</label>
+                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.current_password"}}</label>
                         <input name="currentPassword" type="password" required
                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 transition-colors">
                     </div>
                     <div>
-                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Nouveau</label>
+                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.new_password"}}</label>
                         <input name="newPassword" type="password" required minlength="8" x-model="password"
                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 transition-colors">
                     </div>
                     <div>
-                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Confirmation</label>
+                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.confirm_password"}}</label>
                         <input name="confirmPassword" type="password" required x-model="confirm"
                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 transition-colors">
                     </div>
@@ -172,8 +172,47 @@
 
                     <button type="submit" :disabled="pwdLoading || pwdStrength < 5 || password !== confirm"
                             class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50">
-                        <span x-show="pwdLoading">Modification...</span>
-                        <span x-show="!pwdLoading">Changer le mot de passe</span>
+                        <span x-show="pwdLoading">{{index .T "settings.password_saving"}}</span>
+                        <span x-show="!pwdLoading">{{index .T "settings.password_change_btn"}}</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Preferences Section -->
+            <div class="dashboard-card bg-background border rounded-2xl p-6">
+                <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
+                    <span class="text-blue-500">{{template "icon-settings" dict "Size" 20}}</span>
+                    {{index .T "settings.preferences_title"}}
+                </h2>
+
+                <form hx-post="/settings/preferences"
+                      hx-swap="none"
+                      @htmx:after-request="if(event.detail.successful) location.reload()"
+                      class="space-y-5">
+                    <div>
+                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.language_label"}}</label>
+                        <select name="language"
+                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 transition-colors">
+                            <option value="fr" {{if eq .Lang "fr"}}selected{{end}}>Français</option>
+                            <option value="en" {{if eq .Lang "en"}}selected{{end}}>English</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.currency_label"}}</label>
+                        <select name="currency"
+                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 transition-colors">
+                            <option value="EUR" {{if eq .Currency "EUR"}}selected{{end}}>EUR — Euro (€)</option>
+                            <option value="USD" {{if eq .Currency "USD"}}selected{{end}}>USD — Dollar ($)</option>
+                            <option value="GBP" {{if eq .Currency "GBP"}}selected{{end}}>GBP — Pound (£)</option>
+                            <option value="CHF" {{if eq .Currency "CHF"}}selected{{end}}>CHF — Swiss Franc</option>
+                            <option value="JPY" {{if eq .Currency "JPY"}}selected{{end}}>JPY — Yen (¥)</option>
+                            <option value="CAD" {{if eq .Currency "CAD"}}selected{{end}}>CAD — Canadian Dollar</option>
+                            <option value="AUD" {{if eq .Currency "AUD"}}selected{{end}}>AUD — Australian Dollar</option>
+                        </select>
+                    </div>
+                    <button type="submit"
+                            class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all">
+                        {{index .T "settings.save_preferences"}}
                     </button>
                 </form>
             </div>
@@ -189,8 +228,8 @@
                         {{if .IsRegisterOpen}}{{template "icon-unlock" dict "Size" 24}}{{else}}{{template "icon-lock" dict "Size" 24}}{{end}}
                     </div>
                     <div>
-                        <h2 class="text-lg font-bold text-foreground">Inscriptions {{if .IsRegisterOpen}}Ouvertes{{else}}Fermees{{end}}</h2>
-                        <p class="text-sm text-muted-foreground">Variable systeme : <code>ALLOW_REGISTER={{if .IsRegisterOpen}}true{{else}}false{{end}}</code></p>
+                        <h2 class="text-lg font-bold text-foreground">{{if .IsRegisterOpen}}{{index .T "settings.register_open"}}{{else}}{{index .T "settings.register_closed"}}{{end}}</h2>
+                        <p class="text-sm text-muted-foreground">{{index .T "settings.register_env_var"}} <code>ALLOW_REGISTER={{if .IsRegisterOpen}}true{{else}}false{{end}}</code></p>
                     </div>
                 </div>
             </div>
@@ -198,15 +237,15 @@
             <div class="dashboard-card bg-background border rounded-2xl p-6">
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-purple-500">{{template "icon-shield" dict "Size" 20}}</span>
-                    Administration ({{len .Users}})
+                    {{index .T "settings.admin_title"}} ({{len .Users}})
                 </h2>
                 <div class="overflow-hidden rounded-xl border border-border">
                     <table class="w-full text-left text-sm">
                         <thead class="bg-accent/50 text-muted-foreground uppercase font-bold text-xs">
                             <tr>
-                                <th class="px-4 py-3">Utilisateur</th>
-                                <th class="hidden sm:table-cell px-4 py-3">Role</th>
-                                <th class="px-4 py-3 text-right">Action</th>
+                                <th class="px-4 py-3">{{index .T "settings.admin_user_col"}}</th>
+                                <th class="hidden sm:table-cell px-4 py-3">{{index .T "settings.admin_role_col"}}</th>
+                                <th class="px-4 py-3 text-right">{{index .T "settings.admin_action_col"}}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-border">
@@ -231,11 +270,10 @@
                                 <td class="px-4 py-3 text-right">
                                     {{if ne .Role "ADMIN"}}
                                     <button hx-delete="/admin/users/{{.ID}}"
-                                            hx-confirm="Supprimer l'utilisateur ?"
+                                            hx-confirm="{{index $.T "settings.admin_delete_confirm"}}"
                                             hx-target="closest tr"
                                             hx-swap="outerHTML"
-                                            class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                                            title="Supprimer ce compte">
+                                            class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all">
                                         {{template "icon-trash" dict "Size" 16}}
                                     </button>
                                     {{end}}
@@ -274,16 +312,16 @@ async function registerPasskey() {
         if (verify.success) {
             location.reload();
         } else {
-            throw new Error(verify.error || 'Erreur verification');
+            throw new Error(verify.error || '{{index .T "settings.passkey_error"}}');
         }
     } catch (e) {
         console.error(e);
-        alert('Erreur: ' + e.message);
+        alert('Error: ' + e.message);
     }
 }
 
 function renamePasskey(id, currentName) {
-    const newName = prompt("Nom de la cle:", currentName);
+    const newName = prompt("{{index .T "settings.passkey_name_prompt"}}", currentName);
     if (newName && newName !== currentName) {
         fetch('/api/passkey/' + id + '/rename', {
             method: 'PUT',

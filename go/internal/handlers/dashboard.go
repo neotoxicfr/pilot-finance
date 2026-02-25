@@ -43,7 +43,7 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Calculer les projections
-	data := projection.Calculate(accounts, years)
+	data := projection.Calculate(accounts, years, user.Language)
 
 	// Recuperer les operations recurrentes pour le resume mensuel
 	recurrings, _ := db.GetRecurringByUserID(user.ID)
@@ -127,7 +127,7 @@ func DashboardPartial(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	data := projection.Calculate(accounts, years)
+	data := projection.Calculate(accounts, years, user.Language)
 
 	pieData := make([]map[string]interface{}, 0)
 	for _, acc := range accounts {
