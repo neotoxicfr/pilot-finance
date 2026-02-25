@@ -57,9 +57,10 @@ WORKDIR /app
 # Copier le binaire
 COPY --from=builder /server /app/server
 
-# Copier les fichiers statiques (avec tailwind.css compilé) et templates
+# Copier les fichiers statiques (avec tailwind.css compilé), templates et locales
 COPY --from=builder /app/static /app/static
 COPY templates /app/templates
+COPY locales /app/locales
 
 # Permissions
 RUN chown -R appuser:appuser /app

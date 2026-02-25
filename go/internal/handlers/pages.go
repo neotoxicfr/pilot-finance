@@ -6,20 +6,50 @@ import (
 
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
+	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/projection"
 	"pilot-finance/internal/templates"
 )
 
+// localeMap mappe la langue vers la locale BCP-47 pour JS Intl
+var localeMap = map[string]string{
+	"fr": "fr-FR",
+	"en": "en-US",
+}
+
+// baseData construit les données communes à toutes les pages (i18n, devise, langue)
+func baseData(user *middleware.User) map[string]interface{} {
+	lang := "fr"
+	currency := "EUR"
+	if user != nil {
+		if user.Language != "" {
+			lang = user.Language
+		}
+		if user.Currency != "" {
+			currency = user.Currency
+		}
+	}
+	locale := localeMap[lang]
+	if locale == "" {
+		locale = "fr-FR"
+	}
+	return map[string]interface{}{
+		"T":        i18n.Map(lang),
+		"Lang":     lang,
+		"Locale":   locale,
+		"Currency": currency,
+	}
+}
+
 // LoginPage affiche la page de connexion
 func LoginPage(w http.ResponseWriter, r *http.Request) {
-	data := map[string]interface{}{
-		"Title":          "Connexion",
-		"CanRegister":    os.Getenv("ALLOW_REGISTER") == "true",
-		"CanUsePasskeys": os.Getenv("HOST") != "",
-		"MailEnabled":    os.Getenv("SMTP_HOST") != "",
-		"ResetSuccess":   r.URL.Query().Get("reset") == "success",
-	}
+	data := baseData(nil)
+	data["Title"] = "Connexion"
+	data["CanRegister"] = os.Getenv("ALLOW_REGISTER") == "true"
+	data["CanUsePasskeys"] = os.Getenv("HOST") != ""
+	data["MailEnabled"] = os.Getenv("SMTP_HOST") != ""
+	data["ResetSuccess"] = r.URL.Query().Get("reset") == "success"
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := templates.Render(w, "login.html", data); err != nil {
@@ -83,7 +113,7 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 
 	// Calculer les projections avec interets composes
 	years := 5
-	projData := projection.Calculate(accounts, years)
+	projData := projection.Calculate(accounts, years, user.Language)
 
 	// Donnees pour le graphique camembert
 	var pieData []map[string]interface{}
@@ -112,18 +142,17 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	data := map[string]interface{}{
-		"Title":           "Dashboard",
-		"User":            map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role},
-		"Accounts":        accounts,
-		"AccountColors":   accountColors,
-		"TotalBalance":    projData.TotalBalance,
-		"TotalInterests":  projData.TotalInterests,
-		"Years":           years,
-		"ProjectionTotal": projectionTotal,
-		"ProjectionData":  projData.Projection,
-		"PieData":         pieData,
-	}
+	data := baseData(user)
+	data["Title"] = "Dashboard"
+	data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
+	data["Accounts"] = accounts
+	data["AccountColors"] = accountColors
+	data["TotalBalance"] = projData.TotalBalance
+	data["TotalInterests"] = projData.TotalInterests
+	data["Years"] = years
+	data["ProjectionTotal"] = projectionTotal
+	data["ProjectionData"] = projData.Projection
+	data["PieData"] = pieData
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := templates.Render(w, "dashboard.html", data); err != nil {
@@ -207,15 +236,14 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	data := map[string]interface{}{
-		"Title":           "Comptes",
-		"User":            map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role},
-		"Accounts":        accounts,
-		"Recurrings":      recurringData,
-		"MonthlyIncome":   monthlyIncome,
-		"MonthlyExpenses": monthlyExpenses,
-		"MonthlyNet":      monthlyIncome - monthlyExpenses,
-	}
+	data := baseData(user)
+	data["Title"] = "Comptes"
+	data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
+	data["Accounts"] = accounts
+	data["Recurrings"] = recurringData
+	data["MonthlyIncome"] = monthlyIncome
+	data["MonthlyExpenses"] = monthlyExpenses
+	data["MonthlyNet"] = monthlyIncome - monthlyExpenses
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := templates.Render(w, "accounts.html", data); err != nil {
@@ -240,16 +268,15 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 
 	isAdmin := user.Role == "ADMIN"
 
-	data := map[string]interface{}{
-		"Title":           "Parametres",
-		"User":            map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role},
-		"MFAEnabled":      mfaEnabled,
-		"PasskeysEnabled": os.Getenv("HOST") != "",
-		"Passkeys":        []interface{}{},
-		"IsAdmin":         isAdmin,
-		"IsRegisterOpen":  os.Getenv("ALLOW_REGISTER") == "true",
-		"Users":           []interface{}{},
-	}
+	data := baseData(user)
+	data["Title"] = "Paramètres"
+	data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
+	data["MFAEnabled"] = mfaEnabled
+	data["PasskeysEnabled"] = os.Getenv("HOST") != ""
+	data["Passkeys"] = []interface{}{}
+	data["IsAdmin"] = isAdmin
+	data["IsRegisterOpen"] = os.Getenv("ALLOW_REGISTER") == "true"
+	data["Users"] = []interface{}{}
 
 	passkeys, _ := db.GetAuthenticatorsByUserID(user.ID)
 	data["Passkeys"] = passkeys
@@ -288,11 +315,10 @@ func RecurringPage(w http.ResponseWriter, r *http.Request) {
 func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 
-	data := map[string]interface{}{
-		"Title":   "Verification email",
-		"Success": false,
-		"Error":   "",
-	}
+	data := baseData(nil)
+	data["Title"] = "Verification email"
+	data["Success"] = false
+	data["Error"] = ""
 
 	if token == "" {
 		data["Error"] = "Jeton manquant."

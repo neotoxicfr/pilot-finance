@@ -124,6 +124,14 @@ func ClearResetToken(userID int64) error {
 	return err
 }
 
+// UpdateUserPreferences met à jour la langue et la devise de l'utilisateur
+func UpdateUserPreferences(userID int64, language, currency string) error {
+	_, err := DB.Exec(`
+		UPDATE users SET language = ?, currency = ? WHERE id = ?
+	`, language, currency, userID)
+	return err
+}
+
 // DeleteUser supprime un utilisateur
 func DeleteUser(userID int64) error {
 	_, err := DB.Exec(`DELETE FROM users WHERE id = ?`, userID)

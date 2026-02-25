@@ -17,10 +17,9 @@ import (
 
 // ForgotPasswordPage affiche la page de mot de passe oublie
 func ForgotPasswordPage(w http.ResponseWriter, r *http.Request) {
-	data := map[string]interface{}{
-		"Title":       "Mot de passe oublie",
-		"MailEnabled": mail.IsEnabled(),
-	}
+	data := baseData(nil)
+	data["Title"] = "Mot de passe oublie"
+	data["MailEnabled"] = mail.IsEnabled()
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	templates.Render(w, "forgot-password.html", data)
@@ -53,11 +52,10 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	user, err := db.GetUserByBlindIndex(blindIndex)
 	if err != nil || user == nil {
 		// Ne pas reveler si l'email existe ou non
-		data := map[string]interface{}{
-			"Title":       "Mot de passe oublie",
-			"MailEnabled": true,
-			"Success":     true,
-		}
+		data := baseData(nil)
+		data["Title"] = "Mot de passe oublie"
+		data["MailEnabled"] = true
+		data["Success"] = true
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		templates.Render(w, "forgot-password.html", data)
 		return
@@ -80,11 +78,10 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	mail.SendPasswordReset(email, token, host)
 
-	data := map[string]interface{}{
-		"Title":       "Mot de passe oublie",
-		"MailEnabled": true,
-		"Success":     true,
-	}
+	data := baseData(nil)
+	data["Title"] = "Mot de passe oublie"
+	data["MailEnabled"] = true
+	data["Success"] = true
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	templates.Render(w, "forgot-password.html", data)
 }
@@ -101,19 +98,17 @@ func ResetPasswordPage(w http.ResponseWriter, r *http.Request) {
 	hashedToken := crypto.HashToken(token)
 	user, err := db.GetUserByResetToken(hashedToken)
 	if err != nil || user == nil {
-		data := map[string]interface{}{
-			"Title": "Lien expire",
-			"Error": "Ce lien de reinitialisation a expire ou est invalide.",
-		}
+		data := baseData(nil)
+		data["Title"] = "Lien expire"
+		data["Error"] = "Ce lien de reinitialisation a expire ou est invalide."
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		templates.Render(w, "reset-password.html", data)
 		return
 	}
 
-	data := map[string]interface{}{
-		"Title": "Nouveau mot de passe",
-		"Token": token,
-	}
+	data := baseData(nil)
+	data["Title"] = "Nouveau mot de passe"
+	data["Token"] = token
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	templates.Render(w, "reset-password.html", data)
 }
@@ -130,22 +125,20 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if password != confirmPassword {
-		data := map[string]interface{}{
-			"Title": "Nouveau mot de passe",
-			"Token": token,
-			"Error": "Les mots de passe ne correspondent pas",
-		}
+		data := baseData(nil)
+		data["Title"] = "Nouveau mot de passe"
+		data["Token"] = token
+		data["Error"] = "Les mots de passe ne correspondent pas"
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		templates.Render(w, "reset-password.html", data)
 		return
 	}
 
 	if err := crypto.ValidatePassword(password); err != nil {
-		data := map[string]interface{}{
-			"Title": "Nouveau mot de passe",
-			"Token": token,
-			"Error": err.Error(),
-		}
+		data := baseData(nil)
+		data["Title"] = "Nouveau mot de passe"
+		data["Token"] = token
+		data["Error"] = err.Error()
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		templates.Render(w, "reset-password.html", data)
 		return
@@ -155,10 +148,9 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	hashedToken := crypto.HashToken(token)
 	user, err := db.GetUserByResetToken(hashedToken)
 	if err != nil || user == nil {
-		data := map[string]interface{}{
-			"Title": "Lien expire",
-			"Error": "Ce lien de reinitialisation a expire ou est invalide.",
-		}
+		data := baseData(nil)
+		data["Title"] = "Lien expire"
+		data["Error"] = "Ce lien de reinitialisation a expire ou est invalide."
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		templates.Render(w, "reset-password.html", data)
 		return
