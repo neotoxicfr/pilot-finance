@@ -12,70 +12,40 @@
 
 🇬🇧 [English version](README.md)
 
-**Pilot Finance** est un cockpit financier personnel conçu pour l'auto-hébergement. Une application simple et sécurisée pour suivre votre patrimoine net, vos rendements et vos opérations récurrentes en toute confidentialité.
+**Pilot Finance** est un cockpit financier personnel conçu pour l'auto-hébergement. Une application simple et sécurisée pour suivre votre patrimoine net, vos rendements et vos opérations récurrentes — en toute confidentialité.
 
 ---
 
 ## ✨ Fonctionnalités
 
-* 💰 **Suivi de patrimoine** : Visualisez l'évolution globale de vos actifs.
-* 📈 **Simulation de rendements** : Gérez vos intérêts composés et projetez vos gains sur plusieurs années, avec versement automatique des intérêts non réinvestis vers un compte cible.
-* 🔄 **Opérations récurrentes** : Automatisez le suivi de vos revenus et dépenses mensuelles.
-* 🌍 **Multi-langue & Multi-devise** : Interface disponible en français et anglais. Devise d'affichage configurable par utilisateur (EUR, USD, GBP, CHF, JPY, CAD, AUD).
-* 🔐 **Sécurité renforcée** :
-    * **Middleware de sécurité** : CSP stricte, headers de sécurité (HSTS, X-Frame-Options), nonces dynamiques.
-    * **bcrypt** : Hashing sécurisé des mots de passe avec validation de complexité (5 critères).
-    * **Rate Limiting avancé** : Protection multi-niveaux (login, register, 2FA, reset).
-    * Chiffrement AES-256-GCM des données sensibles (mail, noms de comptes, transactions).
-    * **Session Versioning** : Déconnexion automatique de tous les appareils en cas de changement de mot de passe.
-    * Support natif des **Passkeys** (WebAuthn) et 2FA (TOTP).
-    * **Health Check API** : Monitoring de l'état de la base de données et de la mémoire.
-* 📧 **Gestion des Emails** (Optionnel) : Validation des comptes à l'inscription et récupération de mot de passe.
-* 📱 **Interface Responsive** : Expérience fluide sur tous les supports (mobile, tablette et ordinateur).
-* ⚡ **Performance optimale** : Backend Go ultra-léger (~15MB binaire), frontend HTMX + Alpine.js (~30KB JS), zéro requête CDN externe.
-
----
-
-## 🚀 Nouveautés v2.1
-
-* 🌍 **Support multi-langues** (FR / EN) — langue de l'interface configurable par utilisateur depuis les Paramètres
-* 💱 **Support multi-devises** — devise d'affichage configurable par utilisateur (EUR, USD, GBP, CHF, JPY, CAD, AUD)
-* ⚙️ **Panneau Préférences** ajouté dans les Paramètres
-
----
-
-## 🚀 Nouveautés v2.0
-
-La version 2.0 est une **refonte technique complète** :
-
-| Métrique | v1.x (Next.js) | v2.0 (Go) |
-|----------|----------------|-----------|
-| Image Docker | ~300 MB | ~20 MB |
-| RAM utilisée | ~200 MB | ~30 MB |
-| Temps démarrage | ~5s | <1s |
-| JS Frontend | ~500 KB | ~30 KB |
-| Dépendances CDN | Multiples | **0** (self-hosted) |
-
-### Stack technique
-- **Backend** : Go 1.26 + chi router
-- **Frontend** : HTMX 2.0 + Alpine.js 3.15 + Tailwind CSS (compilé au build)
-- **Base de données** : SQLite (mode WAL)
-- **Graphiques** : Chart.js 4.5
-- **Zéro dépendance externe** : tous les assets JS/CSS sont self-hosted
+* 💰 **Suivi de patrimoine** — Visualisez l'évolution globale de vos actifs dans le temps.
+* 📈 **Simulation de rendements** — Gérez vos intérêts composés et projetez vos gains sur plusieurs années, avec versement automatique des intérêts non réinvestis vers un compte cible.
+* 🔄 **Opérations récurrentes** — Suivez vos revenus et dépenses mensuels avec projection automatique.
+* 🌍 **Multi-langue & Multi-devise** — Interface disponible en français et en anglais. Devise d'affichage configurable par utilisateur (EUR, USD, GBP, CHF, JPY, CAD, AUD).
+* 🔐 **Sécurité par défaut** :
+    * **Content Security Policy** stricte avec nonces dynamiques par requête — pas d'`unsafe-inline` pour les scripts
+    * Chiffrement **AES-256-GCM** de toutes les données sensibles (emails, noms de comptes, libellés de transactions)
+    * Hashing des mots de passe **bcrypt** avec validation de complexité à 5 critères
+    * **Session versioning** — déconnexion automatique de tous les appareils en cas de changement de mot de passe
+    * **Rate limiting** multi-niveaux (login, inscription, 2FA, réinitialisation)
+    * Support natif des **Passkeys** (WebAuthn) et **2FA** (TOTP)
+    * **API Health Check** — endpoint de monitoring de la base de données et de la mémoire
+* 📧 **Email** (optionnel) — Vérification du compte à l'inscription et récupération de mot de passe.
+* 📱 **Responsive** — Expérience fluide sur tous les supports (mobile, tablette, ordinateur). Compatible PWA.
+* ⚡ **Léger** — Image Docker ~15 Mo, ~30 Mo de RAM, démarrage <1s, ~30 Ko de JS, zéro requête CDN.
 
 ---
 
 ## 🚀 Installation avec Docker
 
-La méthode recommandée est d'utiliser **Docker Compose**.
+La méthode recommandée est **Docker Compose**.
 
-### 1. Prérequis
-* Un nom de domaine (indispensable pour les Passkeys et la validation SSL).
+### Prérequis
+
+* Un nom de domaine (indispensable pour les Passkeys et HTTPS).
 * Un reverse-proxy déjà configuré (Traefik, Nginx Proxy Manager, Cloudflare Tunnel, etc.).
 
-### 2. Configuration (`docker-compose.yml`)
-
-Créez un fichier `docker-compose.yml` dans votre dossier de travail :
+### `docker-compose.yml`
 
 ```yaml
 services:
@@ -89,17 +59,17 @@ services:
       - ALL
     environment:
       - TZ=Europe/Paris
-      - HOST=pilot.votre-domaine.tld # Votre domaine sans https (ex: pilot.exemple.com)
-      - ALLOW_REGISTER=true          # Mettre à false après votre inscription initiale
-      - SMTP_HOST=                   # Optionnel : activer les emails
+      - HOST=pilot.votre-domaine.tld  # Votre domaine sans https (ex: pilot.exemple.com)
+      - ALLOW_REGISTER=true           # Mettre à false après votre inscription initiale
+      - SMTP_HOST=                    # Optionnel : activer les emails
       - SMTP_PORT=587
       - SMTP_USER=
       - SMTP_PASS=
       - SMTP_FROM=
       - DATABASE_URL=file:/data/pilot.db
-      - ENCRYPTION_KEY=              # Obligatoire : openssl rand -hex 32
-      - BLIND_INDEX_KEY=             # Obligatoire : openssl rand -hex 32
-      - AUTH_SECRET=                 # Obligatoire : openssl rand -hex 32
+      - ENCRYPTION_KEY=               # Obligatoire : openssl rand -hex 32
+      - BLIND_INDEX_KEY=              # Obligatoire : openssl rand -hex 32
+      - AUTH_SECRET=                  # Obligatoire : openssl rand -hex 32
     volumes:
       - ./data:/data
     healthcheck:
@@ -110,12 +80,10 @@ services:
       start_period: 10s
 ```
 
-### 3. Démarrage
-
-Lancez le conteneur avec la commande suivante :
 ```bash
 docker compose up -d
 ```
+
 L'application écoute sur le port **3000** à l'intérieur du conteneur.
 
 ---
@@ -124,34 +92,46 @@ L'application écoute sur le port **3000** à l'intérieur du conteneur.
 
 | Variable | Description |
 | :--- | :--- |
-| **HOST** | Votre nom de domaine complet sans le protocole (ex: `pilot.exemple.com`). Indispensable pour les Passkeys et les liens de mail. |
-| **ENCRYPTION_KEY** | **Critique**. Clé de 32 octets (hex) pour le chiffrement AES des données. Si perdue, les données chiffrées sont irrécupérables. |
-| **BLIND_INDEX_KEY** | **Critique**. Clé de 32 octets (hex) pour les index de recherche sécurisés (emails). |
-| **AUTH_SECRET** | **Critique**. Clé de 32 octets min pour la signature des cookies de session JWT. |
-| **ALLOW_REGISTER** | Permet ou bloque la création de nouveaux comptes. Il est conseillé de la passer à `false` après votre inscription. |
-| **DATABASE_URL** | Chemin vers votre base de données SQLite (ex: `file:/data/pilot.db`). |
-| **TZ** | Fuseau horaire du conteneur (ex: `Europe/Paris`) pour la précision des dates d'opérations. |
+| **HOST** | Votre nom de domaine complet sans le protocole (ex: `pilot.exemple.com`). Indispensable pour les Passkeys et les liens mail. |
+| **ENCRYPTION_KEY** | **Critique.** Clé hex de 32 octets pour le chiffrement AES. Si perdue, les données chiffrées sont irrécupérables. Générer avec `openssl rand -hex 32`. |
+| **BLIND_INDEX_KEY** | **Critique.** Clé hex de 32 octets pour les index de recherche sécurisés (emails). Générer avec `openssl rand -hex 32`. |
+| **AUTH_SECRET** | **Critique.** Clé d'au moins 32 octets pour la signature des cookies de session JWT. Générer avec `openssl rand -hex 32`. |
+| **ALLOW_REGISTER** | Permet ou bloque la création de nouveaux comptes. Passer à `false` après votre inscription. |
+| **DATABASE_URL** | Chemin vers votre base SQLite (ex: `file:/data/pilot.db`). |
+| **TZ** | Fuseau horaire du conteneur (ex: `Europe/Paris`) pour la précision des dates. |
+| **SMTP_HOST / PORT / USER / PASS / FROM** | Optionnel. Active les fonctionnalités email (vérification, réinitialisation). |
 
 ---
 
 ## 🛡️ Sécurité et Confidentialité
 
-Pilot Finance a été construit avec la sécurité par défaut :
-
-* **Zéro stockage en clair** : Les noms de comptes et libellés de transactions sont chiffrés. Seul votre serveur avec sa clé unique peut les lire.
-* **Zéro dépendance externe** : Aucune requête vers des CDN ou services tiers. Tous les assets sont compilés et servis localement.
-* **Vérification au démarrage** : Le système refuse de démarrer si les clés de chiffrement sont manquantes ou trop faibles.
-* **Protection Passkeys** : L'utilisation des Passkeys offre une protection robuste contre le phishing et élimine le besoin de mémoriser des mots de passe complexes.
-* **Validation mot de passe** : 5 critères obligatoires (longueur, majuscule, minuscule, chiffre, caractère spécial).
+* **Zéro stockage en clair** — Les noms de comptes et libellés de transactions sont chiffrés avec AES-256-GCM. Seul votre serveur détient la clé.
+* **Zéro dépendance externe** — Aucune requête CDN à l'exécution. Tous les assets JS et CSS sont compilés et servis localement.
+* **CSP stricte** — Nonces dynamiques par requête pour les scripts inline. Pas d'`unsafe-inline` dans `script-src`.
+* **Vérification au démarrage** — Le serveur refuse de démarrer si les clés de chiffrement sont absentes ou trop courtes.
+* **Passkeys** — WebAuthn offre une authentification résistante au phishing sans mémorisation de mot de passe.
 
 ---
 
-## 🤖 Crédits & Conception
+## 🛠️ Stack technique
 
-Ce projet a été conçu avec l'assistance d'une Intelligence Artificielle pour la structure et l'optimisation du code. Toutefois, **le code final est purement applicatif** et n'utilise aucun algorithme d'IA ou service tiers de traitement de données lors de son exécution. Votre cockpit reste 100% local et privé.
+| | |
+|---|---|
+| Backend | Go 1.26 + chi router |
+| Frontend | HTMX 2.0 + Alpine.js 3.15 + Tailwind CSS v3 |
+| Base de données | SQLite (mode WAL) |
+| Graphiques | Chart.js 4.5 |
+| Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
+| Image Docker | ~15 Mo (base alpine:3.23) |
+
+---
+
+## 🤖 Crédits
+
+Ce projet a été conçu avec l'assistance d'une Intelligence Artificielle pour la structure et l'optimisation du code. Le code final est purement applicatif et n'utilise aucun algorithme d'IA ou service tiers lors de son exécution. Votre cockpit reste 100% local et privé.
 
 ---
 
 ## 📝 Licence
 
-Ce projet est distribué sous licence **MIT**.
+Distribué sous licence **MIT**.
