@@ -18,18 +18,9 @@ var localeMap = map[string]string{
 	"en": "en-US",
 }
 
-// baseData construit les données communes à toutes les pages (i18n, devise, langue)
-func baseData(user *middleware.User) map[string]interface{} {
-	lang := "fr"
-	currency := "EUR"
-	if user != nil {
-		if user.Language != "" {
-			lang = user.Language
-		}
-		if user.Currency != "" {
-			currency = user.Currency
-		}
-	}
+// baseData construit les données communes à toutes les pages (i18n, devise, langue, nonce CSP)
+func baseData(r *http.Request, user *middleware.User) map[string]interface{} {
+	lang, currency := userLocale(user)
 	locale := localeMap[lang]
 	if locale == "" {
 		locale = "fr-FR"
@@ -39,12 +30,13 @@ func baseData(user *middleware.User) map[string]interface{} {
 		"Lang":     lang,
 		"Locale":   locale,
 		"Currency": currency,
+		"Nonce":    middleware.GetNonce(r),
 	}
 }
 
 // LoginPage affiche la page de connexion
 func LoginPage(w http.ResponseWriter, r *http.Request) {
-	data := baseData(nil)
+	data := baseData(r, nil)
 	data["Title"] = "Connexion"
 	data["CanRegister"] = os.Getenv("ALLOW_REGISTER") == "true"
 	data["CanUsePasskeys"] = os.Getenv("HOST") != ""
@@ -78,15 +70,7 @@ func RegisterSubmit(w http.ResponseWriter, r *http.Request) {
 
 // Logout deconnecte l'utilisateur
 func Logout(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	})
+	clearCookie(w, "session")
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
@@ -104,12 +88,7 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Déchiffrer les noms des comptes
-	for i := range accounts {
-		if decrypted, err := crypto.Decrypt(accounts[i].Name); err == nil {
-			accounts[i].Name = decrypted
-		}
-	}
+	decryptAccountNames(accounts)
 
 	// Calculer les projections avec interets composes
 	years := 5
@@ -142,7 +121,7 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	data := baseData(user)
+	data := baseData(r, user)
 	data["Title"] = "Dashboard"
 	data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
 	data["Accounts"] = accounts
@@ -168,75 +147,33 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	lang, _ := userLocale(user)
 	accounts, _ := db.GetAccountsByUserID(user.ID)
 	recurrings, _ := db.GetRecurringByUserID(user.ID)
 
-	// Déchiffrer les noms des comptes et créer un map pour lookup
-	accountMap := make(map[int64]string)
-	for i := range accounts {
-		if decrypted, err := crypto.Decrypt(accounts[i].Name); err == nil {
-			accounts[i].Name = decrypted
-		}
-		accountMap[accounts[i].ID] = accounts[i].Name
-	}
+	decryptAccountNames(accounts)
+	accountMap := buildAccountMap(accounts)
 
 	// Calculer les yield payouts (intérêts non réinvestis)
 	yieldPayouts := projection.CalculateYieldPayouts(accounts, accountMap)
+	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
 
-	// Préparer les récurrents avec déchiffrement et nom de compte
+	// Calculer les totaux mensuels
 	var monthlyIncome, monthlyExpenses float64
-	recurringData := make([]map[string]interface{}, 0, len(recurrings)+len(yieldPayouts))
-
-	// Ajouter les yield payouts en premier (opérations virtuelles)
 	for _, payout := range yieldPayouts {
 		monthlyIncome += payout.Amount
-		recurringData = append(recurringData, map[string]interface{}{
-			"ID":            int64(0),
-			"Description":   "Interets " + payout.SourceAccountName,
-			"Amount":        payout.Amount,
-			"DayOfMonth":    1, // Premier du mois
-			"AccountID":     payout.SourceAccountID,
-			"AccountName":   payout.SourceAccountName,
-			"ToAccountID":   payout.TargetAccountID,
-			"ToAccountName": payout.TargetAccountName,
-			"IsActive":      true,
-			"IsYieldPayout": true,
-			"YieldRate":     payout.Rate,
-		})
 	}
-
 	for _, rec := range recurrings {
-		description := rec.Description
-		if decrypted, err := crypto.Decrypt(rec.Description); err == nil {
-			description = decrypted
-		}
-
 		if rec.Amount > 0 {
 			monthlyIncome += rec.Amount
 		} else {
 			monthlyExpenses += -rec.Amount
 		}
-
-		toAccountName := ""
-		if rec.ToAccountID != nil {
-			toAccountName = accountMap[*rec.ToAccountID]
-		}
-
-		recurringData = append(recurringData, map[string]interface{}{
-			"ID":            rec.ID,
-			"Description":   description,
-			"Amount":        rec.Amount,
-			"DayOfMonth":    rec.DayOfMonth,
-			"AccountID":     rec.AccountID,
-			"AccountName":   accountMap[rec.AccountID],
-			"ToAccountID":   rec.ToAccountID,
-			"ToAccountName": toAccountName,
-			"IsActive":      rec.IsActive,
-			"IsYieldPayout": false,
-		})
 	}
 
-	data := baseData(user)
+	recurringData := buildRecurringData(yieldPayouts, recurrings, accountMap, interestPrefix)
+
+	data := baseData(r, user)
 	data["Title"] = "Comptes"
 	data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
 	data["Accounts"] = accounts
@@ -268,7 +205,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 
 	isAdmin := user.Role == "ADMIN"
 
-	data := baseData(user)
+	data := baseData(r, user)
 	data["Title"] = "Paramètres"
 	data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
 	data["MFAEnabled"] = mfaEnabled
@@ -315,7 +252,7 @@ func RecurringPage(w http.ResponseWriter, r *http.Request) {
 func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 
-	data := baseData(nil)
+	data := baseData(r, nil)
 	data["Title"] = "Verification email"
 	data["Success"] = false
 	data["Error"] = ""

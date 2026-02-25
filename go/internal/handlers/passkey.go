@@ -61,16 +61,7 @@ func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Stocker la session dans un cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     "passkey_challenge",
-		Value:    sessionData,
-		Path:     "/",
-		MaxAge:   300, // 5 minutes
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	})
+	setSessionCookie(w, "passkey_challenge", sessionData, 300) // 5 minutes
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(options)
@@ -132,16 +123,7 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Supprimer le cookie de challenge
-	http.SetCookie(w, &http.Cookie{
-		Name:     "passkey_challenge",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	})
+	clearCookie(w, "passkey_challenge")
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
@@ -155,15 +137,7 @@ func PasskeyLoginStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "passkey_auth_challenge",
-		Value:    sessionData,
-		Path:     "/",
-		MaxAge:   300,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	})
+	setSessionCookie(w, "passkey_auth_challenge", sessionData, 300) // 5 minutes
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(options)
@@ -243,27 +217,8 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Supprimer le cookie de challenge
-	http.SetCookie(w, &http.Cookie{
-		Name:     "passkey_auth_challenge",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	})
-
-	// Définir le cookie de session
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session",
-		Value:    token,
-		Path:     "/",
-		MaxAge:   86400,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	})
+	clearCookie(w, "passkey_auth_challenge")
+	setSessionCookie(w, "session", token, 86400) // 24 heures
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})

@@ -17,7 +17,7 @@ import (
 
 // ForgotPasswordPage affiche la page de mot de passe oublie
 func ForgotPasswordPage(w http.ResponseWriter, r *http.Request) {
-	data := baseData(nil)
+	data := baseData(r, nil)
 	data["Title"] = "Mot de passe oublie"
 	data["MailEnabled"] = mail.IsEnabled()
 
@@ -52,7 +52,7 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	user, err := db.GetUserByBlindIndex(blindIndex)
 	if err != nil || user == nil {
 		// Ne pas reveler si l'email existe ou non
-		data := baseData(nil)
+		data := baseData(r, nil)
 		data["Title"] = "Mot de passe oublie"
 		data["MailEnabled"] = true
 		data["Success"] = true
@@ -78,7 +78,7 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	mail.SendPasswordReset(email, token, host)
 
-	data := baseData(nil)
+	data := baseData(r, nil)
 	data["Title"] = "Mot de passe oublie"
 	data["MailEnabled"] = true
 	data["Success"] = true
@@ -98,7 +98,7 @@ func ResetPasswordPage(w http.ResponseWriter, r *http.Request) {
 	hashedToken := crypto.HashToken(token)
 	user, err := db.GetUserByResetToken(hashedToken)
 	if err != nil || user == nil {
-		data := baseData(nil)
+		data := baseData(r, nil)
 		data["Title"] = "Lien expire"
 		data["Error"] = "Ce lien de reinitialisation a expire ou est invalide."
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -106,7 +106,7 @@ func ResetPasswordPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := baseData(nil)
+	data := baseData(r, nil)
 	data["Title"] = "Nouveau mot de passe"
 	data["Token"] = token
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -125,7 +125,7 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if password != confirmPassword {
-		data := baseData(nil)
+		data := baseData(r, nil)
 		data["Title"] = "Nouveau mot de passe"
 		data["Token"] = token
 		data["Error"] = "Les mots de passe ne correspondent pas"
@@ -135,7 +135,7 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := crypto.ValidatePassword(password); err != nil {
-		data := baseData(nil)
+		data := baseData(r, nil)
 		data["Title"] = "Nouveau mot de passe"
 		data["Token"] = token
 		data["Error"] = err.Error()
@@ -148,7 +148,7 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	hashedToken := crypto.HashToken(token)
 	user, err := db.GetUserByResetToken(hashedToken)
 	if err != nil || user == nil {
-		data := baseData(nil)
+		data := baseData(r, nil)
 		data["Title"] = "Lien expire"
 		data["Error"] = "Ce lien de reinitialisation a expire ou est invalide."
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
