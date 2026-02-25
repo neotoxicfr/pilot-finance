@@ -70,6 +70,9 @@ func runMigrations() {
 	migrations := []string{
 		// Ajouter backup_eligible aux authenticators (pour go-webauthn)
 		`ALTER TABLE authenticators ADD COLUMN backup_eligible INTEGER DEFAULT 0`,
+		// Multi-langue et multi-devise par utilisateur
+		`ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'fr'`,
+		`ALTER TABLE users ADD COLUMN currency TEXT NOT NULL DEFAULT 'EUR'`,
 	}
 
 	for _, migration := range migrations {
@@ -99,13 +102,13 @@ func GetUserByBlindIndex(blindIndex string) (*User, error) {
 		SELECT id, email_encrypted, email_blind_index, password, role,
 		       created_at, email_verified, verification_token, reset_token,
 		       reset_token_expiry, mfa_enabled, mfa_secret, failed_login_attempts,
-		       lock_until, session_version
+		       lock_until, session_version, language, currency
 		FROM users WHERE email_blind_index = ?
 	`, blindIndex).Scan(
 		&user.ID, &user.EmailEncrypted, &user.EmailBlindIndex, &user.Password, &user.Role,
 		&createdAt, &user.EmailVerified, &verificationToken, &resetToken,
 		&resetTokenExpiry, &user.MFAEnabled, &mfaSecret, &user.FailedLoginAttempts,
-		&lockUntil, &user.SessionVersion,
+		&lockUntil, &user.SessionVersion, &user.Language, &user.Currency,
 	)
 
 	if err == sql.ErrNoRows {
@@ -150,13 +153,13 @@ func GetUserByID(id int64) (*User, error) {
 		SELECT id, email_encrypted, email_blind_index, password, role,
 		       created_at, email_verified, verification_token, reset_token,
 		       reset_token_expiry, mfa_enabled, mfa_secret, failed_login_attempts,
-		       lock_until, session_version
+		       lock_until, session_version, language, currency
 		FROM users WHERE id = ?
 	`, id).Scan(
 		&user.ID, &user.EmailEncrypted, &user.EmailBlindIndex, &user.Password, &user.Role,
 		&createdAt, &user.EmailVerified, &verificationToken, &resetToken,
 		&resetTokenExpiry, &user.MFAEnabled, &mfaSecret, &user.FailedLoginAttempts,
-		&lockUntil, &user.SessionVersion,
+		&lockUntil, &user.SessionVersion, &user.Language, &user.Currency,
 	)
 
 	if err == sql.ErrNoRows {

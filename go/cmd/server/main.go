@@ -19,6 +19,7 @@ import (
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/handlers"
+	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/mail"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/templates"
@@ -65,6 +66,12 @@ func main() {
 		log.Fatalf("Erreur templates: %v", err)
 	}
 	log.Println("✓ Templates chargés")
+
+	// Charger les traductions
+	if err := i18n.Load("locales"); err != nil {
+		log.Fatalf("Erreur i18n: %v", err)
+	}
+	log.Println("✓ Traductions chargées")
 
 	// Initialiser le mail (optionnel)
 	if err := mail.Init(); err != nil {
@@ -142,6 +149,7 @@ func main() {
 
 		r.Get("/settings", handlers.SettingsPage)
 		r.Post("/settings/password", handlers.ChangePassword)
+		r.Post("/settings/preferences", handlers.UpdatePreferences)
 
 		// Routes MFA
 		r.Get("/settings/mfa/setup", handlers.MFASetup)

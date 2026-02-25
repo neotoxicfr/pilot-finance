@@ -116,34 +116,40 @@ func RenderPartial(w io.Writer, pageName, blockName string, data interface{}) er
 	return tmpl.ExecuteTemplate(w, blockName, data)
 }
 
-// formatMoney formate un montant en euros
-func formatMoney(amount float64) string {
+// formatMoney formate un montant avec la devise donnée
+func formatMoney(amount float64, currency string) string {
+	if currency == "" {
+		currency = "EUR"
+	}
 	decimals := 0
 	if amount != float64(int64(amount)) {
 		decimals = 2
 	}
 
 	if decimals == 0 {
-		return fmt.Sprintf("%s EUR", formatWithSpaces(int64(amount)))
+		return fmt.Sprintf("%s %s", formatWithSpaces(int64(amount)), currency)
 	}
-	return fmt.Sprintf("%s EUR", formatFloat(amount))
+	return fmt.Sprintf("%s %s", formatFloat(amount), currency)
 }
 
-// formatMoneyCompact formate un montant en notation compacte (k, M)
-func formatMoneyCompact(amount float64) string {
+// formatMoneyCompact formate un montant en notation compacte (k, M) avec devise
+func formatMoneyCompact(amount float64, currency string) string {
+	if currency == "" {
+		currency = "EUR"
+	}
 	if amount < 0 {
-		return "-" + formatMoneyCompact(-amount)
+		return "-" + formatMoneyCompact(-amount, currency)
 	}
 	if amount >= 1000000 {
-		return fmt.Sprintf("%.1fM EUR", amount/1000000)
+		return fmt.Sprintf("%.1fM %s", amount/1000000, currency)
 	}
 	if amount >= 10000 {
-		return fmt.Sprintf("%.0fk EUR", amount/1000)
+		return fmt.Sprintf("%.0fk %s", amount/1000, currency)
 	}
 	if amount >= 1000 {
-		return fmt.Sprintf("%.1fk EUR", amount/1000)
+		return fmt.Sprintf("%.1fk %s", amount/1000, currency)
 	}
-	return fmt.Sprintf("%.0f EUR", amount)
+	return fmt.Sprintf("%.0f %s", amount, currency)
 }
 
 // formatBalance formate un solde pour l'input

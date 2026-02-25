@@ -12,12 +12,12 @@
         <div class="space-y-4">
             <div class="flex justify-between items-center">
                 <h2 class="text-lg font-semibold flex items-center gap-2 text-foreground">
-                    {{template "icon-wallet" dict "Size" 18}} Mes Comptes
+                    {{template "icon-wallet" dict "Size" 18}} {{index .T "accounts.title"}}
                 </h2>
                 <button @click="showAccountForm = true; editingAccount = null"
                         x-show="!showAccountForm"
                         class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-xl flex items-center gap-1 transition-all font-bold">
-                    {{template "icon-plus" dict "Size" 16}} Ajouter
+                    {{template "icon-plus" dict "Size" 16}} {{index .T "accounts.add"}}
                 </button>
             </div>
 
@@ -37,7 +37,7 @@
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 20}}
                     </button>
-                    <h3 class="text-base font-bold text-blue-500 mb-5" x-text="editingAccount ? 'Modifier le compte' : 'Nouveau Compte'"></h3>
+                    <h3 class="text-base font-bold text-blue-500 mb-5" x-text="editingAccount ? '{{index .T "accounts.edit_form"}}' : '{{index .T "accounts.new_form"}}'"></h3>
                     <form hx-post="/accounts"
                           hx-target="#accounts-list"
                           hx-swap="innerHTML"
@@ -45,15 +45,15 @@
                           class="space-y-5">
                         <input type="hidden" name="id" :value="editingAccount?.id || ''">
                         <div class="grid grid-cols-2 gap-4">
-                            <input type="text" name="name" placeholder="Nom" required
+                            <input type="text" name="name" placeholder="{{index .T "accounts.name_placeholder"}}" required
                                    :value="editingAccount?.name || ''"
                                    class="bg-accent border border-border rounded-xl p-3 text-sm w-full outline-none focus:border-blue-500 text-foreground">
-                            <input type="text" inputmode="decimal" name="balance" placeholder="Solde"
+                            <input type="text" inputmode="decimal" name="balance" placeholder="{{index .T "accounts.balance_placeholder"}}"
                                    :value="editingAccount?.balance || ''"
                                    class="bg-accent border border-border rounded-xl p-3 text-sm w-full font-mono outline-none focus:border-blue-500 text-foreground">
                         </div>
                         <div>
-                            <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Couleur</label>
+                            <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.color_label"}}</label>
                             <div class="flex flex-wrap gap-2 mb-3">
                                 <template x-for="c in ['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#10b981','#14b8a6','#06b6d4','#0ea5e9','#3b82f6','#6366f1','#8b5cf6','#a855f7','#d946ef','#ec4899','#f43f5e','#64748b']">
                                     <button type="button" @click="selectedColor = c"
@@ -79,23 +79,23 @@
                                        class="w-5 h-5 rounded border-border accent-emerald-500">
                                 <span class="text-sm font-medium text-foreground flex items-center gap-2">
                                     {{template "icon-trending-up" dict "Size" 16}}
-                                    Compte avec rendement
+                                    {{index .T "accounts.yield_active"}}
                                 </span>
                             </label>
 
                             <div x-show="isYieldActive" x-cloak class="mt-4 space-y-4 pl-8">
                                 <div>
-                                    <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Type de taux</label>
+                                    <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.yield_type"}}</label>
                                     <div class="flex gap-3">
                                         <label class="flex items-center gap-2 cursor-pointer">
                                             <input type="radio" name="yieldType" value="FIXED" x-model="yieldType"
                                                    class="accent-emerald-500">
-                                            <span class="text-sm text-foreground">Fixe</span>
+                                            <span class="text-sm text-foreground">{{index .T "accounts.yield_fixed"}}</span>
                                         </label>
                                         <label class="flex items-center gap-2 cursor-pointer">
                                             <input type="radio" name="yieldType" value="RANGE" x-model="yieldType"
                                                    class="accent-emerald-500">
-                                            <span class="text-sm text-foreground">Fourchette</span>
+                                            <span class="text-sm text-foreground">{{index .T "accounts.yield_range"}}</span>
                                         </label>
                                     </div>
                                 </div>
@@ -103,12 +103,12 @@
                                 <div class="grid gap-4" :class="yieldType === 'RANGE' ? 'grid-cols-2' : 'grid-cols-1'">
                                     <div>
                                         <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider"
-                                               x-text="yieldType === 'RANGE' ? 'Taux min (%)' : 'Taux (%)'"></label>
+                                               x-text="yieldType === 'RANGE' ? '{{index .T "accounts.yield_rate_min"}}' : '{{index .T "accounts.yield_rate"}}'"></label>
                                         <input type="number" step="0.01" name="yieldMin" x-model="yieldMin" placeholder="3.5"
                                                class="bg-accent border border-border rounded-xl p-2.5 text-sm w-full font-mono outline-none focus:border-emerald-500 text-foreground">
                                     </div>
                                     <div x-show="yieldType === 'RANGE'">
-                                        <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">Taux max (%)</label>
+                                        <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.yield_rate_max"}}</label>
                                         <input type="number" step="0.01" name="yieldMax" x-model="yieldMax" placeholder="5.0"
                                                class="bg-accent border border-border rounded-xl p-2.5 text-sm w-full font-mono outline-none focus:border-emerald-500 text-foreground">
                                     </div>
@@ -116,37 +116,37 @@
 
                                 <div>
                                     <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">
-                                        Reinvestissement: <span x-text="reinvestmentRate + '%'" class="text-emerald-500"></span>
+                                        {{index .T "accounts.reinvestment"}}: <span x-text="reinvestmentRate + '%'" class="text-emerald-500"></span>
                                     </label>
                                     <input type="range" min="0" max="100" step="5" name="reinvestmentRate" x-model="reinvestmentRate"
                                            class="w-full h-2 bg-accent rounded-lg appearance-none cursor-pointer accent-emerald-500">
                                     <div class="flex justify-between text-[10px] text-muted-foreground mt-1">
-                                        <span>0% (tout retirer)</span>
-                                        <span>100% (tout reinvestir)</span>
+                                        <span>{{index .T "accounts.reinvestment_0"}}</span>
+                                        <span>{{index .T "accounts.reinvestment_100"}}</span>
                                     </div>
                                 </div>
 
                                 <div x-show="reinvestmentRate < 100" x-cloak>
                                     <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">
-                                        Compte destinataire des interets
+                                        {{index .T "accounts.target_account"}}
                                     </label>
                                     <select name="targetAccountId"
                                             :value="editingAccount?.target_account_id || ''"
                                             class="w-full bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-none focus:border-emerald-500">
-                                        <option value="">Aucun (non comptabilise)</option>
+                                        <option value="">{{index .T "accounts.no_target"}}</option>
                                         {{range .Accounts}}
                                         <option value="{{.ID}}">{{.Name}}</option>
                                         {{end}}
                                     </select>
                                     <p class="text-[10px] text-muted-foreground mt-1">
-                                        Les interets non reinvestis seront verses sur ce compte
+                                        {{index .T "accounts.interest_help"}}
                                     </p>
                                 </div>
                             </div>
                         </div>
 
                         <button class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl text-sm font-bold transition-all">
-                            Valider
+                            {{index .T "accounts.submit"}}
                         </button>
                     </form>
                 </div>
@@ -164,12 +164,12 @@
         <div class="space-y-4">
             <div class="flex justify-between items-center">
                 <h2 class="text-lg font-semibold flex items-center gap-2 text-foreground">
-                    {{template "icon-refresh" dict "Size" 18}} Operations
+                    {{template "icon-refresh" dict "Size" 18}} {{index .T "recurring.title"}}
                 </h2>
                 <button @click="showRecurringForm = true; editingRecurring = null"
                         x-show="!showRecurringForm"
                         class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-xl flex items-center gap-1 transition-all font-bold">
-                    {{template "icon-plus" dict "Size" 16}} Ajouter
+                    {{template "icon-plus" dict "Size" 16}} {{index .T "recurring.add"}}
                 </button>
             </div>
 
@@ -192,7 +192,7 @@
                             class="absolute top-3 right-3 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 18}}
                     </button>
-                    <h3 class="text-sm font-bold text-blue-500 mb-4" x-text="editingRecurring ? 'Modifier' : 'Nouvelle Operation'"></h3>
+                    <h3 class="text-sm font-bold text-blue-500 mb-4" x-text="editingRecurring ? '{{index .T "recurring.edit_form"}}' : '{{index .T "recurring.new_form"}}'"></h3>
                     <form hx-post="/recurring"
                           hx-target="#recurring-list"
                           hx-swap="innerHTML"
@@ -200,33 +200,33 @@
                           class="space-y-4">
                         <input type="hidden" name="id" :value="editingRecurring?.ID || ''">
                         <div class="flex gap-3">
-                            <input type="text" name="description" placeholder="Libelle" required
+                            <input type="text" name="description" placeholder="{{index .T "recurring.label_placeholder"}}" required
                                    :value="editingRecurring?.Description || ''"
                                    class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-none focus:border-blue-500">
-                            <input type="number" step="0.01" name="amount" placeholder="EUR" required
+                            <input type="number" step="0.01" name="amount" placeholder="{{$.Currency}}" required
                                    :value="absAmount"
                                    class="w-24 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-none font-mono focus:border-blue-500">
-                            <input type="number" min="1" max="31" name="dayOfMonth" placeholder="J" required
+                            <input type="number" min="1" max="31" name="dayOfMonth" placeholder="{{index .T "recurring.day_placeholder"}}" required
                                    :value="editingRecurring?.DayOfMonth || ''"
                                    class="w-14 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-none text-center focus:border-blue-500">
                         </div>
                         <div class="flex gap-3">
                             <select name="type" x-model="opType"
                                     class="w-28 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-none focus:border-blue-500">
-                                <option value="expense">Sortie</option>
-                                <option value="income">Entree</option>
-                                <option value="transfer">Virement</option>
+                                <option value="expense">{{index .T "recurring.type_expense"}}</option>
+                                <option value="income">{{index .T "recurring.type_income"}}</option>
+                                <option value="transfer">{{index .T "recurring.type_transfer"}}</option>
                             </select>
                             <select name="accountId" required
                                     :value="editingRecurring?.AccountID || ''"
                                     class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-none focus:border-blue-500">
-                                <option value="">Compte...</option>
+                                <option value="">{{index .T "recurring.account_placeholder"}}</option>
                                 {{range .Accounts}}
                                 <option value="{{.ID}}">{{.Name}}</option>
                                 {{end}}
                             </select>
                             <button class="px-5 bg-blue-600 hover:bg-blue-500 rounded-xl text-white transition-all font-bold text-xs uppercase tracking-wide">
-                                Valider
+                                {{index .T "recurring.submit"}}
                             </button>
                         </div>
                     </form>
@@ -290,7 +290,7 @@ function accountsPage() {
             <input type="text" inputmode="decimal" name="balance"
                    value="{{formatBalance .Balance}}"
                    class="bg-transparent w-28 text-right outline-none font-mono text-xl font-bold text-foreground focus:text-blue-500 focus:bg-accent rounded-lg px-1 transition-colors">
-            <span class="text-sm text-muted-foreground font-medium">EUR</span>
+            <span class="text-sm text-muted-foreground font-medium" x-data x-text="window.PILOT_CURRENCY||'EUR'"></span>
             <button class="hidden group-hover:block text-blue-500 ml-1 p-2 hover:bg-accent rounded-lg transition-colors">
                 {{template "icon-save" dict "Size" 18}}
             </button>
@@ -301,7 +301,7 @@ function accountsPage() {
                 {{template "icon-pencil" dict "Size" 18}}
             </button>
             <button hx-delete="/accounts/{{.ID}}"
-                    hx-confirm="Supprimer ?"
+                    hx-confirm="{{.Name}} ?"
                     hx-target="#accounts-list"
                     hx-swap="innerHTML"
                     class="p-2 text-muted-foreground hover:text-red-500 hover:bg-accent rounded-lg transition-colors">
@@ -316,9 +316,9 @@ function accountsPage() {
 <table class="w-full text-sm text-left text-muted-foreground table-fixed">
     <thead class="text-xs font-bold uppercase bg-background text-muted-foreground sticky top-0 z-20">
         <tr>
-            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border w-10 md:w-16">J</th>
-            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border w-auto">Libelle</th>
-            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border text-right w-32 md:w-40">Montant</th>
+            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border w-10 md:w-16">{{index $.T "recurring.day_header"}}</th>
+            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border w-auto">{{index $.T "recurring.label_header"}}</th>
+            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border text-right w-32 md:w-40">{{index $.T "recurring.amount_header"}}</th>
             <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border w-20 md:w-24"></th>
         </tr>
     </thead>
@@ -341,10 +341,10 @@ function accountsPage() {
                 </div>
             </td>
             <td class="px-2 md:px-4 py-3 text-right font-mono font-bold text-sm whitespace-nowrap tabular-nums text-emerald-500">
-                +{{formatMoney .Amount}}
+                +{{formatMoney .Amount $.Currency}}
             </td>
             <td class="px-2 py-3 text-right">
-                <span class="text-[10px] text-muted-foreground italic">auto</span>
+                <span class="text-[10px] text-muted-foreground italic">{{index $.T "recurring.auto_badge"}}</span>
             </td>
         </tr>
         {{else}}
@@ -363,7 +363,7 @@ function accountsPage() {
                 </div>
             </td>
             <td class="px-2 md:px-4 py-3 text-right font-mono font-bold text-sm whitespace-nowrap tabular-nums {{if .ToAccountID}}text-blue-500{{else if gt .Amount 0.0}}text-emerald-500{{else}}text-foreground{{end}}">
-                {{if not .ToAccountID}}{{if gt .Amount 0.0}}+{{end}}{{end}}{{formatMoney .Amount}}
+                {{if not .ToAccountID}}{{if gt .Amount 0.0}}+{{end}}{{end}}{{formatMoney .Amount $.Currency}}
             </td>
             <td class="px-2 py-3 text-right">
                 <div class="flex items-center justify-end gap-1">
@@ -372,7 +372,7 @@ function accountsPage() {
                         {{template "icon-pencil" dict "Size" 18}}
                     </button>
                     <button hx-delete="/recurring/{{.ID}}"
-                            hx-confirm="Supprimer cette operation ?"
+                            hx-confirm="{{index $.T "recurring.delete_confirm"}}"
                             hx-target="#recurring-list"
                             hx-swap="innerHTML"
                             class="p-2 text-muted-foreground hover:text-red-500 hover:bg-accent rounded-lg transition-colors">
@@ -392,21 +392,21 @@ function accountsPage() {
     <!-- Monthly -->
     <div class="p-5 min-w-0">
         <div class="flex items-center gap-2 mb-4">
-            <span class="bg-blue-500/10 text-blue-500 px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider">Mensuel</span>
+            <span class="bg-blue-500/10 text-blue-500 px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider">{{index $.T "summary.monthly"}}</span>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
             <div class="min-w-0">
-                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Entrees</div>
-                <div class="text-lg sm:text-2xl font-mono font-bold text-emerald-500">+{{formatMoney .MonthlyIncome}}</div>
+                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.income"}}</div>
+                <div class="text-lg sm:text-2xl font-mono font-bold text-emerald-500">+{{formatMoney .MonthlyIncome $.Currency}}</div>
             </div>
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
-                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Sorties</div>
-                <div class="text-lg sm:text-2xl font-mono font-bold text-foreground">-{{formatMoney .MonthlyExpenses}}</div>
+                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.expenses"}}</div>
+                <div class="text-lg sm:text-2xl font-mono font-bold text-foreground">-{{formatMoney .MonthlyExpenses $.Currency}}</div>
             </div>
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
-                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Reste</div>
+                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.balance"}}</div>
                 <div class="text-lg sm:text-2xl font-mono font-bold {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
-                    {{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney .MonthlyNet}}
+                    {{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney .MonthlyNet $.Currency}}
                 </div>
             </div>
         </div>
@@ -414,21 +414,21 @@ function accountsPage() {
     <!-- Yearly -->
     <div class="p-5 bg-accent/20 min-w-0">
         <div class="flex items-center gap-2 mb-4">
-            <span class="bg-purple-500/10 text-purple-500 px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider">Annuel (Proj.)</span>
+            <span class="bg-purple-500/10 text-purple-500 px-3 py-1 rounded-xl text-xs font-bold uppercase tracking-wider">{{index $.T "summary.yearly"}}</span>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 opacity-90">
             <div class="min-w-0">
-                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Entrees</div>
-                <div class="text-base sm:text-xl font-mono font-bold text-emerald-500">+{{formatMoney (mult .MonthlyIncome 12)}}</div>
+                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.income"}}</div>
+                <div class="text-base sm:text-xl font-mono font-bold text-emerald-500">+{{formatMoney (mult .MonthlyIncome 12) $.Currency}}</div>
             </div>
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
-                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Sorties</div>
-                <div class="text-base sm:text-xl font-mono font-bold text-foreground">-{{formatMoney (mult .MonthlyExpenses 12)}}</div>
+                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.expenses"}}</div>
+                <div class="text-base sm:text-xl font-mono font-bold text-foreground">-{{formatMoney (mult .MonthlyExpenses 12) $.Currency}}</div>
             </div>
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
-                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">Reste</div>
+                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.balance"}}</div>
                 <div class="text-base sm:text-xl font-mono font-bold {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
-                    {{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney (mult .MonthlyNet 12)}}
+                    {{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney (mult .MonthlyNet 12) $.Currency}}
                 </div>
             </div>
         </div>

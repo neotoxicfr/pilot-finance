@@ -8,21 +8,21 @@
             <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
                 {{template "icon-shield-check" dict "Size" 80}}
             </div>
-            <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Patrimoine Net</p>
+            <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">{{index .T "dashboard.net_worth"}}</p>
             <h2 class="text-3xl md:text-4xl font-bold text-foreground font-mono tracking-tight" x-text="formatMoney(totalBalance)"></h2>
         </div>
         <div class="dashboard-card bg-background border p-6 rounded-2xl relative overflow-hidden">
             <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
                 {{template "icon-trending-up" dict "Size" 80}}
             </div>
-            <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Interets Composes</p>
+            <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">{{index .T "dashboard.compound_interests"}}</p>
             <h2 class="text-3xl md:text-4xl font-bold text-emerald-500 font-mono tracking-tight" x-text="'+' + formatMoney(totalInterests)"></h2>
         </div>
         <div class="dashboard-card bg-background border p-6 rounded-2xl relative overflow-hidden sm:col-span-2 md:col-span-1">
             <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
                 {{template "icon-piggybank" dict "Size" 80}}
             </div>
-            <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">Projection a <span x-text="years"></span> ans</p>
+            <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">{{index .T "dashboard.projection_years"}} <span x-text="years"></span> {{index .T "dashboard.years_suffix"}}</p>
             <h2 class="text-3xl md:text-4xl font-bold text-blue-500 font-mono tracking-tight" x-text="formatMoney(projectionTotal)"></h2>
         </div>
     </div>
@@ -33,11 +33,11 @@
         <div class="dashboard-card md:col-span-2 bg-background border rounded-2xl p-6">
             <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
                 <h3 class="text-lg font-bold text-foreground flex items-center gap-2">
-                    {{template "icon-trending-up" dict "Size" 18}} Trajectoire
+                    {{template "icon-trending-up" dict "Size" 18}} {{index .T "dashboard.trajectory"}}
                 </h3>
                 <div class="flex items-center gap-4 bg-accent px-4 py-2 rounded-xl border border-border w-full md:w-auto">
                     <span class="text-xs text-muted-foreground whitespace-nowrap font-medium">
-                        Projection : <strong x-text="years + ' ans'"></strong>
+                        {{index .T "dashboard.projection_label"}} <strong x-text="years + ' {{index .T "dashboard.years_suffix"}}'"></strong>
                     </span>
                     <input type="range" min="1" max="30"
                            x-model="years"
@@ -53,14 +53,14 @@
         <!-- Pie Chart -->
         <div class="dashboard-card bg-background border rounded-2xl p-6 flex flex-col">
             <h3 class="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                {{template "icon-dashboard" dict "Size" 18}} Repartition
+                {{template "icon-dashboard" dict "Size" 18}} {{index .T "dashboard.distribution"}}
             </h3>
             <div class="flex-1 min-h-[300px] flex flex-col items-center justify-center">
                 <div class="relative w-full max-w-[250px]" style="aspect-ratio: 1;">
                     <canvas id="pieCanvas"></canvas>
                     <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                         <div class="text-xl font-bold font-mono text-foreground" x-text="formatMoneyCompact(totalBalance)"></div>
-                        <div class="text-xs text-muted-foreground uppercase font-bold">Total</div>
+                        <div class="text-xs text-muted-foreground uppercase font-bold">{{index .T "dashboard.total"}}</div>
                     </div>
                 </div>
                 <div id="pieLegend" class="mt-4 flex flex-wrap justify-center gap-2"></div>
@@ -81,7 +81,6 @@
 
 <script>
 function dashboardData() {
-    // Charger les donnees initiales immediatement pour eviter le flash
     const initialEl = document.getElementById('initial-data');
     const initial = initialEl ? JSON.parse(initialEl.textContent) : {};
 
@@ -94,14 +93,15 @@ function dashboardData() {
         updateTimeout: null,
 
         formatMoney(value) {
-            return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(value) + ' EUR';
+            return new Intl.NumberFormat(window.PILOT_LOCALE||'fr-FR', { maximumFractionDigits: 0 }).format(value) + ' ' + (window.PILOT_CURRENCY||'EUR');
         },
 
         formatMoneyCompact(value) {
-            if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M EUR';
-            if (value >= 10000) return Math.round(value / 1000) + 'k EUR';
-            if (value >= 1000) return (value / 1000).toFixed(1) + 'k EUR';
-            return Math.round(value) + ' EUR';
+            const currency = window.PILOT_CURRENCY || 'EUR';
+            if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M ' + currency;
+            if (value >= 10000) return Math.round(value / 1000) + 'k ' + currency;
+            if (value >= 1000) return (value / 1000).toFixed(1) + 'k ' + currency;
+            return Math.round(value) + ' ' + currency;
         },
 
         debouncedUpdate() {
@@ -127,7 +127,6 @@ function dashboardData() {
 
         init() {
             const initial = JSON.parse(document.getElementById('initial-data').textContent);
-            // Initialiser les charts (les valeurs sont deja chargees dans le constructeur)
             this.$nextTick(() => {
                 window.initProjectionChart(initial.projectionData, this.accountColors);
                 window.initPieChart(initial.pieData);

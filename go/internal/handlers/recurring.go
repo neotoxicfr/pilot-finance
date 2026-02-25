@@ -8,6 +8,7 @@ import (
 
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
+	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/projection"
 	"pilot-finance/internal/templates"
@@ -100,7 +101,7 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Retourner la liste mise a jour en HTML
-	renderRecurringTable(w, user.ID)
+	renderRecurringTable(w, user)
 }
 
 // UpdateRecurring met a jour une operation recurrente
@@ -182,13 +183,24 @@ func DeleteRecurring(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Retourner la liste mise a jour en HTML
-	renderRecurringTable(w, user.ID)
+	renderRecurringTable(w, user)
 }
 
 // renderRecurringTable rend le tableau des operations recurrentes en HTML
-func renderRecurringTable(w http.ResponseWriter, userID int64) {
-	recurrings, _ := db.GetRecurringByUserID(userID)
-	accounts, _ := db.GetAccountsByUserID(userID)
+func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
+	currency := "EUR"
+	lang := "fr"
+	if user != nil {
+		if user.Currency != "" {
+			currency = user.Currency
+		}
+		if user.Language != "" {
+			lang = user.Language
+		}
+	}
+
+	recurrings, _ := db.GetRecurringByUserID(user.ID)
+	accounts, _ := db.GetAccountsByUserID(user.ID)
 
 	// Creer un map des noms de comptes
 	accountMap := make(map[int64]string)
@@ -202,6 +214,7 @@ func renderRecurringTable(w http.ResponseWriter, userID int64) {
 
 	// Calculer les yield payouts
 	yieldPayouts := projection.CalculateYieldPayouts(accounts, accountMap)
+	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
 
 	// Preparer les donnees avec noms de comptes
 	recurringData := make([]map[string]interface{}, 0, len(recurrings)+len(yieldPayouts))
@@ -210,7 +223,7 @@ func renderRecurringTable(w http.ResponseWriter, userID int64) {
 	for _, payout := range yieldPayouts {
 		recurringData = append(recurringData, map[string]interface{}{
 			"ID":            int64(0),
-			"Description":   "Interets " + payout.SourceAccountName,
+			"Description":   interestPrefix + " " + payout.SourceAccountName,
 			"Amount":        payout.Amount,
 			"DayOfMonth":    1,
 			"AccountID":     payout.SourceAccountID,
@@ -251,5 +264,6 @@ func renderRecurringTable(w http.ResponseWriter, userID int64) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	templates.RenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{
 		"Recurrings": recurringData,
+		"Currency":   currency,
 	})
 }

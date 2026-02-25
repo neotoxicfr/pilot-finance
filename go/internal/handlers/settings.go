@@ -73,6 +73,43 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// UpdatePreferences met à jour la langue et la devise de l'utilisateur
+func UpdatePreferences(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUser(r)
+	if user == nil {
+		http.Error(w, "Non authentifie", http.StatusUnauthorized)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Donnees invalides", http.StatusBadRequest)
+		return
+	}
+
+	language := r.FormValue("language")
+	currency := r.FormValue("currency")
+
+	validLangs := map[string]bool{"fr": true, "en": true}
+	validCurrencies := map[string]bool{
+		"EUR": true, "USD": true, "GBP": true, "CHF": true,
+		"JPY": true, "CAD": true, "AUD": true,
+	}
+
+	if !validLangs[language] {
+		language = "fr"
+	}
+	if !validCurrencies[currency] {
+		currency = "EUR"
+	}
+
+	if err := db.UpdateUserPreferences(user.ID, language, currency); err != nil {
+		http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 // DeleteUser supprime un utilisateur (admin uniquement)
 func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
