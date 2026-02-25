@@ -18,64 +18,34 @@
 
 ## ✨ Features
 
-* 💰 **Net worth tracking** : Visualize the overall evolution of your assets.
-* 📈 **Yield simulation** : Manage compound interests and project your gains over multiple years, with automatic payment of non-reinvested interest to a target account.
-* 🔄 **Recurring operations** : Automate tracking of your monthly income and expenses.
-* 🌍 **Multi-language & Multi-currency** : Interface available in French and English. Currency display configurable per user (EUR, USD, GBP, CHF, JPY, CAD, AUD).
-* 🔐 **Enhanced security** :
-    * **Security middleware** : Strict CSP, security headers (HSTS, X-Frame-Options), dynamic nonces.
-    * **bcrypt** : Secure password hashing with complexity validation (5 criteria).
-    * **Advanced rate limiting** : Multi-level protection (login, register, 2FA, reset).
-    * AES-256-GCM encryption of sensitive data (email, account names, transactions).
-    * **Session versioning** : Automatic logout from all devices on password change.
-    * Native support for **Passkeys** (WebAuthn) and 2FA (TOTP).
-    * **Health Check API** : Database and memory monitoring.
-* 📧 **Email management** (Optional) : Account verification on registration and password recovery.
-* 📱 **Responsive interface** : Smooth experience across all devices (mobile, tablet and desktop).
-* ⚡ **Optimal performance** : Ultra-lightweight Go backend (~15MB binary), HTMX + Alpine.js frontend (~30KB JS), zero external CDN requests.
-
----
-
-## 🚀 What's new in v2.1
-
-* 🌍 **Multi-language support** (FR / EN) — interface language configurable per user from Settings
-* 💱 **Multi-currency support** — display currency configurable per user (EUR, USD, GBP, CHF, JPY, CAD, AUD)
-* ⚙️ **Preferences panel** added to Settings
-
----
-
-## 🚀 What's new in v2.0
-
-Version 2.0 is a **complete technical rewrite**:
-
-| Metric | v1.x (Next.js) | v2.0 (Go) |
-|--------|----------------|-----------|
-| Docker image | ~300 MB | ~20 MB |
-| RAM usage | ~200 MB | ~30 MB |
-| Start time | ~5s | <1s |
-| JS Frontend | ~500 KB | ~30 KB |
-| CDN dependencies | Multiple | **0** (self-hosted) |
-
-### Tech stack
-- **Backend**: Go 1.26 + chi router
-- **Frontend**: HTMX 2.0 + Alpine.js 3.15 + Tailwind CSS (compiled at build)
-- **Database**: SQLite (WAL mode)
-- **Charts**: Chart.js 4.5
-- **Zero external dependency**: all JS/CSS assets are self-hosted
+* 💰 **Net worth tracking** — Visualize the overall evolution of your assets over time.
+* 📈 **Yield simulation** — Manage compound interest and project gains over multiple years, with automatic payment of non-reinvested interest to a target account.
+* 🔄 **Recurring operations** — Track monthly income and expenses with automatic projection.
+* 🌍 **Multi-language & Multi-currency** — Interface available in French and English. Currency display configurable per user (EUR, USD, GBP, CHF, JPY, CAD, AUD).
+* 🔐 **Security by default** :
+    * Strict **Content Security Policy** with per-request dynamic nonces — no `unsafe-inline` for scripts
+    * **AES-256-GCM** encryption of all sensitive data (emails, account names, transaction labels)
+    * **bcrypt** password hashing with 5-criteria complexity validation
+    * **Session versioning** — automatic logout from all devices on password change
+    * Multi-level **rate limiting** (login, register, 2FA, password reset)
+    * Native **Passkeys** (WebAuthn) and **2FA** (TOTP) support
+    * **Health Check API** — database and memory monitoring endpoint
+* 📧 **Email** (optional) — Account verification on registration and password recovery.
+* 📱 **Responsive** — Smooth experience on all devices (mobile, tablet, desktop). PWA-ready.
+* ⚡ **Lightweight** — ~15 MB Docker image, ~30 MB RAM, <1s start time, ~30 KB JS, zero CDN requests.
 
 ---
 
 ## 🚀 Installation with Docker
 
-The recommended method is to use **Docker Compose**.
+The recommended method is **Docker Compose**.
 
-### 1. Prerequisites
-* A domain name (required for Passkeys and SSL validation).
+### Prerequisites
+
+* A domain name (required for Passkeys and HTTPS).
 * A reverse proxy already configured (Traefik, Nginx Proxy Manager, Cloudflare Tunnel, etc.).
 
-### 2. Configuration (`docker-compose.yml`)
-
-Create a `docker-compose.yml` file in your working directory:
+### `docker-compose.yml`
 
 ```yaml
 services:
@@ -110,12 +80,10 @@ services:
       start_period: 10s
 ```
 
-### 3. Start
-
-Launch the container with:
 ```bash
 docker compose up -d
 ```
+
 The application listens on port **3000** inside the container.
 
 ---
@@ -125,33 +93,45 @@ The application listens on port **3000** inside the container.
 | Variable | Description |
 | :--- | :--- |
 | **HOST** | Your fully qualified domain name without the protocol (e.g. `pilot.example.com`). Required for Passkeys and email links. |
-| **ENCRYPTION_KEY** | **Critical**. 32-byte (hex) key for AES data encryption. If lost, encrypted data is unrecoverable. |
-| **BLIND_INDEX_KEY** | **Critical**. 32-byte (hex) key for secure search indexes (emails). |
-| **AUTH_SECRET** | **Critical**. Key of at least 32 bytes for JWT session cookie signing. |
-| **ALLOW_REGISTER** | Allows or blocks new account creation. It is recommended to set this to `false` after your initial registration. |
+| **ENCRYPTION_KEY** | **Critical.** 32-byte hex key for AES data encryption. If lost, encrypted data is unrecoverable. Generate with `openssl rand -hex 32`. |
+| **BLIND_INDEX_KEY** | **Critical.** 32-byte hex key for secure email search indexes. Generate with `openssl rand -hex 32`. |
+| **AUTH_SECRET** | **Critical.** Key of at least 32 bytes for JWT session signing. Generate with `openssl rand -hex 32`. |
+| **ALLOW_REGISTER** | Allows or blocks new account creation. Set to `false` after your initial registration. |
 | **DATABASE_URL** | Path to your SQLite database (e.g. `file:/data/pilot.db`). |
 | **TZ** | Container timezone (e.g. `Europe/Paris`) for accurate operation dates. |
+| **SMTP_HOST / PORT / USER / PASS / FROM** | Optional. Enable email features (verification, password reset). |
 
 ---
 
 ## 🛡️ Security & Privacy
 
-Pilot Finance was built with security by default:
-
-* **Zero plaintext storage**: Account names and transaction labels are encrypted. Only your server with its unique key can read them.
-* **Zero external dependency**: No requests to CDNs or third-party services. All assets are compiled and served locally.
-* **Startup verification**: The system refuses to start if encryption keys are missing or too weak.
-* **Passkeys protection**: Using Passkeys provides robust protection against phishing and eliminates the need to memorize complex passwords.
-* **Password validation**: 5 mandatory criteria (length, uppercase, lowercase, number, special character).
+* **Zero plaintext storage** — Account names and transaction labels are encrypted with AES-256-GCM. Only your server holds the key.
+* **Zero external dependency** — No CDN requests at runtime. All JS and CSS assets are compiled and served locally.
+* **Strict CSP** — Per-request nonces for inline scripts. No `unsafe-inline` in `script-src`.
+* **Startup verification** — The server refuses to start if encryption keys are missing or too short.
+* **Passkeys** — WebAuthn provides phishing-resistant authentication without passwords.
 
 ---
 
-## 🤖 Credits & Design
+## 🛠️ Stack
 
-This project was designed with the assistance of Artificial Intelligence for code structure and optimization. However, **the final code is purely applicative** and uses no AI algorithms or third-party data processing services at runtime. Your cockpit remains 100% local and private.
+| | |
+|---|---|
+| Backend | Go 1.26 + chi router |
+| Frontend | HTMX 2.0 + Alpine.js 3.15 + Tailwind CSS v3 |
+| Database | SQLite (WAL mode) |
+| Charts | Chart.js 4.5 |
+| Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
+| Docker image | ~15 MB (alpine:3.23 base) |
+
+---
+
+## 🤖 Credits
+
+This project was designed with AI assistance for code structure and optimization. The final code is purely applicative and uses no AI algorithms or third-party data processing at runtime. Your cockpit remains 100% local and private.
 
 ---
 
 ## 📝 License
 
-This project is distributed under the **MIT** license.
+Distributed under the **MIT** license.
