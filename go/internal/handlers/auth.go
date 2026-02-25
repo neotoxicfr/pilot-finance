@@ -73,16 +73,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Supprimer le cookie pending_2fa
-		http.SetCookie(w, &http.Cookie{
-			Name:     "pending_2fa",
-			Value:    "",
-			Path:     "/",
-			MaxAge:   -1,
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-		})
+		clearCookie(w, "pending_2fa")
 
 		// Déchiffrer l'email pour le token
 		decryptedEmail, err := crypto.Decrypt(user.EmailEncrypted)
@@ -98,16 +89,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Définir le cookie de session
-		http.SetCookie(w, &http.Cookie{
-			Name:     "session",
-			Value:    token,
-			Path:     "/",
-			MaxAge:   86400,
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-		})
+		setSessionCookie(w, "session", token, 86400)
 
 		// Réinitialiser le rate limiter
 		ratelimit.Reset(clientIP, "login")
@@ -167,24 +149,15 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		http.SetCookie(w, &http.Cookie{
-			Name:     "pending_2fa",
-			Value:    pendingToken,
-			Path:     "/",
-			MaxAge:   300, // 5 minutes
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-		})
+		setSessionCookie(w, "pending_2fa", pendingToken, 300) // 5 minutes
 
-		// Rendre la page login avec le formulaire 2FA visible
-		data := map[string]interface{}{
-			"Title":          "Connexion",
-			"CanRegister":    os.Getenv("ALLOW_REGISTER") == "true",
-			"CanUsePasskeys": os.Getenv("HOST") != "",
-			"MailEnabled":    os.Getenv("SMTP_HOST") != "",
-			"Requires2FA":    true,
-		}
+		// Rendre la page login avec le formulaire 2FA visible et les traductions correctes
+		data := baseData(r, nil)
+		data["Title"] = "Connexion"
+		data["CanRegister"] = os.Getenv("ALLOW_REGISTER") == "true"
+		data["CanUsePasskeys"] = os.Getenv("HOST") != ""
+		data["MailEnabled"] = os.Getenv("SMTP_HOST") != ""
+		data["Requires2FA"] = true
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		templates.Render(w, "login.html", data)
 		return
@@ -204,16 +177,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Définir le cookie de session
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session",
-		Value:    token,
-		Path:     "/",
-		MaxAge:   86400, // 24 heures
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	})
+	setSessionCookie(w, "session", token, 86400) // 24 heures
 
 	// Réinitialiser le rate limiter
 	ratelimit.Reset(clientIP, "login")
@@ -245,6 +209,11 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	// Validation
 	if email == "" || password == "" {
 		http.Error(w, "Email et mot de passe requis", http.StatusBadRequest)
+		return
+	}
+
+	if !strings.Contains(email, "@") || len(email) < 3 || len(email) > 254 {
+		http.Error(w, "Email invalide", http.StatusBadRequest)
 		return
 	}
 
@@ -313,15 +282,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session",
-		Value:    token,
-		Path:     "/",
-		MaxAge:   86400,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	})
+	setSessionCookie(w, "session", token, 86400)
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

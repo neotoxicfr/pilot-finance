@@ -17,7 +17,7 @@
                 <p class="text-muted-foreground text-sm mt-2">{{index .T "verify.redirecting"}}</p>
             </div>
         </div>
-        <script>
+        <script nonce="{{.Nonce}}">
             setTimeout(function() {
                 window.location.href = '/login';
             }, 3000);

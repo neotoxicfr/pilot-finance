@@ -23,6 +23,19 @@ type User struct {
 	Currency       string
 }
 
+// clearSessionCookie supprime le cookie de session
+func clearSessionCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
 // RequireAuth vérifie que l'utilisateur est authentifié
 func RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -35,15 +48,7 @@ func RequireAuth(next http.Handler) http.Handler {
 		claims, err := auth.ValidateToken(cookie.Value)
 		if err != nil {
 			// Token invalide ou expiré, supprimer le cookie
-			http.SetCookie(w, &http.Cookie{
-				Name:     "session",
-				Value:    "",
-				Path:     "/",
-				MaxAge:   -1,
-				HttpOnly: true,
-				Secure:   true,
-				SameSite: http.SameSiteLaxMode,
-			})
+			clearSessionCookie(w)
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
@@ -57,15 +62,7 @@ func RequireAuth(next http.Handler) http.Handler {
 
 		if dbUser.SessionVersion != claims.SessionVersion {
 			// Session invalidée (changement de mot de passe)
-			http.SetCookie(w, &http.Cookie{
-				Name:     "session",
-				Value:    "",
-				Path:     "/",
-				MaxAge:   -1,
-				HttpOnly: true,
-				Secure:   true,
-				SameSite: http.SameSiteLaxMode,
-			})
+			clearSessionCookie(w)
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
