@@ -19,6 +19,8 @@ type User struct {
 	Email          string
 	Role           string
 	SessionVersion int
+	Language       string
+	Currency       string
 }
 
 // RequireAuth vérifie que l'utilisateur est authentifié
@@ -68,12 +70,14 @@ func RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		// Ajouter l'utilisateur au contexte
+		// Ajouter l'utilisateur au contexte (avec préférences depuis DB)
 		user := &User{
 			ID:             claims.UserID,
 			Email:          claims.Email,
 			Role:           claims.Role,
 			SessionVersion: claims.SessionVersion,
+			Language:       dbUser.Language,
+			Currency:       dbUser.Currency,
 		}
 		ctx := context.WithValue(r.Context(), UserContextKey, user)
 		next.ServeHTTP(w, r.WithContext(ctx))

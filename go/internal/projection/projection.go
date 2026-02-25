@@ -27,7 +27,7 @@ type DashboardData struct {
 }
 
 // Calculate calcule les projections sur N annees avec simulation mois par mois
-func Calculate(accounts []db.Account, years int) DashboardData {
+func Calculate(accounts []db.Account, years int, lang string) DashboardData {
 	var totalBalance float64
 
 	// Calculer le solde total actuel
@@ -54,6 +54,9 @@ func Calculate(accounts []db.Account, years int) DashboardData {
 	totalMonths := years * 12
 	var projection []YearData
 
+	// Closure pour nommer les mois selon la langue
+	monthLabel := func(m int) string { return formatMonthName(m, lang) }
+
 	// Fonction pour creer un YearData a partir des soldes actuels
 	createYearData := func(index int, name string) YearData {
 		yearData := YearData{
@@ -76,7 +79,7 @@ func Calculate(accounts []db.Account, years int) DashboardData {
 
 	// Point de depart (mois 0)
 	if useMonths {
-		projection = append(projection, createYearData(0, formatMonthName(0)))
+		projection = append(projection, createYearData(0, monthLabel(0)))
 	} else {
 		projection = append(projection, createYearData(0, formatYearName(0)))
 	}
@@ -123,7 +126,7 @@ func Calculate(accounts []db.Account, years int) DashboardData {
 
 		// Enregistrer le point de donnees selon le mode d'affichage
 		if useMonths {
-			projection = append(projection, createYearData(m, formatMonthName(m)))
+			projection = append(projection, createYearData(m, monthLabel(m)))
 		} else if m%12 == 0 {
 			yearIndex := m / 12
 			projection = append(projection, createYearData(yearIndex, formatYearName(yearIndex)))
@@ -261,7 +264,8 @@ func CalculateMonthlySummary(recurrings []db.RecurringOperation, accounts []db.A
 	return summary
 }
 
-var monthNames = []string{"Jan", "Fev", "Mar", "Avr", "Mai", "Jun", "Jul", "Aou", "Sep", "Oct", "Nov", "Dec"}
+var monthNamesFR = []string{"Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"}
+var monthNamesEN = []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}
 
 func formatYearName(year int) string {
 	currentYear := time.Now().Year()
@@ -271,10 +275,14 @@ func formatYearName(year int) string {
 	return fmt.Sprintf("%d", currentYear+year)
 }
 
-func formatMonthName(monthsFromNow int) string {
+func formatMonthName(monthsFromNow int, lang string) string {
 	now := time.Now()
 	targetDate := now.AddDate(0, monthsFromNow, 0)
 	month := int(targetDate.Month()) - 1
 	year := targetDate.Year()
-	return fmt.Sprintf("%s %d", monthNames[month], year)
+	names := monthNamesFR
+	if lang == "en" {
+		names = monthNamesEN
+	}
+	return fmt.Sprintf("%s %d", names[month], year)
 }

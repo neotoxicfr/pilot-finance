@@ -28,6 +28,8 @@ type User struct {
 	FailedLoginAttempts int        `json:"-"`
 	LockUntil           *time.Time `json:"-"`
 	SessionVersion      int        `json:"session_version"`
+	Language            string     `json:"language"`
+	Currency            string     `json:"currency"`
 }
 
 // Account représente un compte bancaire/épargne

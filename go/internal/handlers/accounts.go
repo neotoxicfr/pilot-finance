@@ -8,6 +8,7 @@ import (
 
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
+	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/projection"
 	"pilot-finance/internal/templates"
@@ -116,7 +117,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Retourner la liste mise a jour en HTML
-	renderAccountsList(w, user.ID)
+	renderAccountsList(w, user)
 }
 
 // UpdateAccount met a jour un compte
@@ -186,7 +187,7 @@ func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Retourner la liste mise a jour en HTML
-	renderAccountsList(w, user.ID)
+	renderAccountsList(w, user)
 }
 
 // UpdateBalance met a jour le solde d'un compte
@@ -278,7 +279,7 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	// Verifier les limites
 	if targetIdx < 0 || targetIdx >= len(accounts) {
 		// Pas de changement, retourner la liste actuelle
-		renderAccountsList(w, user.ID)
+		renderAccountsList(w, user)
 		return
 	}
 
@@ -290,13 +291,24 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Retourner la liste mise a jour
-	renderAccountsList(w, user.ID)
+	renderAccountsList(w, user)
 }
 
 // renderAccountsList rend la liste des comptes en HTML avec OOB updates
-func renderAccountsList(w http.ResponseWriter, userID int64) {
-	accounts, _ := db.GetAccountsByUserID(userID)
-	recurrings, _ := db.GetRecurringByUserID(userID)
+func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
+	currency := "EUR"
+	lang := "fr"
+	if user != nil {
+		if user.Currency != "" {
+			currency = user.Currency
+		}
+		if user.Language != "" {
+			lang = user.Language
+		}
+	}
+
+	accounts, _ := db.GetAccountsByUserID(user.ID)
+	recurrings, _ := db.GetRecurringByUserID(user.ID)
 
 	// Dechiffrer les noms et creer le map
 	accountMap := make(map[int64]string)
@@ -323,12 +335,14 @@ func renderAccountsList(w http.ResponseWriter, userID int64) {
 		}
 	}
 
+	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
+
 	// Preparer les donnees des recurrents
 	recurringData := make([]map[string]interface{}, 0, len(recurrings)+len(yieldPayouts))
 	for _, payout := range yieldPayouts {
 		recurringData = append(recurringData, map[string]interface{}{
 			"ID":            int64(0),
-			"Description":   "Interets " + payout.SourceAccountName,
+			"Description":   interestPrefix + " " + payout.SourceAccountName,
 			"Amount":        payout.Amount,
 			"DayOfMonth":    1,
 			"AccountID":     payout.SourceAccountID,
@@ -376,6 +390,7 @@ func renderAccountsList(w http.ResponseWriter, userID int64) {
 		"MonthlyIncome":   monthlyIncome,
 		"MonthlyExpenses": monthlyExpenses,
 		"MonthlyNet":      monthlyIncome - monthlyExpenses,
+		"Currency":        currency,
 	})
 	w.Write([]byte(`</div>`))
 
@@ -383,6 +398,7 @@ func renderAccountsList(w http.ResponseWriter, userID int64) {
 	w.Write([]byte(`<div id="recurring-list" hx-swap-oob="innerHTML">`))
 	templates.RenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{
 		"Recurrings": recurringData,
+		"Currency":   currency,
 	})
 	w.Write([]byte(`</div>`))
 }
