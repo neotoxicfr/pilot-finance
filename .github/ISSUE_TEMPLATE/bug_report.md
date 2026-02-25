@@ -1,24 +1,26 @@
 ---
-name: Rapport de bug
-about: Créer un rapport pour nous aider à améliorer l'application
+name: Bug report / Rapport de bug
+about: Help us improve the application / Nous aider à améliorer l'application
 title: '[BUG] '
 labels: bug
 assignees: ''
 ---
 
-**Description du bug**
-Une description claire et concise du problème.
+**Description**
+A clear and concise description of the issue.
+_Une description claire et concise du problème._
 
-**Pour reproduire**
-1. Allez sur '...'
-2. Cliquez sur '....'
-3. Faites défiler jusqu'à '....'
-4. Voir l'erreur.
+**Steps to reproduce / Pour reproduire**
+1. Go to '...'
+2. Click on '...'
+3. Scroll to '...'
+4. See error / Voir l'erreur
 
-**Comportement attendu**
-Une description claire de ce qui devrait se passer.
+**Expected behavior / Comportement attendu**
+A clear description of what should happen.
+_Une description claire de ce qui devrait se passer._
 
-**Environnement :**
-- Déploiement : Docker sur TrueNAS
-- Navigateur : [ex: Chrome, Safari]
-- Version : [ex: v0.2.2]
+**Environment / Environnement**
+- Deployment / Déploiement : Docker
+- Browser / Navigateur : [e.g. Chrome, Safari, Firefox]
+- Version : [e.g. v2.1.0]
