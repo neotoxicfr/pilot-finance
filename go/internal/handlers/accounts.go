@@ -83,6 +83,18 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		reinvestmentRate, _ = strconv.Atoi(reinvestmentRateStr)
 	}
 
+	// Validation des taux pour le type RANGE
+	if isYieldActive && yieldType == "RANGE" {
+		if yieldMin < 0 || yieldMax < 0 {
+			http.Error(w, "Les taux de rendement ne peuvent pas être négatifs", http.StatusBadRequest)
+			return
+		}
+		if yieldMin > yieldMax {
+			http.Error(w, "Le taux minimum doit être inférieur ou égal au taux maximum", http.StatusBadRequest)
+			return
+		}
+	}
+
 	// Parser le compte cible pour les interets non reinvestis
 	var targetAccountID *int64
 	if targetAccountIDStr != "" && targetAccountIDStr != "0" {
@@ -296,31 +308,17 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 
 // renderAccountsList rend la liste des comptes en HTML avec OOB updates
 func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
-	currency := "EUR"
-	lang := "fr"
-	if user != nil {
-		if user.Currency != "" {
-			currency = user.Currency
-		}
-		if user.Language != "" {
-			lang = user.Language
-		}
-	}
+	lang, currency := userLocale(user)
 
 	accounts, _ := db.GetAccountsByUserID(user.ID)
 	recurrings, _ := db.GetRecurringByUserID(user.ID)
 
-	// Dechiffrer les noms et creer le map
-	accountMap := make(map[int64]string)
-	for i := range accounts {
-		if decrypted, err := crypto.Decrypt(accounts[i].Name); err == nil {
-			accounts[i].Name = decrypted
-		}
-		accountMap[accounts[i].ID] = accounts[i].Name
-	}
+	decryptAccountNames(accounts)
+	accountMap := buildAccountMap(accounts)
 
 	// Calculer les yield payouts
 	yieldPayouts := projection.CalculateYieldPayouts(accounts, accountMap)
+	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
 
 	// Calculer les totaux mensuels
 	var monthlyIncome, monthlyExpenses float64
@@ -335,47 +333,7 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 		}
 	}
 
-	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
-
-	// Preparer les donnees des recurrents
-	recurringData := make([]map[string]interface{}, 0, len(recurrings)+len(yieldPayouts))
-	for _, payout := range yieldPayouts {
-		recurringData = append(recurringData, map[string]interface{}{
-			"ID":            int64(0),
-			"Description":   interestPrefix + " " + payout.SourceAccountName,
-			"Amount":        payout.Amount,
-			"DayOfMonth":    1,
-			"AccountID":     payout.SourceAccountID,
-			"AccountName":   payout.SourceAccountName,
-			"ToAccountID":   payout.TargetAccountID,
-			"ToAccountName": payout.TargetAccountName,
-			"IsActive":      true,
-			"IsYieldPayout": true,
-			"YieldRate":     payout.Rate,
-		})
-	}
-	for _, rec := range recurrings {
-		description := rec.Description
-		if decrypted, err := crypto.Decrypt(rec.Description); err == nil {
-			description = decrypted
-		}
-		toAccountName := ""
-		if rec.ToAccountID != nil {
-			toAccountName = accountMap[*rec.ToAccountID]
-		}
-		recurringData = append(recurringData, map[string]interface{}{
-			"ID":            rec.ID,
-			"Description":   description,
-			"Amount":        rec.Amount,
-			"DayOfMonth":    rec.DayOfMonth,
-			"AccountID":     rec.AccountID,
-			"AccountName":   accountMap[rec.AccountID],
-			"ToAccountID":   rec.ToAccountID,
-			"ToAccountName": toAccountName,
-			"IsActive":      rec.IsActive,
-			"IsYieldPayout": false,
-		})
-	}
+	recurringData := buildRecurringData(yieldPayouts, recurrings, accountMap, interestPrefix)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
