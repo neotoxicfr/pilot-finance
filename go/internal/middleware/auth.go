@@ -53,28 +53,28 @@ func RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		// Vérifier que la version de session correspond
-		dbUser, err := db.GetUserByID(claims.UserID)
-		if err != nil || dbUser == nil {
+		// Vérifier que la version de session (requête allégée : 1 colonne)
+		sv, err := db.GetSessionVersion(claims.UserID)
+		if err != nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
 
-		if dbUser.SessionVersion != claims.SessionVersion {
-			// Session invalidée (changement de mot de passe)
+		if sv != claims.SessionVersion {
+			// Session invalidée (changement de mot de passe) ou utilisateur introuvable (sv==0)
 			clearSessionCookie(w)
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
 
-		// Ajouter l'utilisateur au contexte (avec préférences depuis DB)
+		// Language/Currency lus depuis les claims JWT (mis à jour à la connexion et après UpdatePreferences)
 		user := &User{
 			ID:             claims.UserID,
 			Email:          claims.Email,
 			Role:           claims.Role,
 			SessionVersion: claims.SessionVersion,
-			Language:       dbUser.Language,
-			Currency:       dbUser.Currency,
+			Language:       claims.Language,
+			Currency:       claims.Currency,
 		}
 		ctx := context.WithValue(r.Context(), UserContextKey, user)
 		next.ServeHTTP(w, r.WithContext(ctx))

@@ -94,33 +94,33 @@
         <div class="flex items-center gap-1.5" :class="password.length >= 8 ? 'text-emerald-500' : 'text-muted-foreground'">
             <svg x-show="password.length >= 8" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
             <svg x-show="password.length < 8" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            <span>8 caracteres min.</span>
+            <span>{{index .T "pwd.min8"}}</span>
         </div>
         <div class="flex items-center gap-1.5" :class="/[A-Z]/.test(password) ? 'text-emerald-500' : 'text-muted-foreground'">
             <svg x-show="/[A-Z]/.test(password)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
             <svg x-show="!/[A-Z]/.test(password)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            <span>1 majuscule</span>
+            <span>{{index .T "pwd.upper"}}</span>
         </div>
         <div class="flex items-center gap-1.5" :class="/[a-z]/.test(password) ? 'text-emerald-500' : 'text-muted-foreground'">
             <svg x-show="/[a-z]/.test(password)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
             <svg x-show="!/[a-z]/.test(password)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            <span>1 minuscule</span>
+            <span>{{index .T "pwd.lower"}}</span>
         </div>
         <div class="flex items-center gap-1.5" :class="/[0-9]/.test(password) ? 'text-emerald-500' : 'text-muted-foreground'">
             <svg x-show="/[0-9]/.test(password)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
             <svg x-show="!/[0-9]/.test(password)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            <span>1 chiffre</span>
+            <span>{{index .T "pwd.digit"}}</span>
         </div>
         <div class="flex items-center gap-1.5 col-span-2" :class="/[!@#$%^&amp;*(),.?:{}|&lt;&gt;]/.test(password) ? 'text-emerald-500' : 'text-muted-foreground'">
             <svg x-show="/[!@#$%^&amp;*(),.?:{}|&lt;&gt;]/.test(password)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
             <svg x-show="!/[!@#$%^&amp;*(),.?:{}|&lt;&gt;]/.test(password)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            <span>1 caractere special (!@#$...)</span>
+            <span>{{index .T "pwd.special"}}</span>
         </div>
     </div>
     <div x-show="confirm.length > 0" class="flex items-center gap-1.5 text-xs font-medium" :class="password === confirm ? 'text-emerald-500' : 'text-red-500'">
         <svg x-show="password === confirm" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
         <svg x-show="password !== confirm" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
-        <span x-text="password === confirm ? 'Mots de passe identiques' : 'Mots de passe differents'"></span>
+        <span x-text="password === confirm ? '{{index .T "pwd.match"}}' : '{{index .T "pwd.diff"}}'"></span>
     </div>
 </div>
 {{end}}
