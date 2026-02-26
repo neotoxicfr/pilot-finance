@@ -51,7 +51,7 @@
                         <div>
                             <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.mfa_code_label"}}</label>
                             <input type="text" inputmode="numeric" maxlength="6" x-model="mfaCode"
-                                   class="w-full bg-accent/50 border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 text-center text-xl tracking-[0.5em] font-mono transition-colors"
+                                   class="w-full bg-accent/50 border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 text-center text-xl tracking-[0.5em] font-mono transition-colors"
                                    placeholder="000000">
                         </div>
                         <template x-if="mfaError">
@@ -155,17 +155,17 @@
                     <div>
                         <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.current_password"}}</label>
                         <input name="currentPassword" type="password" required
-                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 transition-colors">
+                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                     </div>
                     <div>
                         <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.new_password"}}</label>
                         <input name="newPassword" type="password" required minlength="8" x-model="password"
-                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 transition-colors">
+                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                     </div>
                     <div>
                         <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.confirm_password"}}</label>
                         <input name="confirmPassword" type="password" required x-model="confirm"
-                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 transition-colors">
+                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                     </div>
 
                     {{template "password-feedback"}}
@@ -196,7 +196,7 @@
                     <div>
                         <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.language_label"}}</label>
                         <select name="language"
-                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 transition-colors">
+                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                             <option value="fr" {{if eq .Lang "fr"}}selected{{end}}>Français</option>
                             <option value="en" {{if eq .Lang "en"}}selected{{end}}>English</option>
                         </select>
@@ -204,7 +204,7 @@
                     <div>
                         <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.currency_label"}}</label>
                         <select name="currency"
-                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none focus:border-blue-500 transition-colors">
+                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                             <option value="EUR" {{if eq .Currency "EUR"}}selected{{end}}>EUR — Euro (€)</option>
                             <option value="USD" {{if eq .Currency "USD"}}selected{{end}}>USD — Dollar ($)</option>
                             <option value="GBP" {{if eq .Currency "GBP"}}selected{{end}}>GBP — Pound (£)</option>
