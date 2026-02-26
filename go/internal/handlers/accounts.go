@@ -105,6 +105,11 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	payoutFrequency := r.FormValue("payoutFrequency")
+	if payoutFrequency != "YEARLY" {
+		payoutFrequency = "MONTHLY"
+	}
+
 	// Si un ID est fourni, c'est une mise a jour
 	if idStr != "" {
 		id, err := strconv.ParseInt(idStr, 10, 64)
@@ -112,7 +117,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "ID invalide", http.StatusBadRequest)
 			return
 		}
-		err = db.UpdateAccountWithYield(id, user.ID, encryptedName, balance, color, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID)
+		err = db.UpdateAccountWithYield(id, user.ID, encryptedName, balance, color, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
 		if err != nil {
 			http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
 			return
@@ -122,7 +127,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		accounts, _ := db.GetAccountsByUserID(user.ID)
 		position := len(accounts)
 
-		err := db.CreateAccountWithYield(user.ID, encryptedName, balance, color, position, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID)
+		err := db.CreateAccountWithYield(user.ID, encryptedName, balance, color, position, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
 		if err != nil {
 			http.Error(w, "Erreur creation", http.StatusInternalServerError)
 			return
@@ -345,11 +350,15 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 	yieldPayouts := projection.CalculateYieldPayouts(accounts, accountMap)
 	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
 
-	// Calculer les totaux mensuels
-	var monthlyIncome, monthlyExpenses, monthlyYield float64
+	// Calculer les totaux : séparer versements mensuels et annuels
+	var monthlyIncome, monthlyExpenses, monthlyYield, annualYield float64
 	for _, payout := range yieldPayouts {
-		monthlyIncome += payout.Amount
-		monthlyYield += payout.Amount
+		if payout.PayoutFrequency == "YEARLY" {
+			annualYield += payout.Amount
+		} else {
+			monthlyIncome += payout.Amount
+			monthlyYield += payout.Amount
+		}
 	}
 	for _, rec := range recurrings {
 		if rec.ToAccountID != nil {
@@ -384,6 +393,7 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 		"MonthlyExpenses": monthlyExpenses,
 		"MonthlyNet":      monthlyIncome - monthlyExpenses,
 		"MonthlyYield":    monthlyYield,
+		"AnnualYield":     annualYield,
 		"Currency":        currency,
 	})
 	w.Write([]byte(`</div>`))

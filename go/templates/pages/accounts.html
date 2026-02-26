@@ -118,21 +118,36 @@
                                     </div>
                                 </div>
 
-                                <div x-show="reinvestmentRate < 100" x-cloak>
-                                    <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">
-                                        {{index .T "accounts.target_account"}}
-                                    </label>
-                                    <select name="targetAccountId"
-                                            x-model="targetAccountId"
-                                            class="w-full bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-emerald-500">
-                                        <option value="">{{index .T "accounts.no_target"}}</option>
-                                        {{range .Accounts}}
-                                        <option value="{{.ID}}">{{.Name}}</option>
-                                        {{end}}
-                                    </select>
-                                    <p class="text-[10px] text-muted-foreground mt-1">
-                                        {{index .T "accounts.interest_help"}}
-                                    </p>
+                                <div x-show="reinvestmentRate < 100" x-cloak class="space-y-3">
+                                    <div>
+                                        <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">
+                                            {{index .T "accounts.target_account"}}
+                                        </label>
+                                        <select name="targetAccountId"
+                                                x-model="targetAccountId"
+                                                class="w-full bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-emerald-500">
+                                            <option value="">{{index .T "accounts.no_target"}}</option>
+                                            {{range .Accounts}}
+                                            <option value="{{.ID}}">{{.Name}}</option>
+                                            {{end}}
+                                        </select>
+                                        <p class="text-[10px] text-muted-foreground mt-1">
+                                            {{index .T "accounts.interest_help"}}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.payout_frequency"}}</label>
+                                        <div class="flex gap-4">
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input type="radio" name="payoutFrequency" value="MONTHLY" x-model="payoutFrequency" class="accent-emerald-500">
+                                                <span class="text-sm text-foreground">{{index .T "accounts.payout_monthly"}}</span>
+                                            </label>
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input type="radio" name="payoutFrequency" value="YEARLY" x-model="payoutFrequency" class="accent-emerald-500">
+                                                <span class="text-sm text-foreground">{{index .T "accounts.payout_annual"}}</span>
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -250,6 +265,7 @@ function accountsPage() {
         yieldMax: '',
         reinvestmentRate: 100,
         targetAccountId: '',
+        payoutFrequency: 'MONTHLY',
 
         openAccountForm(account) {
             this.editingAccount = account;
@@ -260,6 +276,7 @@ function accountsPage() {
             this.yieldMax = account?.yield_max || '';
             this.reinvestmentRate = account?.reinvestment_rate ?? 100;
             this.targetAccountId = account?.target_account_id ? String(account.target_account_id) : '';
+            this.payoutFrequency = account?.payout_frequency || 'MONTHLY';
             document.getElementById('account-dialog').showModal();
         },
 
@@ -422,7 +439,9 @@ function accountsPage() {
         </div>
         <div class="text-right shrink-0">
             <div class="font-mono font-bold text-sm text-emerald-500 tabular-nums">+{{formatMoney .Amount $.Currency}}</div>
-            <div class="text-[10px] text-muted-foreground italic mt-0.5">{{index $.T "recurring.auto_badge"}}</div>
+            <div class="text-[10px] text-muted-foreground italic mt-0.5">
+                {{if eq .PayoutFrequency "YEARLY"}}{{index $.T "recurring.auto_badge_annual"}}{{else}}{{index $.T "recurring.auto_badge"}}{{end}}
+            </div>
         </div>
         <div class="w-[52px] shrink-0"></div>
     </div>
@@ -513,8 +532,8 @@ function accountsPage() {
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 opacity-90">
             <div class="min-w-0">
                 <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.income"}}</div>
-                <div class="text-base sm:text-xl font-mono font-bold text-emerald-500">+{{formatMoney (mult .MonthlyIncome 12) $.Currency}}</div>
-                {{if gt .MonthlyYield 0.0}}<div class="text-[10px] text-emerald-400/80 mt-0.5 font-medium">{{index $.T "summary.yield_auto"}} +{{formatMoney (mult .MonthlyYield 12) $.Currency}}</div>{{end}}
+                <div class="text-base sm:text-xl font-mono font-bold text-emerald-500">+{{formatMoney (add (mult .MonthlyIncome 12) .AnnualYield) $.Currency}}</div>
+                {{if gt (add .MonthlyYield .AnnualYield) 0.0}}<div class="text-[10px] text-emerald-400/80 mt-0.5 font-medium">{{index $.T "summary.yield_auto"}} +{{formatMoney (add (mult .MonthlyYield 12) .AnnualYield) $.Currency}}</div>{{end}}
             </div>
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
                 <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.expenses"}}</div>
@@ -523,7 +542,7 @@ function accountsPage() {
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
                 <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.balance"}}</div>
                 <div class="text-base sm:text-xl font-mono font-bold {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
-                    {{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney (mult .MonthlyNet 12) $.Currency}}
+                    {{if gt (add (mult .MonthlyNet 12) .AnnualYield) 0.0}}+{{end}}{{formatMoney (add (mult .MonthlyNet 12) .AnnualYield) $.Currency}}
                 </div>
             </div>
         </div>

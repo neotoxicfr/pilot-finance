@@ -59,17 +59,18 @@ func buildRecurringData(payouts []projection.YieldPayout, recs []db.RecurringOpe
 	result := make([]map[string]interface{}, 0, len(recs)+len(payouts))
 	for _, payout := range payouts {
 		result = append(result, map[string]interface{}{
-			"ID":            int64(0),
-			"Description":   interestPrefix + " " + payout.SourceAccountName,
-			"Amount":        payout.Amount,
-			"DayOfMonth":    1,
-			"AccountID":     payout.SourceAccountID,
-			"AccountName":   payout.SourceAccountName,
-			"ToAccountID":   payout.TargetAccountID,
-			"ToAccountName": payout.TargetAccountName,
-			"IsActive":      true,
-			"IsYieldPayout": true,
-			"YieldRate":     payout.Rate,
+			"ID":              int64(0),
+			"Description":     interestPrefix + " " + payout.SourceAccountName,
+			"Amount":          payout.Amount,
+			"DayOfMonth":      1,
+			"AccountID":       payout.SourceAccountID,
+			"AccountName":     payout.SourceAccountName,
+			"ToAccountID":     payout.TargetAccountID,
+			"ToAccountName":   payout.TargetAccountName,
+			"IsActive":        true,
+			"IsYieldPayout":   true,
+			"YieldRate":       payout.Rate,
+			"PayoutFrequency": payout.PayoutFrequency,
 		})
 	}
 	for _, rec := range recs {

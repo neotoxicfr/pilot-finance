@@ -37,11 +37,11 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 
 	decryptAccountNames(accounts)
 
-	// Calculer les projections
-	data := projection.Calculate(accounts, years, user.Language)
-
-	// Recuperer les operations recurrentes pour le resume mensuel
+	// Recuperer les operations recurrentes pour la projection et le resume mensuel
 	recurrings, _ := db.GetRecurringByUserID(user.ID)
+
+	// Calculer les projections
+	data := projection.Calculate(accounts, recurrings, years, user.Language)
 	summary := projection.CalculateMonthlySummary(recurrings, accounts)
 
 	// Preparer les donnees pour les graphiques
@@ -117,8 +117,9 @@ func DashboardPartial(w http.ResponseWriter, r *http.Request) {
 	}
 
 	decryptAccountNames(accounts)
+	recurrings, _ := db.GetRecurringByUserID(user.ID)
 
-	data := projection.Calculate(accounts, years, user.Language)
+	data := projection.Calculate(accounts, recurrings, years, user.Language)
 
 	pieData := make([]map[string]interface{}, 0)
 	for _, acc := range accounts {
