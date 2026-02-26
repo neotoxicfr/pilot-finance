@@ -35,7 +35,7 @@
     * **API Health Check** — endpoint de monitoring de la base de données et de la mémoire
 * 📧 **Email** (optionnel) — Vérification du compte à l'inscription et récupération de mot de passe.
 * 📱 **Responsive** — Expérience fluide sur tous les supports. Glisser-déposer sur desktop, boutons de déplacement sur mobile. Compatible PWA.
-* ⚡ **Léger** — Image Docker ~15 Mo, ~30 Mo de RAM, démarrage <1s. JS chargé par page (pas de bundle global). Zéro requête CDN.
+* ⚡ **Léger** — Image Docker ~40 Mo, ~30 Mo de RAM, démarrage <1s. JS chargé par page (pas de bundle global). Zéro requête CDN.
 
 ---
 
