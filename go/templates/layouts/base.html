@@ -91,6 +91,7 @@
     <script nonce="{{.Nonce}}" defer src="/static/js/chart.umd.min.js"></script>
     <script nonce="{{.Nonce}}" defer src="/static/js/alpine.min.js"></script>
     <script nonce="{{.Nonce}}" src="/static/js/passkey.js"></script>
+    <script nonce="{{.Nonce}}" defer src="/static/js/sortable.min.js"></script>
 </head>
 <body class="font-sans antialiased min-h-screen flex flex-col bg-background text-foreground" x-data="themeData()" x-init="init()">
     {{if .User}}
@@ -155,8 +156,31 @@
 <script nonce="{{.Nonce}}">
 document.body.addEventListener('htmx:beforeSwap', e => { if (e.detail.xhr.status === 401) location.href = '/login'; });
 document.body.addEventListener('htmx:afterRequest', e => {
+    if (e.detail.successful) {
+        const t = e.detail.target?.id;
+        if (t === 'accounts-list') document.getElementById('account-dialog')?.close();
+        else if (t === 'recurring-list') document.getElementById('recurring-dialog')?.close();
+    }
     if (e.detail.successful && e.detail.elt.closest('[data-toast]') != null) {
         window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: '{{index .T "common.saved"}}' } }));
+    }
+});
+
+// HTMX loading fade on list targets
+document.body.addEventListener('htmx:beforeRequest', e => {
+    const t = e.detail.target;
+    if (t?.id === 'accounts-list' || t?.id === 'recurring-list') {
+        t.style.opacity = '0.45';
+        t.style.transition = 'opacity .15s';
+        t.style.pointerEvents = 'none';
+    }
+});
+document.body.addEventListener('htmx:afterSettle', e => {
+    const t = e.detail.target;
+    if (t?.id === 'accounts-list' || t?.id === 'recurring-list') {
+        t.style.opacity = '';
+        t.style.transition = '';
+        t.style.pointerEvents = '';
     }
 });
 

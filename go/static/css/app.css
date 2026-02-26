@@ -216,3 +216,43 @@ textarea:focus {
     animation: fade-in 0.3s ease-out;
 }
 
+/* Dialog / Modal */
+dialog {
+    padding: 0;
+    border: none;
+    background: transparent;
+    max-width: calc(100vw - 2rem);
+}
+dialog::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+dialog[open] {
+    animation: dialogIn 0.2s ease-out;
+}
+@keyframes dialogIn {
+    from { opacity: 0; transform: scale(0.97); }
+    to   { opacity: 1; transform: scale(1); }
+}
+@media (max-width: 640px) {
+    dialog {
+        position: fixed;
+        bottom: 0;
+        top: auto !important;
+        left: 0;
+        right: 0;
+        max-width: 100%;
+        width: 100%;
+        margin: 0;
+        overflow-y: auto;
+    }
+    dialog[open] {
+        animation: dialogSlideUp 0.25s ease-out;
+    }
+    @keyframes dialogSlideUp {
+        from { transform: translateY(40px); opacity: 0; }
+        to   { transform: translateY(0); opacity: 1; }
+    }
+}
+

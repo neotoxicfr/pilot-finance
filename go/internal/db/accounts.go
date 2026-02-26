@@ -89,6 +89,24 @@ func SwapAccountPositions(id1, id2, userID int64) error {
 	return tx.Commit()
 }
 
+// ReorderAccounts met a jour la position de chaque compte selon l'ordre fourni
+func ReorderAccounts(userID int64, ids []int64) error {
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for pos, id := range ids {
+		if _, err := tx.Exec(
+			"UPDATE accounts SET position = ? WHERE id = ? AND user_id = ?",
+			pos, id, userID,
+		); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 // CreateRecurring cree une operation recurrente
 func CreateRecurring(userID, accountID int64, toAccountID *int64, description string, amount float64, dayOfMonth int) error {
 	_, err := DB.Exec(`
