@@ -239,6 +239,7 @@ const createDS = (data, acc) => {
 
 // Chart projection
 window.initProjectionChart = (data, acc) => {
+    window._projData = data; window._projAcc = acc;
     const ctx = document.getElementById('projectionCanvas');
     if (!ctx || typeof Chart === 'undefined') return;
     window.projectionChart?.destroy();
@@ -309,7 +310,11 @@ window.initPieChart = (accounts, animated = true) => {
     let last = document.documentElement.classList.contains('dark');
     new MutationObserver(() => {
         const cur = document.documentElement.classList.contains('dark');
-        if (cur !== last) { last = cur; window.pieChartData?.length && window.initPieChart(window.pieChartData, false); }
+        if (cur !== last) {
+            last = cur;
+            window.pieChartData?.length && window.initPieChart(window.pieChartData, false);
+            window._projData?.length && window.initProjectionChart(window._projData, window._projAcc);
+        }
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 })();
 </script>
