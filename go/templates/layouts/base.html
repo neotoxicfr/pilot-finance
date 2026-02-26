@@ -167,7 +167,7 @@ window.updateProjectionChart = (data, acc) => {
 };
 
 // Chart camembert
-window.initPieChart = accounts => {
+window.initPieChart = (accounts, animated = true) => {
     const ctx = document.getElementById('pieCanvas');
     if (!ctx || typeof Chart === 'undefined') return;
     window.pieChart?.destroy();
@@ -177,7 +177,7 @@ window.initPieChart = accounts => {
         type: 'doughnut',
         data: { labels: accounts.map(a => a.name), datasets: [{ data: accounts.map(a => a.value), backgroundColor: accounts.map(a => a.color), borderColor: bg, borderWidth: 2, hoverOffset: 0, hoverBorderColor: bg, hoverBorderWidth: 2 }] },
         options: {
-            responsive: true, maintainAspectRatio: true, cutout: '65%', animation: { duration: 400, easing: 'easeOutQuart' },
+            responsive: true, maintainAspectRatio: true, cutout: '65%', animation: animated ? { duration: 400, easing: 'easeOutQuart' } : false,
             plugins: { legend: { display: false }, tooltip: { enabled: false, external: ctx => {
                 let t = document.getElementById('pie-tooltip');
                 if (!t) { t = document.createElement('div'); t.id = 'pie-tooltip'; t.style.cssText = 'position:fixed;pointer-events:none;padding:8px 12px;border-radius:8px;font-size:13px;z-index:9999;transition:opacity .15s'; document.body.appendChild(t); }
@@ -199,7 +199,7 @@ window.initPieChart = accounts => {
     let last = document.documentElement.classList.contains('dark');
     new MutationObserver(() => {
         const cur = document.documentElement.classList.contains('dark');
-        if (cur !== last) { last = cur; window.pieChartData?.length && window.initPieChart(window.pieChartData); }
+        if (cur !== last) { last = cur; window.pieChartData?.length && window.initPieChart(window.pieChartData, false); }
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 })();
 </script>
