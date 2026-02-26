@@ -466,6 +466,7 @@ function accountsPage() {
             <div class="min-w-0">
                 <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.income"}}</div>
                 <div class="text-lg sm:text-2xl font-mono font-bold text-emerald-500">+{{formatMoney .MonthlyIncome $.Currency}}</div>
+                {{if gt .MonthlyYield 0.0}}<div class="text-[10px] text-emerald-400/80 mt-0.5 font-medium">{{index $.T "summary.yield_auto"}} +{{formatMoney .MonthlyYield $.Currency}}</div>{{end}}
             </div>
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
                 <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.expenses"}}</div>
@@ -488,6 +489,7 @@ function accountsPage() {
             <div class="min-w-0">
                 <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.income"}}</div>
                 <div class="text-base sm:text-xl font-mono font-bold text-emerald-500">+{{formatMoney (mult .MonthlyIncome 12) $.Currency}}</div>
+                {{if gt .MonthlyYield 0.0}}<div class="text-[10px] text-emerald-400/80 mt-0.5 font-medium">{{index $.T "summary.yield_auto"}} +{{formatMoney (mult .MonthlyYield 12) $.Currency}}</div>{{end}}
             </div>
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
                 <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.expenses"}}</div>

@@ -57,6 +57,7 @@
   "summary.income": "Entrées",
   "summary.expenses": "Sorties",
   "summary.balance": "Reste",
+  "summary.yield_auto": "dont rendements",
 
   "login.tagline": "Votre cockpit financier personnel",
   "login.passkey_btn": "Se connecter avec Passkey",

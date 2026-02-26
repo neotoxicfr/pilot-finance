@@ -162,11 +162,15 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
 
 	// Calculer les totaux mensuels
-	var monthlyIncome, monthlyExpenses float64
+	var monthlyIncome, monthlyExpenses, monthlyYield float64
 	for _, payout := range yieldPayouts {
 		monthlyIncome += payout.Amount
+		monthlyYield += payout.Amount
 	}
 	for _, rec := range recurrings {
+		if rec.ToAccountID != nil {
+			continue // Virement interne : ne compte pas dans entrées/sorties
+		}
 		if rec.Amount > 0 {
 			monthlyIncome += rec.Amount
 		} else {
@@ -184,6 +188,7 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	data["MonthlyIncome"] = monthlyIncome
 	data["MonthlyExpenses"] = monthlyExpenses
 	data["MonthlyNet"] = monthlyIncome - monthlyExpenses
+	data["MonthlyYield"] = monthlyYield
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := templates.Render(w, "accounts.html", data); err != nil {
