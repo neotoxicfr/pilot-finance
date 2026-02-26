@@ -151,5 +151,7 @@
   "pwd.diff": "Passwords differ",
 
   "accounts.empty_title": "No accounts yet",
-  "accounts.empty_subtitle": "Create your first account to get started"
+  "accounts.empty_subtitle": "Create your first account to get started",
+
+  "common.saved": "Saved"
 }
