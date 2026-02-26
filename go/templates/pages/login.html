@@ -21,7 +21,8 @@ function loginPage() {
         init() {
             this.requires2FA = this.$el.dataset.requires2fa === 'true';
         },
-        loginWithPasskey() { window.loginWithPasskey(); }
+        loginWithPasskey() { window.loginWithPasskey(); },
+        toggleRegister() { this.isRegister = !this.isRegister; this.error = ''; }
     };
 }
 document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginPage); });
@@ -145,7 +146,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
         {{if .CanRegister}}
         <template x-if="!requires2FA">
             <div class="mt-6 pt-6 border-t border-border text-center">
-                <button type="button" @click="isRegister = !isRegister; error = ''"
+                <button type="button" @click="toggleRegister()"
                         class="text-xs text-muted-foreground hover:text-foreground transition-colors font-medium">
                     <span x-show="isRegister">{{index .T "login.has_account"}}</span>
                     <span x-show="!isRegister">{{index .T "login.no_account"}}</span>
