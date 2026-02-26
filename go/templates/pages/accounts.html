@@ -208,9 +208,11 @@
                                     <option value="{{.ID}}">{{.Name}}</option>
                                     {{end}}
                                 </select>
+                            </div>
+                            <div x-show="opType === 'transfer'" x-cloak class="flex gap-3 items-center">
+                                <span class="w-28 shrink-0 text-xs text-muted-foreground text-right">→</span>
                                 <select name="toAccountId"
                                         x-model="toAccountId"
-                                        x-show="opType === 'transfer'" x-cloak
                                         class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
                                     <option value="">{{index .T "recurring.account_placeholder"}}</option>
                                     {{range .Accounts}}
