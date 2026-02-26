@@ -125,7 +125,7 @@ L'application écoute sur le port **3000** à l'intérieur du conteneur.
 | Base de données | SQLite (mode WAL) |
 | Graphiques | Chart.js 4.5 |
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
-| Image Docker | ~15 Mo (base alpine:3.23) |
+| Image Docker | ~40 Mo (base alpine:3.23) |
 
 ---
 
