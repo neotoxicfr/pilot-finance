@@ -398,83 +398,86 @@ function accountsPage() {
 {{end}}
 
 {{define "recurring-table"}}
-<table class="w-full text-sm text-left text-muted-foreground table-fixed">
-    <thead class="text-xs font-bold uppercase bg-background text-muted-foreground sticky top-0 z-20">
-        <tr>
-            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border w-10 md:w-16">{{index $.T "recurring.day_header"}}</th>
-            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border w-auto">{{index $.T "recurring.label_header"}}</th>
-            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border text-right w-32 md:w-40">{{index $.T "recurring.amount_header"}}</th>
-            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border w-20 md:w-24"></th>
-        </tr>
-    </thead>
-    <tbody class="[&_tr:not(:last-child)]:border-b [&_tr]:border-border">
-        {{range .Recurrings}}
-        {{if .IsYieldPayout}}
-        <tr class="bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors">
-            <td class="px-2 md:px-4 py-3 font-mono text-sm text-emerald-500 text-center border-r border-border">
-                {{template "icon-trending-up" dict "Size" 14}}
-            </td>
-            <td class="px-2 md:px-4 py-3">
-                <div class="text-emerald-600 dark:text-emerald-400 font-medium text-sm truncate flex items-center gap-1.5">
-                    {{.Description}}
-                    <span class="text-[10px] text-emerald-500 bg-emerald-500/20 px-1.5 py-0.5 rounded font-bold">{{printf "%.2f" .YieldRate}}%</span>
-                </div>
-                <div class="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
-                    <span class="flex items-center gap-1 text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 truncate">
-                        {{.AccountName}} {{template "icon-arrow-right" dict "Size" 10}} {{.ToAccountName}}
-                    </span>
-                </div>
-            </td>
-            <td class="px-2 md:px-4 py-3 text-right font-mono font-bold text-sm whitespace-nowrap tabular-nums text-emerald-500">
-                +{{formatMoney .Amount $.Currency}}
-            </td>
-            <td class="px-2 py-3 text-right">
-                <span class="text-[10px] text-muted-foreground italic">{{index $.T "recurring.auto_badge"}}</span>
-            </td>
-        </tr>
-        {{else}}
-        <tr class="hover:bg-accent transition-colors">
-            <td class="px-2 md:px-4 py-3 font-mono text-sm text-muted-foreground text-center border-r border-border">{{.DayOfMonth}}</td>
-            <td class="px-2 md:px-4 py-3">
-                <div class="text-foreground font-medium text-sm truncate">{{.Description}}</div>
-                <div class="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
-                    {{if .ToAccountID}}
-                    <span class="flex items-center gap-1 text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 truncate">
-                        {{.AccountName}} {{template "icon-arrow-right" dict "Size" 10}} {{.ToAccountName}}
-                    </span>
-                    {{else}}
-                    <span class="truncate">{{.AccountName}}</span>
-                    {{end}}
-                </div>
-            </td>
-            <td class="px-2 md:px-4 py-3 text-right font-mono font-bold text-sm whitespace-nowrap tabular-nums {{if .ToAccountID}}text-blue-500{{else if gt .Amount 0.0}}text-emerald-500{{else}}text-foreground{{end}}">
-                {{if not .ToAccountID}}{{if gt .Amount 0.0}}+{{end}}{{end}}{{formatMoney .Amount $.Currency}}
-            </td>
-            <td class="px-2 py-3 text-right">
-                <div class="flex items-center justify-end gap-1" x-data="{ del: false }">
-                    <button @click="openRecurringForm({{. | json}})"
-                            class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
-                        {{template "icon-pencil" dict "Size" 18}}
-                    </button>
-                    <button x-show="!del" @click.prevent="del = true"
-                            class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
-                        {{template "icon-trash" dict "Size" 18}}
-                    </button>
-                    <button x-show="del" hx-delete="/recurring/{{.ID}}" hx-target="#recurring-list" hx-swap="innerHTML"
-                            class="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
-                        {{template "icon-check" dict "Size" 16}}
-                    </button>
-                    <button x-show="del" @click.prevent="del = false"
-                            class="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
-                        {{template "icon-x" dict "Size" 16}}
-                    </button>
-                </div>
-            </td>
-        </tr>
-        {{end}}
-        {{end}}
-    </tbody>
-</table>
+{{if .Recurrings}}
+<div class="divide-y divide-border">
+    {{range .Recurrings}}
+    {{if .IsYieldPayout}}
+    <div class="flex items-center gap-3 px-4 py-3 bg-emerald-500/5 hover:bg-emerald-500/8 transition-colors">
+        <div class="w-1 self-stretch rounded-full bg-emerald-500 shrink-0"></div>
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">
+            {{template "icon-trending-up" dict "Size" 14}}
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-medium text-emerald-600 dark:text-emerald-400 truncate">{{.Description}}</span>
+                <span class="text-[10px] font-bold bg-emerald-500/20 text-emerald-500 px-1.5 py-0.5 rounded shrink-0">{{printf "%.2f" .YieldRate}}%</span>
+            </div>
+            <div class="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground truncate">
+                <span class="truncate">{{.AccountName}}</span>
+                {{if .ToAccountName}}
+                <span class="shrink-0">{{template "icon-arrow-right" dict "Size" 9}}</span>
+                <span class="truncate">{{.ToAccountName}}</span>
+                {{end}}
+            </div>
+        </div>
+        <div class="text-right shrink-0">
+            <div class="font-mono font-bold text-sm text-emerald-500 tabular-nums">+{{formatMoney .Amount $.Currency}}</div>
+            <div class="text-[10px] text-muted-foreground italic mt-0.5">{{index $.T "recurring.auto_badge"}}</div>
+        </div>
+        <div class="w-[52px] shrink-0"></div>
+    </div>
+    {{else}}
+    <div class="group flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors" x-data="{ del: false }">
+        <div class="w-1 self-stretch rounded-full shrink-0 {{if .ToAccountID}}bg-blue-500{{else if gt .Amount 0.0}}bg-emerald-500{{else}}bg-red-400{{end}}"></div>
+        <div class="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center text-xs font-mono font-bold {{if .ToAccountID}}bg-blue-500/10 text-blue-500{{else if gt .Amount 0.0}}bg-emerald-500/10 text-emerald-500{{else}}bg-red-500/10 text-red-500{{end}}">
+            {{.DayOfMonth}}
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium text-foreground truncate">{{.Description}}</div>
+            <div class="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground truncate">
+                {{if .ToAccountID}}
+                <span class="text-blue-500 truncate">{{.AccountName}}</span>
+                <span class="shrink-0">{{template "icon-arrow-right" dict "Size" 9}}</span>
+                <span class="text-blue-500 truncate">{{.ToAccountName}}</span>
+                {{else}}
+                <span class="truncate">{{.AccountName}}</span>
+                {{end}}
+            </div>
+        </div>
+        <div class="font-mono font-bold text-sm tabular-nums shrink-0 {{if .ToAccountID}}text-blue-500{{else if gt .Amount 0.0}}text-emerald-500{{else}}text-foreground{{end}}">
+            {{if not .ToAccountID}}{{if gt .Amount 0.0}}+{{end}}{{end}}{{formatMoney .Amount $.Currency}}
+        </div>
+        <div class="flex items-center gap-0.5 shrink-0" x-show="!del">
+            <button @click="openRecurringForm({{. | json}})"
+                    class="p-1.5 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors">
+                {{template "icon-pencil" dict "Size" 15}}
+            </button>
+            <button @click.prevent="del = true"
+                    class="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                {{template "icon-trash" dict "Size" 15}}
+            </button>
+        </div>
+        <div class="flex items-center gap-0.5 shrink-0" x-show="del">
+            <button hx-delete="/recurring/{{.ID}}" hx-target="#recurring-list" hx-swap="innerHTML"
+                    class="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                {{template "icon-check" dict "Size" 15}}
+            </button>
+            <button @click.prevent="del = false"
+                    class="p-1.5 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
+                {{template "icon-x" dict "Size" 15}}
+            </button>
+        </div>
+    </div>
+    {{end}}
+    {{end}}
+</div>
+{{else}}
+<div class="flex flex-col items-center justify-center py-12 text-center">
+    <div class="text-muted-foreground/20 mb-3">{{template "icon-refresh" dict "Size" 40}}</div>
+    <p class="text-sm font-medium text-foreground mb-1">{{index $.T "recurring.empty_title"}}</p>
+    <p class="text-xs text-muted-foreground">{{index $.T "recurring.empty_subtitle"}}</p>
+</div>
+{{end}}
 {{end}}
 
 {{define "summary-card"}}
