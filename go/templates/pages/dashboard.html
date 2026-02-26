@@ -39,7 +39,7 @@
     <!-- Charts Section -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
         <!-- Projection Chart -->
-        <div class="dashboard-card md:col-span-2 bg-background border rounded-2xl p-6">
+        <div class="dashboard-card md:col-span-2 bg-background border rounded-2xl p-6 flex flex-col">
             <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
                 <h3 class="text-lg font-bold text-foreground flex items-center gap-2">
                     {{template "icon-trending-up" dict "Size" 18}} {{index .T "dashboard.trajectory"}}
@@ -56,7 +56,7 @@
                     </div>
                 </div>
             </div>
-            <div class="h-[250px] md:h-[350px] w-full">
+            <div class="flex-1 min-h-[250px] md:min-h-[350px] w-full">
                 <canvas id="projectionCanvas"></canvas>
             </div>
         </div>
@@ -69,9 +69,9 @@
             <div class="flex-1 md:min-h-0 flex items-center justify-center">
                 <div class="relative w-full max-w-xs md:max-w-none md:max-h-full [container-type:inline-size]" style="aspect-ratio: 1;">
                     <canvas id="pieCanvas"></canvas>
-                    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-0.5">
-                        <div class="font-bold font-mono text-foreground [font-size:clamp(1rem,5cqi,1.5rem)]" x-text="formatMoneyCompact(totalBalance)"></div>
-                        <div class="text-muted-foreground uppercase font-bold tracking-wider [font-size:clamp(0.6rem,2.2cqi,0.75rem)]">{{index .T "dashboard.total"}}</div>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <div class="font-bold font-mono text-foreground [font-size:clamp(1.25rem,6cqi,1.75rem)]" x-text="formatMoneyCompact(totalBalance)"></div>
+                        <div class="text-muted-foreground uppercase font-bold tracking-wider [font-size:clamp(0.65rem,2.5cqi,0.75rem)]">{{index .T "dashboard.total"}}</div>
                     </div>
                 </div>
             </div>
