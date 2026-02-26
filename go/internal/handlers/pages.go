@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -92,7 +92,10 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	decryptAccountNames(accounts)
-	recurrings, _ := db.GetRecurringByUserID(user.ID)
+	recurrings, recErr := db.GetRecurringByUserID(user.ID)
+	if recErr != nil {
+		slog.Warn("Dashboard: recurring", "err", recErr, "userID", user.ID)
+	}
 
 	// Calculer les projections avec interets composes et opérations récurrentes
 	years := 5
@@ -152,8 +155,14 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lang, _ := userLocale(user)
-	accounts, _ := db.GetAccountsByUserID(user.ID)
-	recurrings, _ := db.GetRecurringByUserID(user.ID)
+	accounts, accErr := db.GetAccountsByUserID(user.ID)
+	if accErr != nil {
+		slog.Warn("AccountsPage: accounts", "err", accErr, "userID", user.ID)
+	}
+	recurrings, recErr2 := db.GetRecurringByUserID(user.ID)
+	if recErr2 != nil {
+		slog.Warn("AccountsPage: recurring", "err", recErr2, "userID", user.ID)
+	}
 
 	decryptAccountNames(accounts)
 	accountMap := buildAccountMap(accounts)
@@ -242,7 +251,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 		for _, u := range users {
 			uEmail, err := crypto.Decrypt(u.EmailEncrypted)
 			if err != nil {
-				log.Printf("admin: decrypt user %d email: %v", u.ID, err)
+				slog.Warn("admin: decrypt email", "userID", u.ID, "err", err)
 				continue
 			}
 			usersWithEmail = append(usersWithEmail, map[string]interface{}{
