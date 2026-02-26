@@ -34,6 +34,12 @@ func UpdateLoginAttempts(userID int64, attempts int, lockUntil *time.Time) error
 	return err
 }
 
+// UpdatePasswordHash met à jour le hash bcrypt sans invalider les sessions (rehash silencieux)
+func UpdatePasswordHash(userID int64, hashedPassword string) error {
+	_, err := DB.Exec(`UPDATE users SET password = ? WHERE id = ?`, hashedPassword, userID)
+	return err
+}
+
 // UpdatePassword met à jour le mot de passe et invalide les sessions
 func UpdatePassword(userID int64, hashedPassword string) error {
 	_, err := DB.Exec(`
