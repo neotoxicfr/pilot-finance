@@ -151,7 +151,7 @@ func HashToken(token string) string {
 
 // HashPassword génère un hash bcrypt du mot de passe
 func HashPassword(password string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	if err != nil {
 		return "", err
 	}

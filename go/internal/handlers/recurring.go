@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -198,11 +198,11 @@ func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
 
 	recurrings, err := db.GetRecurringByUserID(user.ID)
 	if err != nil {
-		log.Printf("renderRecurringTable: GetRecurringByUserID: %v", err)
+		slog.Error("renderRecurringTable: recurring", "err", err)
 	}
 	accounts, err := db.GetAccountsByUserID(user.ID)
 	if err != nil {
-		log.Printf("renderRecurringTable: GetAccountsByUserID: %v", err)
+		slog.Error("renderRecurringTable: accounts", "err", err)
 	}
 
 	decryptAccountNames(accounts)

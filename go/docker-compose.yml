@@ -28,7 +28,7 @@ services:
       - SMTP_FROM=${SMTP_FROM:-}
       # Configuration domaine
       - HOST=${HOST:-localhost}
-      - ALLOW_REGISTER=${ALLOW_REGISTER:-true}
+      - ALLOW_REGISTER=${ALLOW_REGISTER:-false}
     volumes:
       - ./data:/data
     ports:

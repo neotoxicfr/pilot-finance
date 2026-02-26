@@ -78,11 +78,16 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	var projectionTotal float64
+	if len(data.Projection) > 0 {
+		projectionTotal = data.Projection[len(data.Projection)-1].TotalAvg
+	}
+
 	response := map[string]interface{}{
 		"accounts":        accounts,
 		"totalBalance":    data.TotalBalance,
 		"totalInterests":  data.TotalInterests,
-		"projectionTotal": data.Projection[len(data.Projection)-1].TotalAvg,
+		"projectionTotal": projectionTotal,
 		"projection":      projectionData,
 		"pieData":         pieData,
 		"years":           years,
@@ -153,12 +158,17 @@ func DashboardPartial(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	var projectionTotalPartial float64
+	if len(data.Projection) > 0 {
+		projectionTotalPartial = data.Projection[len(data.Projection)-1].TotalAvg
+	}
+
 	templateData := map[string]interface{}{
 		"Accounts":        accounts,
 		"AccountColors":   accountColors,
 		"TotalBalance":    data.TotalBalance,
 		"TotalInterests":  data.TotalInterests,
-		"ProjectionTotal": data.Projection[len(data.Projection)-1].TotalAvg,
+		"ProjectionTotal": projectionTotalPartial,
 		"ProjectionData":  projectionData,
 		"PieData":         pieData,
 		"Years":           years,
