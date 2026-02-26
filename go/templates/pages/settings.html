@@ -22,7 +22,8 @@ function mfaData() {
                 if (d.error) this.mfaError = d.error;
                 else location.reload();
             });
-        }
+        },
+        reload() { location.reload(); }
     };
 }
 
@@ -31,8 +32,24 @@ function passkeyData() {
     return {
         passkeyLoading: false,
         passkeyMsg: '',
-        registerPasskey() { window.registerPasskey(); }
+        registerPasskey() { window.registerPasskey(); },
+        reload() { location.reload(); },
+        renamePasskey(id, currentName) {
+            const newName = prompt("{{index .T "settings.passkey_name_prompt"}}", currentName);
+            if (newName && newName !== currentName) {
+                fetch('/api/passkey/' + id + '/rename', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                }).then(() => location.reload());
+            }
+        }
     };
+}
+
+// Composant Preferences (reload uniquement)
+function prefsData() {
+    return { reload() { location.reload(); } };
 }
 
 // Composant mot de passe
@@ -65,6 +82,7 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('mfaData',    mfaData);
     Alpine.data('passkeyData', passkeyData);
     Alpine.data('pwdData',    pwdData);
+    Alpine.data('prefsData',  prefsData);
 });
 </script>
 <div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8 text-foreground">
@@ -93,7 +111,7 @@ document.addEventListener('alpine:init', () => {
                     <button hx-post="/settings/mfa/disable"
                             hx-confirm="{{index .T "settings.mfa_disable_confirm"}}"
                             hx-swap="none"
-                            @htmx:after-request="if(event.detail.successful) location.reload()"
+                            @htmx:after-request="event.detail.successful && reload()"
                             class="text-xs bg-background hover:bg-red-500/10 text-muted-foreground hover:text-red-500 px-3 py-2 rounded-lg border border-border hover:border-red-500/50 transition-colors">
                         {{index .T "settings.mfa_disable_btn"}}
                     </button>
@@ -173,7 +191,7 @@ document.addEventListener('alpine:init', () => {
                             <button hx-delete="/api/passkey/{{.ID}}"
                                     hx-confirm="{{index $.T "settings.passkey_delete_confirm"}}"
                                     hx-swap="none"
-                                    @htmx:after-request="if(event.detail.successful) location.reload()"
+                                    @htmx:after-request="event.detail.successful && reload()"
                                     class="p-2 text-muted-foreground hover:text-red-500 hover:bg-background rounded-lg transition-colors">
                                 {{template "icon-trash" dict "Size" 14}}
                             </button>
@@ -252,7 +270,7 @@ document.addEventListener('alpine:init', () => {
             </div>
 
             <!-- Preferences Section -->
-            <div class="dashboard-card bg-background border rounded-2xl p-6">
+            <div class="dashboard-card bg-background border rounded-2xl p-6" x-data="prefsData">
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-blue-500">{{template "icon-settings" dict "Size" 20}}</span>
                     {{index .T "settings.preferences_title"}}
@@ -260,7 +278,7 @@ document.addEventListener('alpine:init', () => {
 
                 <form hx-post="/settings/preferences"
                       hx-swap="none"
-                      @htmx:after-request="if(event.detail.successful) location.reload()"
+                      @htmx:after-request="event.detail.successful && reload()"
                       class="space-y-5">
                     <div>
                         <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.language_label"}}</label>
@@ -362,16 +380,4 @@ document.addEventListener('alpine:init', () => {
     {{end}}
 </div>
 
-<script nonce="{{.Nonce}}">
-function renamePasskey(id, currentName) {
-    const newName = prompt("{{index .T "settings.passkey_name_prompt"}}", currentName);
-    if (newName && newName !== currentName) {
-        fetch('/api/passkey/' + id + '/rename', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: newName })
-        }).then(() => location.reload());
-    }
-}
-</script>
 {{end}}
