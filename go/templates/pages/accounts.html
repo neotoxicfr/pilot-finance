@@ -28,7 +28,7 @@
                  class="fixed inset-0 z-[200] flex items-end sm:items-center justify-center"
                  @keydown.escape.window="showAccountForm = false; editingAccount = null">
                 <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showAccountForm = false; editingAccount = null"></div>
-                <div class="relative z-10 bg-background border border-blue-500/50 rounded-t-2xl sm:rounded-2xl p-5 w-full sm:max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+                <div class="relative z-10 bg-background/90 backdrop-blur-xl border border-blue-500/30 rounded-t-2xl sm:rounded-2xl p-5 w-full sm:max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
                     <button @click="showAccountForm = false; editingAccount = null"
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 20}}
@@ -180,7 +180,7 @@
                  class="fixed inset-0 z-[200] flex items-end sm:items-center justify-center"
                  @keydown.escape.window="showRecurringForm = false; editingRecurring = null">
                 <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showRecurringForm = false; editingRecurring = null"></div>
-                <div class="relative z-10 bg-background border border-blue-500/50 rounded-t-2xl sm:rounded-2xl p-5 w-full sm:max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+                <div class="relative z-10 bg-background/90 backdrop-blur-xl border border-blue-500/30 rounded-t-2xl sm:rounded-2xl p-5 w-full sm:max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
                         <button @click="showRecurringForm = false; editingRecurring = null"
                                 class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                             {{template "icon-x" dict "Size" 20}}
@@ -332,13 +332,22 @@ function accountsPage() {
                     class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
                 {{template "icon-pencil" dict "Size" 18}}
             </button>
-            <button hx-delete="/accounts/{{.ID}}"
-                    hx-confirm="{{.Name}} ?"
-                    hx-target="#accounts-list"
-                    hx-swap="innerHTML"
-                    class="p-2 text-muted-foreground hover:text-red-500 hover:bg-accent rounded-lg transition-colors">
-                {{template "icon-trash" dict "Size" 18}}
-            </button>
+            <div x-data="{ del: false }">
+                <button x-show="!del" @click.prevent="del = true"
+                        class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                    {{template "icon-trash" dict "Size" 18}}
+                </button>
+                <div x-show="del" class="flex items-center gap-0.5">
+                    <button hx-delete="/accounts/{{.ID}}" hx-target="#accounts-list" hx-swap="innerHTML"
+                            class="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                        {{template "icon-check" dict "Size" 16}}
+                    </button>
+                    <button @click.prevent="del = false"
+                            class="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
+                        {{template "icon-x" dict "Size" 16}}
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -398,17 +407,22 @@ function accountsPage() {
                 {{if not .ToAccountID}}{{if gt .Amount 0.0}}+{{end}}{{end}}{{formatMoney .Amount $.Currency}}
             </td>
             <td class="px-2 py-3 text-right">
-                <div class="flex items-center justify-end gap-1">
+                <div class="flex items-center justify-end gap-1" x-data="{ del: false }">
                     <button @click="openRecurringForm({{. | json}})"
                             class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
                         {{template "icon-pencil" dict "Size" 18}}
                     </button>
-                    <button hx-delete="/recurring/{{.ID}}"
-                            hx-confirm="{{index $.T "recurring.delete_confirm"}}"
-                            hx-target="#recurring-list"
-                            hx-swap="innerHTML"
-                            class="p-2 text-muted-foreground hover:text-red-500 hover:bg-accent rounded-lg transition-colors">
+                    <button x-show="!del" @click.prevent="del = true"
+                            class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                         {{template "icon-trash" dict "Size" 18}}
+                    </button>
+                    <button x-show="del" hx-delete="/recurring/{{.ID}}" hx-target="#recurring-list" hx-swap="innerHTML"
+                            class="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                        {{template "icon-check" dict "Size" 16}}
+                    </button>
+                    <button x-show="del" @click.prevent="del = false"
+                            class="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
+                        {{template "icon-x" dict "Size" 16}}
                     </button>
                 </div>
             </td>
