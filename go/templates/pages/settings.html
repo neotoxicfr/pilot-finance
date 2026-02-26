@@ -60,13 +60,24 @@ function pwdData() {
         pwdLoading: false,
         password: '',
         confirm: '',
+        get hasLength()  { return this.password.length >= 8; },
+        get hasUpper()   { return /[A-Z]/.test(this.password); },
+        get hasLower()   { return /[a-z]/.test(this.password); },
+        get hasDigit()   { return /[0-9]/.test(this.password); },
+        get hasSpecial() { return /[!@#$%^&*(),.?:{}|]/.test(this.password); },
         get pwdStrength() {
-            return (this.password.length >= 8 ? 1 : 0)
-                 + (/[A-Z]/.test(this.password) ? 1 : 0)
-                 + (/[a-z]/.test(this.password) ? 1 : 0)
-                 + (/[0-9]/.test(this.password) ? 1 : 0)
-                 + (/[!@#$%^&*(),.?:{}|]/.test(this.password) ? 1 : 0);
+            return (this.hasLength ? 1 : 0) + (this.hasUpper ? 1 : 0)
+                 + (this.hasLower ? 1 : 0) + (this.hasDigit ? 1 : 0)
+                 + (this.hasSpecial ? 1 : 0);
         },
+        get pwdsMatch() { return this.password === this.confirm; },
+        get strengthColor() {
+            if (this.pwdStrength === 5) return 'bg-emerald-500';
+            if (this.pwdStrength >= 4) return 'bg-yellow-500';
+            if (this.pwdStrength >= 3) return 'bg-orange-500';
+            return 'bg-red-500';
+        },
+        get submitDisabled() { return this.pwdLoading || this.pwdStrength < 5 || !this.pwdsMatch; },
         afterPwdSettle(event) {
             if (!event.detail.failed) {
                 this.pwdSuccess = true;
@@ -261,7 +272,7 @@ document.addEventListener('alpine:init', () => {
                         <div class="text-red-500 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="pwdError"></div>
                     </template>
 
-                    <button type="submit" :disabled="pwdLoading || pwdStrength < 5 || password !== confirm"
+                    <button type="submit" :disabled="submitDisabled"
                             class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50">
                         <span x-show="pwdLoading">{{index .T "settings.password_saving"}}</span>
                         <span x-show="!pwdLoading">{{index .T "settings.password_change_btn"}}</span>
