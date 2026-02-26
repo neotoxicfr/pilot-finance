@@ -72,10 +72,10 @@
     <script nonce="{{.Nonce}}">window.PILOT_LOCALE="{{.Locale}}";window.PILOT_CURRENCY="{{.Currency}}";</script>
     <link rel="stylesheet" href="/static/css/tailwind.css">
     <link rel="stylesheet" href="/static/css/app.css">
-    <script src="/static/js/htmx.min.js"></script>
-    <script src="/static/js/chart.umd.min.js"></script>
-    <script defer src="/static/js/alpine.min.js"></script>
-    <script src="/static/js/passkey.js"></script>
+    <script nonce="{{.Nonce}}" src="/static/js/htmx.min.js"></script>
+    <script nonce="{{.Nonce}}" src="/static/js/chart.umd.min.js"></script>
+    <script nonce="{{.Nonce}}" defer src="/static/js/alpine.min.js"></script>
+    <script nonce="{{.Nonce}}" src="/static/js/passkey.js"></script>
 </head>
 <body class="font-sans antialiased min-h-screen flex flex-col bg-background text-foreground" x-data="themeData()" x-init="init()">
     {{if .User}}
