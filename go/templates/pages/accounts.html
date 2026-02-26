@@ -249,16 +249,18 @@ function accountsPage() {
         },
 
         editingRecurring: null,
+        opType: 'expense',
 
         openRecurringForm(recurring) {
             this.editingRecurring = recurring;
+            if (!recurring) {
+                this.opType = 'expense';
+            } else if (recurring.ToAccountID) {
+                this.opType = 'transfer';
+            } else {
+                this.opType = recurring.Amount > 0 ? 'income' : 'expense';
+            }
             document.getElementById('recurring-dialog').showModal();
-        },
-
-        get opType() {
-            if (!this.editingRecurring) return 'expense';
-            if (this.editingRecurring.ToAccountID) return 'transfer';
-            return this.editingRecurring.Amount > 0 ? 'income' : 'expense';
         },
 
         get absAmount() {
