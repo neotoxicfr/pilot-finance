@@ -25,7 +25,7 @@
                     @close="editingAccount = null"
                     @click="$event.target.tagName === 'DIALOG' && $event.target.close()">
                 <div class="modal-panel relative border border-border rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5">
-                    <button @click="document.getElementById('account-dialog').close()"
+                    <button @click="closeAccountDialog()"
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 20}}
                     </button>
@@ -186,7 +186,7 @@
                     @close="editingRecurring = null"
                     @click="$event.target.tagName === 'DIALOG' && $event.target.close()">
                 <div class="modal-panel relative border border-border rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5">
-                    <button @click="document.getElementById('recurring-dialog').close()"
+                    <button @click="closeRecurringDialog()"
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 20}}
                     </button>
@@ -327,6 +327,9 @@ function accountsPage() {
                 }
             });
         },
+
+        closeAccountDialog()  { document.getElementById('account-dialog').close(); },
+        closeRecurringDialog() { document.getElementById('recurring-dialog').close(); },
 
         init() {
             this.$nextTick(() => this.initSortable());
