@@ -13,8 +13,8 @@ RUN npm install -g tailwindcss @tailwindcss/cli
 COPY static/css/input.css static/css/
 COPY templates templates/
 
-# Compiler Tailwind CSS
-RUN npx @tailwindcss/cli -i static/css/input.css -o static/css/tailwind.css --minify
+# Compiler Tailwind CSS (NODE_PATH expose les globals au résolveur CSS)
+RUN NODE_PATH=$(npm root -g) npx @tailwindcss/cli -i static/css/input.css -o static/css/tailwind.css --minify
 
 # ============ GO BUILD STAGE ============
 FROM golang:1.26-alpine AS builder
