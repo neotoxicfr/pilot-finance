@@ -4,7 +4,7 @@
 
     <!-- KPI Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-        <div class="dashboard-card bg-gradient-to-br from-background to-accent/50 border p-6 rounded-2xl relative overflow-hidden">
+        <div class="dashboard-card kpi-card-slate border p-6 rounded-2xl relative overflow-hidden">
             <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
                 {{template "icon-shield-check" dict "Size" 80}}
             </div>
@@ -66,7 +66,7 @@
             <h3 class="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                 {{template "icon-dashboard" dict "Size" 18}} {{index .T "dashboard.distribution"}}
             </h3>
-            <div class="flex-1 min-h-[300px] flex flex-col items-center justify-center">
+            <div class="flex-1 min-h-[300px] flex items-center justify-center">
                 <div class="relative w-full max-w-[250px]" style="aspect-ratio: 1;">
                     <canvas id="pieCanvas"></canvas>
                     <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -74,10 +74,11 @@
                         <div class="text-xs text-muted-foreground uppercase font-bold">{{index .T "dashboard.total"}}</div>
                     </div>
                 </div>
-                <div id="pieLegend" class="mt-4 flex flex-wrap justify-center gap-2"></div>
             </div>
         </div>
     </div>
+    <!-- Shared color legend for both charts -->
+    <div id="chartLegend" class="flex flex-wrap justify-center gap-x-4 gap-y-2 -mt-4"></div>
 </div>
 
 <script id="initial-data" type="application/json">{
