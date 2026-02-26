@@ -338,6 +338,11 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// Rendre la liste des comptes
+	if len(accounts) == 0 {
+		templates.RenderPartial(w, "accounts.html", "accounts-empty", map[string]interface{}{
+			"T": i18n.Map(lang),
+		})
+	}
 	for _, acc := range accounts {
 		templates.RenderPartial(w, "accounts.html", "account-row", acc)
 	}
