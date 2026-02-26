@@ -1,4 +1,4 @@
-# Pilot Finance v2.0 - Go + HTMX
+# Pilot Finance v2.2 - Go + HTMX
 # Image finale: ~20MB
 
 # ============ CSS BUILD STAGE ============
@@ -6,16 +6,15 @@ FROM node:25-alpine AS css
 
 WORKDIR /app
 
-# Installer Tailwind CSS v3
-RUN npm install -g tailwindcss@3
+# Installer Tailwind CSS v4 CLI
+RUN npm install -g @tailwindcss/cli
 
 # Copier les fichiers nécessaires pour la compilation CSS
-COPY tailwind.config.js .
 COPY static/css/input.css static/css/
 COPY templates templates/
 
 # Compiler Tailwind CSS
-RUN npx tailwindcss -i static/css/input.css -o static/css/tailwind.css --minify -c tailwind.config.js
+RUN npx @tailwindcss/cli -i static/css/input.css -o static/css/tailwind.css --minify
 
 # ============ GO BUILD STAGE ============
 FROM golang:1.26-alpine AS builder
