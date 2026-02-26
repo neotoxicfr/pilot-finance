@@ -142,13 +142,6 @@ input[type=number] {
     -moz-appearance: textfield;
 }
 
-/* Utility Colors */
-.bg-background { background-color: var(--background); }
-.text-foreground { color: var(--foreground); }
-.border-border { border-color: var(--border); }
-.bg-accent { background-color: var(--accent); }
-.text-muted-foreground { color: var(--muted-foreground); }
-
 /* HTMX Loading States */
 .htmx-request {
     opacity: 0.5;

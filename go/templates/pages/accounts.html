@@ -47,10 +47,10 @@
                         <div class="grid grid-cols-2 gap-4">
                             <input type="text" name="name" placeholder="{{index .T "accounts.name_placeholder"}}" required
                                    :value="editingAccount?.name || ''"
-                                   class="bg-accent border border-border rounded-xl p-3 text-sm w-full outline-none focus:border-blue-500 text-foreground">
+                                   class="bg-accent border border-border rounded-xl p-3 text-sm w-full outline-hidden focus:border-blue-500 text-foreground">
                             <input type="text" inputmode="decimal" name="balance" placeholder="{{index .T "accounts.balance_placeholder"}}"
                                    :value="editingAccount?.balance || ''"
-                                   class="bg-accent border border-border rounded-xl p-3 text-sm w-full font-mono outline-none focus:border-blue-500 text-foreground">
+                                   class="bg-accent border border-border rounded-xl p-3 text-sm w-full font-mono outline-hidden focus:border-blue-500 text-foreground">
                         </div>
                         <div>
                             <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.color_label"}}</label>
@@ -66,7 +66,7 @@
                                 {{template "icon-palette" dict "Size" 16}}
                                 <input type="text" name="color" placeholder="#RRGGBB"
                                        x-model="selectedColor"
-                                       class="bg-transparent text-sm w-full outline-none font-mono text-foreground uppercase">
+                                       class="bg-transparent text-sm w-full outline-hidden font-mono text-foreground uppercase">
                                 <input type="color" x-model="selectedColor"
                                        class="w-6 h-6 rounded-full cursor-pointer">
                             </div>
@@ -105,12 +105,12 @@
                                         <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider"
                                                x-text="yieldType === 'RANGE' ? '{{index .T "accounts.yield_rate_min"}}' : '{{index .T "accounts.yield_rate"}}'"></label>
                                         <input type="number" step="0.01" name="yieldMin" x-model="yieldMin" placeholder="3.5"
-                                               class="bg-accent border border-border rounded-xl p-2.5 text-sm w-full font-mono outline-none focus:border-emerald-500 text-foreground">
+                                               class="bg-accent border border-border rounded-xl p-2.5 text-sm w-full font-mono outline-hidden focus:border-emerald-500 text-foreground">
                                     </div>
                                     <div x-show="yieldType === 'RANGE'">
                                         <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.yield_rate_max"}}</label>
                                         <input type="number" step="0.01" name="yieldMax" x-model="yieldMax" placeholder="5.0"
-                                               class="bg-accent border border-border rounded-xl p-2.5 text-sm w-full font-mono outline-none focus:border-emerald-500 text-foreground">
+                                               class="bg-accent border border-border rounded-xl p-2.5 text-sm w-full font-mono outline-hidden focus:border-emerald-500 text-foreground">
                                     </div>
                                 </div>
 
@@ -132,7 +132,7 @@
                                     </label>
                                     <select name="targetAccountId"
                                             :value="editingAccount?.target_account_id || ''"
-                                            class="w-full bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-none focus:border-emerald-500">
+                                            class="w-full bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-emerald-500">
                                         <option value="">{{index .T "accounts.no_target"}}</option>
                                         {{range .Accounts}}
                                         <option value="{{.ID}}">{{.Name}}</option>
@@ -202,24 +202,24 @@
                         <div class="flex gap-3">
                             <input type="text" name="description" placeholder="{{index .T "recurring.label_placeholder"}}" required
                                    :value="editingRecurring?.Description || ''"
-                                   class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-none focus:border-blue-500">
+                                   class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-blue-500">
                             <input type="number" step="0.01" name="amount" placeholder="{{$.Currency}}" required
                                    :value="absAmount"
-                                   class="w-24 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-none font-mono focus:border-blue-500">
+                                   class="w-24 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden font-mono focus:border-blue-500">
                             <input type="number" min="1" max="31" name="dayOfMonth" placeholder="{{index .T "recurring.day_placeholder"}}" required
                                    :value="editingRecurring?.DayOfMonth || ''"
-                                   class="w-14 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-none text-center focus:border-blue-500">
+                                   class="w-14 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden text-center focus:border-blue-500">
                         </div>
                         <div class="flex gap-3">
                             <select name="type" x-model="opType"
-                                    class="w-28 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-none focus:border-blue-500">
+                                    class="w-28 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
                                 <option value="expense">{{index .T "recurring.type_expense"}}</option>
                                 <option value="income">{{index .T "recurring.type_income"}}</option>
                                 <option value="transfer">{{index .T "recurring.type_transfer"}}</option>
                             </select>
                             <select name="accountId" required
                                     :value="editingRecurring?.AccountID || ''"
-                                    class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-none focus:border-blue-500">
+                                    class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
                                 <option value="">{{index .T "recurring.account_placeholder"}}</option>
                                 {{range .Accounts}}
                                 <option value="{{.ID}}">{{.Name}}</option>
@@ -289,7 +289,7 @@ function accountsPage() {
               class="flex items-baseline gap-1">
             <input type="text" inputmode="decimal" name="balance"
                    value="{{formatBalance .Balance}}"
-                   class="bg-transparent w-28 text-right outline-none font-mono text-xl font-bold text-foreground focus:text-blue-500 focus:bg-accent rounded-lg px-1 transition-colors">
+                   class="bg-transparent w-28 text-right outline-hidden font-mono text-xl font-bold text-foreground focus:text-blue-500 focus:bg-accent rounded-lg px-1 transition-colors">
             <span class="text-sm text-muted-foreground font-medium" x-data x-text="window.PILOT_CURRENCY||'EUR'"></span>
             <button class="hidden group-hover:block text-blue-500 ml-1 p-2 hover:bg-accent rounded-lg transition-colors">
                 {{template "icon-save" dict "Size" 18}}

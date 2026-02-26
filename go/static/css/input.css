@@ -1,3 +1,13 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Dark mode class-based */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Custom design tokens — mapped to CSS vars (reactive to dark/light theme) */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+}
