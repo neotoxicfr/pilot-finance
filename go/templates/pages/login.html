@@ -26,7 +26,7 @@ function loginPage() {
 }
 document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginPage); });
 </script>
-<div class="h-dvh overflow-y-auto bg-accent/20 flex flex-col items-center justify-center p-4">
+<div class="h-dvh overflow-y-auto bg-background flex flex-col items-center justify-center p-4">
     <div class="dashboard-card bg-background border rounded-2xl p-8 w-full max-w-sm transition-all"
          x-data="loginPage"
          data-requires2fa="{{if .Requires2FA}}true{{else}}false{{end}}">
