@@ -139,12 +139,10 @@ func main() {
 		r.Get("/accounts", handlers.AccountsPage)
 		r.Post("/accounts", handlers.CreateAccount)
 		r.Post("/accounts/reorder", handlers.ReorderAccounts)
-		r.Put("/accounts/{id}", handlers.UpdateAccount)
 		r.Delete("/accounts/{id}", handlers.DeleteAccount)
 		r.Post("/accounts/{id}/balance", handlers.UpdateBalance)
 		r.Post("/accounts/{id}/move", handlers.MoveAccount)
 
-		r.Get("/recurring", handlers.RecurringPage)
 		r.Post("/recurring", handlers.CreateRecurring)
 		r.Put("/recurring/{id}", handlers.UpdateRecurring)
 		r.Delete("/recurring/{id}", handlers.DeleteRecurring)
@@ -175,7 +173,7 @@ func main() {
 		r.Use(middleware.RequireAuth)
 		r.Use(middleware.RequireAdmin)
 
-		r.Get("/admin", handlers.AdminPage)
+		r.Get("/admin", handlers.SettingsPage)
 		r.Delete("/admin/users/{id}", handlers.DeleteUser)
 	})
 

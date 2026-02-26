@@ -11,15 +11,6 @@ func CreateAccountWithYield(userID int64, name string, balance float64, color st
 	return err
 }
 
-// UpdateAccount met a jour un compte
-func UpdateAccount(id, userID int64, name string, balance float64, color string) error {
-	_, err := DB.Exec(`
-		UPDATE accounts SET name = ?, balance = ?, color = ?, updated_at = ?
-		WHERE id = ? AND user_id = ?
-	`, name, balance, color, time.Now().Unix(), id, userID)
-	return err
-}
-
 // UpdateAccountWithYield met a jour un compte avec rendement
 func UpdateAccountWithYield(id, userID int64, name string, balance float64, color string, isYieldActive bool, yieldType string, yieldMin, yieldMax float64, reinvestmentRate int, targetAccountID *int64, payoutFrequency string) error {
 	_, err := DB.Exec(`
