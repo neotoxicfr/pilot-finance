@@ -151,6 +151,13 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		resetLoginAttempts(user.ID)
 	}
 
+	// Mise à niveau silencieuse du hash bcrypt (cost 10 → 12) sans invalider les sessions
+	if crypto.NeedsRehash(user.Password) {
+		if newHash, err := crypto.HashPassword(password); err == nil {
+			db.UpdatePasswordHash(user.ID, newHash)
+		}
+	}
+
 	// Vérifier 2FA si activé
 	if user.MFAEnabled {
 		// Stocker l'ID utilisateur validé dans un cookie temporaire signé

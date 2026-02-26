@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -74,14 +75,24 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	yieldMin := 0.0
 	yieldMax := 0.0
 	reinvestmentRate := 100
+	var parseErr error
 	if yieldMinStr != "" {
-		yieldMin, _ = strconv.ParseFloat(yieldMinStr, 64)
+		if yieldMin, parseErr = strconv.ParseFloat(yieldMinStr, 64); parseErr != nil {
+			http.Error(w, "Taux minimum invalide", http.StatusBadRequest)
+			return
+		}
 	}
 	if yieldMaxStr != "" {
-		yieldMax, _ = strconv.ParseFloat(yieldMaxStr, 64)
+		if yieldMax, parseErr = strconv.ParseFloat(yieldMaxStr, 64); parseErr != nil {
+			http.Error(w, "Taux maximum invalide", http.StatusBadRequest)
+			return
+		}
 	}
 	if reinvestmentRateStr != "" {
-		reinvestmentRate, _ = strconv.Atoi(reinvestmentRateStr)
+		if reinvestmentRate, parseErr = strconv.Atoi(reinvestmentRateStr); parseErr != nil {
+			http.Error(w, "Taux de réinvestissement invalide", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Validation des taux pour le type RANGE
@@ -105,6 +116,11 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	payoutFrequency := r.FormValue("payoutFrequency")
+	if payoutFrequency != "YEARLY" {
+		payoutFrequency = "MONTHLY"
+	}
+
 	// Si un ID est fourni, c'est une mise a jour
 	if idStr != "" {
 		id, err := strconv.ParseInt(idStr, 10, 64)
@@ -112,17 +128,20 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "ID invalide", http.StatusBadRequest)
 			return
 		}
-		err = db.UpdateAccountWithYield(id, user.ID, encryptedName, balance, color, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID)
+		err = db.UpdateAccountWithYield(id, user.ID, encryptedName, balance, color, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
 		if err != nil {
 			http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
 			return
 		}
 	} else {
 		// Creation d'un nouveau compte
-		accounts, _ := db.GetAccountsByUserID(user.ID)
-		position := len(accounts)
+		existingAccounts, posErr := db.GetAccountsByUserID(user.ID)
+		if posErr != nil {
+			slog.Warn("CreateAccount: position lookup", "err", posErr)
+		}
+		position := len(existingAccounts)
 
-		err := db.CreateAccountWithYield(user.ID, encryptedName, balance, color, position, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID)
+		err := db.CreateAccountWithYield(user.ID, encryptedName, balance, color, position, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
 		if err != nil {
 			http.Error(w, "Erreur creation", http.StatusInternalServerError)
 			return
@@ -131,51 +150,6 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 
 	// Retourner la liste mise a jour en HTML
 	renderAccountsList(w, user)
-}
-
-// UpdateAccount met a jour un compte
-func UpdateAccount(w http.ResponseWriter, r *http.Request) {
-	user := middleware.GetUser(r)
-	if user == nil {
-		http.Error(w, "Non authentifie", http.StatusUnauthorized)
-		return
-	}
-
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		http.Error(w, "ID invalide", http.StatusBadRequest)
-		return
-	}
-
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Donnees invalides", http.StatusBadRequest)
-		return
-	}
-
-	name := r.FormValue("name")
-	balanceStr := r.FormValue("balance")
-	color := r.FormValue("color")
-
-	// Chiffrer le nom du compte
-	encryptedName, encErr := crypto.Encrypt(name)
-	if encErr != nil {
-		http.Error(w, "Erreur chiffrement", http.StatusInternalServerError)
-		return
-	}
-
-	balance := 0.0
-	if balanceStr != "" {
-		balance, _ = strconv.ParseFloat(balanceStr, 64)
-	}
-
-	err = db.UpdateAccount(id, user.ID, encryptedName, balance, color)
-	if err != nil {
-		http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
 }
 
 // DeleteAccount supprime un compte
@@ -236,7 +210,7 @@ func UpdateBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	renderAccountsList(w, user)
 }
 
 // MoveAccount deplace un compte vers le haut ou le bas
@@ -335,8 +309,14 @@ func ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 	lang, currency := userLocale(user)
 
-	accounts, _ := db.GetAccountsByUserID(user.ID)
-	recurrings, _ := db.GetRecurringByUserID(user.ID)
+	accounts, err := db.GetAccountsByUserID(user.ID)
+	if err != nil {
+		slog.Error("renderAccountsList: accounts", "err", err)
+	}
+	recurrings, err := db.GetRecurringByUserID(user.ID)
+	if err != nil {
+		slog.Error("renderAccountsList: recurring", "err", err)
+	}
 
 	decryptAccountNames(accounts)
 	accountMap := buildAccountMap(accounts)
@@ -345,12 +325,20 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 	yieldPayouts := projection.CalculateYieldPayouts(accounts, accountMap)
 	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
 
-	// Calculer les totaux mensuels
-	var monthlyIncome, monthlyExpenses float64
+	// Calculer les totaux : séparer versements mensuels et annuels
+	var monthlyIncome, monthlyExpenses, monthlyYield, annualYield float64
 	for _, payout := range yieldPayouts {
-		monthlyIncome += payout.Amount
+		if payout.PayoutFrequency == "YEARLY" {
+			annualYield += payout.Amount
+		} else {
+			monthlyIncome += payout.Amount
+			monthlyYield += payout.Amount
+		}
 	}
 	for _, rec := range recurrings {
+		if rec.ToAccountID != nil {
+			continue // Virement interne : ne compte pas dans entrées/sorties
+		}
 		if rec.Amount > 0 {
 			monthlyIncome += rec.Amount
 		} else {
@@ -375,9 +363,12 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 	// OOB: Rendre le summary card
 	w.Write([]byte(`<div id="summary-card" hx-swap-oob="innerHTML">`))
 	templates.RenderPartial(w, "accounts.html", "summary-card", map[string]interface{}{
+		"T":               i18n.Map(lang),
 		"MonthlyIncome":   monthlyIncome,
 		"MonthlyExpenses": monthlyExpenses,
 		"MonthlyNet":      monthlyIncome - monthlyExpenses,
+		"MonthlyYield":    monthlyYield,
+		"AnnualYield":     annualYield,
 		"Currency":        currency,
 	})
 	w.Write([]byte(`</div>`))
@@ -387,6 +378,7 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 	templates.RenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{
 		"Recurrings": recurringData,
 		"Currency":   currency,
+		"T":          i18n.Map(lang),
 	})
 	w.Write([]byte(`</div>`))
 }

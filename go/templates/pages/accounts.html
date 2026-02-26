@@ -1,6 +1,6 @@
 {{define "content"}}
 <div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8 text-foreground"
-     x-data="accountsPage()">
+     x-data="accountsPage">
 
     <!-- Summary Cards -->
     <div id="summary-card">
@@ -24,8 +24,8 @@
             <dialog id="account-dialog"
                     @close="editingAccount = null"
                     @click="$event.target.tagName === 'DIALOG' && $event.target.close()">
-                <div class="modal-panel relative border border-blue-500/30 rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5">
-                    <button @click="document.getElementById('account-dialog').close()"
+                <div class="modal-panel relative border border-border rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5">
+                    <button @click="closeAccountDialog()"
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 20}}
                     </button>
@@ -118,21 +118,36 @@
                                     </div>
                                 </div>
 
-                                <div x-show="reinvestmentRate < 100" x-cloak>
-                                    <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">
-                                        {{index .T "accounts.target_account"}}
-                                    </label>
-                                    <select name="targetAccountId"
-                                            :value="editingAccount?.target_account_id || ''"
-                                            class="w-full bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-emerald-500">
-                                        <option value="">{{index .T "accounts.no_target"}}</option>
-                                        {{range .Accounts}}
-                                        <option value="{{.ID}}">{{.Name}}</option>
-                                        {{end}}
-                                    </select>
-                                    <p class="text-[10px] text-muted-foreground mt-1">
-                                        {{index .T "accounts.interest_help"}}
-                                    </p>
+                                <div x-show="reinvestmentRate < 100" x-cloak class="space-y-3">
+                                    <div>
+                                        <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">
+                                            {{index .T "accounts.target_account"}}
+                                        </label>
+                                        <select name="targetAccountId"
+                                                x-model="targetAccountId"
+                                                class="w-full bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-emerald-500">
+                                            <option value="">{{index .T "accounts.no_target"}}</option>
+                                            {{range .Accounts}}
+                                            <option value="{{.ID}}">{{.Name}}</option>
+                                            {{end}}
+                                        </select>
+                                        <p class="text-[10px] text-muted-foreground mt-1">
+                                            {{index .T "accounts.interest_help"}}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.payout_frequency"}}</label>
+                                        <div class="flex gap-4">
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input type="radio" name="payoutFrequency" value="MONTHLY" x-model="payoutFrequency" class="accent-emerald-500">
+                                                <span class="text-sm text-foreground">{{index .T "accounts.payout_monthly"}}</span>
+                                            </label>
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input type="radio" name="payoutFrequency" value="YEARLY" x-model="payoutFrequency" class="accent-emerald-500">
+                                                <span class="text-sm text-foreground">{{index .T "accounts.payout_annual"}}</span>
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -170,8 +185,8 @@
             <dialog id="recurring-dialog"
                     @close="editingRecurring = null"
                     @click="$event.target.tagName === 'DIALOG' && $event.target.close()">
-                <div class="modal-panel relative border border-blue-500/30 rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5">
-                    <button @click="document.getElementById('recurring-dialog').close()"
+                <div class="modal-panel relative border border-border rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5">
+                    <button @click="closeRecurringDialog()"
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 20}}
                     </button>
@@ -201,7 +216,20 @@
                                     <option value="transfer">{{index .T "recurring.type_transfer"}}</option>
                                 </select>
                                 <select name="accountId" required
-                                        :value="editingRecurring?.AccountID || ''"
+                                        x-model="accountId"
+                                        class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
+                                    <option value="">{{index .T "recurring.account_placeholder"}}</option>
+                                    {{range .Accounts}}
+                                    <option value="{{.ID}}">{{.Name}}</option>
+                                    {{end}}
+                                </select>
+                            </div>
+                            <div x-show="opType === 'transfer'" x-cloak class="flex gap-3 items-center">
+                                <div class="w-28 shrink-0 flex justify-end text-muted-foreground/50">
+                                    {{template "icon-arrow-right" dict "Size" 14}}
+                                </div>
+                                <select name="toAccountId"
+                                        x-model="toAccountId"
                                         class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
                                     <option value="">{{index .T "recurring.account_placeholder"}}</option>
                                     {{range .Accounts}}
@@ -236,6 +264,8 @@ function accountsPage() {
         yieldMin: '',
         yieldMax: '',
         reinvestmentRate: 100,
+        targetAccountId: '',
+        payoutFrequency: 'MONTHLY',
 
         openAccountForm(account) {
             this.editingAccount = account;
@@ -245,20 +275,28 @@ function accountsPage() {
             this.yieldMin = account?.yield_min || '';
             this.yieldMax = account?.yield_max || '';
             this.reinvestmentRate = account?.reinvestment_rate ?? 100;
+            this.targetAccountId = account?.target_account_id ? String(account.target_account_id) : '';
+            this.payoutFrequency = account?.payout_frequency || 'MONTHLY';
             document.getElementById('account-dialog').showModal();
         },
 
         editingRecurring: null,
+        opType: 'expense',
+        accountId: '',
+        toAccountId: '',
 
         openRecurringForm(recurring) {
             this.editingRecurring = recurring;
+            this.accountId = recurring?.AccountID ? String(recurring.AccountID) : '';
+            this.toAccountId = recurring?.ToAccountID ? String(recurring.ToAccountID) : '';
+            if (!recurring) {
+                this.opType = 'expense';
+            } else if (recurring.ToAccountID) {
+                this.opType = 'transfer';
+            } else {
+                this.opType = recurring.Amount > 0 ? 'income' : 'expense';
+            }
             document.getElementById('recurring-dialog').showModal();
-        },
-
-        get opType() {
-            if (!this.editingRecurring) return 'expense';
-            if (this.editingRecurring.ToAccountID) return 'transfer';
-            return this.editingRecurring.Amount > 0 ? 'income' : 'expense';
         },
 
         get absAmount() {
@@ -290,6 +328,9 @@ function accountsPage() {
             });
         },
 
+        closeAccountDialog()  { document.getElementById('account-dialog').close(); },
+        closeRecurringDialog() { document.getElementById('recurring-dialog').close(); },
+
         init() {
             this.$nextTick(() => this.initSortable());
             document.body.addEventListener('htmx:afterSettle', e => {
@@ -298,13 +339,20 @@ function accountsPage() {
         }
     };
 }
+
+document.addEventListener('alpine:init', () => {
+    Alpine.data('accountsPage', accountsPage);
+    Alpine.data('accountRow',    () => ({ del: false, dirty: false }));
+    Alpine.data('recurringRow',  () => ({ del: false }));
+});
 </script>
 {{end}}
 
 {{define "account-row"}}
-<div class="dashboard-card group bg-background border rounded-2xl p-4 flex items-center gap-4 transition-colors"
-     x-data="{ del: false }"
+<div class="dashboard-card group border rounded-2xl p-4 flex items-center gap-4 transition-colors"
+     x-data="accountRow"
      :class="del ? 'border-red-500/40 bg-red-500/5' : 'hover:border-blue-500/30'"
+     :style="del ? '' : 'background: linear-gradient(135deg, var(--background) 0%, {{.Color}}15 100%)'"
      data-account-id="{{.ID}}">
     <div class="drag-handle cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground touch-none flex-shrink-0 hidden md:flex items-center">
         {{template "icon-grip" dict "Size" 20}}
@@ -335,14 +383,17 @@ function accountsPage() {
     </div>
     <div class="flex items-center gap-3">
         <form hx-post="/accounts/{{.ID}}/balance"
-              hx-swap="none"
+              hx-target="#accounts-list"
+              hx-swap="innerHTML"
               data-toast=""
               class="flex items-baseline gap-1">
             <input type="text" inputmode="decimal" name="balance"
                    value="{{formatBalance .Balance}}"
+                   @input="dirty = true"
                    class="bg-transparent w-28 text-right outline-hidden font-mono text-xl font-bold text-foreground focus:text-blue-500 focus:bg-accent rounded-lg px-1 transition-colors">
             <span class="text-sm text-muted-foreground font-medium" x-data x-text="window.PILOT_CURRENCY||'EUR'"></span>
-            <button class="text-blue-500 ml-1 p-2 rounded-lg transition-colors sm:opacity-0 sm:group-hover:opacity-100">
+            <button class="text-blue-500 ml-1 p-2 rounded-lg transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                    :class="dirty ? 'opacity-100' : 'max-sm:opacity-0 max-sm:pointer-events-none'">
                 {{template "icon-save" dict "Size" 18}}
             </button>
         </form>
@@ -373,83 +424,88 @@ function accountsPage() {
 {{end}}
 
 {{define "recurring-table"}}
-<table class="w-full text-sm text-left text-muted-foreground table-fixed">
-    <thead class="text-xs font-bold uppercase bg-background text-muted-foreground sticky top-0 z-20">
-        <tr>
-            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border w-10 md:w-16">{{index $.T "recurring.day_header"}}</th>
-            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border w-auto">{{index $.T "recurring.label_header"}}</th>
-            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border text-right w-32 md:w-40">{{index $.T "recurring.amount_header"}}</th>
-            <th class="relative px-2 md:px-4 py-3 bg-background after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[1px] after:bg-border w-20 md:w-24"></th>
-        </tr>
-    </thead>
-    <tbody class="[&_tr:not(:last-child)]:border-b [&_tr]:border-border">
-        {{range .Recurrings}}
-        {{if .IsYieldPayout}}
-        <tr class="bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors">
-            <td class="px-2 md:px-4 py-3 font-mono text-sm text-emerald-500 text-center border-r border-border">
-                {{template "icon-trending-up" dict "Size" 14}}
-            </td>
-            <td class="px-2 md:px-4 py-3">
-                <div class="text-emerald-600 dark:text-emerald-400 font-medium text-sm truncate flex items-center gap-1.5">
-                    {{.Description}}
-                    <span class="text-[10px] text-emerald-500 bg-emerald-500/20 px-1.5 py-0.5 rounded font-bold">{{printf "%.2f" .YieldRate}}%</span>
-                </div>
-                <div class="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
-                    <span class="flex items-center gap-1 text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 truncate">
-                        {{.AccountName}} {{template "icon-arrow-right" dict "Size" 10}} {{.ToAccountName}}
-                    </span>
-                </div>
-            </td>
-            <td class="px-2 md:px-4 py-3 text-right font-mono font-bold text-sm whitespace-nowrap tabular-nums text-emerald-500">
-                +{{formatMoney .Amount $.Currency}}
-            </td>
-            <td class="px-2 py-3 text-right">
-                <span class="text-[10px] text-muted-foreground italic">{{index $.T "recurring.auto_badge"}}</span>
-            </td>
-        </tr>
-        {{else}}
-        <tr class="hover:bg-accent transition-colors">
-            <td class="px-2 md:px-4 py-3 font-mono text-sm text-muted-foreground text-center border-r border-border">{{.DayOfMonth}}</td>
-            <td class="px-2 md:px-4 py-3">
-                <div class="text-foreground font-medium text-sm truncate">{{.Description}}</div>
-                <div class="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
-                    {{if .ToAccountID}}
-                    <span class="flex items-center gap-1 text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 truncate">
-                        {{.AccountName}} {{template "icon-arrow-right" dict "Size" 10}} {{.ToAccountName}}
-                    </span>
-                    {{else}}
-                    <span class="truncate">{{.AccountName}}</span>
-                    {{end}}
-                </div>
-            </td>
-            <td class="px-2 md:px-4 py-3 text-right font-mono font-bold text-sm whitespace-nowrap tabular-nums {{if .ToAccountID}}text-blue-500{{else if gt .Amount 0.0}}text-emerald-500{{else}}text-foreground{{end}}">
-                {{if not .ToAccountID}}{{if gt .Amount 0.0}}+{{end}}{{end}}{{formatMoney .Amount $.Currency}}
-            </td>
-            <td class="px-2 py-3 text-right">
-                <div class="flex items-center justify-end gap-1" x-data="{ del: false }">
-                    <button @click="openRecurringForm({{. | json}})"
-                            class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
-                        {{template "icon-pencil" dict "Size" 18}}
-                    </button>
-                    <button x-show="!del" @click.prevent="del = true"
-                            class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
-                        {{template "icon-trash" dict "Size" 18}}
-                    </button>
-                    <button x-show="del" hx-delete="/recurring/{{.ID}}" hx-target="#recurring-list" hx-swap="innerHTML"
-                            class="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
-                        {{template "icon-check" dict "Size" 16}}
-                    </button>
-                    <button x-show="del" @click.prevent="del = false"
-                            class="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
-                        {{template "icon-x" dict "Size" 16}}
-                    </button>
-                </div>
-            </td>
-        </tr>
-        {{end}}
-        {{end}}
-    </tbody>
-</table>
+{{if .Recurrings}}
+<div class="divide-y divide-border">
+    {{range .Recurrings}}
+    {{if .IsYieldPayout}}
+    <div class="flex items-center gap-3 px-4 py-3 bg-emerald-500/5 hover:bg-emerald-500/8 transition-colors">
+        <div class="w-1 self-stretch rounded-full bg-emerald-500 shrink-0"></div>
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">
+            {{template "icon-trending-up" dict "Size" 14}}
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-medium text-emerald-600 dark:text-emerald-400 truncate">{{.Description}}</span>
+                <span class="text-[10px] font-bold bg-emerald-500/20 text-emerald-500 px-1.5 py-0.5 rounded shrink-0">{{printf "%.2f" .YieldRate}}%</span>
+            </div>
+            <div class="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground truncate">
+                <span class="truncate">{{.AccountName}}</span>
+                {{if .ToAccountName}}
+                <span class="shrink-0">{{template "icon-arrow-right" dict "Size" 9}}</span>
+                <span class="truncate">{{.ToAccountName}}</span>
+                {{end}}
+            </div>
+        </div>
+        <div class="text-right shrink-0">
+            <div class="font-mono font-bold text-sm text-emerald-500 tabular-nums">+{{formatMoney .Amount $.Currency}}</div>
+            <div class="text-[10px] text-muted-foreground italic mt-0.5">
+                {{if eq .PayoutFrequency "YEARLY"}}{{index $.T "recurring.auto_badge_annual"}}{{else}}{{index $.T "recurring.auto_badge"}}{{end}}
+            </div>
+        </div>
+        <div class="w-[52px] shrink-0"></div>
+    </div>
+    {{else}}
+    <div class="group flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors" x-data="recurringRow">
+        <div class="w-1 self-stretch rounded-full shrink-0 {{if .ToAccountID}}bg-blue-500{{else if gt .Amount 0.0}}bg-emerald-500{{else}}bg-red-400{{end}}"></div>
+        <div class="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center text-xs font-mono font-bold {{if .ToAccountID}}bg-blue-500/10 text-blue-500{{else if gt .Amount 0.0}}bg-emerald-500/10 text-emerald-500{{else}}bg-red-500/10 text-red-500{{end}}">
+            {{.DayOfMonth}}
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium text-foreground truncate">{{.Description}}</div>
+            <div class="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground truncate">
+                {{if .ToAccountID}}
+                <span class="text-blue-500 truncate">{{.AccountName}}</span>
+                <span class="shrink-0">{{template "icon-arrow-right" dict "Size" 9}}</span>
+                <span class="text-blue-500 truncate">{{.ToAccountName}}</span>
+                {{else}}
+                <span class="truncate">{{.AccountName}}</span>
+                {{end}}
+            </div>
+        </div>
+        <div class="font-mono font-bold text-sm tabular-nums shrink-0 {{if .ToAccountID}}text-blue-500{{else if gt .Amount 0.0}}text-emerald-500{{else}}text-foreground{{end}}">
+            {{if not .ToAccountID}}{{if gt .Amount 0.0}}+{{end}}{{end}}{{formatMoney .Amount $.Currency}}
+        </div>
+        <div class="flex items-center gap-0.5 shrink-0" x-show="!del">
+            <button @click="openRecurringForm({{. | json}})"
+                    class="p-1.5 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors">
+                {{template "icon-pencil" dict "Size" 15}}
+            </button>
+            <button @click.prevent="del = true"
+                    class="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                {{template "icon-trash" dict "Size" 15}}
+            </button>
+        </div>
+        <div class="flex items-center gap-0.5 shrink-0" x-show="del">
+            <button hx-delete="/recurring/{{.ID}}" hx-target="#recurring-list" hx-swap="innerHTML"
+                    class="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                {{template "icon-check" dict "Size" 15}}
+            </button>
+            <button @click.prevent="del = false"
+                    class="p-1.5 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
+                {{template "icon-x" dict "Size" 15}}
+            </button>
+        </div>
+    </div>
+    {{end}}
+    {{end}}
+</div>
+{{else}}
+<div class="flex flex-col items-center justify-center py-12 text-center">
+    <div class="text-muted-foreground/20 mb-3">{{template "icon-refresh" dict "Size" 40}}</div>
+    <p class="text-sm font-medium text-foreground mb-1">{{index $.T "recurring.empty_title"}}</p>
+    <p class="text-xs text-muted-foreground">{{index $.T "recurring.empty_subtitle"}}</p>
+</div>
+{{end}}
 {{end}}
 
 {{define "summary-card"}}
@@ -463,6 +519,7 @@ function accountsPage() {
             <div class="min-w-0">
                 <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.income"}}</div>
                 <div class="text-lg sm:text-2xl font-mono font-bold text-emerald-500">+{{formatMoney .MonthlyIncome $.Currency}}</div>
+                {{if gt .MonthlyYield 0.0}}<div class="text-[10px] text-emerald-400/80 mt-0.5 font-medium">{{index $.T "summary.yield_auto"}} +{{formatMoney .MonthlyYield $.Currency}}</div>{{end}}
             </div>
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
                 <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.expenses"}}</div>
@@ -484,7 +541,8 @@ function accountsPage() {
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 opacity-90">
             <div class="min-w-0">
                 <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.income"}}</div>
-                <div class="text-base sm:text-xl font-mono font-bold text-emerald-500">+{{formatMoney (mult .MonthlyIncome 12) $.Currency}}</div>
+                <div class="text-base sm:text-xl font-mono font-bold text-emerald-500">+{{formatMoney (add (mult .MonthlyIncome 12) .AnnualYield) $.Currency}}</div>
+                {{if gt (add .MonthlyYield .AnnualYield) 0.0}}<div class="text-[10px] text-emerald-400/80 mt-0.5 font-medium">{{index $.T "summary.yield_auto"}} +{{formatMoney (add (mult .MonthlyYield 12) .AnnualYield) $.Currency}}</div>{{end}}
             </div>
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
                 <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.expenses"}}</div>
@@ -493,7 +551,7 @@ function accountsPage() {
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
                 <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.balance"}}</div>
                 <div class="text-base sm:text-xl font-mono font-bold {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
-                    {{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney (mult .MonthlyNet 12) $.Currency}}
+                    {{if gt (add (mult .MonthlyNet 12) .AnnualYield) 0.0}}+{{end}}{{formatMoney (add (mult .MonthlyNet 12) .AnnualYield) $.Currency}}
                 </div>
             </div>
         </div>

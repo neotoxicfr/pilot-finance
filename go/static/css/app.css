@@ -119,8 +119,10 @@ nav.nav-scrolled {
     .dark .dashboard-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.4), 0 2px 6px rgba(0,0,0,.25); }
     .dashboard-card.kpi-card-emerald:hover { box-shadow: 0 4px 20px rgba(16,185,129,.15), 0 2px 4px rgba(0,0,0,.06); }
     .dashboard-card.kpi-card-blue:hover    { box-shadow: 0 4px 20px rgba(59,130,246,.15), 0 2px 4px rgba(0,0,0,.06); }
+    .dashboard-card.kpi-card-slate:hover   { box-shadow: 0 4px 20px rgba(100,116,139,.18), 0 2px 4px rgba(0,0,0,.06); }
     .dark .dashboard-card.kpi-card-emerald:hover { box-shadow: 0 4px 24px rgba(16,185,129,.25), 0 2px 4px rgba(0,0,0,.3); }
     .dark .dashboard-card.kpi-card-blue:hover    { box-shadow: 0 4px 24px rgba(59,130,246,.25), 0 2px 4px rgba(0,0,0,.3); }
+    .dark .dashboard-card.kpi-card-slate:hover   { box-shadow: 0 4px 24px rgba(100,116,139,.28), 0 2px 4px rgba(0,0,0,.3); }
 }
 
 /* Fix button cursor + micro-feedback */
@@ -178,8 +180,10 @@ textarea:focus {
 /* KPI card gradients */
 .kpi-card-emerald { background: linear-gradient(135deg, var(--background) 0%, rgba(16,185,129,.05) 100%); }
 .kpi-card-blue    { background: linear-gradient(135deg, var(--background) 0%, rgba(59,130,246,.05) 100%); }
+.kpi-card-slate   { background: linear-gradient(135deg, var(--background) 0%, rgba(100,116,139,.07) 100%); }
 .dark .kpi-card-emerald { background: linear-gradient(135deg, var(--background) 0%, rgba(16,185,129,.10) 100%); }
 .dark .kpi-card-blue    { background: linear-gradient(135deg, var(--background) 0%, rgba(59,130,246,.10) 100%); }
+.dark .kpi-card-slate   { background: linear-gradient(135deg, var(--background) 0%, rgba(100,116,139,.12) 100%); }
 
 /* HTMX Loading States */
 @keyframes htmx-pulse {
@@ -269,12 +273,12 @@ dialog > .modal-panel {
 #accounts-list > *:nth-child(5) { animation-delay: 140ms; }
 #accounts-list > *:nth-child(n+6) { animation-delay: 175ms; }
 
-#recurring-list tbody tr {
+#recurring-list > div > * {
     animation: item-in 0.15s ease-out both;
 }
-#recurring-list tbody tr:nth-child(2) { animation-delay: 25ms; }
-#recurring-list tbody tr:nth-child(3) { animation-delay: 50ms; }
-#recurring-list tbody tr:nth-child(4) { animation-delay: 75ms; }
-#recurring-list tbody tr:nth-child(5) { animation-delay: 100ms; }
-#recurring-list tbody tr:nth-child(n+6) { animation-delay: 125ms; }
+#recurring-list > div > *:nth-child(2) { animation-delay: 25ms; }
+#recurring-list > div > *:nth-child(3) { animation-delay: 50ms; }
+#recurring-list > div > *:nth-child(4) { animation-delay: 75ms; }
+#recurring-list > div > *:nth-child(5) { animation-delay: 100ms; }
+#recurring-list > div > *:nth-child(n+6) { animation-delay: 125ms; }
 

@@ -1,10 +1,10 @@
 {{define "content"}}
 <div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8"
-     x-data="dashboardData()" x-init="init()">
+     x-data="dashboardData">
 
     <!-- KPI Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-        <div class="dashboard-card bg-gradient-to-br from-background to-accent/50 border p-6 rounded-2xl relative overflow-hidden">
+        <div class="dashboard-card kpi-card-slate border p-6 rounded-2xl relative overflow-hidden">
             <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
                 {{template "icon-shield-check" dict "Size" 80}}
             </div>
@@ -39,7 +39,7 @@
     <!-- Charts Section -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
         <!-- Projection Chart -->
-        <div class="dashboard-card md:col-span-2 bg-background border rounded-2xl p-6">
+        <div class="dashboard-card md:col-span-2 bg-background border rounded-2xl p-6 flex flex-col">
             <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
                 <h3 class="text-lg font-bold text-foreground flex items-center gap-2">
                     {{template "icon-trending-up" dict "Size" 18}} {{index .T "dashboard.trajectory"}}
@@ -48,7 +48,7 @@
                     <span class="text-xs text-muted-foreground whitespace-nowrap font-medium">
                         {{index .T "dashboard.projection_label"}} <strong x-text="years + ' {{index .T "dashboard.years_suffix"}}'"></strong>
                     </span>
-                    <div class="w-full md:w-48">
+                    <div class="w-full md:w-48 flex items-center">
                         <input type="range" min="1" max="30"
                                x-model="years"
                                @input="debouncedUpdate()"
@@ -56,7 +56,7 @@
                     </div>
                 </div>
             </div>
-            <div class="h-[350px] w-full">
+            <div class="flex-1 min-h-[250px] md:min-h-[350px] w-full">
                 <canvas id="projectionCanvas"></canvas>
             </div>
         </div>
@@ -66,18 +66,19 @@
             <h3 class="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                 {{template "icon-dashboard" dict "Size" 18}} {{index .T "dashboard.distribution"}}
             </h3>
-            <div class="flex-1 min-h-[300px] flex flex-col items-center justify-center">
-                <div class="relative w-full max-w-[250px]" style="aspect-ratio: 1;">
+            <div class="flex-1 md:min-h-0 flex items-center justify-center">
+                <div class="relative w-full max-w-xs md:max-w-none md:max-h-full [container-type:inline-size]" style="aspect-ratio: 1;">
                     <canvas id="pieCanvas"></canvas>
                     <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <div class="text-xl font-bold font-mono text-foreground" x-text="formatMoneyCompact(totalBalance)"></div>
-                        <div class="text-xs text-muted-foreground uppercase font-bold">{{index .T "dashboard.total"}}</div>
+                        <div class="font-bold font-mono text-foreground [font-size:clamp(1.25rem,6cqi,1.75rem)]" x-text="formatMoneyCompact(totalBalance)"></div>
+                        <div class="text-muted-foreground uppercase font-bold tracking-wider [font-size:clamp(0.65rem,2.5cqi,0.75rem)]">{{index .T "dashboard.total"}}</div>
                     </div>
                 </div>
-                <div id="pieLegend" class="mt-4 flex flex-wrap justify-center gap-2"></div>
             </div>
         </div>
     </div>
+    <!-- Shared color legend for both charts -->
+    <div id="chartLegend" class="flex flex-wrap justify-center gap-x-4 gap-y-2 -mt-4"></div>
 </div>
 
 <script id="initial-data" type="application/json">{
@@ -167,5 +168,9 @@ function dashboardData() {
         }
     };
 }
+
+document.addEventListener('alpine:init', () => {
+    Alpine.data('dashboardData', dashboardData);
+});
 </script>
 {{end}}
