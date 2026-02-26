@@ -96,6 +96,14 @@ nav {
     padding-top: env(safe-area-inset-top);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+    transition: box-shadow .2s ease;
+}
+nav.nav-scrolled {
+    box-shadow: 0 4px 16px rgba(0,0,0,.08);
+    border-color: transparent !important;
+}
+.dark nav.nav-scrolled {
+    box-shadow: 0 4px 20px rgba(0,0,0,.35);
 }
 
 /* Cards */

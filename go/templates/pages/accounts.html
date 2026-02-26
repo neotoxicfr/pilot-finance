@@ -15,24 +15,28 @@
                     {{template "icon-wallet" dict "Size" 18}} {{index .T "accounts.title"}}
                 </h2>
                 <button @click="showAccountForm = true; editingAccount = null"
-                        x-show="!showAccountForm"
                         class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-xl flex items-center gap-1 transition-all font-bold">
                     {{template "icon-plus" dict "Size" 16}} {{index .T "accounts.add"}}
                 </button>
             </div>
 
-            <!-- Account Form -->
+            <!-- Account Form Modal -->
             <template x-if="showAccountForm">
-                <div class="dashboard-card bg-background border border-blue-500/50 rounded-2xl p-5 mb-4 relative"
-                     x-init="$nextTick(() => htmx.process($el))"
-                     x-data="{
-                         selectedColor: editingAccount?.color || '#3b82f6',
-                         isYieldActive: editingAccount?.is_yield_active || false,
-                         yieldType: editingAccount?.yield_type || 'FIXED',
-                         yieldMin: editingAccount?.yield_min || '',
-                         yieldMax: editingAccount?.yield_max || '',
-                         reinvestmentRate: editingAccount?.reinvestment_rate ?? 100
-                     }">
+                <div class="fixed inset-0 z-40 flex items-end sm:items-center justify-center"
+                     x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                     x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+                     @keydown.escape.window="showAccountForm = false; editingAccount = null">
+                    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showAccountForm = false; editingAccount = null"></div>
+                    <div class="relative z-10 bg-background border border-blue-500/50 rounded-t-2xl sm:rounded-2xl p-5 w-full sm:max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto"
+                         x-init="$nextTick(() => htmx.process($el))"
+                         x-data="{
+                             selectedColor: editingAccount?.color || '#3b82f6',
+                             isYieldActive: editingAccount?.is_yield_active || false,
+                             yieldType: editingAccount?.yield_type || 'FIXED',
+                             yieldMin: editingAccount?.yield_min || '',
+                             yieldMax: editingAccount?.yield_max || '',
+                             reinvestmentRate: editingAccount?.reinvestment_rate ?? 100
+                         }">
                     <button @click="showAccountForm = false; editingAccount = null"
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 20}}
@@ -41,6 +45,7 @@
                     <form hx-post="/accounts"
                           hx-target="#accounts-list"
                           hx-swap="innerHTML"
+                          data-toast=""
                           @htmx:after-settle="showAccountForm = false"
                           class="space-y-5">
                         <input type="hidden" name="id" :value="editingAccount?.id || ''">
@@ -149,6 +154,7 @@
                             {{index .T "accounts.submit"}}
                         </button>
                     </form>
+                    </div>
                 </div>
             </template>
 
@@ -169,69 +175,75 @@
                     {{template "icon-refresh" dict "Size" 18}} {{index .T "recurring.title"}}
                 </h2>
                 <button @click="showRecurringForm = true; editingRecurring = null"
-                        x-show="!showRecurringForm"
                         class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-xl flex items-center gap-1 transition-all font-bold">
                     {{template "icon-plus" dict "Size" 16}} {{index .T "recurring.add"}}
                 </button>
             </div>
 
-            <!-- Recurring Form -->
+            <!-- Recurring Form Modal -->
             <template x-if="showRecurringForm">
-                <div class="dashboard-card bg-background border border-blue-500/50 rounded-2xl p-4 relative"
-                     x-init="$nextTick(() => htmx.process($el))"
-                     x-data="{
-                         get opType() {
-                             if (!editingRecurring) return 'expense';
-                             if (editingRecurring.ToAccountID) return 'transfer';
-                             return editingRecurring.Amount > 0 ? 'income' : 'expense';
-                         },
-                         get absAmount() {
-                             if (!editingRecurring) return '';
-                             return Math.abs(editingRecurring.Amount);
-                         }
-                     }">
-                    <button @click="showRecurringForm = false; editingRecurring = null"
-                            class="absolute top-3 right-3 text-muted-foreground hover:text-foreground">
-                        {{template "icon-x" dict "Size" 18}}
-                    </button>
-                    <h3 class="text-sm font-bold text-blue-500 mb-4" x-text="editingRecurring ? '{{index .T "recurring.edit_form"}}' : '{{index .T "recurring.new_form"}}'"></h3>
-                    <form hx-post="/recurring"
-                          hx-target="#recurring-list"
-                          hx-swap="innerHTML"
-                          @htmx:after-settle="showRecurringForm = false"
-                          class="space-y-4">
-                        <input type="hidden" name="id" :value="editingRecurring?.ID || ''">
-                        <div class="flex gap-3">
-                            <input type="text" name="description" placeholder="{{index .T "recurring.label_placeholder"}}" required
-                                   :value="editingRecurring?.Description || ''"
-                                   class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-blue-500">
-                            <input type="number" step="0.01" name="amount" placeholder="{{$.Currency}}" required
-                                   :value="absAmount"
-                                   class="w-24 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden font-mono focus:border-blue-500">
-                            <input type="number" min="1" max="31" name="dayOfMonth" placeholder="{{index .T "recurring.day_placeholder"}}" required
-                                   :value="editingRecurring?.DayOfMonth || ''"
-                                   class="w-14 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden text-center focus:border-blue-500">
-                        </div>
-                        <div class="flex gap-3">
-                            <select name="type" x-model="opType"
-                                    class="w-28 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
-                                <option value="expense">{{index .T "recurring.type_expense"}}</option>
-                                <option value="income">{{index .T "recurring.type_income"}}</option>
-                                <option value="transfer">{{index .T "recurring.type_transfer"}}</option>
-                            </select>
-                            <select name="accountId" required
-                                    :value="editingRecurring?.AccountID || ''"
-                                    class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
-                                <option value="">{{index .T "recurring.account_placeholder"}}</option>
-                                {{range .Accounts}}
-                                <option value="{{.ID}}">{{.Name}}</option>
-                                {{end}}
-                            </select>
-                            <button class="px-5 bg-blue-600 hover:bg-blue-500 rounded-xl text-white transition-all font-bold text-xs uppercase tracking-wide">
+                <div class="fixed inset-0 z-40 flex items-end sm:items-center justify-center"
+                     x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                     x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+                     @keydown.escape.window="showRecurringForm = false; editingRecurring = null">
+                    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showRecurringForm = false; editingRecurring = null"></div>
+                    <div class="relative z-10 bg-background border border-blue-500/50 rounded-t-2xl sm:rounded-2xl p-5 w-full sm:max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto"
+                         x-init="$nextTick(() => htmx.process($el))"
+                         x-data="{
+                             get opType() {
+                                 if (!editingRecurring) return 'expense';
+                                 if (editingRecurring.ToAccountID) return 'transfer';
+                                 return editingRecurring.Amount > 0 ? 'income' : 'expense';
+                             },
+                             get absAmount() {
+                                 if (!editingRecurring) return '';
+                                 return Math.abs(editingRecurring.Amount);
+                             }
+                         }">
+                        <button @click="showRecurringForm = false; editingRecurring = null"
+                                class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
+                            {{template "icon-x" dict "Size" 20}}
+                        </button>
+                        <h3 class="text-base font-bold text-blue-500 mb-5" x-text="editingRecurring ? '{{index .T "recurring.edit_form"}}' : '{{index .T "recurring.new_form"}}'"></h3>
+                        <form hx-post="/recurring"
+                              hx-target="#recurring-list"
+                              hx-swap="innerHTML"
+                              data-toast=""
+                              @htmx:after-settle="showRecurringForm = false"
+                              class="space-y-4">
+                            <input type="hidden" name="id" :value="editingRecurring?.ID || ''">
+                            <div class="flex gap-3">
+                                <input type="text" name="description" placeholder="{{index .T "recurring.label_placeholder"}}" required
+                                       :value="editingRecurring?.Description || ''"
+                                       class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-blue-500">
+                                <input type="number" step="0.01" name="amount" placeholder="{{$.Currency}}" required
+                                       :value="absAmount"
+                                       class="w-24 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden font-mono focus:border-blue-500">
+                                <input type="number" min="1" max="31" name="dayOfMonth" placeholder="{{index .T "recurring.day_placeholder"}}" required
+                                       :value="editingRecurring?.DayOfMonth || ''"
+                                       class="w-14 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden text-center focus:border-blue-500">
+                            </div>
+                            <div class="flex gap-3">
+                                <select name="type" x-model="opType"
+                                        class="w-28 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
+                                    <option value="expense">{{index .T "recurring.type_expense"}}</option>
+                                    <option value="income">{{index .T "recurring.type_income"}}</option>
+                                    <option value="transfer">{{index .T "recurring.type_transfer"}}</option>
+                                </select>
+                                <select name="accountId" required
+                                        :value="editingRecurring?.AccountID || ''"
+                                        class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
+                                    <option value="">{{index .T "recurring.account_placeholder"}}</option>
+                                    {{range .Accounts}}
+                                    <option value="{{.ID}}">{{.Name}}</option>
+                                    {{end}}
+                                </select>
+                            </div>
+                            <button class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl text-sm font-bold transition-all">
                                 {{index .T "recurring.submit"}}
                             </button>
-                        </div>
-                    </form>
+                        </form>
+                    </div>
                 </div>
             </template>
 
@@ -296,6 +308,7 @@ function accountsPage() {
     <div class="flex items-center gap-3">
         <form hx-post="/accounts/{{.ID}}/balance"
               hx-swap="none"
+              data-toast=""
               class="flex items-baseline gap-1">
             <input type="text" inputmode="decimal" name="balance"
                    value="{{formatBalance .Balance}}"
