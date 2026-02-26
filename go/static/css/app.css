@@ -58,6 +58,7 @@ body {
     min-height: 100vh;
     min-height: -webkit-fill-available;
     padding-bottom: env(safe-area-inset-bottom);
+    overscroll-behavior: none;
 }
 
 /* Scrollbars */
