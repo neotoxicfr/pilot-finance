@@ -357,7 +357,8 @@ function accountsPage() {
     </div>
     <div class="flex items-center gap-3">
         <form hx-post="/accounts/{{.ID}}/balance"
-              hx-swap="none"
+              hx-target="#accounts-list"
+              hx-swap="innerHTML"
               data-toast=""
               class="flex items-baseline gap-1">
             <input type="text" inputmode="decimal" name="balance"
