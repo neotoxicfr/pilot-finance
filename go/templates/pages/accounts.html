@@ -210,7 +210,9 @@
                                 </select>
                             </div>
                             <div x-show="opType === 'transfer'" x-cloak class="flex gap-3 items-center">
-                                <span class="w-28 shrink-0 text-xs text-muted-foreground text-right">→</span>
+                                <div class="w-28 shrink-0 flex justify-end text-muted-foreground/50">
+                                    {{template "icon-arrow-right" dict "Size" 14}}
+                                </div>
                                 <select name="toAccountId"
                                         x-model="toAccountId"
                                         class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
