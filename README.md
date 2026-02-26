@@ -23,10 +23,12 @@
 * 🔄 **Recurring operations** — Track monthly income and expenses with automatic projection.
 * 🌍 **Multi-language & Multi-currency** — Interface available in French and English. Currency display configurable per user (EUR, USD, GBP, CHF, JPY, CAD, AUD).
 * 🔐 **Security by default** :
+    * **`@alpinejs/csp`** build — no `unsafe-eval` in CSP; all Alpine components registered server-side
     * Strict **Content Security Policy** with per-request dynamic nonces — no `unsafe-inline` for scripts
+    * **`X-Frame-Options: DENY`** + **`Permissions-Policy`** — clickjacking protection and browser API restrictions
     * **CSRF protection** — Origin/Referer header validation on all mutating requests
     * **AES-256-GCM** encryption of all sensitive data (emails, account names, transaction labels)
-    * **bcrypt** password hashing — 12-character minimum, 5-criteria complexity validation
+    * **bcrypt** password hashing — cost 12, 12-character minimum, 5-criteria complexity validation, automatic cost upgrade on login
     * **Session versioning** — automatic logout from all devices on password change
     * Multi-level **rate limiting** — global 120 req/min, auth routes 10 req/min
     * Native **Passkeys** (WebAuthn) and **2FA** (TOTP) support
@@ -108,7 +110,7 @@ The application listens on port **3000** inside the container.
 
 * **Zero plaintext storage** — Account names and transaction labels are encrypted with AES-256-GCM. Only your server holds the key.
 * **Zero external dependency** — No CDN requests at runtime. All JS and CSS assets are compiled and served locally.
-* **Strict CSP** — Per-request nonces for inline scripts. No `unsafe-inline` in `script-src`.
+* **Strict CSP** — Per-request nonces + `@alpinejs/csp` build (no `unsafe-eval`). No `unsafe-inline` in `script-src`.
 * **Startup verification** — The server refuses to start if encryption keys are missing or too short.
 * **Passkeys** — WebAuthn provides phishing-resistant authentication without passwords.
 
@@ -119,7 +121,7 @@ The application listens on port **3000** inside the container.
 | | |
 |---|---|
 | Backend | Go 1.26 + chi router |
-| Frontend | HTMX 2.0 + Alpine.js 3.15 + Tailwind CSS v4 |
+| Frontend | HTMX 2.0 + Alpine.js 3.15 (CSP build) + Tailwind CSS v4 |
 | Database | SQLite (WAL mode) |
 | Charts | Chart.js 4.5 |
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
