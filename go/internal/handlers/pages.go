@@ -260,16 +260,6 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// AdminPage affiche la page d'administration
-func AdminPage(w http.ResponseWriter, r *http.Request) {
-	SettingsPage(w, r)
-}
-
-// RecurringPage redirige vers la page des comptes
-func RecurringPage(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/accounts", http.StatusSeeOther)
-}
-
 // VerifyEmailPage verifie l'email avec le token
 func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")

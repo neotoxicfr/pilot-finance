@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -195,8 +196,14 @@ func DeleteRecurring(w http.ResponseWriter, r *http.Request) {
 func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
 	lang, currency := userLocale(user)
 
-	recurrings, _ := db.GetRecurringByUserID(user.ID)
-	accounts, _ := db.GetAccountsByUserID(user.ID)
+	recurrings, err := db.GetRecurringByUserID(user.ID)
+	if err != nil {
+		log.Printf("renderRecurringTable: GetRecurringByUserID: %v", err)
+	}
+	accounts, err := db.GetAccountsByUserID(user.ID)
+	if err != nil {
+		log.Printf("renderRecurringTable: GetAccountsByUserID: %v", err)
+	}
 
 	decryptAccountNames(accounts)
 	accountMap := buildAccountMap(accounts)
