@@ -393,6 +393,7 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 	templates.RenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{
 		"Recurrings": recurringData,
 		"Currency":   currency,
+		"T":          i18n.Map(lang),
 	})
 	w.Write([]byte(`</div>`))
 }
