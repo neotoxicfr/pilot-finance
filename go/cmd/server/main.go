@@ -100,7 +100,7 @@ func main() {
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Compress(5))
 	r.Use(securityHeaders)
-	r.Use(httprate.LimitByRealIP(100, time.Minute)) // 100 req/min global
+	r.Use(httprate.LimitByRealIP(120, time.Minute)) // 120 req/min global (2/s, suffisant pour usage actif)
 
 	// Fichiers statiques avec cache (pas de rate limit)
 	fileServer := http.FileServer(http.Dir("static"))
@@ -109,9 +109,9 @@ func main() {
 	// Health check (pas de rate limit strict)
 	r.Get("/api/health", handlers.HealthCheck)
 
-	// Routes auth avec rate limit (20 req/min anti-bruteforce)
+	// Routes auth avec rate limit (10 req/min anti-bruteforce, humain = ~1 essai/6s)
 	r.Group(func(r chi.Router) {
-		r.Use(httprate.LimitByRealIP(20, time.Minute))
+		r.Use(httprate.LimitByRealIP(10, time.Minute))
 
 		r.Get("/login", handlers.LoginPage)
 		r.Post("/login", handlers.LoginSubmit)
@@ -138,6 +138,7 @@ func main() {
 		r.Get("/dashboard-partial", handlers.DashboardPartial)
 		r.Get("/accounts", handlers.AccountsPage)
 		r.Post("/accounts", handlers.CreateAccount)
+		r.Post("/accounts/reorder", handlers.ReorderAccounts)
 		r.Put("/accounts/{id}", handlers.UpdateAccount)
 		r.Delete("/accounts/{id}", handlers.DeleteAccount)
 		r.Post("/accounts/{id}/balance", handlers.UpdateBalance)

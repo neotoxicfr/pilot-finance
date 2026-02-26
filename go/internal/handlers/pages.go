@@ -27,11 +27,13 @@ func baseData(r *http.Request, user *middleware.User) map[string]interface{} {
 		locale = "fr-FR"
 	}
 	return map[string]interface{}{
-		"T":        i18n.Map(lang),
-		"Lang":     lang,
-		"Locale":   locale,
-		"Currency": currency,
-		"Nonce":    middleware.GetNonce(r),
+		"T":           i18n.Map(lang),
+		"Lang":        lang,
+		"Locale":      locale,
+		"Currency":    currency,
+		"Nonce":       middleware.GetNonce(r),
+		"CurrentPath": r.URL.Path,
+		"AssetVer":    Version,
 	}
 }
 

@@ -43,6 +43,7 @@ html {
     background-color: var(--background);
     min-height: 100%;
     -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
 }
 
 html.dark {
@@ -58,6 +59,7 @@ body {
     min-height: 100vh;
     min-height: -webkit-fill-available;
     padding-bottom: env(safe-area-inset-bottom);
+    overscroll-behavior: none;
 }
 
 /* Scrollbars */
@@ -94,16 +96,40 @@ nav {
     padding-top: env(safe-area-inset-top);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+    transition: box-shadow .2s ease;
+}
+nav.nav-scrolled {
+    box-shadow: 0 4px 16px rgba(0,0,0,.08);
+    border-color: transparent !important;
+}
+.dark nav.nav-scrolled {
+    box-shadow: 0 4px 20px rgba(0,0,0,.35);
 }
 
 /* Cards */
 .dashboard-card {
     border-color: var(--border) !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 1px 3px rgba(0,0,0,.05);
+    transition: box-shadow .2s ease, border-color .2s ease;
+}
+.dark .dashboard-card { box-shadow: 0 1px 2px rgba(0,0,0,.25), 0 1px 3px rgba(0,0,0,.2); }
+
+@media (hover: hover) {
+    .dashboard-card:hover       { box-shadow: 0 4px 12px rgba(0,0,0,.1), 0 2px 4px rgba(0,0,0,.06); }
+    .dark .dashboard-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.4), 0 2px 6px rgba(0,0,0,.25); }
+    .dashboard-card.kpi-card-emerald:hover { box-shadow: 0 4px 20px rgba(16,185,129,.15), 0 2px 4px rgba(0,0,0,.06); }
+    .dashboard-card.kpi-card-blue:hover    { box-shadow: 0 4px 20px rgba(59,130,246,.15), 0 2px 4px rgba(0,0,0,.06); }
+    .dark .dashboard-card.kpi-card-emerald:hover { box-shadow: 0 4px 24px rgba(16,185,129,.25), 0 2px 4px rgba(0,0,0,.3); }
+    .dark .dashboard-card.kpi-card-blue:hover    { box-shadow: 0 4px 24px rgba(59,130,246,.25), 0 2px 4px rgba(0,0,0,.3); }
 }
 
-/* Fix button cursor */
+/* Fix button cursor + micro-feedback */
 button:not(:disabled) {
     cursor: pointer;
+}
+button:not(:disabled):active {
+    transform: scale(0.96);
+    transition: transform 0.08s ease;
 }
 
 a {
@@ -143,13 +169,28 @@ input[type=number] {
     -moz-appearance: textfield;
 }
 
-/* HTMX Loading States */
-.htmx-request {
-    opacity: 0.5;
-    transition: opacity 200ms ease-in;
+/* Input focus glow */
+input:not([type='range']):not([type='color']):not([type='checkbox']):not([type='radio']):focus,
+textarea:focus {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
+/* KPI card gradients */
+.kpi-card-emerald { background: linear-gradient(135deg, var(--background) 0%, rgba(16,185,129,.05) 100%); }
+.kpi-card-blue    { background: linear-gradient(135deg, var(--background) 0%, rgba(59,130,246,.05) 100%); }
+.dark .kpi-card-emerald { background: linear-gradient(135deg, var(--background) 0%, rgba(16,185,129,.10) 100%); }
+.dark .kpi-card-blue    { background: linear-gradient(135deg, var(--background) 0%, rgba(59,130,246,.10) 100%); }
+
+/* HTMX Loading States */
+@keyframes htmx-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+}
+.htmx-request {
+    animation: htmx-pulse 1.2s ease-in-out infinite;
+}
 .htmx-request.htmx-indicator {
+    animation: none;
     opacity: 1;
 }
 
@@ -172,4 +213,68 @@ input[type=number] {
 .animate-in {
     animation: fade-in 0.3s ease-out;
 }
+
+/* Dialog / Modal */
+dialog {
+    padding: 0;
+    border: none;
+    background: transparent;
+    overflow: visible;
+}
+dialog[open] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    max-height: 100%;
+    margin: 0;
+}
+dialog::backdrop {
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+dialog > .modal-panel {
+    animation: modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes modalIn {
+    from { opacity: 0; transform: translateY(16px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-panel {
+    background: linear-gradient(145deg, rgba(255,255,255,0.99) 0%, rgba(241,245,249,0.96) 100%);
+    backdrop-filter: blur(32px) saturate(180%);
+    -webkit-backdrop-filter: blur(32px) saturate(180%);
+    box-shadow: 0 32px 64px rgba(0,0,0,0.18), 0 8px 24px rgba(0,0,0,0.1), inset 0 0 0 1px rgba(255,255,255,0.7);
+}
+.dark .modal-panel {
+    background: linear-gradient(145deg, rgba(15,23,42,0.99) 0%, rgba(30,41,59,0.96) 100%);
+    box-shadow: 0 32px 64px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(148,163,184,0.12);
+}
+
+/* Stagger: entrées de liste */
+@keyframes item-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+#accounts-list > * {
+    animation: item-in 0.2s ease-out both;
+}
+#accounts-list > *:nth-child(2) { animation-delay: 35ms; }
+#accounts-list > *:nth-child(3) { animation-delay: 70ms; }
+#accounts-list > *:nth-child(4) { animation-delay: 105ms; }
+#accounts-list > *:nth-child(5) { animation-delay: 140ms; }
+#accounts-list > *:nth-child(n+6) { animation-delay: 175ms; }
+
+#recurring-list tbody tr {
+    animation: item-in 0.15s ease-out both;
+}
+#recurring-list tbody tr:nth-child(2) { animation-delay: 25ms; }
+#recurring-list tbody tr:nth-child(3) { animation-delay: 50ms; }
+#recurring-list tbody tr:nth-child(4) { animation-delay: 75ms; }
+#recurring-list tbody tr:nth-child(5) { animation-delay: 100ms; }
+#recurring-list tbody tr:nth-child(n+6) { animation-delay: 125ms; }
 
