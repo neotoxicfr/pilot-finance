@@ -3,9 +3,10 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -40,11 +41,12 @@ func Init(cfg Config) error {
 		"PRAGMA temp_store=MEMORY",
 		"PRAGMA foreign_keys=ON",
 		"PRAGMA busy_timeout=5000",
+		"PRAGMA mmap_size=268435456",
 	}
 
 	for _, pragma := range pragmas {
 		if _, err := DB.Exec(pragma); err != nil {
-			log.Printf("Warning: %s failed: %v", pragma, err)
+			slog.Warn("pragma failed", "pragma", pragma, "err", err)
 		}
 	}
 
@@ -61,7 +63,7 @@ func Init(cfg Config) error {
 	// Migrations automatiques
 	runMigrations()
 
-	log.Println("Base de données connectée:", cfg.Path)
+	slog.Info("base de données connectée", "path", cfg.Path)
 	return nil
 }
 
@@ -73,6 +75,9 @@ func runMigrations() {
 		// Multi-langue et multi-devise par utilisateur
 		`ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'fr'`,
 		`ALTER TABLE users ADD COLUMN currency TEXT NOT NULL DEFAULT 'EUR'`,
+		// Périodicité du rendement et des versements
+		`ALTER TABLE accounts ADD COLUMN yield_frequency TEXT NOT NULL DEFAULT 'MONTHLY'`,
+		`ALTER TABLE accounts ADD COLUMN payout_frequency TEXT NOT NULL DEFAULT 'MONTHLY'`,
 		// Index de performance
 		`CREATE INDEX IF NOT EXISTS idx_accounts_user_id       ON accounts(user_id, position)`,
 		`CREATE INDEX IF NOT EXISTS idx_recurring_user_id      ON recurring_operations(user_id, day_of_month)`,
@@ -86,7 +91,10 @@ func runMigrations() {
 	for _, migration := range migrations {
 		_, err := DB.Exec(migration)
 		if err != nil {
-			// Ignorer les erreurs "column/index already exists"
+			msg := err.Error()
+			if !strings.Contains(msg, "already exists") && !strings.Contains(msg, "duplicate column name") {
+				slog.Warn("migration error", "err", err, "sql", migration[:min(80, len(migration))])
+			}
 		}
 	}
 }
