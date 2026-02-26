@@ -148,5 +148,8 @@
   "pwd.digit": "1 digit",
   "pwd.special": "1 special char (!@#$...)",
   "pwd.match": "Passwords match",
-  "pwd.diff": "Passwords differ"
+  "pwd.diff": "Passwords differ",
+
+  "accounts.empty_title": "No accounts yet",
+  "accounts.empty_subtitle": "Create your first account to get started"
 }
