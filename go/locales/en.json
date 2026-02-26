@@ -140,5 +140,13 @@
   "verify.redirecting": "Redirecting to login...",
   "verify.failed": "Verification failed",
   "verify.back": "Back to login",
-  "verify.loading": "Verifying your account..."
+  "verify.loading": "Verifying your account...",
+
+  "pwd.min8": "8 chars min.",
+  "pwd.upper": "1 uppercase",
+  "pwd.lower": "1 lowercase",
+  "pwd.digit": "1 digit",
+  "pwd.special": "1 special char (!@#$...)",
+  "pwd.match": "Passwords match",
+  "pwd.diff": "Passwords differ"
 }

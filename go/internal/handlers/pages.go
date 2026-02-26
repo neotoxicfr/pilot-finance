@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"os"
 
@@ -219,10 +220,18 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 	data["Passkeys"] = passkeys
 
 	if isAdmin {
-		users, _ := db.GetAllUsers()
+		users, err := db.GetAllUsers()
+		if err != nil {
+			http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+			return
+		}
 		var usersWithEmail []map[string]interface{}
 		for _, u := range users {
-			uEmail, _ := crypto.Decrypt(u.EmailEncrypted)
+			uEmail, err := crypto.Decrypt(u.EmailEncrypted)
+			if err != nil {
+				log.Printf("admin: decrypt user %d email: %v", u.ID, err)
+				continue
+			}
 			usersWithEmail = append(usersWithEmail, map[string]interface{}{
 				"ID":    u.ID,
 				"Email": uEmail,

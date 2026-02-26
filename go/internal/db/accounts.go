@@ -39,10 +39,24 @@ func UpdateAccountBalance(id, userID int64, balance float64) error {
 	return err
 }
 
-// DeleteAccount supprime un compte
+// DeleteAccount supprime un compte et les opérations récurrentes associées
 func DeleteAccount(id, userID int64) error {
-	_, err := DB.Exec(`DELETE FROM accounts WHERE id = ? AND user_id = ?`, id, userID)
-	return err
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`
+		DELETE FROM recurring_operations
+		WHERE (account_id = ? OR to_account_id = ?) AND user_id = ?`,
+		id, id, userID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM accounts WHERE id = ? AND user_id = ?`, id, userID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // SwapAccountPositions echange les positions de deux comptes

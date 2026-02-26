@@ -73,13 +73,20 @@ func runMigrations() {
 		// Multi-langue et multi-devise par utilisateur
 		`ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'fr'`,
 		`ALTER TABLE users ADD COLUMN currency TEXT NOT NULL DEFAULT 'EUR'`,
+		// Index de performance
+		`CREATE INDEX IF NOT EXISTS idx_accounts_user_id       ON accounts(user_id, position)`,
+		`CREATE INDEX IF NOT EXISTS idx_recurring_user_id      ON recurring_operations(user_id, day_of_month)`,
+		`CREATE INDEX IF NOT EXISTS idx_authenticators_user_id ON authenticators(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_authenticators_cred_id ON authenticators(credential_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_users_blind            ON users(email_blind_index)`,
+		`CREATE INDEX IF NOT EXISTS idx_users_reset_token      ON users(reset_token)`,
+		`CREATE INDEX IF NOT EXISTS idx_users_verif_token      ON users(verification_token)`,
 	}
 
 	for _, migration := range migrations {
 		_, err := DB.Exec(migration)
 		if err != nil {
-			// Ignorer les erreurs "column already exists"
-			// log.Printf("Migration skipped: %v", err)
+			// Ignorer les erreurs "column/index already exists"
 		}
 	}
 }
@@ -92,25 +99,18 @@ func Close() error {
 	return nil
 }
 
-// GetUserByBlindIndex récupère un utilisateur par son email blind index
-func GetUserByBlindIndex(blindIndex string) (*User, error) {
+// scanUser scanne une ligne SQL dans un User (helper partagé)
+func scanUser(row *sql.Row) (*User, error) {
 	var user User
 	var createdAt, lockUntil, resetTokenExpiry sql.NullInt64
 	var verificationToken, resetToken, mfaSecret sql.NullString
 
-	err := DB.QueryRow(`
-		SELECT id, email_encrypted, email_blind_index, password, role,
-		       created_at, email_verified, verification_token, reset_token,
-		       reset_token_expiry, mfa_enabled, mfa_secret, failed_login_attempts,
-		       lock_until, session_version, language, currency
-		FROM users WHERE email_blind_index = ?
-	`, blindIndex).Scan(
+	err := row.Scan(
 		&user.ID, &user.EmailEncrypted, &user.EmailBlindIndex, &user.Password, &user.Role,
 		&createdAt, &user.EmailVerified, &verificationToken, &resetToken,
 		&resetTokenExpiry, &user.MFAEnabled, &mfaSecret, &user.FailedLoginAttempts,
 		&lockUntil, &user.SessionVersion, &user.Language, &user.Currency,
 	)
-
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -118,7 +118,6 @@ func GetUserByBlindIndex(blindIndex string) (*User, error) {
 		return nil, err
 	}
 
-	// Conversion des timestamps
 	if createdAt.Valid {
 		user.CreatedAt = time.Unix(createdAt.Int64, 0)
 	}
@@ -139,59 +138,34 @@ func GetUserByBlindIndex(blindIndex string) (*User, error) {
 	if mfaSecret.Valid {
 		user.MFASecret = &mfaSecret.String
 	}
-
 	return &user, nil
+}
+
+const userSelectCols = `
+	SELECT id, email_encrypted, email_blind_index, password, role,
+	       created_at, email_verified, verification_token, reset_token,
+	       reset_token_expiry, mfa_enabled, mfa_secret, failed_login_attempts,
+	       lock_until, session_version, language, currency
+	FROM users`
+
+// GetUserByBlindIndex récupère un utilisateur par son email blind index
+func GetUserByBlindIndex(blindIndex string) (*User, error) {
+	return scanUser(DB.QueryRow(userSelectCols+` WHERE email_blind_index = ?`, blindIndex))
 }
 
 // GetUserByID récupère un utilisateur par son ID
 func GetUserByID(id int64) (*User, error) {
-	var user User
-	var createdAt, lockUntil, resetTokenExpiry sql.NullInt64
-	var verificationToken, resetToken, mfaSecret sql.NullString
+	return scanUser(DB.QueryRow(userSelectCols+` WHERE id = ?`, id))
+}
 
-	err := DB.QueryRow(`
-		SELECT id, email_encrypted, email_blind_index, password, role,
-		       created_at, email_verified, verification_token, reset_token,
-		       reset_token_expiry, mfa_enabled, mfa_secret, failed_login_attempts,
-		       lock_until, session_version, language, currency
-		FROM users WHERE id = ?
-	`, id).Scan(
-		&user.ID, &user.EmailEncrypted, &user.EmailBlindIndex, &user.Password, &user.Role,
-		&createdAt, &user.EmailVerified, &verificationToken, &resetToken,
-		&resetTokenExpiry, &user.MFAEnabled, &mfaSecret, &user.FailedLoginAttempts,
-		&lockUntil, &user.SessionVersion, &user.Language, &user.Currency,
-	)
-
+// GetSessionVersion récupère uniquement la session_version d'un utilisateur (requête allégée)
+func GetSessionVersion(id int64) (int, error) {
+	var sv int
+	err := DB.QueryRow(`SELECT session_version FROM users WHERE id = ?`, id).Scan(&sv)
 	if err == sql.ErrNoRows {
-		return nil, nil
+		return 0, nil
 	}
-	if err != nil {
-		return nil, err
-	}
-
-	// Conversion des timestamps
-	if createdAt.Valid {
-		user.CreatedAt = time.Unix(createdAt.Int64, 0)
-	}
-	if lockUntil.Valid {
-		t := time.Unix(lockUntil.Int64, 0)
-		user.LockUntil = &t
-	}
-	if resetTokenExpiry.Valid {
-		t := time.Unix(resetTokenExpiry.Int64, 0)
-		user.ResetTokenExpiry = &t
-	}
-	if verificationToken.Valid {
-		user.VerificationToken = &verificationToken.String
-	}
-	if resetToken.Valid {
-		user.ResetToken = &resetToken.String
-	}
-	if mfaSecret.Valid {
-		user.MFASecret = &mfaSecret.String
-	}
-
-	return &user, nil
+	return sv, err
 }
 
 // GetAccountsByUserID récupère tous les comptes d'un utilisateur
