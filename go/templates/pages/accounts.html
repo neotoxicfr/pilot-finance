@@ -21,10 +21,11 @@
             </div>
 
             <!-- Account Form Modal -->
-            <div x-show="showAccountForm" x-cloak
+            <template x-teleport="body">
+            <div x-show="showAccountForm"
                  x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
                  x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-                 class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center"
+                 class="fixed inset-0 z-[200] flex items-end sm:items-center justify-center"
                  @keydown.escape.window="showAccountForm = false; editingAccount = null">
                 <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showAccountForm = false; editingAccount = null"></div>
                 <div class="relative z-10 bg-background border border-blue-500/50 rounded-t-2xl sm:rounded-2xl p-5 w-full sm:max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -147,6 +148,7 @@
                     </form>
                 </div>
             </div>
+            </template>
 
             <!-- Accounts List -->
             <div class="space-y-3" id="accounts-list">
@@ -171,10 +173,11 @@
             </div>
 
             <!-- Recurring Form Modal -->
-            <div x-show="showRecurringForm" x-cloak
+            <template x-teleport="body">
+            <div x-show="showRecurringForm"
                  x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
                  x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-                 class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center"
+                 class="fixed inset-0 z-[200] flex items-end sm:items-center justify-center"
                  @keydown.escape.window="showRecurringForm = false; editingRecurring = null">
                 <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showRecurringForm = false; editingRecurring = null"></div>
                 <div class="relative z-10 bg-background border border-blue-500/50 rounded-t-2xl sm:rounded-2xl p-5 w-full sm:max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -223,6 +226,7 @@
                         </form>
                 </div>
             </div>
+            </template>
 
             <!-- Recurring List -->
             <div class="dashboard-card bg-background border rounded-2xl overflow-hidden">
@@ -306,10 +310,6 @@ function accountsPage() {
             {{template "icon-trending-up" dict "Size" 14}}
             <span class="font-medium">
                 {{if eq .YieldType "FIXED"}}{{.YieldMin}}%{{else}}{{.YieldMin}}-{{.YieldMax}}%{{end}}
-            </span>
-            <span class="px-1 py-px rounded text-[10px] font-bold uppercase tracking-wide
-                {{if eq .YieldType "FIXED"}}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400{{else}}bg-blue-500/10 text-blue-600 dark:text-blue-400{{end}}">
-                {{if eq .YieldType "FIXED"}}fixe{{else}}var{{end}}
             </span>
         </div>
         {{end}}
