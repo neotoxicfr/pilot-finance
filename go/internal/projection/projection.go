@@ -27,45 +27,80 @@ type DashboardData struct {
 }
 
 // Calculate calcule les projections sur N annees avec simulation mois par mois.
-// Prend en compte les opérations récurrentes et la périodicité des versements.
+// Trois scénarios parallèles : pessimiste (yieldMin), moyen (avg), optimiste (yieldMax).
+// Pour les comptes FIXED, les trois scénarios sont identiques.
 func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years int, lang string) DashboardData {
 	var totalBalance float64
 	for _, acc := range accounts {
 		totalBalance += acc.Balance
 	}
 
-	balances := make(map[int64]float64)
 	accountByID := make(map[int64]*db.Account)
 	nameByID := make(map[int64]string)
-
 	for i := range accounts {
 		acc := &accounts[i]
-		balances[acc.ID] = acc.Balance
 		accountByID[acc.ID] = acc
 		nameByID[acc.ID] = acc.Name
+	}
+
+	// Trois scénarios : balances et accumulateurs annuels indépendants
+	type scenario struct {
+		balances    map[int64]float64
+		annualAccum map[int64]float64
+	}
+	scens := [3]scenario{
+		{balances: make(map[int64]float64), annualAccum: make(map[int64]float64)},
+		{balances: make(map[int64]float64), annualAccum: make(map[int64]float64)},
+		{balances: make(map[int64]float64), annualAccum: make(map[int64]float64)},
+	}
+	for i := range accounts {
+		acc := &accounts[i]
+		for s := range scens {
+			scens[s].balances[acc.ID] = acc.Balance
+		}
+	}
+
+	// Taux mensuel selon le scénario (0=min, 1=avg, 2=max)
+	scenRate := func(acc *db.Account, s int) float64 {
+		var annualRate float64
+		if acc.YieldType == "RANGE" {
+			switch s {
+			case 0:
+				annualRate = acc.YieldMin
+			case 1:
+				annualRate = (acc.YieldMin + acc.YieldMax) / 2
+			case 2:
+				annualRate = acc.YieldMax
+			}
+		} else {
+			annualRate = acc.YieldMin
+		}
+		return annualRate / 100 / 12
 	}
 
 	useMonths := years <= 2
 	totalMonths := years * 12
 	var projection []YearData
-
 	monthLabel := func(m int) string { return formatMonthName(m, lang) }
 
+	// Crée un point de données à partir de l'état courant des trois scénarios.
+	// Les données par compte utilisent le scénario avg (index 1).
 	createYearData := func(index int, name string) YearData {
-		yearData := YearData{
-			Year:     index,
-			Name:     name,
-			Accounts: make(map[string]float64),
+		yd := YearData{Year: index, Name: name, Accounts: make(map[string]float64)}
+		for id, bal := range scens[1].balances {
+			yd.Accounts[nameByID[id]] = math.Round(bal)
+			yd.TotalAvg += bal
 		}
-		for id, balance := range balances {
-			accName := nameByID[id]
-			yearData.Accounts[accName] = math.Round(balance)
-			yearData.TotalAvg += balance
+		for _, bal := range scens[0].balances {
+			yd.TotalMin += bal
 		}
-		yearData.TotalMin = math.Round(yearData.TotalAvg)
-		yearData.TotalMax = math.Round(yearData.TotalAvg)
-		yearData.TotalAvg = math.Round(yearData.TotalAvg)
-		return yearData
+		for _, bal := range scens[2].balances {
+			yd.TotalMax += bal
+		}
+		yd.TotalMin = math.Round(yd.TotalMin)
+		yd.TotalAvg = math.Round(yd.TotalAvg)
+		yd.TotalMax = math.Round(yd.TotalMax)
+		return yd
 	}
 
 	if useMonths {
@@ -74,74 +109,60 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 		projection = append(projection, createYearData(0, formatYearName(0)))
 	}
 
-	// Accumulateur pour les versements annuels (remis à zéro chaque année)
-	annualPayoutAccum := make(map[int64]float64)
-
 	for m := 1; m <= totalMonths; m++ {
-		// 1. Appliquer les opérations récurrentes
+		// 1. Opérations récurrentes : identiques pour les trois scénarios
 		for _, rec := range recurrings {
 			if rec.ToAccountID != nil {
-				// Virement : source → cible
 				amt := math.Abs(rec.Amount)
-				if _, ok := balances[rec.AccountID]; ok {
-					balances[rec.AccountID] -= amt
-				}
-				if _, ok := balances[*rec.ToAccountID]; ok {
-					balances[*rec.ToAccountID] += amt
+				for s := range scens {
+					if _, ok := scens[s].balances[rec.AccountID]; ok {
+						scens[s].balances[rec.AccountID] -= amt
+					}
+					if _, ok := scens[s].balances[*rec.ToAccountID]; ok {
+						scens[s].balances[*rec.ToAccountID] += amt
+					}
 				}
 			} else {
-				// Entrée ou sortie (amount > 0 = entrée, < 0 = sortie)
-				if _, ok := balances[rec.AccountID]; ok {
-					balances[rec.AccountID] += rec.Amount
+				for s := range scens {
+					if _, ok := scens[s].balances[rec.AccountID]; ok {
+						scens[s].balances[rec.AccountID] += rec.Amount
+					}
 				}
 			}
 		}
 
-		// 2. Calculer les intérêts (compounding mensuel, taux annuel ÷ 12)
-		monthlyPayouts := make(map[int64]float64)
-
+		// 2. Intérêts : taux différent par scénario pour les comptes RANGE
 		for id, acc := range accountByID {
 			if !acc.IsYieldActive {
 				continue
 			}
-			currentBalance := balances[id]
-
-			rate := acc.YieldMin
-			if acc.YieldType == "RANGE" {
-				rate = (acc.YieldMin + acc.YieldMax) / 2
-			}
-			monthlyRate := rate / 100 / 12
-			monthlyInterest := currentBalance * monthlyRate
-
-			reinvestRatio := float64(acc.ReinvestmentRate) / 100
-			reinvested := monthlyInterest * reinvestRatio
-			balances[id] = currentBalance + reinvested
-
-			payout := monthlyInterest - reinvested
-			if payout > 0 && acc.TargetAccountID != nil {
-				freq := acc.PayoutFrequency
-				if freq == "YEARLY" {
-					annualPayoutAccum[*acc.TargetAccountID] += payout
-				} else {
-					monthlyPayouts[*acc.TargetAccountID] += payout
+			reinvest := float64(acc.ReinvestmentRate) / 100
+			for s := range scens {
+				currentBal := scens[s].balances[id]
+				monthlyInterest := currentBal * scenRate(acc, s)
+				reinvested := monthlyInterest * reinvest
+				scens[s].balances[id] = currentBal + reinvested
+				payout := monthlyInterest - reinvested
+				if payout > 0 && acc.TargetAccountID != nil {
+					if acc.PayoutFrequency == "YEARLY" {
+						scens[s].annualAccum[*acc.TargetAccountID] += payout
+					} else {
+						scens[s].balances[*acc.TargetAccountID] += payout
+					}
 				}
 			}
 		}
 
-		// Verser les payouts mensuels immédiatement
-		for targetID, amount := range monthlyPayouts {
-			balances[targetID] += amount
-		}
-
-		// Verser les payouts annuels accumulés en fin d'année
+		// 3. Versements annuels en fin d'année
 		if m%12 == 0 {
-			for targetID, amount := range annualPayoutAccum {
-				balances[targetID] += amount
+			for s := range scens {
+				for targetID, amount := range scens[s].annualAccum {
+					scens[s].balances[targetID] += amount
+				}
+				scens[s].annualAccum = make(map[int64]float64)
 			}
-			annualPayoutAccum = make(map[int64]float64)
 		}
 
-		// Enregistrer le point de données
 		if useMonths {
 			projection = append(projection, createYearData(m, monthLabel(m)))
 		} else if m%12 == 0 {
@@ -151,15 +172,14 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 	}
 
 	var finalTotal float64
-	for _, balance := range balances {
+	for _, balance := range scens[1].balances {
 		finalTotal += balance
 	}
-	totalInterests := finalTotal - totalBalance
 
 	return DashboardData{
 		Accounts:       accounts,
 		Projection:     projection,
-		TotalInterests: math.Round(totalInterests),
+		TotalInterests: math.Round(finalTotal - totalBalance),
 		TotalBalance:   totalBalance,
 	}
 }
