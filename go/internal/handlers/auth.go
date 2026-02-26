@@ -94,7 +94,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Générer le token JWT
-		token, err := auth.GenerateToken(user.ID, decryptedEmail, user.Role, user.SessionVersion)
+		token, err := auth.GenerateToken(user.ID, decryptedEmail, user.Role, user.Language, user.Currency, user.SessionVersion)
 		if err != nil {
 			http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 			return
@@ -182,7 +182,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Générer le token JWT
-	token, err := auth.GenerateToken(user.ID, decryptedEmail, user.Role, user.SessionVersion)
+	token, err := auth.GenerateToken(user.ID, decryptedEmail, user.Role, user.Language, user.Currency, user.SessionVersion)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
@@ -286,8 +286,8 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Générer le token et connecter
-	token, err := auth.GenerateToken(userID, email, role, 1)
+	// Générer le token et connecter (nouveaux utilisateurs : langue/devise par défaut)
+	token, err := auth.GenerateToken(userID, email, role, "fr", "EUR", 1)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return

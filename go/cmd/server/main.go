@@ -132,6 +132,7 @@ func main() {
 	// Routes protégées
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireAuth)
+		r.Use(middleware.ValidateOrigin(host))
 
 		r.Get("/", handlers.Dashboard)
 		r.Get("/dashboard-partial", handlers.DashboardPartial)
@@ -219,9 +220,21 @@ func cacheStatic(next http.Handler) http.Handler {
 	})
 }
 
-// securityHeaders génère un nonce par requête et l'intègre dans la CSP
+// securityHeaders génère un nonce par requête et l'intègre dans la CSP.
+// Pour les routes /api/ (JSON), le nonce et la CSP HTML ne sont pas nécessaires.
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Headers communs à toutes les routes
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("Cache-Control", "no-store")
+
+		// Les routes /api/ retournent du JSON : pas de CSP HTML ni de nonce
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		nonce := middleware.GenerateNonce()
 		r = r.WithContext(middleware.WithNonce(r.Context(), nonce))
 
@@ -235,9 +248,6 @@ func securityHeaders(next http.Handler) http.Handler {
 				"frame-ancestors 'none'; "+
 				"base-uri 'self'; "+
 				"form-action 'self'")
-		w.Header().Set("Cache-Control", "no-store")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 
 		next.ServeHTTP(w, r)
 	})

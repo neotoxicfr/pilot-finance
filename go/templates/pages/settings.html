@@ -169,7 +169,7 @@
                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                     </div>
 
-                    {{template "password-feedback"}}
+                    {{template "password-feedback" .}}
 
                     <template x-if="pwdError">
                         <div class="text-red-500 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="pwdError"></div>
