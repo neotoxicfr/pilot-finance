@@ -37,13 +37,6 @@
 
 ---
 
-## 🗺️ Roadmap
-
-* **Alpine.js CSP build** — Migration de `unsafe-eval` vers `@alpinejs/csp` pour une Content Security Policy sans évaluation dynamique.
-* **Indicateurs de tendance KPI** — Afficher la variation mensuelle (±%) sur les cartes patrimoine et intérêts.
-
----
-
 ## 🚀 Installation avec Docker
 
 La méthode recommandée est **Docker Compose**.

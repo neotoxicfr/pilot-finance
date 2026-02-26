@@ -1,4 +1,68 @@
 {{define "content"}}
+<script nonce="{{.Nonce}}">
+// Composant MFA
+function mfaData() {
+    return {
+        mfaSetup: null,
+        mfaCode: '',
+        mfaError: '',
+        mfaLoading: false,
+        setupMfa() {
+            this.mfaLoading = true;
+            fetch('/settings/mfa/setup')
+                .then(r => r.json())
+                .then(d => { this.mfaSetup = d; this.mfaLoading = false; });
+        },
+        enableMfa() {
+            fetch('/settings/mfa/enable', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ secret: this.mfaSetup.secret, code: this.mfaCode })
+            }).then(r => r.json()).then(d => {
+                if (d.error) this.mfaError = d.error;
+                else location.reload();
+            });
+        }
+    };
+}
+
+// Composant Passkeys
+function passkeyData() {
+    return { passkeyLoading: false, passkeyMsg: '' };
+}
+
+// Composant mot de passe
+function pwdData() {
+    return {
+        pwdSuccess: false,
+        pwdError: '',
+        pwdLoading: false,
+        password: '',
+        confirm: '',
+        get pwdStrength() {
+            return (this.password.length >= 8 ? 1 : 0)
+                 + (/[A-Z]/.test(this.password) ? 1 : 0)
+                 + (/[a-z]/.test(this.password) ? 1 : 0)
+                 + (/[0-9]/.test(this.password) ? 1 : 0)
+                 + (/[!@#$%^&*(),.?:{}|]/.test(this.password) ? 1 : 0);
+        },
+        afterPwdSettle(event) {
+            if (!event.detail.failed) {
+                this.pwdSuccess = true;
+                this.$el.reset();
+                this.password = '';
+                this.confirm = '';
+            }
+        }
+    };
+}
+
+document.addEventListener('alpine:init', () => {
+    Alpine.data('mfaData',    mfaData);
+    Alpine.data('passkeyData', passkeyData);
+    Alpine.data('pwdData',    pwdData);
+});
+</script>
 <div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8 text-foreground">
     <!-- Header -->
     <div class="flex items-center gap-3 border-b border-border pb-4">
@@ -11,7 +75,7 @@
         <div class="space-y-8">
             <!-- 2FA Section -->
             <div class="dashboard-card bg-background border rounded-2xl p-6"
-                 x-data="{ mfaSetup: null, mfaCode: '', mfaError: '', mfaLoading: false }">
+                 x-data="mfaData">
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-blue-500">{{template "icon-smartphone" dict "Size" 20}}</span>
                     {{index .T "settings.mfa_title"}}
@@ -34,7 +98,7 @@
                 <template x-if="!mfaSetup">
                     <div class="space-y-4">
                         <p class="text-sm text-muted-foreground">{{index .T "settings.mfa_description"}}</p>
-                        <button @click="mfaLoading = true; fetch('/settings/mfa/setup').then(r => r.json()).then(d => { mfaSetup = d; mfaLoading = false; })"
+                        <button @click="setupMfa()"
                                 :disabled="mfaLoading"
                                 class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all text-sm">
                             <span x-show="mfaLoading">{{index .T "settings.mfa_loading"}}</span>
@@ -62,7 +126,7 @@
                                     class="flex-1 bg-accent hover:bg-accent/80 text-muted-foreground font-bold py-3 rounded-xl transition-all text-sm">
                                 {{index .T "settings.mfa_cancel"}}
                             </button>
-                            <button @click="fetch('/settings/mfa/enable', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({secret: mfaSetup.secret, code: mfaCode})}).then(r => r.json()).then(d => { if(d.error) mfaError = d.error; else location.reload(); })"
+                            <button @click="enableMfa()"
                                     :disabled="mfaCode.length !== 6"
                                     class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all text-sm disabled:opacity-50">
                                 {{index .T "settings.mfa_enable_btn"}}
@@ -76,7 +140,7 @@
             <!-- Passkeys Section -->
             {{if .PasskeysEnabled}}
             <div class="dashboard-card bg-background border rounded-2xl p-6"
-                 x-data="{ passkeyLoading: false, passkeyMsg: '' }">
+                 x-data="passkeyData">
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-purple-500">{{template "icon-fingerprint" dict "Size" 20}}</span>
                     {{index .T "settings.passkeys_title"}}
@@ -134,7 +198,7 @@
         <div class="space-y-8">
             <!-- Password Section -->
             <div class="dashboard-card bg-background border rounded-2xl p-6"
-                 x-data="{ pwdSuccess: false, pwdError: '', pwdLoading: false, password: '', confirm: '', get pwdStrength() { return (this.password.length >= 8 ? 1 : 0) + (/[A-Z]/.test(this.password) ? 1 : 0) + (/[a-z]/.test(this.password) ? 1 : 0) + (/[0-9]/.test(this.password) ? 1 : 0) + (/[!@#$%^&*(),.?:{}|]/.test(this.password) ? 1 : 0); } }">
+                 x-data="pwdData">
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-muted-foreground">{{template "icon-lock" dict "Size" 20}}</span>
                     {{index .T "settings.password_title"}}
@@ -151,7 +215,7 @@
                       @htmx:before-request="pwdLoading = true; pwdError = ''; pwdSuccess = false"
                       @htmx:after-request="pwdLoading = false"
                       @htmx:response-error="pwdError = event.detail.xhr.responseText"
-                      @htmx:after-settle="if(!event.detail.failed) { pwdSuccess = true; this.reset(); password = ''; confirm = ''; }"
+                      @htmx:after-settle="afterPwdSettle($event)"
                       class="space-y-5">
                     <div>
                         <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.current_password"}}</label>
