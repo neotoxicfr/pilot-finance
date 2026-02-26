@@ -4,21 +4,21 @@
 
     <!-- KPI Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-        <div class="dashboard-card bg-background border p-6 rounded-2xl relative overflow-hidden">
+        <div class="dashboard-card bg-gradient-to-br from-background to-accent/50 border p-6 rounded-2xl relative overflow-hidden">
             <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
                 {{template "icon-shield-check" dict "Size" 80}}
             </div>
             <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">{{index .T "dashboard.net_worth"}}</p>
             <h2 class="text-3xl md:text-4xl font-bold text-foreground font-mono tracking-tight" x-text="formatMoney(totalBalance)"></h2>
         </div>
-        <div class="dashboard-card bg-background border p-6 rounded-2xl relative overflow-hidden">
+        <div class="dashboard-card bg-background kpi-card-emerald border p-6 rounded-2xl relative overflow-hidden">
             <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
                 {{template "icon-trending-up" dict "Size" 80}}
             </div>
             <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">{{index .T "dashboard.compound_interests"}}</p>
             <h2 class="text-3xl md:text-4xl font-bold text-emerald-500 font-mono tracking-tight" x-text="'+' + formatMoney(totalInterests)"></h2>
         </div>
-        <div class="dashboard-card bg-background border p-6 rounded-2xl relative overflow-hidden sm:col-span-2 md:col-span-1">
+        <div class="dashboard-card bg-background kpi-card-blue border p-6 rounded-2xl relative overflow-hidden sm:col-span-2 md:col-span-1">
             <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
                 {{template "icon-piggybank" dict "Size" 80}}
             </div>
@@ -86,9 +86,9 @@ function dashboardData() {
 
     return {
         years: initial.years || 5,
-        totalBalance: initial.totalBalance || 0,
-        totalInterests: initial.totalInterests || 0,
-        projectionTotal: initial.projectionTotal || 0,
+        totalBalance: 0,
+        totalInterests: 0,
+        projectionTotal: 0,
         accountColors: initial.accountColors || [],
         updateTimeout: null,
 
@@ -125,8 +125,22 @@ function dashboardData() {
             }
         },
 
+        countUp(to, setter, duration = 700) {
+            const start = performance.now();
+            const ease = t => 1 - Math.pow(1 - t, 3);
+            const tick = now => {
+                const p = Math.min((now - start) / duration, 1);
+                setter(to * ease(p));
+                if (p < 1) requestAnimationFrame(tick); else setter(to);
+            };
+            requestAnimationFrame(tick);
+        },
+
         init() {
             const initial = JSON.parse(document.getElementById('initial-data').textContent);
+            this.countUp(initial.totalBalance || 0, v => this.totalBalance = v);
+            this.countUp(initial.totalInterests || 0, v => this.totalInterests = v);
+            this.countUp(initial.projectionTotal || 0, v => this.projectionTotal = v);
             this.$nextTick(() => {
                 window.initProjectionChart(initial.projectionData, this.accountColors);
                 window.initPieChart(initial.pieData);
