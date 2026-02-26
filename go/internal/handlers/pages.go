@@ -33,6 +33,7 @@ func baseData(r *http.Request, user *middleware.User) map[string]interface{} {
 		"Currency":    currency,
 		"Nonce":       middleware.GetNonce(r),
 		"CurrentPath": r.URL.Path,
+		"AssetVer":    Version,
 	}
 }
 
