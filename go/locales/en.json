@@ -57,6 +57,7 @@
   "summary.income": "Income",
   "summary.expenses": "Expenses",
   "summary.balance": "Net",
+  "summary.yield_auto": "incl. yield",
 
   "login.tagline": "Your personal financial cockpit",
   "login.passkey_btn": "Sign in with Passkey",
