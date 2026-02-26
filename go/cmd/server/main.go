@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -29,26 +29,30 @@ import (
 var Version = "dev"
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
+
 	// Propager la version au package handlers (health check)
 	handlers.Version = Version
 
-	log.Printf("Pilot Finance %s - Démarrage...", Version)
+	slog.Info("Pilot Finance démarrage", "version", Version)
 
 	// Charger la configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Erreur configuration: %v", err)
+		slog.Error("configuration", "err", err)
+		os.Exit(1)
 	}
 
 	// Initialiser le chiffrement
 	if err := crypto.Init(cfg.EncryptionKey, cfg.BlindIndexKey); err != nil {
-		log.Fatalf("Erreur crypto: %v", err)
+		slog.Error("crypto init", "err", err)
+		os.Exit(1)
 	}
-	log.Println("✓ Chiffrement initialisé")
+	slog.Info("chiffrement initialisé")
 
 	// Initialiser JWT
 	auth.InitJWT(cfg.AuthSecret)
-	log.Println("✓ JWT initialisé")
+	slog.Info("JWT initialisé")
 
 	// Connexion à la base de données
 	dbPath := cfg.DatabaseURL
@@ -56,28 +60,31 @@ func main() {
 		dbPath = dbPath[5:]
 	}
 	if err := db.Init(db.Config{Path: dbPath}); err != nil {
-		log.Fatalf("Erreur base de données: %v", err)
+		slog.Error("base de données", "err", err)
+		os.Exit(1)
 	}
 	defer db.Close()
-	log.Println("✓ Base de données connectée")
+	slog.Info("base de données connectée")
 
 	// Initialiser les templates
 	if err := templates.Init("templates"); err != nil {
-		log.Fatalf("Erreur templates: %v", err)
+		slog.Error("templates", "err", err)
+		os.Exit(1)
 	}
-	log.Println("✓ Templates chargés")
+	slog.Info("templates chargés")
 
 	// Charger les traductions
 	if err := i18n.Load("locales"); err != nil {
-		log.Fatalf("Erreur i18n: %v", err)
+		slog.Error("i18n", "err", err)
+		os.Exit(1)
 	}
-	log.Println("✓ Traductions chargées")
+	slog.Info("traductions chargées")
 
 	// Initialiser le mail (optionnel)
 	if err := mail.Init(); err != nil {
-		log.Printf("⚠ Mail non configuré: %v", err)
+		slog.Warn("mail non configuré", "err", err)
 	} else if mail.IsEnabled() {
-		log.Println("✓ Mail configuré")
+		slog.Info("mail configuré")
 	}
 
 	// Initialiser WebAuthn/Passkeys si HOST est configuré
@@ -85,9 +92,9 @@ func main() {
 	if host != "" {
 		rpOrigin := "https://" + host
 		if err := auth.InitWebAuthn(host, rpOrigin, "Pilot Finance"); err != nil {
-			log.Printf("⚠ Passkeys non configurés: %v", err)
+			slog.Warn("passkeys non configurés", "err", err)
 		} else {
-			log.Println("✓ Passkeys configurés")
+			slog.Info("passkeys configurés")
 		}
 	}
 
@@ -194,15 +201,16 @@ func main() {
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 		<-sigChan
 
-		log.Println("Arrêt en cours...")
+		slog.Info("arrêt en cours")
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		server.Shutdown(ctx)
 	}()
 
-	log.Printf("✓ Serveur démarré sur http://localhost%s", addr)
+	slog.Info("serveur démarré", "addr", "http://localhost"+addr)
 	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		log.Fatalf("Erreur serveur: %v", err)
+		slog.Error("serveur", "err", err)
+		os.Exit(1)
 	}
 }
 
@@ -211,7 +219,7 @@ func cacheStatic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if strings.HasSuffix(path, ".js") || strings.HasSuffix(path, ".css") {
-			w.Header().Set("Cache-Control", "public, max-age=604800") // 7 jours
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable") // 1 an (hash busting)
 		} else {
 			w.Header().Set("Cache-Control", "public, max-age=2592000") // 30 jours (images, icônes)
 		}
@@ -225,7 +233,9 @@ func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Headers communs à toutes les routes
 		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
 		w.Header().Set("Cache-Control", "no-store")
 
 		// Les routes /api/ retournent du JSON : pas de CSP HTML ni de nonce

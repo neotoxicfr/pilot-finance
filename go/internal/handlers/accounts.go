@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -137,7 +137,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		// Creation d'un nouveau compte
 		existingAccounts, posErr := db.GetAccountsByUserID(user.ID)
 		if posErr != nil {
-			log.Printf("CreateAccount: GetAccountsByUserID: %v", posErr)
+			slog.Warn("CreateAccount: position lookup", "err", posErr)
 		}
 		position := len(existingAccounts)
 
@@ -311,11 +311,11 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 
 	accounts, err := db.GetAccountsByUserID(user.ID)
 	if err != nil {
-		log.Printf("renderAccountsList: GetAccountsByUserID: %v", err)
+		slog.Error("renderAccountsList: accounts", "err", err)
 	}
 	recurrings, err := db.GetRecurringByUserID(user.ID)
 	if err != nil {
-		log.Printf("renderAccountsList: GetRecurringByUserID: %v", err)
+		slog.Error("renderAccountsList: recurring", "err", err)
 	}
 
 	decryptAccountNames(accounts)
