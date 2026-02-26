@@ -14,6 +14,17 @@ import (
 	"pilot-finance/internal/templates"
 )
 
+// htmxRedirect envoie HX-Redirect pour les requêtes HTMX (navigation complète),
+// ou un 303 standard sinon. Évite le swap body HTMX qui casserait les nonces CSP.
+func htmxRedirect(w http.ResponseWriter, r *http.Request, url string) {
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Redirect", url)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	http.Redirect(w, r, url, http.StatusSeeOther)
+}
+
 // getClientIP extrait l'IP du client
 func getClientIP(r *http.Request) string {
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
@@ -95,7 +106,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		ratelimit.Reset(clientIP, "login")
 
 		// Rediriger vers le dashboard
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		htmxRedirect(w, r, "/")
 		return
 	}
 
@@ -183,7 +194,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	ratelimit.Reset(clientIP, "login")
 
 	// Rediriger vers le dashboard
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	htmxRedirect(w, r, "/")
 }
 
 // HandleRegister gère l'inscription
@@ -284,7 +295,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	setSessionCookie(w, "session", token, 86400)
 
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	htmxRedirect(w, r, "/")
 }
 
 // handleFailedLogin gère un échec de connexion
