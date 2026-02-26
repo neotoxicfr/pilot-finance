@@ -177,6 +177,12 @@ textarea:focus {
 .dark .kpi-card-emerald { background: linear-gradient(135deg, var(--background) 0%, rgba(16,185,129,.10) 100%); }
 .dark .kpi-card-blue    { background: linear-gradient(135deg, var(--background) 0%, rgba(59,130,246,.10) 100%); }
 
+/* Colored hover shadows */
+.dashboard-card.kpi-card-emerald:hover { box-shadow: 0 4px 20px rgba(16,185,129,.15), 0 2px 4px rgba(0,0,0,.06); }
+.dashboard-card.kpi-card-blue:hover    { box-shadow: 0 4px 20px rgba(59,130,246,.15), 0 2px 4px rgba(0,0,0,.06); }
+.dark .dashboard-card.kpi-card-emerald:hover { box-shadow: 0 4px 24px rgba(16,185,129,.25), 0 2px 4px rgba(0,0,0,.3); }
+.dark .dashboard-card.kpi-card-blue:hover    { box-shadow: 0 4px 24px rgba(59,130,246,.25), 0 2px 4px rgba(0,0,0,.3); }
+
 /* HTMX Loading States */
 @keyframes htmx-pulse {
     0%, 100% { opacity: 1; }
