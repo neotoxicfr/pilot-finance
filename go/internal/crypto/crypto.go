@@ -166,8 +166,8 @@ func VerifyPassword(password, hash string) bool {
 // ValidatePassword vérifie que le mot de passe respecte les 5 critères
 // Returns nil si valide, sinon une erreur descriptive
 func ValidatePassword(password string) error {
-	if len(password) < 8 {
-		return errors.New("minimum 8 caracteres requis")
+	if len(password) < 12 {
+		return errors.New("minimum 12 caracteres requis")
 	}
 
 	hasUpper := false

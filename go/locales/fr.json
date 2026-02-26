@@ -148,5 +148,10 @@
   "pwd.digit": "1 chiffre",
   "pwd.special": "1 caractère spécial (!@#$...)",
   "pwd.match": "Mots de passe identiques",
-  "pwd.diff": "Mots de passe différents"
+  "pwd.diff": "Mots de passe différents",
+
+  "accounts.empty_title": "Aucun compte pour l'instant",
+  "accounts.empty_subtitle": "Créez votre premier compte pour commencer",
+
+  "common.saved": "Enregistré"
 }

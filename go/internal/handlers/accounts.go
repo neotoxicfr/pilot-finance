@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -306,6 +307,30 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	renderAccountsList(w, user)
 }
 
+// ReorderAccounts reordonne les comptes selon un tableau d'IDs
+func ReorderAccounts(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUser(r)
+	if user == nil {
+		http.Error(w, "Non authentifie", http.StatusUnauthorized)
+		return
+	}
+
+	var body struct {
+		IDs []int64 `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.IDs) == 0 {
+		http.Error(w, "Donnees invalides", http.StatusBadRequest)
+		return
+	}
+
+	if err := db.ReorderAccounts(user.ID, body.IDs); err != nil {
+		http.Error(w, "Erreur reordonnancement", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // renderAccountsList rend la liste des comptes en HTML avec OOB updates
 func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 	lang, currency := userLocale(user)
@@ -338,6 +363,11 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// Rendre la liste des comptes
+	if len(accounts) == 0 {
+		templates.RenderPartial(w, "accounts.html", "accounts-empty", map[string]interface{}{
+			"T": i18n.Map(lang),
+		})
+	}
 	for _, acc := range accounts {
 		templates.RenderPartial(w, "accounts.html", "account-row", acc)
 	}
