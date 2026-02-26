@@ -1,6 +1,6 @@
 {{define "content"}}
 <div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8"
-     x-data="dashboardData()" x-init="init()">
+     x-data="dashboardData">
 
     <!-- KPI Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
@@ -168,5 +168,9 @@ function dashboardData() {
         }
     };
 }
+
+document.addEventListener('alpine:init', () => {
+    Alpine.data('dashboardData', dashboardData);
+});
 </script>
 {{end}}
