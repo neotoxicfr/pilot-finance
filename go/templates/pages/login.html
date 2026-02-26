@@ -62,7 +62,7 @@
                             {{template "icon-mail" dict "Size" 18}}
                         </div>
                         <input name="email" type="email" required
-                               class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-none focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
+                               class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-hidden focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
                                placeholder="{{index .T "login.email_placeholder"}}">
                     </div>
                     <div>
@@ -76,7 +76,7 @@
                                 {{template "icon-lock" dict "Size" 18}}
                             </div>
                             <input name="password" type="password" required x-model="password"
-                                   class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-none focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
+                                   class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-hidden focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
                                    placeholder="{{index .T "login.password_placeholder"}}">
                         </div>
                     </div>
@@ -88,7 +88,7 @@
                                     {{template "icon-check" dict "Size" 18}}
                                 </div>
                                 <input name="confirmPassword" type="password" required x-model="confirm"
-                                       class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-none focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
+                                       class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-hidden focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
                                        placeholder="{{index .T "login.confirm_placeholder"}}">
                             </div>
                             {{template "password-feedback"}}
@@ -103,7 +103,7 @@
                         {{template "icon-shield" dict "Size" 18}} {{index .T "login.totp_title"}}
                     </div>
                     <input name="twoFactorCode" type="text" inputmode="numeric" maxlength="6" autofocus required
-                           class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-none text-center text-xl tracking-[0.5em] font-mono focus:border-blue-500 transition-colors"
+                           class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden text-center text-xl tracking-[0.5em] font-mono focus:border-blue-500 transition-colors"
                            placeholder="000000">
                     <p class="text-[10px] text-muted-foreground text-center mt-2">{{index .T "login.totp_help"}}</p>
                 </div>
