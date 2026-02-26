@@ -243,6 +243,20 @@ const createDS = (data, acc) => {
     ];
 };
 
+// Auto-dismiss tooltip after 3s (mobile)
+const tooltipTimeoutPlugin = {
+    id: 'tooltipTimeout',
+    afterEvent(chart, args) {
+        if (args.event.type === 'click') {
+            clearTimeout(chart._ttTimer);
+            chart._ttTimer = setTimeout(() => {
+                chart.tooltip.setActiveElements([], {x:0,y:0});
+                chart.update('none');
+            }, 3000);
+        }
+    }
+};
+
 // Chart projection
 window.initProjectionChart = (data, acc) => {
     window._projData = data; window._projAcc = acc;
@@ -254,6 +268,7 @@ window.initProjectionChart = (data, acc) => {
     const cone = hasCone(data);
     window.projectionChart = new Chart(ctx, {
         type: 'line',
+        plugins: [tooltipTimeoutPlugin],
         data: { labels: data.map(d => d.name || 'An '+d.year), datasets: createDS(data, acc) },
         options: {
             responsive: true, maintainAspectRatio: false, animation: { duration: 400, easing: 'easeOutQuart' }, interaction: { intersect: false, mode: 'index' },
@@ -292,6 +307,7 @@ window.initPieChart = (accounts, animated = true) => {
     const c = getColors(), bg = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
     window.pieChart = new Chart(ctx, {
         type: 'doughnut',
+        plugins: [tooltipTimeoutPlugin],
         data: { labels: accounts.map(a => a.name), datasets: [{ data: accounts.map(a => a.value), backgroundColor: accounts.map(a => a.color), borderColor: bg, borderWidth: 2, hoverOffset: 0, hoverBorderColor: bg, hoverBorderWidth: 2 }] },
         options: {
             responsive: true, maintainAspectRatio: true, cutout: '65%', animation: animated ? { duration: 400, easing: 'easeOutQuart' } : false,
