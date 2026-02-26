@@ -24,7 +24,7 @@
             <dialog id="account-dialog"
                     @close="editingAccount = null"
                     @click="$event.target.tagName === 'DIALOG' && $event.target.close()">
-                <div class="modal-panel relative border border-blue-500/30 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5">
+                <div class="modal-panel relative border border-blue-500/30 rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5">
                     <button @click="document.getElementById('account-dialog').close()"
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 20}}
@@ -170,7 +170,7 @@
             <dialog id="recurring-dialog"
                     @close="editingRecurring = null"
                     @click="$event.target.tagName === 'DIALOG' && $event.target.close()">
-                <div class="modal-panel relative border border-blue-500/30 rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5">
+                <div class="modal-panel relative border border-blue-500/30 rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5">
                     <button @click="document.getElementById('recurring-dialog').close()"
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 20}}
@@ -268,7 +268,7 @@ function accountsPage() {
 
         initSortable() {
             const el = document.getElementById('accounts-list');
-            if (!el || typeof Sortable === 'undefined') return;
+            if (!el || typeof Sortable === 'undefined' || window.innerWidth < 768) return;
             if (el._sortable) el._sortable.destroy();
             el._sortable = new Sortable(el, {
                 animation: 150,
@@ -306,8 +306,20 @@ function accountsPage() {
      x-data="{ del: false }"
      :class="del ? 'border-red-500/40 bg-red-500/5' : 'hover:border-blue-500/30'"
      data-account-id="{{.ID}}">
-    <div class="drag-handle cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground touch-none flex-shrink-0">
+    <div class="drag-handle cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground touch-none flex-shrink-0 hidden md:flex items-center">
         {{template "icon-grip" dict "Size" 20}}
+    </div>
+    <div class="flex flex-col gap-0 flex-shrink-0 md:hidden">
+        <button hx-post="/accounts/{{.ID}}/move?direction=up"
+                hx-target="#accounts-list" hx-swap="innerHTML"
+                class="p-1 text-muted-foreground active:text-foreground active:bg-accent rounded-lg transition-colors">
+            {{template "icon-chevron-up" dict "Size" 16}}
+        </button>
+        <button hx-post="/accounts/{{.ID}}/move?direction=down"
+                hx-target="#accounts-list" hx-swap="innerHTML"
+                class="p-1 text-muted-foreground active:text-foreground active:bg-accent rounded-lg transition-colors">
+            {{template "icon-chevron-down" dict "Size" 16}}
+        </button>
     </div>
     <div class="w-1.5 self-stretch rounded-full flex-shrink-0" style="background-color: {{.Color}}"></div>
     <div class="flex-1 min-w-0">
@@ -330,7 +342,7 @@ function accountsPage() {
                    value="{{formatBalance .Balance}}"
                    class="bg-transparent w-28 text-right outline-hidden font-mono text-xl font-bold text-foreground focus:text-blue-500 focus:bg-accent rounded-lg px-1 transition-colors">
             <span class="text-sm text-muted-foreground font-medium" x-data x-text="window.PILOT_CURRENCY||'EUR'"></span>
-            <button class="hidden group-hover:block text-blue-500 ml-1 p-2 hover:bg-accent rounded-lg transition-colors">
+            <button class="text-blue-500 ml-1 p-2 rounded-lg transition-colors sm:opacity-0 sm:group-hover:opacity-100">
                 {{template "icon-save" dict "Size" 18}}
             </button>
         </form>
