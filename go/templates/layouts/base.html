@@ -219,19 +219,20 @@ const createDS = (data, acc) => {
         : [{ label: 'Projection', data: data.map(d => d.totalAvg), ...dsOpts('#3b82f6'), stack: 'accounts' }];
     if (!cone) return baseDS;
     // Mode cône : zone verte au-dessus des comptes + lignes min/max contrastées
+    // order: plus bas = rendu en dernier = au premier plan (Chart.js tri décroissant)
     const co = { pointRadius: 0, pointHoverRadius: 0, tension: 0.4 };
+    const accDS = baseDS.map(d => ({ ...d, order: 2 }));
     return [
-        // Zone verte : de totalMax vers totalAvg (au-dessus des comptes, clairement visible)
-        { label: '_maxFill', data: data.map(d => d.totalMax), fill: '+1', backgroundColor: 'rgba(16,185,129,0.18)', borderWidth: 0, stack: 'gmax', ...co },
-        { label: '_avgRef',  data: data.map(d => d.totalAvg), fill: false,  borderWidth: 0, stack: 'gavg', ...co },
+        // Zone verte (fond, derrière tout)
+        { label: '_maxFill', data: data.map(d => d.totalMax), fill: '+1', backgroundColor: 'rgba(16,185,129,0.18)', borderWidth: 0, stack: 'gmax',  order: 3, ...co },
+        { label: '_avgRef',  data: data.map(d => d.totalAvg), fill: false,  borderWidth: 0, stack: 'gavg',  order: 3, ...co },
         // Comptes empilés (scénario moyen)
-        ...baseDS,
-        // Ligne max verte pointillée
-        { label: '_maxLine', data: data.map(d => d.totalMax), fill: false, borderColor: 'rgba(16,185,129,0.85)', borderWidth: 1.5, borderDash: [5, 3], stack: 'lmax', ...co },
-        // Halo blanc derrière la ligne min (garantit la lisibilité sur toute couleur de fond)
-        { label: '_minHalo', data: data.map(d => d.totalMin), fill: false, borderColor: 'rgba(255,255,255,0.65)', borderWidth: 5,   borderDash: [5, 3], stack: 'lminh', ...co },
-        // Ligne min rouge pointillée (par-dessus le halo)
-        { label: '_minLine', data: data.map(d => d.totalMin), fill: false, borderColor: '#ef4444',               borderWidth: 2,   borderDash: [5, 3], stack: 'lmin',  ...co },
+        ...accDS,
+        // Ligne max verte — devant les comptes
+        { label: '_maxLine', data: data.map(d => d.totalMax), fill: false, borderColor: 'rgba(16,185,129,0.85)', borderWidth: 1.5, borderDash: [5, 3], stack: 'lmax',  order: 1, ...co },
+        // Halo blanc + ligne min rouge — au premier plan absolu
+        { label: '_minHalo', data: data.map(d => d.totalMin), fill: false, borderColor: 'rgba(255,255,255,0.7)', borderWidth: 5,   borderDash: [5, 3], stack: 'lminh', order: 0, ...co },
+        { label: '_minLine', data: data.map(d => d.totalMin), fill: false, borderColor: '#ef4444',              borderWidth: 2,   borderDash: [5, 3], stack: 'lmin',  order: 0, ...co },
     ];
 };
 
