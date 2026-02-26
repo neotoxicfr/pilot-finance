@@ -245,11 +245,36 @@ dialog > .modal-panel {
     to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .modal-panel {
-    background: rgba(255, 255, 255, 0.97);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
+    background: linear-gradient(145deg, rgba(255,255,255,0.99) 0%, rgba(241,245,249,0.96) 100%);
+    backdrop-filter: blur(32px) saturate(180%);
+    -webkit-backdrop-filter: blur(32px) saturate(180%);
+    box-shadow: 0 32px 64px rgba(0,0,0,0.18), 0 8px 24px rgba(0,0,0,0.1), inset 0 0 0 1px rgba(255,255,255,0.7);
 }
 .dark .modal-panel {
-    background: rgba(15, 23, 42, 0.97);
+    background: linear-gradient(145deg, rgba(15,23,42,0.99) 0%, rgba(30,41,59,0.96) 100%);
+    box-shadow: 0 32px 64px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(148,163,184,0.12);
 }
+
+/* Stagger: entrées de liste */
+@keyframes item-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+#accounts-list > * {
+    animation: item-in 0.2s ease-out both;
+}
+#accounts-list > *:nth-child(2) { animation-delay: 35ms; }
+#accounts-list > *:nth-child(3) { animation-delay: 70ms; }
+#accounts-list > *:nth-child(4) { animation-delay: 105ms; }
+#accounts-list > *:nth-child(5) { animation-delay: 140ms; }
+#accounts-list > *:nth-child(n+6) { animation-delay: 175ms; }
+
+#recurring-list tbody tr {
+    animation: item-in 0.15s ease-out both;
+}
+#recurring-list tbody tr:nth-child(2) { animation-delay: 25ms; }
+#recurring-list tbody tr:nth-child(3) { animation-delay: 50ms; }
+#recurring-list tbody tr:nth-child(4) { animation-delay: 75ms; }
+#recurring-list tbody tr:nth-child(5) { animation-delay: 100ms; }
+#recurring-list tbody tr:nth-child(n+6) { animation-delay: 125ms; }
 
