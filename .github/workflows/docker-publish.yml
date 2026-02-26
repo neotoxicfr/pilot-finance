@@ -5,11 +5,11 @@ on:
   push:
     branches: [ "main" ]
     paths-ignore:
-      - 'README.md'
+      - '**/*.md'
       - 'LICENSE'
-      - 'SECURITY.md'
       - '.gitignore'
       - 'go/static/logo.svg'
+      - '.github/**'
     tags: [ 'v*.*.*' ]
 
 env:

@@ -1,3 +1,5 @@
+{{define "htmlClass"}}overflow-hidden h-dvh{{end}}
+{{define "bodyClass"}}h-dvh overflow-hidden{{end}}
 {{define "content"}}
 <script nonce="{{.Nonce}}">
 function loginPage() {
@@ -9,27 +11,44 @@ function loginPage() {
         success: '',
         password: '',
         confirm: '',
+        get hasLength()  { return this.password.length >= 8; },
+        get hasUpper()   { return /[A-Z]/.test(this.password); },
+        get hasLower()   { return /[a-z]/.test(this.password); },
+        get hasDigit()   { return /[0-9]/.test(this.password); },
+        get hasSpecial() { return /[!@#$%^&*(),.?:{}|]/.test(this.password); },
         get pwdStrength() {
-            return (this.password.length >= 8 ? 1 : 0)
-                 + (/[A-Z]/.test(this.password) ? 1 : 0)
-                 + (/[a-z]/.test(this.password) ? 1 : 0)
-                 + (/[0-9]/.test(this.password) ? 1 : 0)
-                 + (/[!@#$%^&*(),.?:{}|]/.test(this.password) ? 1 : 0);
+            return (this.hasLength ? 1 : 0) + (this.hasUpper ? 1 : 0)
+                 + (this.hasLower ? 1 : 0) + (this.hasDigit ? 1 : 0)
+                 + (this.hasSpecial ? 1 : 0);
+        },
+        get pwdsMatch() { return this.password === this.confirm; },
+        get strengthColor() {
+            if (this.pwdStrength === 5) return 'bg-emerald-500';
+            if (this.pwdStrength >= 4) return 'bg-yellow-500';
+            if (this.pwdStrength >= 3) return 'bg-orange-500';
+            return 'bg-red-500';
+        },
+        get submitDisabled() {
+            if (this.loading) return true;
+            if (this.isRegister) return this.pwdStrength < 5 || !this.pwdsMatch;
+            return false;
         },
         init() {
             this.requires2FA = this.$el.dataset.requires2fa === 'true';
         },
-        loginWithPasskey() { window.loginWithPasskey(); }
+        loginWithPasskey() { window.loginWithPasskey(); },
+        toggleRegister() { this.isRegister = !this.isRegister; this.error = ''; }
     };
 }
 document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginPage); });
 </script>
-<div class="min-h-screen bg-accent/20 flex flex-col items-center justify-center p-4">
-    <div class="dashboard-card bg-background border rounded-2xl p-8 w-full max-w-sm transition-all"
+<div class="h-dvh overflow-y-auto bg-background flex flex-col items-center p-4">
+  <div class="my-auto w-full max-w-sm">
+    <div class="dashboard-card bg-background border rounded-2xl p-8 w-full transition-all"
          x-data="loginPage"
          data-requires2fa="{{if .Requires2FA}}true{{else}}false{{end}}">
         <div class="flex flex-col items-center mb-8">
-            <div class="bg-background border border-border p-4 rounded-full mb-4">
+            <div class="bg-background border border-border p-4 rounded-full mb-4 flex items-center justify-center">
                 {{template "brand-logo" dict "Size" 42 "WithText" false}}
             </div>
             <h1 class="text-2xl font-bold text-foreground mb-1 text-center">Pilot Finance</h1>
@@ -129,7 +148,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
             <input type="hidden" name="action" :value="isRegister ? 'register' : 'login'">
 
             <button type="submit"
-                    :disabled="loading"
+                    :disabled="submitDisabled"
                     class="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all mt-2 flex items-center justify-center gap-2">
                 <span x-show="loading">{{index .T "login.loading"}}</span>
                 <span x-show="!loading && requires2FA">{{index .T "login.verify_btn"}}</span>
@@ -142,7 +161,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
         {{if .CanRegister}}
         <template x-if="!requires2FA">
             <div class="mt-6 pt-6 border-t border-border text-center">
-                <button @click="isRegister = !isRegister; error = ''"
+                <button type="button" @click="toggleRegister()"
                         class="text-xs text-muted-foreground hover:text-foreground transition-colors font-medium">
                     <span x-show="isRegister">{{index .T "login.has_account"}}</span>
                     <span x-show="!isRegister">{{index .T "login.no_account"}}</span>
@@ -155,5 +174,6 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
     <div class="mt-8 text-center text-[10px] text-muted-foreground uppercase tracking-widest opacity-50">
         {{index .T "login.security_note"}}
     </div>
+  </div>
 </div>
 {{end}}
