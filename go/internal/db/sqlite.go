@@ -73,6 +73,9 @@ func runMigrations() {
 		// Multi-langue et multi-devise par utilisateur
 		`ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'fr'`,
 		`ALTER TABLE users ADD COLUMN currency TEXT NOT NULL DEFAULT 'EUR'`,
+		// Périodicité du rendement et des versements
+		`ALTER TABLE accounts ADD COLUMN yield_frequency TEXT NOT NULL DEFAULT 'MONTHLY'`,
+		`ALTER TABLE accounts ADD COLUMN payout_frequency TEXT NOT NULL DEFAULT 'MONTHLY'`,
 		// Index de performance
 		`CREATE INDEX IF NOT EXISTS idx_accounts_user_id       ON accounts(user_id, position)`,
 		`CREATE INDEX IF NOT EXISTS idx_recurring_user_id      ON recurring_operations(user_id, day_of_month)`,
