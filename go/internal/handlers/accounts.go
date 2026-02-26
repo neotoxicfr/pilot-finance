@@ -236,7 +236,7 @@ func UpdateBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	renderAccountsList(w, user)
 }
 
 // MoveAccount deplace un compte vers le haut ou le bas
