@@ -140,5 +140,13 @@
   "verify.redirecting": "Redirection vers la connexion...",
   "verify.failed": "Échec de validation",
   "verify.back": "Retour à la connexion",
-  "verify.loading": "Validation de votre compte..."
+  "verify.loading": "Validation de votre compte...",
+
+  "pwd.min8": "8 caractères min.",
+  "pwd.upper": "1 majuscule",
+  "pwd.lower": "1 minuscule",
+  "pwd.digit": "1 chiffre",
+  "pwd.special": "1 caractère spécial (!@#$...)",
+  "pwd.match": "Mots de passe identiques",
+  "pwd.diff": "Mots de passe différents"
 }

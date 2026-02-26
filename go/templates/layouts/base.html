@@ -72,8 +72,8 @@
     <script nonce="{{.Nonce}}">window.PILOT_LOCALE="{{.Locale}}";window.PILOT_CURRENCY="{{.Currency}}";</script>
     <link rel="stylesheet" href="/static/css/tailwind.css">
     <link rel="stylesheet" href="/static/css/app.css">
-    <script nonce="{{.Nonce}}" src="/static/js/htmx.min.js"></script>
-    <script nonce="{{.Nonce}}" src="/static/js/chart.umd.min.js"></script>
+    <script nonce="{{.Nonce}}" defer src="/static/js/htmx.min.js"></script>
+    <script nonce="{{.Nonce}}" defer src="/static/js/chart.umd.min.js"></script>
     <script nonce="{{.Nonce}}" defer src="/static/js/alpine.min.js"></script>
     <script nonce="{{.Nonce}}" src="/static/js/passkey.js"></script>
 </head>
@@ -143,7 +143,7 @@ window.initProjectionChart = (data, acc) => {
     const ctx = document.getElementById('projectionCanvas');
     if (!ctx || typeof Chart === 'undefined') return;
     window.projectionChart?.destroy();
-    if (!data?.length) { ctx.parentElement.innerHTML = '<div class="h-full flex items-center justify-center text-muted-foreground">Aucune donnee</div>'; return; }
+    if (!data?.length) { ctx.parentElement.innerHTML = '<div class="h-full flex items-center justify-center text-muted-foreground">{{index .T "dashboard.no_data"}}</div>'; return; }
     const c = getColors();
     window.projectionChart = new Chart(ctx, {
         type: 'line',
