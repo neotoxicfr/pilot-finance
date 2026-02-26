@@ -24,6 +24,7 @@
 * 🌍 **Multi-langue & Multi-devise** — Interface disponible en français et en anglais. Devise d'affichage configurable par utilisateur (EUR, USD, GBP, CHF, JPY, CAD, AUD).
 * 🔐 **Sécurité par défaut** :
     * **Content Security Policy** stricte avec nonces dynamiques par requête — pas d'`unsafe-inline` pour les scripts
+    * **Protection CSRF** — validation des headers Origin/Referer sur toutes les requêtes mutantes
     * Chiffrement **AES-256-GCM** de toutes les données sensibles (emails, noms de comptes, libellés de transactions)
     * Hashing des mots de passe **bcrypt** avec validation de complexité à 5 critères
     * **Session versioning** — déconnexion automatique de tous les appareils en cas de changement de mot de passe
@@ -118,7 +119,7 @@ L'application écoute sur le port **3000** à l'intérieur du conteneur.
 | | |
 |---|---|
 | Backend | Go 1.26 + chi router |
-| Frontend | HTMX 2.0 + Alpine.js 3.15 + Tailwind CSS v3 |
+| Frontend | HTMX 2.0 + Alpine.js 3.15 + Tailwind CSS v4 |
 | Base de données | SQLite (mode WAL) |
 | Graphiques | Chart.js 4.5 |
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
