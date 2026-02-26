@@ -346,11 +346,15 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
 
 	// Calculer les totaux mensuels
-	var monthlyIncome, monthlyExpenses float64
+	var monthlyIncome, monthlyExpenses, monthlyYield float64
 	for _, payout := range yieldPayouts {
 		monthlyIncome += payout.Amount
+		monthlyYield += payout.Amount
 	}
 	for _, rec := range recurrings {
+		if rec.ToAccountID != nil {
+			continue // Virement interne : ne compte pas dans entrées/sorties
+		}
 		if rec.Amount > 0 {
 			monthlyIncome += rec.Amount
 		} else {
@@ -375,9 +379,11 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 	// OOB: Rendre le summary card
 	w.Write([]byte(`<div id="summary-card" hx-swap-oob="innerHTML">`))
 	templates.RenderPartial(w, "accounts.html", "summary-card", map[string]interface{}{
+		"T":               i18n.Map(lang),
 		"MonthlyIncome":   monthlyIncome,
 		"MonthlyExpenses": monthlyExpenses,
 		"MonthlyNet":      monthlyIncome - monthlyExpenses,
+		"MonthlyYield":    monthlyYield,
 		"Currency":        currency,
 	})
 	w.Write([]byte(`</div>`))
