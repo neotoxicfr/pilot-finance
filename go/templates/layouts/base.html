@@ -43,6 +43,12 @@
             };
         }
 
+        // Enregistrement des composants Alpine pour le build CSP (pas d'eval inline)
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('themeData', themeData);
+            Alpine.data('toastData', toastData);
+        });
+
         // Theme data pour Alpine.js
         function themeData() {
             return {
@@ -91,13 +97,13 @@
     {{if eq .CurrentPath "/"}}
     <script nonce="{{.Nonce}}" defer src="/static/js/chart.umd.min.js?v={{.AssetVer}}"></script>
     {{end}}
-    <script nonce="{{.Nonce}}" defer src="/static/js/alpine.min.js?v={{.AssetVer}}"></script>
+    <script nonce="{{.Nonce}}" defer src="/static/js/alpine-csp.min.js?v={{.AssetVer}}"></script>
     <script nonce="{{.Nonce}}" async src="/static/js/passkey.js?v={{.AssetVer}}"></script>
     {{if eq .CurrentPath "/accounts"}}
     <script nonce="{{.Nonce}}" defer src="/static/js/sortable.min.js?v={{.AssetVer}}"></script>
     {{end}}
 </head>
-<body class="font-sans antialiased min-h-screen flex flex-col bg-background text-foreground" x-data="themeData()" x-init="init()">
+<body class="font-sans antialiased min-h-screen flex flex-col bg-background text-foreground" x-data="themeData">
     {{if .User}}
     <nav class="border-b border-border bg-background/50 backdrop-blur-md sticky top-0 z-50">
         <div class="max-w-[1400px] mx-auto px-2 sm:px-4 h-16 flex items-center justify-between">
@@ -142,7 +148,7 @@
     </main>
     {{template "htmx-config" .}}
     <!-- Toast -->
-    <div x-data="toastData()" @pilot:toast.window="show($event.detail.message)"
+    <div x-data="toastData" @pilot:toast.window="show($event.detail.message)"
          class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] pointer-events-none">
         <template x-if="visible">
             <div class="pointer-events-auto bg-background border border-border shadow-xl rounded-xl px-4 py-3 flex items-center gap-2.5 text-sm font-medium text-foreground whitespace-nowrap"
