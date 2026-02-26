@@ -212,18 +212,25 @@ const hasCone = (data) => data?.some(d => d.totalMin !== d.totalAvg);
 
 // Creer datasets projection
 const createDS = (data, acc) => {
-    if (hasCone(data)) {
-        // Mode cône : bande min/max + ligne moyenne
-        return [
-            { label: '_max', data: data.map(d => d.totalMax), fill: '+1', backgroundColor: 'rgba(59,130,246,0.10)', borderColor: 'rgba(59,130,246,0.22)', borderWidth: 1, pointRadius: 0, tension: 0.4, order: 2 },
-            { label: '_min', data: data.map(d => d.totalMin), fill: false, borderColor: 'rgba(59,130,246,0.22)', borderWidth: 1, pointRadius: 0, tension: 0.4, order: 2 },
-            { label: 'Total', data: data.map(d => d.totalAvg), fill: false, borderColor: '#3b82f6', borderWidth: 2.5, pointRadius: 0, pointHoverRadius: 5, pointBackgroundColor: '#3b82f6', pointBorderWidth: 0, tension: 0.4, order: 1 },
-        ];
-    }
-    // Mode empilé : détail par compte
-    return acc?.length && data[0]?.accounts
-        ? acc.map(a => ({ label: a.name, data: data.map(d => d.accounts?.[a.name] || 0), ...dsOpts(a.color) }))
-        : [{ label: 'Projection', data: data.map(d => d.totalAvg), ...dsOpts('#3b82f6') }];
+    const cone = hasCone(data);
+    // Datasets par compte (scénario moyen) — identiques cone ou non
+    const baseDS = acc?.length && data[0]?.accounts
+        ? acc.map(a => ({ label: a.name, data: data.map(d => d.accounts?.[a.name] || 0), ...dsOpts(a.color), stack: 'accounts' }))
+        : [{ label: 'Projection', data: data.map(d => d.totalAvg), ...dsOpts('#3b82f6'), stack: 'accounts' }];
+    if (!cone) return baseDS;
+    // Mode cône : zone verte au-dessus des comptes + lignes min/max contrastées
+    const co = { pointRadius: 0, pointHoverRadius: 0, tension: 0.4 };
+    return [
+        // Zone verte : de totalMax vers totalAvg (au-dessus des comptes, clairement visible)
+        { label: '_maxFill', data: data.map(d => d.totalMax), fill: '+1', backgroundColor: 'rgba(16,185,129,0.18)', borderWidth: 0, stack: 'gmax', ...co },
+        { label: '_avgRef',  data: data.map(d => d.totalAvg), fill: false,  borderWidth: 0, stack: 'gavg', ...co },
+        // Comptes empilés (scénario moyen)
+        ...baseDS,
+        // Ligne max verte pointillée
+        { label: '_maxLine', data: data.map(d => d.totalMax), fill: false, borderColor: 'rgba(16,185,129,0.85)', borderWidth: 1.5, borderDash: [5, 3], stack: 'lmax', ...co },
+        // Ligne min rouge pointillée
+        { label: '_minLine', data: data.map(d => d.totalMin), fill: false, borderColor: 'rgba(239,68,68,0.85)',   borderWidth: 1.5, borderDash: [5, 3], stack: 'lmin', ...co },
+    ];
 };
 
 // Chart projection
@@ -257,7 +264,7 @@ window.initProjectionChart = (data, acc) => {
             },
             scales: {
                 x: { grid: { color: c.grid, drawBorder: false }, ticks: { color: c.text, font: { size: 11 } } },
-                y: { stacked: !cone && acc?.length > 0, beginAtZero: true, grid: { color: c.grid, drawBorder: false }, ticks: { color: c.text, font: { size: 11 }, callback: fmtAxis } }
+                y: { stacked: acc?.length > 0, beginAtZero: true, grid: { color: c.grid, drawBorder: false }, ticks: { color: c.text, font: { size: 11 }, callback: fmtAxis } }
             }
         }
     });
