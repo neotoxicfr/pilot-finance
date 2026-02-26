@@ -26,14 +26,21 @@
     * **Content Security Policy** stricte avec nonces dynamiques par requête — pas d'`unsafe-inline` pour les scripts
     * **Protection CSRF** — validation des headers Origin/Referer sur toutes les requêtes mutantes
     * Chiffrement **AES-256-GCM** de toutes les données sensibles (emails, noms de comptes, libellés de transactions)
-    * Hashing des mots de passe **bcrypt** avec validation de complexité à 5 critères
+    * Hashing des mots de passe **bcrypt** — minimum 12 caractères, validation de complexité à 5 critères
     * **Session versioning** — déconnexion automatique de tous les appareils en cas de changement de mot de passe
-    * **Rate limiting** multi-niveaux (login, inscription, 2FA, réinitialisation)
+    * **Rate limiting** multi-niveaux — 120 req/min global, 10 req/min sur les routes d'authentification
     * Support natif des **Passkeys** (WebAuthn) et **2FA** (TOTP)
     * **API Health Check** — endpoint de monitoring de la base de données et de la mémoire
 * 📧 **Email** (optionnel) — Vérification du compte à l'inscription et récupération de mot de passe.
-* 📱 **Responsive** — Expérience fluide sur tous les supports (mobile, tablette, ordinateur). Compatible PWA.
-* ⚡ **Léger** — Image Docker ~15 Mo, ~30 Mo de RAM, démarrage <1s, ~30 Ko de JS, zéro requête CDN.
+* 📱 **Responsive** — Expérience fluide sur tous les supports. Glisser-déposer sur desktop, boutons de déplacement sur mobile. Compatible PWA.
+* ⚡ **Léger** — Image Docker ~15 Mo, ~30 Mo de RAM, démarrage <1s. JS chargé par page (pas de bundle global). Zéro requête CDN.
+
+---
+
+## 🗺️ Roadmap
+
+* **Alpine.js CSP build** — Migration de `unsafe-eval` vers `@alpinejs/csp` pour une Content Security Policy sans évaluation dynamique.
+* **Indicateurs de tendance KPI** — Afficher la variation mensuelle (±%) sur les cartes patrimoine et intérêts.
 
 ---
 
