@@ -21,15 +21,12 @@
             </div>
 
             <!-- Account Form Modal -->
-            <template x-teleport="body">
-            <div x-show="showAccountForm"
-                 x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-                 x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-                 class="fixed inset-0 z-[200] flex items-end sm:items-center justify-center"
-                 @keydown.escape.window="showAccountForm = false; editingAccount = null">
-                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showAccountForm = false; editingAccount = null"></div>
-                <div class="relative z-10 bg-background/90 backdrop-blur-xl border border-blue-500/30 rounded-t-2xl sm:rounded-2xl p-5 w-full sm:max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-                    <button @click="showAccountForm = false; editingAccount = null"
+            <dialog id="account-dialog"
+                    @close="editingAccount = null"
+                    @click="$event.target.tagName === 'DIALOG' && $event.target.close()"
+                    class="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                <div class="relative bg-background border border-blue-500/30 rounded-t-2xl sm:rounded-2xl p-5 shadow-2xl">
+                    <button @click="document.getElementById('account-dialog').close()"
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 20}}
                     </button>
@@ -38,7 +35,6 @@
                           hx-target="#accounts-list"
                           hx-swap="innerHTML"
                           data-toast=""
-                          @htmx:after-settle="showAccountForm = false"
                           class="space-y-5">
                         <input type="hidden" name="id" :value="editingAccount?.id || ''">
                         <div class="grid grid-cols-2 gap-4">
@@ -147,8 +143,7 @@
                         </button>
                     </form>
                 </div>
-            </div>
-            </template>
+            </dialog>
 
             <!-- Accounts List -->
             <div class="space-y-3" id="accounts-list">
@@ -173,25 +168,21 @@
             </div>
 
             <!-- Recurring Form Modal -->
-            <template x-teleport="body">
-            <div x-show="showRecurringForm"
-                 x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-                 x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
-                 class="fixed inset-0 z-[200] flex items-end sm:items-center justify-center"
-                 @keydown.escape.window="showRecurringForm = false; editingRecurring = null">
-                <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="showRecurringForm = false; editingRecurring = null"></div>
-                <div class="relative z-10 bg-background/90 backdrop-blur-xl border border-blue-500/30 rounded-t-2xl sm:rounded-2xl p-5 w-full sm:max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-                        <button @click="showRecurringForm = false; editingRecurring = null"
-                                class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
-                            {{template "icon-x" dict "Size" 20}}
-                        </button>
-                        <h3 class="text-base font-bold text-blue-500 mb-5" x-text="editingRecurring ? '{{index .T "recurring.edit_form"}}' : '{{index .T "recurring.new_form"}}'"></h3>
-                        <form hx-post="/recurring"
-                              hx-target="#recurring-list"
-                              hx-swap="innerHTML"
-                              data-toast=""
-                              @htmx:after-settle="showRecurringForm = false"
-                              class="space-y-4">
+            <dialog id="recurring-dialog"
+                    @close="editingRecurring = null"
+                    @click="$event.target.tagName === 'DIALOG' && $event.target.close()"
+                    class="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                <div class="relative bg-background border border-blue-500/30 rounded-t-2xl sm:rounded-2xl p-5 shadow-2xl">
+                    <button @click="document.getElementById('recurring-dialog').close()"
+                            class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
+                        {{template "icon-x" dict "Size" 20}}
+                    </button>
+                    <h3 class="text-base font-bold text-blue-500 mb-5" x-text="editingRecurring ? '{{index .T "recurring.edit_form"}}' : '{{index .T "recurring.new_form"}}'"></h3>
+                    <form hx-post="/recurring"
+                          hx-target="#recurring-list"
+                          hx-swap="innerHTML"
+                          data-toast=""
+                          class="space-y-4">
                             <input type="hidden" name="id" :value="editingRecurring?.ID || ''">
                             <div class="flex gap-3">
                                 <input type="text" name="description" placeholder="{{index .T "recurring.label_placeholder"}}" required
@@ -223,10 +214,9 @@
                             <button class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl text-sm font-bold transition-all">
                                 {{index .T "recurring.submit"}}
                             </button>
-                        </form>
+                    </form>
                 </div>
-            </div>
-            </template>
+            </dialog>
 
             <!-- Recurring List -->
             <div class="dashboard-card bg-background border rounded-2xl overflow-hidden">
@@ -241,8 +231,6 @@
 <script nonce="{{.Nonce}}">
 function accountsPage() {
     return {
-        // Account form state
-        showAccountForm: false,
         editingAccount: null,
         selectedColor: '#3b82f6',
         isYieldActive: false,
@@ -259,16 +247,14 @@ function accountsPage() {
             this.yieldMin = account?.yield_min || '';
             this.yieldMax = account?.yield_max || '';
             this.reinvestmentRate = account?.reinvestment_rate ?? 100;
-            this.showAccountForm = true;
+            document.getElementById('account-dialog').showModal();
         },
 
-        // Recurring form state
-        showRecurringForm: false,
         editingRecurring: null,
 
         openRecurringForm(recurring) {
             this.editingRecurring = recurring;
-            this.showRecurringForm = true;
+            document.getElementById('recurring-dialog').showModal();
         },
 
         get opType() {
@@ -280,6 +266,37 @@ function accountsPage() {
         get absAmount() {
             if (!this.editingRecurring) return '';
             return Math.abs(this.editingRecurring.Amount);
+        },
+
+        initSortable() {
+            const el = document.getElementById('accounts-list');
+            if (!el || typeof Sortable === 'undefined') return;
+            if (el._sortable) el._sortable.destroy();
+            el._sortable = new Sortable(el, {
+                animation: 150,
+                handle: '.drag-handle',
+                forceFallback: true,
+                fallbackTolerance: 4,
+                ghostClass: 'opacity-30',
+                chosenClass: 'scale-[1.02]',
+                onEnd(evt) {
+                    if (evt.oldIndex === evt.newIndex) return;
+                    const ids = [...el.querySelectorAll('[data-account-id]')]
+                        .map(n => parseInt(n.dataset.accountId, 10));
+                    fetch('/accounts/reorder', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ids })
+                    });
+                }
+            });
+        },
+
+        init() {
+            this.$nextTick(() => this.initSortable());
+            document.body.addEventListener('htmx:afterSettle', e => {
+                if (e.detail.target?.id === 'accounts-list') this.initSortable();
+            });
         }
     };
 }
@@ -287,20 +304,12 @@ function accountsPage() {
 {{end}}
 
 {{define "account-row"}}
-<div class="dashboard-card group bg-background border hover:border-blue-500/30 rounded-2xl p-4 flex items-center gap-4 transition-all">
-    <div class="flex flex-col gap-1">
-        <button hx-post="/accounts/{{.ID}}/move?direction=up"
-                hx-target="#accounts-list"
-                hx-swap="innerHTML"
-                class="p-1 hover:text-blue-500 text-muted-foreground transition-colors">
-            {{template "icon-chevron-up" dict "Size" 20}}
-        </button>
-        <button hx-post="/accounts/{{.ID}}/move?direction=down"
-                hx-target="#accounts-list"
-                hx-swap="innerHTML"
-                class="p-1 hover:text-blue-500 text-muted-foreground transition-colors">
-            {{template "icon-chevron-down" dict "Size" 20}}
-        </button>
+<div class="dashboard-card group bg-background border rounded-2xl p-4 flex items-center gap-4 transition-all"
+     x-data="{ del: false }"
+     :class="del ? 'border-red-500/40 bg-red-500/5' : 'hover:border-blue-500/30'"
+     data-account-id="{{.ID}}">
+    <div class="drag-handle cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground touch-none flex-shrink-0">
+        {{template "icon-grip" dict "Size" 20}}
     </div>
     <div class="w-1.5 self-stretch rounded-full flex-shrink-0" style="background-color: {{.Color}}"></div>
     <div class="flex-1 min-w-0">
@@ -327,26 +336,26 @@ function accountsPage() {
                 {{template "icon-save" dict "Size" 18}}
             </button>
         </form>
-        <div class="flex flex-col gap-1">
-            <button @click="openAccountForm({{. | json}})"
-                    class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
-                {{template "icon-pencil" dict "Size" 18}}
-            </button>
-            <div x-data="{ del: false }">
-                <button x-show="!del" @click.prevent="del = true"
+        <div class="flex-shrink-0 w-9">
+            <div x-show="!del" class="flex flex-col gap-1">
+                <button @click="openAccountForm({{. | json}})"
+                        class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
+                    {{template "icon-pencil" dict "Size" 18}}
+                </button>
+                <button @click.prevent="del = true"
                         class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                     {{template "icon-trash" dict "Size" 18}}
                 </button>
-                <div x-show="del" class="flex items-center gap-0.5">
-                    <button hx-delete="/accounts/{{.ID}}" hx-target="#accounts-list" hx-swap="innerHTML"
-                            class="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
-                        {{template "icon-check" dict "Size" 16}}
-                    </button>
-                    <button @click.prevent="del = false"
-                            class="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
-                        {{template "icon-x" dict "Size" 16}}
-                    </button>
-                </div>
+            </div>
+            <div x-show="del" class="flex flex-col gap-1">
+                <button hx-delete="/accounts/{{.ID}}" hx-target="#accounts-list" hx-swap="innerHTML"
+                        class="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                    {{template "icon-check" dict "Size" 16}}
+                </button>
+                <button @click.prevent="del = false"
+                        class="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
+                    {{template "icon-x" dict "Size" 16}}
+                </button>
             </div>
         </div>
     </div>
