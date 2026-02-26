@@ -92,10 +92,11 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	decryptAccountNames(accounts)
+	recurrings, _ := db.GetRecurringByUserID(user.ID)
 
-	// Calculer les projections avec interets composes
+	// Calculer les projections avec interets composes et opérations récurrentes
 	years := 5
-	projData := projection.Calculate(accounts, years, user.Language)
+	projData := projection.Calculate(accounts, recurrings, years, user.Language)
 
 	// Donnees pour le graphique camembert
 	var pieData []map[string]interface{}
@@ -161,11 +162,15 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	yieldPayouts := projection.CalculateYieldPayouts(accounts, accountMap)
 	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
 
-	// Calculer les totaux mensuels
-	var monthlyIncome, monthlyExpenses, monthlyYield float64
+	// Calculer les totaux : séparer versements mensuels et annuels
+	var monthlyIncome, monthlyExpenses, monthlyYield, annualYield float64
 	for _, payout := range yieldPayouts {
-		monthlyIncome += payout.Amount
-		monthlyYield += payout.Amount
+		if payout.PayoutFrequency == "YEARLY" {
+			annualYield += payout.Amount
+		} else {
+			monthlyIncome += payout.Amount
+			monthlyYield += payout.Amount
+		}
 	}
 	for _, rec := range recurrings {
 		if rec.ToAccountID != nil {
@@ -189,6 +194,7 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	data["MonthlyExpenses"] = monthlyExpenses
 	data["MonthlyNet"] = monthlyIncome - monthlyExpenses
 	data["MonthlyYield"] = monthlyYield
+	data["AnnualYield"] = annualYield
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := templates.Render(w, "accounts.html", data); err != nil {
