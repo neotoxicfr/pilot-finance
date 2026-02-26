@@ -51,6 +51,8 @@
   "recurring.interest_prefix": "Interest",
   "recurring.auto_badge": "auto",
   "recurring.delete_confirm": "Delete this operation?",
+  "recurring.empty_title": "No operations yet",
+  "recurring.empty_subtitle": "Add your recurring income, expenses and transfers",
 
   "summary.monthly": "Monthly",
   "summary.yearly": "Yearly (Proj.)",
