@@ -23,10 +23,12 @@
 * 🔄 **Opérations récurrentes** — Suivez vos revenus et dépenses mensuels avec projection automatique.
 * 🌍 **Multi-langue & Multi-devise** — Interface disponible en français et en anglais. Devise d'affichage configurable par utilisateur (EUR, USD, GBP, CHF, JPY, CAD, AUD).
 * 🔐 **Sécurité par défaut** :
+    * Build **`@alpinejs/csp`** — pas d'`unsafe-eval` dans la CSP ; tous les composants Alpine enregistrés côté serveur
     * **Content Security Policy** stricte avec nonces dynamiques par requête — pas d'`unsafe-inline` pour les scripts
+    * **`X-Frame-Options: DENY`** + **`Permissions-Policy`** — protection clickjacking et restriction des API navigateur
     * **Protection CSRF** — validation des headers Origin/Referer sur toutes les requêtes mutantes
     * Chiffrement **AES-256-GCM** de toutes les données sensibles (emails, noms de comptes, libellés de transactions)
-    * Hashing des mots de passe **bcrypt** — minimum 12 caractères, validation de complexité à 5 critères
+    * Hashing des mots de passe **bcrypt** — coût 12, minimum 12 caractères, complexité 5 critères, upgrade automatique du coût au login
     * **Session versioning** — déconnexion automatique de tous les appareils en cas de changement de mot de passe
     * **Rate limiting** multi-niveaux — 120 req/min global, 10 req/min sur les routes d'authentification
     * Support natif des **Passkeys** (WebAuthn) et **2FA** (TOTP)
@@ -34,13 +36,6 @@
 * 📧 **Email** (optionnel) — Vérification du compte à l'inscription et récupération de mot de passe.
 * 📱 **Responsive** — Expérience fluide sur tous les supports. Glisser-déposer sur desktop, boutons de déplacement sur mobile. Compatible PWA.
 * ⚡ **Léger** — Image Docker ~15 Mo, ~30 Mo de RAM, démarrage <1s. JS chargé par page (pas de bundle global). Zéro requête CDN.
-
----
-
-## 🗺️ Roadmap
-
-* **Alpine.js CSP build** — Migration de `unsafe-eval` vers `@alpinejs/csp` pour une Content Security Policy sans évaluation dynamique.
-* **Indicateurs de tendance KPI** — Afficher la variation mensuelle (±%) sur les cartes patrimoine et intérêts.
 
 ---
 
@@ -115,7 +110,7 @@ L'application écoute sur le port **3000** à l'intérieur du conteneur.
 
 * **Zéro stockage en clair** — Les noms de comptes et libellés de transactions sont chiffrés avec AES-256-GCM. Seul votre serveur détient la clé.
 * **Zéro dépendance externe** — Aucune requête CDN à l'exécution. Tous les assets JS et CSS sont compilés et servis localement.
-* **CSP stricte** — Nonces dynamiques par requête pour les scripts inline. Pas d'`unsafe-inline` dans `script-src`.
+* **CSP stricte** — Nonces dynamiques par requête + build `@alpinejs/csp` (pas d'`unsafe-eval`). Pas d'`unsafe-inline` dans `script-src`.
 * **Vérification au démarrage** — Le serveur refuse de démarrer si les clés de chiffrement sont absentes ou trop courtes.
 * **Passkeys** — WebAuthn offre une authentification résistante au phishing sans mémorisation de mot de passe.
 
@@ -126,7 +121,7 @@ L'application écoute sur le port **3000** à l'intérieur du conteneur.
 | | |
 |---|---|
 | Backend | Go 1.26 + chi router |
-| Frontend | HTMX 2.0 + Alpine.js 3.15 + Tailwind CSS v4 |
+| Frontend | HTMX 2.0 + Alpine.js 3.15 (build CSP) + Tailwind CSS v4 |
 | Base de données | SQLite (mode WAL) |
 | Graphiques | Chart.js 4.5 |
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |

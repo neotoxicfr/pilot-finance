@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -195,8 +196,14 @@ func DeleteRecurring(w http.ResponseWriter, r *http.Request) {
 func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
 	lang, currency := userLocale(user)
 
-	recurrings, _ := db.GetRecurringByUserID(user.ID)
-	accounts, _ := db.GetAccountsByUserID(user.ID)
+	recurrings, err := db.GetRecurringByUserID(user.ID)
+	if err != nil {
+		slog.Error("renderRecurringTable: recurring", "err", err)
+	}
+	accounts, err := db.GetAccountsByUserID(user.ID)
+	if err != nil {
+		slog.Error("renderRecurringTable: accounts", "err", err)
+	}
 
 	decryptAccountNames(accounts)
 	accountMap := buildAccountMap(accounts)
@@ -211,5 +218,6 @@ func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
 	templates.RenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{
 		"Recurrings": recurringData,
 		"Currency":   currency,
+		"T":          i18n.Map(lang),
 	})
 }

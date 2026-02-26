@@ -1,4 +1,90 @@
 {{define "content"}}
+<script nonce="{{.Nonce}}">
+// Composant MFA
+function mfaData() {
+    return {
+        mfaSetup: null,
+        mfaCode: '',
+        mfaError: '',
+        mfaLoading: false,
+        setupMfa() {
+            this.mfaLoading = true;
+            fetch('/settings/mfa/setup')
+                .then(r => r.json())
+                .then(d => { this.mfaSetup = d; this.mfaLoading = false; });
+        },
+        enableMfa() {
+            fetch('/settings/mfa/enable', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ secret: this.mfaSetup.secret, code: this.mfaCode })
+            }).then(r => r.json()).then(d => {
+                if (d.error) this.mfaError = d.error;
+                else location.reload();
+            });
+        },
+        reload() { location.reload(); }
+    };
+}
+
+// Composant Passkeys
+function passkeyData() {
+    return {
+        passkeyLoading: false,
+        passkeyMsg: '',
+        registerPasskey() { window.registerPasskey(); },
+        reload() { location.reload(); },
+        renamePasskey(id, currentName) {
+            const newName = prompt("{{index .T "settings.passkey_name_prompt"}}", currentName);
+            if (newName && newName !== currentName) {
+                fetch('/api/passkey/' + id + '/rename', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                }).then(() => location.reload());
+            }
+        }
+    };
+}
+
+// Composant Preferences (reload uniquement)
+function prefsData() {
+    return { reload() { location.reload(); } };
+}
+
+// Composant mot de passe
+function pwdData() {
+    return {
+        pwdSuccess: false,
+        pwdError: '',
+        pwdLoading: false,
+        password: '',
+        confirm: '',
+        get pwdStrength() {
+            return (this.password.length >= 8 ? 1 : 0)
+                 + (/[A-Z]/.test(this.password) ? 1 : 0)
+                 + (/[a-z]/.test(this.password) ? 1 : 0)
+                 + (/[0-9]/.test(this.password) ? 1 : 0)
+                 + (/[!@#$%^&*(),.?:{}|]/.test(this.password) ? 1 : 0);
+        },
+        afterPwdSettle(event) {
+            if (!event.detail.failed) {
+                this.pwdSuccess = true;
+                this.$el.reset();
+                this.password = '';
+                this.confirm = '';
+            }
+        }
+    };
+}
+
+document.addEventListener('alpine:init', () => {
+    Alpine.data('mfaData',    mfaData);
+    Alpine.data('passkeyData', passkeyData);
+    Alpine.data('pwdData',    pwdData);
+    Alpine.data('prefsData',  prefsData);
+});
+</script>
 <div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8 text-foreground">
     <!-- Header -->
     <div class="flex items-center gap-3 border-b border-border pb-4">
@@ -11,7 +97,7 @@
         <div class="space-y-8">
             <!-- 2FA Section -->
             <div class="dashboard-card bg-background border rounded-2xl p-6"
-                 x-data="{ mfaSetup: null, mfaCode: '', mfaError: '', mfaLoading: false }">
+                 x-data="mfaData">
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-blue-500">{{template "icon-smartphone" dict "Size" 20}}</span>
                     {{index .T "settings.mfa_title"}}
@@ -25,7 +111,7 @@
                     <button hx-post="/settings/mfa/disable"
                             hx-confirm="{{index .T "settings.mfa_disable_confirm"}}"
                             hx-swap="none"
-                            @htmx:after-request="if(event.detail.successful) location.reload()"
+                            @htmx:after-request="event.detail.successful && reload()"
                             class="text-xs bg-background hover:bg-red-500/10 text-muted-foreground hover:text-red-500 px-3 py-2 rounded-lg border border-border hover:border-red-500/50 transition-colors">
                         {{index .T "settings.mfa_disable_btn"}}
                     </button>
@@ -34,7 +120,7 @@
                 <template x-if="!mfaSetup">
                     <div class="space-y-4">
                         <p class="text-sm text-muted-foreground">{{index .T "settings.mfa_description"}}</p>
-                        <button @click="mfaLoading = true; fetch('/settings/mfa/setup').then(r => r.json()).then(d => { mfaSetup = d; mfaLoading = false; })"
+                        <button @click="setupMfa()"
                                 :disabled="mfaLoading"
                                 class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all text-sm">
                             <span x-show="mfaLoading">{{index .T "settings.mfa_loading"}}</span>
@@ -62,7 +148,7 @@
                                     class="flex-1 bg-accent hover:bg-accent/80 text-muted-foreground font-bold py-3 rounded-xl transition-all text-sm">
                                 {{index .T "settings.mfa_cancel"}}
                             </button>
-                            <button @click="fetch('/settings/mfa/enable', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({secret: mfaSetup.secret, code: mfaCode})}).then(r => r.json()).then(d => { if(d.error) mfaError = d.error; else location.reload(); })"
+                            <button @click="enableMfa()"
                                     :disabled="mfaCode.length !== 6"
                                     class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all text-sm disabled:opacity-50">
                                 {{index .T "settings.mfa_enable_btn"}}
@@ -76,7 +162,7 @@
             <!-- Passkeys Section -->
             {{if .PasskeysEnabled}}
             <div class="dashboard-card bg-background border rounded-2xl p-6"
-                 x-data="{ passkeyLoading: false, passkeyMsg: '' }">
+                 x-data="passkeyData">
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-purple-500">{{template "icon-fingerprint" dict "Size" 20}}</span>
                     {{index .T "settings.passkeys_title"}}
@@ -105,7 +191,7 @@
                             <button hx-delete="/api/passkey/{{.ID}}"
                                     hx-confirm="{{index $.T "settings.passkey_delete_confirm"}}"
                                     hx-swap="none"
-                                    @htmx:after-request="if(event.detail.successful) location.reload()"
+                                    @htmx:after-request="event.detail.successful && reload()"
                                     class="p-2 text-muted-foreground hover:text-red-500 hover:bg-background rounded-lg transition-colors">
                                 {{template "icon-trash" dict "Size" 14}}
                             </button>
@@ -134,7 +220,7 @@
         <div class="space-y-8">
             <!-- Password Section -->
             <div class="dashboard-card bg-background border rounded-2xl p-6"
-                 x-data="{ pwdSuccess: false, pwdError: '', pwdLoading: false, password: '', confirm: '', get pwdStrength() { return (this.password.length >= 8 ? 1 : 0) + (/[A-Z]/.test(this.password) ? 1 : 0) + (/[a-z]/.test(this.password) ? 1 : 0) + (/[0-9]/.test(this.password) ? 1 : 0) + (/[!@#$%^&*(),.?:{}|]/.test(this.password) ? 1 : 0); } }">
+                 x-data="pwdData">
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-muted-foreground">{{template "icon-lock" dict "Size" 20}}</span>
                     {{index .T "settings.password_title"}}
@@ -151,7 +237,7 @@
                       @htmx:before-request="pwdLoading = true; pwdError = ''; pwdSuccess = false"
                       @htmx:after-request="pwdLoading = false"
                       @htmx:response-error="pwdError = event.detail.xhr.responseText"
-                      @htmx:after-settle="if(!event.detail.failed) { pwdSuccess = true; this.reset(); password = ''; confirm = ''; }"
+                      @htmx:after-settle="afterPwdSettle($event)"
                       class="space-y-5">
                     <div>
                         <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.current_password"}}</label>
@@ -184,7 +270,7 @@
             </div>
 
             <!-- Preferences Section -->
-            <div class="dashboard-card bg-background border rounded-2xl p-6">
+            <div class="dashboard-card bg-background border rounded-2xl p-6" x-data="prefsData">
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-blue-500">{{template "icon-settings" dict "Size" 20}}</span>
                     {{index .T "settings.preferences_title"}}
@@ -192,7 +278,7 @@
 
                 <form hx-post="/settings/preferences"
                       hx-swap="none"
-                      @htmx:after-request="if(event.detail.successful) location.reload()"
+                      @htmx:after-request="event.detail.successful && reload()"
                       class="space-y-5">
                     <div>
                         <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.language_label"}}</label>
@@ -294,16 +380,4 @@
     {{end}}
 </div>
 
-<script nonce="{{.Nonce}}">
-function renamePasskey(id, currentName) {
-    const newName = prompt("{{index .T "settings.passkey_name_prompt"}}", currentName);
-    if (newName && newName !== currentName) {
-        fetch('/api/passkey/' + id + '/rename', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: newName })
-        }).then(() => location.reload());
-    }
-}
-</script>
 {{end}}

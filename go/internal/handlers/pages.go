@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -92,10 +92,14 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	decryptAccountNames(accounts)
+	recurrings, recErr := db.GetRecurringByUserID(user.ID)
+	if recErr != nil {
+		slog.Warn("Dashboard: recurring", "err", recErr, "userID", user.ID)
+	}
 
-	// Calculer les projections avec interets composes
+	// Calculer les projections avec interets composes et opérations récurrentes
 	years := 5
-	projData := projection.Calculate(accounts, years, user.Language)
+	projData := projection.Calculate(accounts, recurrings, years, user.Language)
 
 	// Donnees pour le graphique camembert
 	var pieData []map[string]interface{}
@@ -151,8 +155,14 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lang, _ := userLocale(user)
-	accounts, _ := db.GetAccountsByUserID(user.ID)
-	recurrings, _ := db.GetRecurringByUserID(user.ID)
+	accounts, accErr := db.GetAccountsByUserID(user.ID)
+	if accErr != nil {
+		slog.Warn("AccountsPage: accounts", "err", accErr, "userID", user.ID)
+	}
+	recurrings, recErr2 := db.GetRecurringByUserID(user.ID)
+	if recErr2 != nil {
+		slog.Warn("AccountsPage: recurring", "err", recErr2, "userID", user.ID)
+	}
 
 	decryptAccountNames(accounts)
 	accountMap := buildAccountMap(accounts)
@@ -161,12 +171,20 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	yieldPayouts := projection.CalculateYieldPayouts(accounts, accountMap)
 	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
 
-	// Calculer les totaux mensuels
-	var monthlyIncome, monthlyExpenses float64
+	// Calculer les totaux : séparer versements mensuels et annuels
+	var monthlyIncome, monthlyExpenses, monthlyYield, annualYield float64
 	for _, payout := range yieldPayouts {
-		monthlyIncome += payout.Amount
+		if payout.PayoutFrequency == "YEARLY" {
+			annualYield += payout.Amount
+		} else {
+			monthlyIncome += payout.Amount
+			monthlyYield += payout.Amount
+		}
 	}
 	for _, rec := range recurrings {
+		if rec.ToAccountID != nil {
+			continue // Virement interne : ne compte pas dans entrées/sorties
+		}
 		if rec.Amount > 0 {
 			monthlyIncome += rec.Amount
 		} else {
@@ -184,6 +202,8 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	data["MonthlyIncome"] = monthlyIncome
 	data["MonthlyExpenses"] = monthlyExpenses
 	data["MonthlyNet"] = monthlyIncome - monthlyExpenses
+	data["MonthlyYield"] = monthlyYield
+	data["AnnualYield"] = annualYield
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := templates.Render(w, "accounts.html", data); err != nil {
@@ -231,7 +251,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 		for _, u := range users {
 			uEmail, err := crypto.Decrypt(u.EmailEncrypted)
 			if err != nil {
-				log.Printf("admin: decrypt user %d email: %v", u.ID, err)
+				slog.Warn("admin: decrypt email", "userID", u.ID, "err", err)
 				continue
 			}
 			usersWithEmail = append(usersWithEmail, map[string]interface{}{
@@ -247,16 +267,6 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 	if err := templates.Render(w, "settings.html", data); err != nil {
 		http.Error(w, "Erreur template: "+err.Error(), http.StatusInternalServerError)
 	}
-}
-
-// AdminPage affiche la page d'administration
-func AdminPage(w http.ResponseWriter, r *http.Request) {
-	SettingsPage(w, r)
-}
-
-// RecurringPage redirige vers la page des comptes
-func RecurringPage(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/accounts", http.StatusSeeOther)
 }
 
 // VerifyEmailPage verifie l'email avec le token

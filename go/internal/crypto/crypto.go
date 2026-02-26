@@ -149,9 +149,15 @@ func HashToken(token string) string {
 	return hex.EncodeToString(h[:])
 }
 
+// NeedsRehash retourne true si le hash bcrypt utilise un coût inférieur à 12
+func NeedsRehash(hash string) bool {
+	cost, err := bcrypt.Cost([]byte(hash))
+	return err == nil && cost < 12
+}
+
 // HashPassword génère un hash bcrypt du mot de passe
 func HashPassword(password string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	if err != nil {
 		return "", err
 	}
