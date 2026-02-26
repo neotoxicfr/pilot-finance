@@ -48,7 +48,7 @@
                     <span class="text-xs text-muted-foreground whitespace-nowrap font-medium">
                         {{index .T "dashboard.projection_label"}} <strong x-text="years + ' {{index .T "dashboard.years_suffix"}}'"></strong>
                     </span>
-                    <div class="w-full md:w-48">
+                    <div class="w-full md:w-48 flex items-center">
                         <input type="range" min="1" max="30"
                                x-model="years"
                                @input="debouncedUpdate()"
