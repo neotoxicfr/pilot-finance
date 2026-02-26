@@ -43,6 +43,7 @@ html {
     background-color: var(--background);
     min-height: 100%;
     -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
 }
 
 html.dark {
