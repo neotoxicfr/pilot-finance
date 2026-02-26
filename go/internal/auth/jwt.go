@@ -20,6 +20,8 @@ type Claims struct {
 	Email          string `json:"email"`
 	Role           string `json:"role"`
 	SessionVersion int    `json:"sessionVersion"`
+	Language       string `json:"language"`
+	Currency       string `json:"currency"`
 	jwt.RegisteredClaims
 }
 
@@ -29,12 +31,14 @@ func InitJWT(secret string) {
 }
 
 // GenerateToken génère un nouveau token JWT
-func GenerateToken(userID int64, email, role string, sessionVersion int) (string, error) {
+func GenerateToken(userID int64, email, role, language, currency string, sessionVersion int) (string, error) {
 	claims := &Claims{
 		UserID:         userID,
 		Email:          email,
 		Role:           role,
 		SessionVersion: sessionVersion,
+		Language:       language,
+		Currency:       currency,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

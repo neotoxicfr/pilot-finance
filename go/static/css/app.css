@@ -10,6 +10,7 @@
     --border: #e2e8f0;
     --accent: #f1f5f9;
     --muted-foreground: #64748b;
+    --accent-blue: #3b82f6;
     color-scheme: light;
 }
 
@@ -73,7 +74,7 @@ body {
     }
 }
 
-::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: var(--muted-foreground, #475569); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #64748b; }
 
 /* Safe area for pages without nav (login, register) */
@@ -114,7 +115,7 @@ input[type='range']::-webkit-slider-thumb {
     appearance: none;
     width: 18px;
     height: 18px;
-    background: #3b82f6;
+    background: var(--accent-blue, #3b82f6);
     border-radius: 50%;
     cursor: pointer;
     border: 2px solid var(--background);
@@ -125,7 +126,7 @@ input[type='range']::-moz-range-thumb {
     appearance: none;
     width: 18px;
     height: 18px;
-    background: #3b82f6;
+    background: var(--accent-blue, #3b82f6);
     border-radius: 50%;
     cursor: pointer;
     border: 2px solid var(--background);
@@ -172,10 +173,3 @@ input[type=number] {
     animation: fade-in 0.3s ease-out;
 }
 
-.slide-in-from-top-2 {
-    animation: slide-in-from-top 0.3s ease-out;
-}
-
-.zoom-in-95 {
-    animation: zoom-in 0.5s ease-out;
-}
