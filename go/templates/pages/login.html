@@ -18,7 +18,8 @@ function loginPage() {
         },
         init() {
             this.requires2FA = this.$el.dataset.requires2fa === 'true';
-        }
+        },
+        loginWithPasskey() { window.loginWithPasskey(); }
     };
 }
 document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginPage); });
