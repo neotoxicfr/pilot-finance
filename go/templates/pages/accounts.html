@@ -123,7 +123,7 @@
                                         {{index .T "accounts.target_account"}}
                                     </label>
                                     <select name="targetAccountId"
-                                            :value="editingAccount?.target_account_id || ''"
+                                            x-model="targetAccountId"
                                             class="w-full bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-emerald-500">
                                         <option value="">{{index .T "accounts.no_target"}}</option>
                                         {{range .Accounts}}
@@ -201,7 +201,16 @@
                                     <option value="transfer">{{index .T "recurring.type_transfer"}}</option>
                                 </select>
                                 <select name="accountId" required
-                                        :value="editingRecurring?.AccountID || ''"
+                                        x-model="accountId"
+                                        class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
+                                    <option value="">{{index .T "recurring.account_placeholder"}}</option>
+                                    {{range .Accounts}}
+                                    <option value="{{.ID}}">{{.Name}}</option>
+                                    {{end}}
+                                </select>
+                                <select name="toAccountId"
+                                        x-model="toAccountId"
+                                        x-show="opType === 'transfer'" x-cloak
                                         class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
                                     <option value="">{{index .T "recurring.account_placeholder"}}</option>
                                     {{range .Accounts}}
@@ -236,6 +245,7 @@ function accountsPage() {
         yieldMin: '',
         yieldMax: '',
         reinvestmentRate: 100,
+        targetAccountId: '',
 
         openAccountForm(account) {
             this.editingAccount = account;
@@ -245,14 +255,19 @@ function accountsPage() {
             this.yieldMin = account?.yield_min || '';
             this.yieldMax = account?.yield_max || '';
             this.reinvestmentRate = account?.reinvestment_rate ?? 100;
+            this.targetAccountId = account?.target_account_id ? String(account.target_account_id) : '';
             document.getElementById('account-dialog').showModal();
         },
 
         editingRecurring: null,
         opType: 'expense',
+        accountId: '',
+        toAccountId: '',
 
         openRecurringForm(recurring) {
             this.editingRecurring = recurring;
+            this.accountId = recurring?.AccountID ? String(recurring.AccountID) : '';
+            this.toAccountId = recurring?.ToAccountID ? String(recurring.ToAccountID) : '';
             if (!recurring) {
                 this.opType = 'expense';
             } else if (recurring.ToAccountID) {
