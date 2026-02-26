@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -74,14 +75,24 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	yieldMin := 0.0
 	yieldMax := 0.0
 	reinvestmentRate := 100
+	var parseErr error
 	if yieldMinStr != "" {
-		yieldMin, _ = strconv.ParseFloat(yieldMinStr, 64)
+		if yieldMin, parseErr = strconv.ParseFloat(yieldMinStr, 64); parseErr != nil {
+			http.Error(w, "Taux minimum invalide", http.StatusBadRequest)
+			return
+		}
 	}
 	if yieldMaxStr != "" {
-		yieldMax, _ = strconv.ParseFloat(yieldMaxStr, 64)
+		if yieldMax, parseErr = strconv.ParseFloat(yieldMaxStr, 64); parseErr != nil {
+			http.Error(w, "Taux maximum invalide", http.StatusBadRequest)
+			return
+		}
 	}
 	if reinvestmentRateStr != "" {
-		reinvestmentRate, _ = strconv.Atoi(reinvestmentRateStr)
+		if reinvestmentRate, parseErr = strconv.Atoi(reinvestmentRateStr); parseErr != nil {
+			http.Error(w, "Taux de réinvestissement invalide", http.StatusBadRequest)
+			return
+		}
 	}
 
 	// Validation des taux pour le type RANGE
@@ -124,8 +135,11 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// Creation d'un nouveau compte
-		accounts, _ := db.GetAccountsByUserID(user.ID)
-		position := len(accounts)
+		existingAccounts, posErr := db.GetAccountsByUserID(user.ID)
+		if posErr != nil {
+			log.Printf("CreateAccount: GetAccountsByUserID: %v", posErr)
+		}
+		position := len(existingAccounts)
 
 		err := db.CreateAccountWithYield(user.ID, encryptedName, balance, color, position, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
 		if err != nil {
@@ -136,51 +150,6 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 
 	// Retourner la liste mise a jour en HTML
 	renderAccountsList(w, user)
-}
-
-// UpdateAccount met a jour un compte
-func UpdateAccount(w http.ResponseWriter, r *http.Request) {
-	user := middleware.GetUser(r)
-	if user == nil {
-		http.Error(w, "Non authentifie", http.StatusUnauthorized)
-		return
-	}
-
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		http.Error(w, "ID invalide", http.StatusBadRequest)
-		return
-	}
-
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Donnees invalides", http.StatusBadRequest)
-		return
-	}
-
-	name := r.FormValue("name")
-	balanceStr := r.FormValue("balance")
-	color := r.FormValue("color")
-
-	// Chiffrer le nom du compte
-	encryptedName, encErr := crypto.Encrypt(name)
-	if encErr != nil {
-		http.Error(w, "Erreur chiffrement", http.StatusInternalServerError)
-		return
-	}
-
-	balance := 0.0
-	if balanceStr != "" {
-		balance, _ = strconv.ParseFloat(balanceStr, 64)
-	}
-
-	err = db.UpdateAccount(id, user.ID, encryptedName, balance, color)
-	if err != nil {
-		http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
 }
 
 // DeleteAccount supprime un compte
@@ -340,8 +309,14 @@ func ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 	lang, currency := userLocale(user)
 
-	accounts, _ := db.GetAccountsByUserID(user.ID)
-	recurrings, _ := db.GetRecurringByUserID(user.ID)
+	accounts, err := db.GetAccountsByUserID(user.ID)
+	if err != nil {
+		log.Printf("renderAccountsList: GetAccountsByUserID: %v", err)
+	}
+	recurrings, err := db.GetRecurringByUserID(user.ID)
+	if err != nil {
+		log.Printf("renderAccountsList: GetRecurringByUserID: %v", err)
+	}
 
 	decryptAccountNames(accounts)
 	accountMap := buildAccountMap(accounts)
