@@ -221,38 +221,36 @@ dialog {
     padding: 0;
     border: none;
     background: transparent;
-    max-width: calc(100vw - 2rem);
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    margin: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+@media (min-width: 640px) {
+    dialog { align-items: center; }
 }
 dialog::backdrop {
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
-dialog[open] {
-    animation: dialogIn 0.2s ease-out;
+dialog > .modal-panel {
+    animation: modalIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
-@keyframes dialogIn {
-    from { opacity: 0; transform: scale(0.97); }
-    to   { opacity: 1; transform: scale(1); }
+@keyframes modalIn {
+    from { opacity: 0; transform: translateY(16px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
 }
-@media (max-width: 640px) {
-    dialog {
-        position: fixed;
-        bottom: 0;
-        top: auto !important;
-        left: 0;
-        right: 0;
-        max-width: 100%;
-        width: 100%;
-        margin: 0;
-        overflow-y: auto;
-    }
-    dialog[open] {
-        animation: dialogSlideUp 0.25s ease-out;
-    }
-    @keyframes dialogSlideUp {
-        from { transform: translateY(40px); opacity: 0; }
-        to   { transform: translateY(0); opacity: 1; }
-    }
+.modal-panel {
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+}
+.dark .modal-panel {
+    background: rgba(15, 23, 42, 0.97);
 }
 
