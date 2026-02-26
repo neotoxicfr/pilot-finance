@@ -103,7 +103,7 @@
     <script nonce="{{.Nonce}}" defer src="/static/js/sortable.min.js?v={{.AssetVer}}"></script>
     {{end}}
 </head>
-<body class="font-sans antialiased min-h-screen flex flex-col bg-background text-foreground" x-data="themeData">
+<body class="font-sans antialiased bg-background text-foreground {{block "bodyClass" .}}min-h-screen flex flex-col{{end}}" x-data="themeData">
     {{if .User}}
     <nav class="border-b border-border bg-background/50 backdrop-blur-md sticky top-0 z-50">
         <div class="max-w-[1400px] mx-auto px-2 sm:px-4 h-16 flex items-center justify-between">
