@@ -302,9 +302,10 @@ function accountsPage() {
 {{end}}
 
 {{define "account-row"}}
-<div class="dashboard-card group bg-background border rounded-2xl p-4 flex items-center gap-4 transition-colors"
-     x-data="{ del: false }"
+<div class="dashboard-card group border rounded-2xl p-4 flex items-center gap-4 transition-colors"
+     x-data="{ del: false, dirty: false }"
      :class="del ? 'border-red-500/40 bg-red-500/5' : 'hover:border-blue-500/30'"
+     :style="del ? '' : 'background: linear-gradient(135deg, var(--background) 0%, {{.Color}}15 100%)'"
      data-account-id="{{.ID}}">
     <div class="drag-handle cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground touch-none flex-shrink-0 hidden md:flex items-center">
         {{template "icon-grip" dict "Size" 20}}
@@ -340,9 +341,11 @@ function accountsPage() {
               class="flex items-baseline gap-1">
             <input type="text" inputmode="decimal" name="balance"
                    value="{{formatBalance .Balance}}"
+                   @input="dirty = true"
                    class="bg-transparent w-28 text-right outline-hidden font-mono text-xl font-bold text-foreground focus:text-blue-500 focus:bg-accent rounded-lg px-1 transition-colors">
             <span class="text-sm text-muted-foreground font-medium" x-data x-text="window.PILOT_CURRENCY||'EUR'"></span>
-            <button class="text-blue-500 ml-1 p-2 rounded-lg transition-colors sm:opacity-0 sm:group-hover:opacity-100">
+            <button class="text-blue-500 ml-1 p-2 rounded-lg transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                    :class="dirty ? 'opacity-100' : 'max-sm:opacity-0 max-sm:pointer-events-none'">
                 {{template "icon-save" dict "Size" 18}}
             </button>
         </form>

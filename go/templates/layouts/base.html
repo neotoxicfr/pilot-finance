@@ -222,7 +222,7 @@ window.initProjectionChart = (data, acc) => {
         data: { labels: data.map(d => d.name || 'An '+d.year), datasets: createDS(data, acc) },
         options: {
             responsive: true, maintainAspectRatio: false, animation: { duration: 400, easing: 'easeOutQuart' }, interaction: { intersect: false, mode: 'index' },
-            plugins: { legend: { display: acc?.length > 1 }, tooltip: { backgroundColor: c.tipBg, titleColor: c.tipTitle, bodyColor: c.tipBody, borderColor: c.tipBorder, borderWidth: 1, padding: 12, callbacks: { label: ctx => ctx.dataset.label+': '+fmt(ctx.raw), footer: items => 'Total: '+fmt(items.reduce((s,i) => s+i.raw, 0)) } } },
+            plugins: { legend: { display: false }, tooltip: { backgroundColor: c.tipBg, titleColor: c.tipTitle, bodyColor: c.tipBody, borderColor: c.tipBorder, borderWidth: 1, padding: 12, callbacks: { label: ctx => ctx.dataset.label+': '+fmt(ctx.raw), footer: items => 'Total: '+fmt(items.reduce((s,i) => s+i.raw, 0)) } } },
             scales: { x: { grid: { color: c.grid, drawBorder: false }, ticks: { color: c.text, font: { size: 11 } } }, y: { stacked: acc?.length > 0, beginAtZero: true, grid: { color: c.grid, drawBorder: false }, ticks: { color: c.text, font: { size: 11 }, callback: fmtAxis } } }
         }
     });
@@ -259,8 +259,8 @@ window.initPieChart = (accounts, animated = true) => {
             } } }
         }
     });
-    const leg = document.getElementById('pieLegend');
-    if (leg) leg.innerHTML = accounts.map(a => '<div class="flex items-center gap-1.5 text-xs"><span class="w-2.5 h-2.5 rounded-full" style="background:'+a.color+'"></span><span class="text-muted-foreground">'+a.name+'</span></div>').join('');
+    const leg = document.getElementById('chartLegend');
+    if (leg) leg.innerHTML = accounts.map(a => '<div class="flex items-center gap-1.5 text-xs"><span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:'+a.color+'"></span><span class="text-muted-foreground">'+a.name+'</span></div>').join('');
     window.pieChartData = accounts;
 };
 
