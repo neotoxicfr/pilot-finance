@@ -48,10 +48,16 @@
                     <span class="text-xs text-muted-foreground whitespace-nowrap font-medium">
                         {{index .T "dashboard.projection_label"}} <strong x-text="years + ' {{index .T "dashboard.years_suffix"}}'"></strong>
                     </span>
-                    <input type="range" min="1" max="30"
-                           x-model="years"
-                           @input="debouncedUpdate()"
-                           class="w-full md:w-48 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                    <div class="relative w-full md:w-48 pt-5">
+                        <div class="absolute top-0 text-[10px] font-bold font-mono text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded pointer-events-none"
+                             :style="'left: calc(' + ((years-1)/29*100) + '% + ' + (9 - (years-1)/29*18) + 'px); transform: translateX(-50%)'">
+                            <span x-text="years"></span> {{index .T "dashboard.years_suffix"}}
+                        </div>
+                        <input type="range" min="1" max="30"
+                               x-model="years"
+                               @input="debouncedUpdate()"
+                               class="w-full h-1.5 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                    </div>
                 </div>
             </div>
             <div class="h-[350px] w-full">

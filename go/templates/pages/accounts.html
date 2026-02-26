@@ -156,6 +156,8 @@
             <div class="space-y-3" id="accounts-list">
                 {{range .Accounts}}
                 {{template "account-row" .}}
+                {{else}}
+                {{template "accounts-empty" .}}
                 {{end}}
             </div>
         </div>
@@ -283,6 +285,10 @@ function accountsPage() {
             {{template "icon-trending-up" dict "Size" 14}}
             <span class="font-medium">
                 {{if eq .YieldType "FIXED"}}{{.YieldMin}}%{{else}}{{.YieldMin}}-{{.YieldMax}}%{{end}}
+            </span>
+            <span class="px-1 py-px rounded text-[10px] font-bold uppercase tracking-wide
+                {{if eq .YieldType "FIXED"}}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400{{else}}bg-blue-500/10 text-blue-600 dark:text-blue-400{{end}}">
+                {{if eq .YieldType "FIXED"}}fixe{{else}}var{{end}}
             </span>
         </div>
         {{end}}
@@ -437,5 +443,13 @@ function accountsPage() {
             </div>
         </div>
     </div>
+</div>
+{{end}}
+
+{{define "accounts-empty"}}
+<div class="flex flex-col items-center justify-center py-16 text-center">
+    <div class="text-muted-foreground/20 mb-4">{{template "icon-wallet" dict "Size" 52}}</div>
+    <p class="font-semibold text-foreground mb-1">{{index .T "accounts.empty_title"}}</p>
+    <p class="text-sm text-muted-foreground">{{index .T "accounts.empty_subtitle"}}</p>
 </div>
 {{end}}
