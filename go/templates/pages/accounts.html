@@ -1,6 +1,6 @@
 {{define "content"}}
 <div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8 text-foreground"
-     x-data="accountsPage()">
+     x-data="accountsPage">
 
     <!-- Summary Cards -->
     <div id="summary-card">
@@ -336,12 +336,18 @@ function accountsPage() {
         }
     };
 }
+
+document.addEventListener('alpine:init', () => {
+    Alpine.data('accountsPage', accountsPage);
+    Alpine.data('accountRow',    () => ({ del: false, dirty: false }));
+    Alpine.data('recurringRow',  () => ({ del: false }));
+});
 </script>
 {{end}}
 
 {{define "account-row"}}
 <div class="dashboard-card group border rounded-2xl p-4 flex items-center gap-4 transition-colors"
-     x-data="{ del: false, dirty: false }"
+     x-data="accountRow"
      :class="del ? 'border-red-500/40 bg-red-500/5' : 'hover:border-blue-500/30'"
      :style="del ? '' : 'background: linear-gradient(135deg, var(--background) 0%, {{.Color}}15 100%)'"
      data-account-id="{{.ID}}">
@@ -446,7 +452,7 @@ function accountsPage() {
         <div class="w-[52px] shrink-0"></div>
     </div>
     {{else}}
-    <div class="group flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors" x-data="{ del: false }">
+    <div class="group flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors" x-data="recurringRow">
         <div class="w-1 self-stretch rounded-full shrink-0 {{if .ToAccountID}}bg-blue-500{{else if gt .Amount 0.0}}bg-emerald-500{{else}}bg-red-400{{end}}"></div>
         <div class="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center text-xs font-mono font-bold {{if .ToAccountID}}bg-blue-500/10 text-blue-500{{else if gt .Amount 0.0}}bg-emerald-500/10 text-emerald-500{{else}}bg-red-500/10 text-red-500{{end}}">
             {{.DayOfMonth}}
