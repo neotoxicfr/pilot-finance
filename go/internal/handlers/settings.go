@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"pilot-finance/internal/auth"
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
@@ -106,6 +107,14 @@ func UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
 		return
 	}
+
+	// Re-émettre le JWT avec les nouvelles préférences (Language/Currency dans les claims)
+	token, err := auth.GenerateToken(user.ID, user.Email, user.Role, language, currency, user.SessionVersion)
+	if err != nil {
+		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		return
+	}
+	setSessionCookie(w, "session", token, 86400)
 
 	w.WriteHeader(http.StatusOK)
 }
