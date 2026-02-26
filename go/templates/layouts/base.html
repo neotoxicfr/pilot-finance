@@ -222,17 +222,18 @@ const createDS = (data, acc) => {
     // order: plus bas = rendu en dernier = au premier plan (Chart.js tri décroissant)
     const co = { pointRadius: 0, pointHoverRadius: 0, tension: 0.4 };
     const accDS = baseDS.map(d => ({ ...d, order: 2 }));
+    const isDark = document.documentElement.classList.contains('dark');
+    const minColor = isDark ? 'rgba(255,255,255,0.75)' : 'rgba(15,23,42,0.6)';
     return [
         // Zone verte (fond, derrière tout)
-        { label: '_maxFill', data: data.map(d => d.totalMax), fill: '+1', backgroundColor: 'rgba(16,185,129,0.18)', borderWidth: 0, stack: 'gmax',  order: 3, ...co },
-        { label: '_avgRef',  data: data.map(d => d.totalAvg), fill: false,  borderWidth: 0, stack: 'gavg',  order: 3, ...co },
+        { label: '_maxFill', data: data.map(d => d.totalMax), fill: '+1', backgroundColor: 'rgba(16,185,129,0.18)', borderWidth: 0, stack: 'gmax', order: 3, ...co },
+        { label: '_avgRef',  data: data.map(d => d.totalAvg), fill: false,  borderWidth: 0, stack: 'gavg', order: 3, ...co },
         // Comptes empilés (scénario moyen)
         ...accDS,
         // Ligne max verte — devant les comptes
-        { label: '_maxLine', data: data.map(d => d.totalMax), fill: false, borderColor: 'rgba(16,185,129,0.85)', borderWidth: 1.5, borderDash: [5, 3], stack: 'lmax',  order: 1, ...co },
-        // Halo blanc + ligne min rouge — au premier plan absolu
-        { label: '_minHalo', data: data.map(d => d.totalMin), fill: false, borderColor: 'rgba(255,255,255,0.7)', borderWidth: 5,   borderDash: [5, 3], stack: 'lminh', order: 0, ...co },
-        { label: '_minLine', data: data.map(d => d.totalMin), fill: false, borderColor: '#ef4444',              borderWidth: 2,   borderDash: [5, 3], stack: 'lmin',  order: 0, ...co },
+        { label: '_maxLine', data: data.map(d => d.totalMax), fill: false, borderColor: 'rgba(16,185,129,0.85)', borderWidth: 1.5, borderDash: [5, 3], stack: 'lmax', order: 1, ...co },
+        // Ligne min — couleur thème (blanc dark / sombre light), premier plan absolu
+        { label: '_minLine', data: data.map(d => d.totalMin), fill: false, borderColor: minColor, borderWidth: 2, borderDash: [4, 4], stack: 'lmin', order: 0, ...co },
     ];
 };
 
