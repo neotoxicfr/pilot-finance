@@ -35,7 +35,7 @@
         <template x-if="!isRegister && !requires2FA">
             <div>
                 <button type="button"
-                        onclick="loginWithPasskey()"
+                        @click="loginWithPasskey()"
                         class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl mb-6 flex items-center justify-center gap-2 transition-all">
                     {{template "icon-fingerprint" dict "Size" 20}} {{index .T "login.passkey_btn"}}
                 </button>
@@ -91,7 +91,7 @@
                                        class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-hidden focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
                                        placeholder="{{index .T "login.confirm_placeholder"}}">
                             </div>
-                            {{template "password-feedback"}}
+                            {{template "password-feedback" .}}
                         </div>
                     </template>
                 </div>

@@ -97,7 +97,8 @@
                             </div>
                         </div>
                         <div class="flex gap-1">
-                            <button onclick="renamePasskey({{.ID}}, '{{.Name}}')"
+                            <button @click="renamePasskey($el.dataset.id, $el.dataset.name)"
+                                    data-id="{{.ID}}" data-name="{{.Name}}"
                                     class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-background rounded-lg transition-colors">
                                 {{template "icon-pencil" dict "Size" 14}}
                             </button>
@@ -168,7 +169,7 @@
                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                     </div>
 
-                    {{template "password-feedback"}}
+                    {{template "password-feedback" .}}
 
                     <template x-if="pwdError">
                         <div class="text-red-500 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="pwdError"></div>
@@ -294,36 +295,6 @@
 </div>
 
 <script nonce="{{.Nonce}}">
-async function registerPasskey() {
-    try {
-        const optionsRes = await fetch('/api/passkey/register/start', { method: 'POST' });
-        const response = await optionsRes.json();
-        if (response.error) throw new Error(response.error);
-
-        // go-webauthn wraps options in publicKey, SimpleWebAuthn expects unwrapped
-        const options = response.publicKey || response;
-
-        const SimpleWebAuthnBrowser = await import('https://cdn.jsdelivr.net/npm/@simplewebauthn/browser@11/dist/bundle/index.js');
-        const attResp = await SimpleWebAuthnBrowser.startRegistration({ optionsJSON: options });
-
-        const verifyRes = await fetch('/api/passkey/register/finish', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(attResp)
-        });
-        const verify = await verifyRes.json();
-
-        if (verify.success) {
-            location.reload();
-        } else {
-            throw new Error(verify.error || '{{index .T "settings.passkey_error"}}');
-        }
-    } catch (e) {
-        console.error(e);
-        alert('Error: ' + e.message);
-    }
-}
-
 function renamePasskey(id, currentName) {
     const newName = prompt("{{index .T "settings.passkey_name_prompt"}}", currentName);
     if (newName && newName !== currentName) {
