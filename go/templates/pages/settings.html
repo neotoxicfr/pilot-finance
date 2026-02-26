@@ -28,7 +28,11 @@ function mfaData() {
 
 // Composant Passkeys
 function passkeyData() {
-    return { passkeyLoading: false, passkeyMsg: '' };
+    return {
+        passkeyLoading: false,
+        passkeyMsg: '',
+        registerPasskey() { window.registerPasskey(); }
+    };
 }
 
 // Composant mot de passe
