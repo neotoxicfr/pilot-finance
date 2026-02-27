@@ -141,24 +141,24 @@ L'application écoute sur le port **3000** à l'intérieur du conteneur.
 - [x] `ValidateOrigin` appliqué sur `/logout`
 
 **UX / Fonctionnel**
-- [ ] Alignement validation mot de passe client/serveur (minimum 12 caractères)
-- [ ] `hx-confirm` sur la suppression de compte bancaire
-- [ ] Renommage passkey : `prompt()` → modal
-- [ ] Erreurs auth retournées en partiel HTML HTMX
-- [ ] État vide dashboard avec CTA "Créer mon premier compte"
+- [x] Alignement validation mot de passe client/serveur (minimum 12 caractères)
+- [x] Confirmation suppression compte en deux étapes (poubelle → confirmer/annuler)
+- [x] Renommage passkey : `prompt()` → modal
+- [x] Erreurs auth retournées en partiel HTMX (inline, sans rechargement)
+- [x] État vide dashboard avec CTA "Créer mon premier compte"
 
 **Accessibilité (WCAG 2.2)**
-- [ ] Supprimer `user-scalable=no` du viewport
-- [ ] `aria-label` sur tous les boutons icône-seuls
-- [ ] `<label>` explicites sur tous les inputs de formulaires
-- [ ] Skip-link `<a href="#main">`
+- [x] Supprimer `user-scalable=no` du viewport
+- [x] `aria-label` sur tous les boutons icône-seuls
+- [x] `<label>` explicites sur tous les inputs de formulaires
+- [x] Skip-link `<a href="#main">`
 
 **Performance & CI**
-- [ ] `MaxOpenConns` 1 → 4 (mode WAL)
-- [ ] Chargement conditionnel de Chart.js
-- [ ] Correction goroutine leak dans le rate limiter
-- [ ] Workflow CI `go test -race`
-- [ ] Page politique de confidentialité `/privacy`
+- [x] `MaxOpenConns` 1 → 4 (mode WAL)
+- [x] Chargement conditionnel de Chart.js
+- [x] Correction goroutine leak dans le rate limiter
+- [x] Workflow CI `go test -race`
+- [x] Page politique de confidentialité `/privacy`
 
 ### v2.6.0 — Refactoring majeur, RGPD, Tests
 
