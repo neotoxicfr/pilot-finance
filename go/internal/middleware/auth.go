@@ -83,6 +83,38 @@ func RequireAuth(next http.Handler) http.Handler {
 	})
 }
 
+// OptionalAuth tente de parser le JWT si présent, sans rediriger si absent ou invalide
+func OptionalAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("session")
+		if err != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+		claims, err := auth.ValidateToken(cookie.Value)
+		if err != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+		sv, emailEncrypted, err := db.GetUserAuthData(claims.UserID)
+		if err != nil || sv != claims.SessionVersion {
+			next.ServeHTTP(w, r)
+			return
+		}
+		email, _ := crypto.Decrypt(emailEncrypted)
+		user := &User{
+			ID:             claims.UserID,
+			Email:          email,
+			Role:           claims.Role,
+			SessionVersion: claims.SessionVersion,
+			Language:       claims.Language,
+			Currency:       claims.Currency,
+		}
+		ctx := context.WithValue(r.Context(), UserContextKey, user)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 // RequireAdmin vérifie que l'utilisateur est admin
 func RequireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
