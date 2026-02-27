@@ -35,7 +35,8 @@
   "accounts.no_target": "Aucun (non comptabilisé)",
   "accounts.interest_help": "Les intérêts non réinvestis seront versés sur ce compte",
   "accounts.submit": "Valider",
-  "accounts.delete_confirm": "Supprimer ?",
+  "accounts.move_up": "Déplacer vers le haut",
+  "accounts.move_down": "Déplacer vers le bas",
 
   "recurring.title": "Opérations",
   "recurring.add": "Ajouter",
@@ -48,13 +49,9 @@
   "recurring.type_transfer": "Virement",
   "recurring.account_placeholder": "Compte...",
   "recurring.submit": "Valider",
-  "recurring.day_header": "J",
-  "recurring.label_header": "Libellé",
-  "recurring.amount_header": "Montant",
   "recurring.interest_prefix": "Intérêts",
   "recurring.auto_badge": "auto",
   "recurring.auto_badge_annual": "/ an",
-  "recurring.delete_confirm": "Supprimer cette opération ?",
   "recurring.empty_title": "Aucune opération pour l'instant",
   "recurring.empty_subtitle": "Ajoutez vos revenus, dépenses et virements récurrents",
 
@@ -104,8 +101,9 @@
   "settings.passkey_delete_confirm": "Supprimer cette clé ?",
   "settings.passkey_registering": "Enregistrement...",
   "settings.passkey_add_btn": "Ajouter un Passkey",
-  "settings.passkey_error": "Erreur vérification",
   "settings.passkey_name_prompt": "Nom de la clé:",
+  "settings.passkey_rename_title": "Renommer la clé",
+  "settings.passkey_rename_btn": "Renommer",
   "settings.password_title": "Mot de passe",
   "settings.password_success": "Mot de passe modifié !",
   "settings.current_password": "Actuel",
@@ -125,7 +123,6 @@
   "settings.language_label": "Langue",
   "settings.currency_label": "Devise",
   "settings.save_preferences": "Enregistrer",
-  "settings.preferences_saved": "Préférences enregistrées !",
 
   "forgot.title": "Mot de passe oublié",
   "forgot.description": "Entrez votre email pour recevoir un lien",
@@ -149,7 +146,21 @@
   "verify.back": "Retour à la connexion",
   "verify.loading": "Validation de votre compte...",
 
-  "pwd.min8": "8 caractères min.",
+  "privacy.title": "Politique de confidentialité",
+  "privacy.updated": "Dernière mise à jour : 28 février 2026",
+  "privacy.s1_title": "1. Données collectées",
+  "privacy.s1_body": "Pilot Finance collecte uniquement les données que vous saisissez vous-même : adresse e-mail (pour la connexion), et les informations financières que vous renseignez (comptes, soldes, taux, versements récurrents). Aucune donnée n'est collectée de manière automatique à des fins analytiques ou publicitaires.",
+  "privacy.s2_title": "2. Stockage et chiffrement",
+  "privacy.s2_body": "Toutes les données financières sont chiffrées côté serveur avec AES-256-GCM avant d'être stockées. Votre e-mail est traité via un index aveugle HMAC afin que sa valeur en clair ne soit jamais enregistrée directement en base de données.",
+  "privacy.s3_title": "3. Partage des données",
+  "privacy.s3_body": "Pilot Finance ne vend, ne loue et ne partage aucune de vos données avec des tiers. Vos données ne quittent jamais l'instance sur laquelle vous êtes connecté.",
+  "privacy.s4_title": "4. Conservation",
+  "privacy.s4_body": "Vos données sont conservées tant que votre compte existe. La suppression de votre compte entraîne la suppression définitive de toutes les données associées.",
+  "privacy.s5_title": "5. Contact",
+  "privacy.s5_body": "Pour toute question relative à la confidentialité, contactez l'administrateur de cette instance.",
+  "privacy.back": "Retour à la connexion",
+
+  "pwd.min8": "12 caractères min.",
   "pwd.upper": "1 majuscule",
   "pwd.lower": "1 minuscule",
   "pwd.digit": "1 chiffre",
@@ -160,5 +171,10 @@
   "accounts.empty_title": "Aucun compte pour l'instant",
   "accounts.empty_subtitle": "Créez votre premier compte pour commencer",
 
-  "common.saved": "Enregistré"
+  "dashboard.empty_title": "Aucun compte pour l'instant",
+  "dashboard.empty_subtitle": "Créez votre premier compte pour visualiser votre patrimoine.",
+  "dashboard.empty_cta": "Créer mon premier compte",
+
+  "common.saved": "Enregistré",
+  "common.cancel": "Annuler"
 }
