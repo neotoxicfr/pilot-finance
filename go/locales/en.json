@@ -106,6 +106,8 @@
   "settings.passkey_add_btn": "Add a Passkey",
   "settings.passkey_error": "Verification error",
   "settings.passkey_name_prompt": "Key name:",
+  "settings.passkey_rename_title": "Rename key",
+  "settings.passkey_rename_btn": "Rename",
   "settings.password_title": "Password",
   "settings.password_success": "Password updated!",
   "settings.current_password": "Current",
@@ -149,7 +151,7 @@
   "verify.back": "Back to login",
   "verify.loading": "Verifying your account...",
 
-  "pwd.min8": "8 chars min.",
+  "pwd.min8": "12 chars min.",
   "pwd.upper": "1 uppercase",
   "pwd.lower": "1 lowercase",
   "pwd.digit": "1 digit",
@@ -160,5 +162,10 @@
   "accounts.empty_title": "No accounts yet",
   "accounts.empty_subtitle": "Create your first account to get started",
 
-  "common.saved": "Saved"
+  "dashboard.empty_title": "No accounts yet",
+  "dashboard.empty_subtitle": "Create your first account to visualize your net worth.",
+  "dashboard.empty_cta": "Create my first account",
+
+  "common.saved": "Saved",
+  "common.cancel": "Cancel"
 }

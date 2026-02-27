@@ -2,6 +2,21 @@
 <div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8"
      x-data="dashboardData">
 
+{{if not .Accounts}}
+    <!-- Empty state -->
+    <div class="flex flex-col items-center justify-center py-24 px-4 text-center">
+        <div class="mb-6 p-6 bg-blue-500/10 rounded-full text-blue-500">
+            {{template "icon-piggybank" dict "Size" 64}}
+        </div>
+        <h2 class="text-2xl font-bold text-foreground mb-2">{{index .T "dashboard.empty_title"}}</h2>
+        <p class="text-muted-foreground mb-8 max-w-sm">{{index .T "dashboard.empty_subtitle"}}</p>
+        <a href="/accounts"
+           class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-xl transition-all">
+            {{template "icon-plus" dict "Size" 18}}
+            {{index .T "dashboard.empty_cta"}}
+        </a>
+    </div>
+{{else}}
     <!-- KPI Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         <div class="dashboard-card kpi-card-slate border p-6 rounded-2xl relative overflow-hidden">
@@ -173,4 +188,5 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('dashboardData', dashboardData);
 });
 </script>
+{{end}}
 {{end}}

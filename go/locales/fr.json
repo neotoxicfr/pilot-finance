@@ -106,6 +106,8 @@
   "settings.passkey_add_btn": "Ajouter un Passkey",
   "settings.passkey_error": "Erreur vérification",
   "settings.passkey_name_prompt": "Nom de la clé:",
+  "settings.passkey_rename_title": "Renommer la clé",
+  "settings.passkey_rename_btn": "Renommer",
   "settings.password_title": "Mot de passe",
   "settings.password_success": "Mot de passe modifié !",
   "settings.current_password": "Actuel",
@@ -149,7 +151,7 @@
   "verify.back": "Retour à la connexion",
   "verify.loading": "Validation de votre compte...",
 
-  "pwd.min8": "8 caractères min.",
+  "pwd.min8": "12 caractères min.",
   "pwd.upper": "1 majuscule",
   "pwd.lower": "1 minuscule",
   "pwd.digit": "1 chiffre",
@@ -160,5 +162,10 @@
   "accounts.empty_title": "Aucun compte pour l'instant",
   "accounts.empty_subtitle": "Créez votre premier compte pour commencer",
 
-  "common.saved": "Enregistré"
+  "dashboard.empty_title": "Aucun compte pour l'instant",
+  "dashboard.empty_subtitle": "Créez votre premier compte pour visualiser votre patrimoine.",
+  "dashboard.empty_cta": "Créer mon premier compte",
+
+  "common.saved": "Enregistré",
+  "common.cancel": "Annuler"
 }
