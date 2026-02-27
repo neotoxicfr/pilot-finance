@@ -36,6 +36,8 @@
   "accounts.interest_help": "Non-reinvested interest will be credited to this account",
   "accounts.submit": "Save",
   "accounts.delete_confirm": "Delete?",
+  "accounts.move_up": "Move up",
+  "accounts.move_down": "Move down",
 
   "recurring.title": "Operations",
   "recurring.add": "Add",
