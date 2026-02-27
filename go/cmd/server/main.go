@@ -236,6 +236,7 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+		w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
 		w.Header().Set("Cache-Control", "no-store")
 
 		// Les routes /api/ retournent du JSON : pas de CSP HTML ni de nonce
@@ -248,12 +249,14 @@ func securityHeaders(next http.Handler) http.Handler {
 		r = r.WithContext(middleware.WithNonce(r.Context(), nonce))
 
 		w.Header().Set("Content-Security-Policy",
-			"default-src 'self'; "+
+			"default-src 'none'; "+
 				"script-src 'self' 'nonce-"+nonce+"'; "+
 				"style-src 'self' 'unsafe-inline'; "+
 				"img-src 'self' blob: data:; "+
 				"font-src 'self'; "+
 				"connect-src 'self'; "+
+				"manifest-src 'self'; "+
+				"object-src 'none'; "+
 				"frame-ancestors 'none'; "+
 				"base-uri 'self'; "+
 				"form-action 'self'")
