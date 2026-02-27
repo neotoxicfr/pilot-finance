@@ -272,18 +272,18 @@ document.addEventListener('alpine:init', () => {
                       @htmx:after-settle="afterPwdSettle($event)"
                       class="space-y-5">
                     <div>
-                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.current_password"}}</label>
-                        <input name="currentPassword" type="password" required
+                        <label for="currentPassword" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.current_password"}}</label>
+                        <input id="currentPassword" name="currentPassword" type="password" required
                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                     </div>
                     <div>
-                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.new_password"}}</label>
-                        <input name="newPassword" type="password" required minlength="12" x-model="password"
+                        <label for="newPassword" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.new_password"}}</label>
+                        <input id="newPassword" name="newPassword" type="password" required minlength="12" x-model="password"
                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                     </div>
                     <div>
-                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.confirm_password"}}</label>
-                        <input name="confirmPassword" type="password" required x-model="confirm"
+                        <label for="confirmPassword" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.confirm_password"}}</label>
+                        <input id="confirmPassword" name="confirmPassword" type="password" required x-model="confirm"
                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                     </div>
 
