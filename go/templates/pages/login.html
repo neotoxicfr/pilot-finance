@@ -183,6 +183,9 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
     <div class="mt-8 text-center text-[10px] text-muted-foreground uppercase tracking-widest opacity-50">
         {{index .T "login.security_note"}}
     </div>
+    <div class="mt-3 text-center">
+        <a href="/privacy" class="text-[10px] text-muted-foreground/50 hover:text-muted-foreground transition-colors">{{index .T "privacy.title"}}</a>
+    </div>
   </div>
 </div>
 {{end}}
