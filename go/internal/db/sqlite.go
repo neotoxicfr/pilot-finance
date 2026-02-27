@@ -51,7 +51,7 @@ func Init(cfg Config) error {
 	}
 
 	// Pool de connexions
-	DB.SetMaxOpenConns(1) // SQLite ne supporte qu'une seule connexion d'écriture
+	DB.SetMaxOpenConns(4) // WAL mode : 1 writer + N readers concurrents
 	DB.SetMaxIdleConns(1)
 	DB.SetConnMaxLifetime(time.Hour)
 
