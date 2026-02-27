@@ -137,6 +137,7 @@ func main() {
 	// Routes publiques sans rate limit strict
 	r.With(middleware.ValidateOrigin(host)).Post("/logout", handlers.Logout)
 	r.Get("/verify-email", handlers.VerifyEmailPage)
+	r.Get("/privacy", handlers.PrivacyPage)
 
 	// Routes protégées
 	r.Group(func(r chi.Router) {
