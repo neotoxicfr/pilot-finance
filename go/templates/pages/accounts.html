@@ -360,13 +360,13 @@ document.addEventListener('alpine:init', () => {
     <div class="flex flex-col gap-0 flex-shrink-0 md:hidden">
         <button hx-post="/accounts/{{.ID}}/move?direction=up"
                 hx-target="#accounts-list" hx-swap="innerHTML"
-                aria-label="{{index $.T "accounts.move_up"}}"
+                aria-label="Monter"
                 class="p-1 text-muted-foreground active:text-foreground active:bg-accent rounded-lg transition-colors">
             {{template "icon-chevron-up" dict "Size" 16}}
         </button>
         <button hx-post="/accounts/{{.ID}}/move?direction=down"
                 hx-target="#accounts-list" hx-swap="innerHTML"
-                aria-label="{{index $.T "accounts.move_down"}}"
+                aria-label="Descendre"
                 class="p-1 text-muted-foreground active:text-foreground active:bg-accent rounded-lg transition-colors">
             {{template "icon-chevron-down" dict "Size" 16}}
         </button>
@@ -412,7 +412,6 @@ document.addEventListener('alpine:init', () => {
             </div>
             <div x-show="del" class="flex flex-col gap-1">
                 <button hx-delete="/accounts/{{.ID}}" hx-target="#accounts-list" hx-swap="innerHTML"
-                        hx-confirm="{{index $.T "accounts.delete_confirm"}}"
                         class="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                     {{template "icon-check" dict "Size" 18}}
                 </button>
@@ -490,7 +489,6 @@ document.addEventListener('alpine:init', () => {
         </div>
         <div class="flex items-center gap-0.5 shrink-0" x-show="del">
             <button hx-delete="/recurring/{{.ID}}" hx-target="#recurring-list" hx-swap="innerHTML"
-                    hx-confirm="{{index $.T "recurring.delete_confirm"}}"
                     class="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                 {{template "icon-check" dict "Size" 15}}
             </button>

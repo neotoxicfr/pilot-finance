@@ -35,7 +35,6 @@
   "accounts.no_target": "Aucun (non comptabilisé)",
   "accounts.interest_help": "Les intérêts non réinvestis seront versés sur ce compte",
   "accounts.submit": "Valider",
-  "accounts.delete_confirm": "Supprimer ?",
   "accounts.move_up": "Déplacer vers le haut",
   "accounts.move_down": "Déplacer vers le bas",
 
@@ -53,7 +52,6 @@
   "recurring.interest_prefix": "Intérêts",
   "recurring.auto_badge": "auto",
   "recurring.auto_badge_annual": "/ an",
-  "recurring.delete_confirm": "Supprimer cette opération ?",
   "recurring.empty_title": "Aucune opération pour l'instant",
   "recurring.empty_subtitle": "Ajoutez vos revenus, dépenses et virements récurrents",
 
