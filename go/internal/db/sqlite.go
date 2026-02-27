@@ -176,6 +176,17 @@ func GetSessionVersion(id int64) (int, error) {
 	return sv, err
 }
 
+// GetUserAuthData récupère session_version et email chiffré en une seule requête.
+// Utilisé par RequireAuth pour peupler le contexte sans stocker l'email dans le JWT.
+func GetUserAuthData(id int64) (sessionVersion int, emailEncrypted string, err error) {
+	err = DB.QueryRow(`SELECT session_version, email_encrypted FROM users WHERE id = ?`, id).
+		Scan(&sessionVersion, &emailEncrypted)
+	if err == sql.ErrNoRows {
+		return 0, "", nil
+	}
+	return
+}
+
 // GetAccountsByUserID récupère tous les comptes d'un utilisateur
 func GetAccountsByUserID(userID int64) ([]Account, error) {
 	rows, err := DB.Query(`
