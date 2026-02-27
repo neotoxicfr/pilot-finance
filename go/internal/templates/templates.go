@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -219,13 +220,15 @@ func orFunc(a, b interface{}) interface{} {
 	return a
 }
 
-// toJSON convertit une valeur en JSON
+// toJSON convertit une valeur en JSON (SetEscapeHTML explicite pour clarifier l'intention)
 func toJSON(v interface{}) template.JS {
-	b, err := json.Marshal(v)
-	if err != nil {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(true)
+	if err := enc.Encode(v); err != nil {
 		return template.JS("null")
 	}
-	return template.JS(b)
+	return template.JS(strings.TrimSuffix(buf.String(), "\n"))
 }
 
 // Fonctions arithmetiques
