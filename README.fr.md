@@ -129,6 +129,49 @@ L'application écoute sur le port **3000** à l'intérieur du conteneur.
 
 ---
 
+## 🗺️ Feuille de route
+
+### v2.5.0 — Sécurité, UX, Accessibilité, Performance
+
+**Sécurité**
+- [x] CSP `default-src 'none'` + `strict-dynamic` + CORP `same-origin` (v2.4.2)
+- [x] `MaxBytesReader` — limite body à 1Mo (anti-DoS)
+- [x] Email retiré des claims JWT — déchiffré côté serveur à chaque requête
+- [x] CSRF strict — rejet si Origin et Referer tous deux absents
+- [x] `ValidateOrigin` appliqué sur `/logout`
+
+**UX / Fonctionnel**
+- [ ] Alignement validation mot de passe client/serveur (minimum 12 caractères)
+- [ ] `hx-confirm` sur la suppression de compte bancaire
+- [ ] Renommage passkey : `prompt()` → modal
+- [ ] Erreurs auth retournées en partiel HTML HTMX
+- [ ] État vide dashboard avec CTA "Créer mon premier compte"
+
+**Accessibilité (WCAG 2.2)**
+- [ ] Supprimer `user-scalable=no` du viewport
+- [ ] `aria-label` sur tous les boutons icône-seuls
+- [ ] `<label>` explicites sur tous les inputs de formulaires
+- [ ] Skip-link `<a href="#main">`
+
+**Performance & CI**
+- [ ] `MaxOpenConns` 1 → 4 (mode WAL)
+- [ ] Chargement conditionnel de Chart.js
+- [ ] Correction goroutine leak dans le rate limiter
+- [ ] Workflow CI `go test -race`
+- [ ] Page politique de confidentialité `/privacy`
+
+### v2.6.0 — Refactoring majeur, RGPD, Tests
+
+- [ ] Chiffrement des champs `balance`, `amount`, `yield_min/max` en BDD (AES-256-GCM)
+- [ ] Déchiffrement parallèle via `errgroup`
+- [ ] Migrations versionnées
+- [ ] Backup SQLite automatisé
+- [ ] RGPD : export données (`GET /settings/export`) + suppression de compte
+- [ ] Table d'audit log
+- [ ] Tests unitaires handlers, middleware et BDD (objectif >70% de couverture)
+
+---
+
 ## 🤖 Crédits
 
 Ce projet a été conçu avec l'assistance d'une Intelligence Artificielle pour la structure et l'optimisation du code. Le code final est purement applicatif et n'utilise aucun algorithme d'IA ou service tiers lors de son exécution. Votre cockpit reste 100% local et privé.

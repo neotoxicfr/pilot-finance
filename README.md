@@ -129,6 +129,89 @@ The application listens on port **3000** inside the container.
 
 ---
 
+
+## 🗺️ Roadmap
+
+### v2.5.0 — Security, UX, Accessibility, Performance
+
+**Security**
+- [x] CSP  +  + CORP  (v2.4.2)
+- [x]  — 1MB body limit (anti-DoS)
+- [x] Email removed from JWT claims — decrypted server-side per request
+- [x] CSRF strict — reject mutating requests when both Origin and Referer are absent
+- [x]  applied to 
+**UX / Functional**
+- [ ] Client/server password validation alignment (12-char minimum)
+- [ ]  on account deletion
+- [ ] Passkey rename:  → modal
+- [ ] Auth errors returned as HTMX HTML partials
+- [ ] Empty dashboard state with "Create my first account" CTA
+
+**Accessibility (WCAG 2.2)**
+- [ ] Remove  from viewport
+- [ ]  on icon-only buttons
+- [ ] Explicit  on all form inputs
+- [ ] Skip-link 
+**Performance & CI**
+- [ ]  1 → 4 (WAL mode)
+- [ ] Chart.js conditional loading
+- [ ] Goroutine leak fix in rate limiter
+- [ ]  CI workflow
+- [ ] Privacy policy page 
+### v2.6.0 — Major Refactoring, GDPR, Tests
+
+- [ ] Encrypt , ,  fields in DB (AES-256-GCM)
+- [ ] Parallel decryption via - [ ] Versioned migrations
+- [ ] Automated SQLite backup
+- [ ] GDPR: data export () + account deletion
+- [ ] Audit log table
+- [ ] Handler, middleware and DB unit tests (>70% coverage target)
+
+---
+
+## 🗺️ Roadmap
+
+### v2.5.0 — Security, UX, Accessibility, Performance
+
+**Security**
+- [x] CSP `default-src 'none'` + `strict-dynamic` + CORP `same-origin` (v2.4.2)
+- [x] `MaxBytesReader` — 1MB body limit (anti-DoS)
+- [x] Email removed from JWT claims — decrypted server-side per request
+- [x] CSRF strict — reject mutating requests when both Origin and Referer are absent
+- [x] `ValidateOrigin` applied to `/logout`
+
+**UX / Functional**
+- [ ] Client/server password validation alignment (12-char minimum)
+- [ ] `hx-confirm` on account deletion
+- [ ] Passkey rename: `prompt()` → modal
+- [ ] Auth errors returned as HTMX HTML partials
+- [ ] Empty dashboard state with "Create my first account" CTA
+
+**Accessibility (WCAG 2.2)**
+- [ ] Remove `user-scalable=no` from viewport
+- [ ] `aria-label` on icon-only buttons
+- [ ] Explicit `<label>` on all form inputs
+- [ ] Skip-link `<a href="#main">`
+
+**Performance & CI**
+- [ ] `MaxOpenConns` 1 → 4 (WAL mode)
+- [ ] Chart.js conditional loading
+- [ ] Goroutine leak fix in rate limiter
+- [ ] `go test -race` CI workflow
+- [ ] Privacy policy page `/privacy`
+
+### v2.6.0 — Major Refactoring, GDPR, Tests
+
+- [ ] Encrypt `balance`, `amount`, `yield_min/max` fields in DB (AES-256-GCM)
+- [ ] Parallel decryption via `errgroup`
+- [ ] Versioned migrations
+- [ ] Automated SQLite backup
+- [ ] GDPR: data export (`GET /settings/export`) + account deletion
+- [ ] Audit log table
+- [ ] Handler, middleware and DB unit tests (>70% coverage target)
+
+---
+
 ## 🤖 Credits
 
 This project was designed with AI assistance for code structure and optimization. The final code is purely applicative and uses no AI algorithms or third-party data processing at runtime. Your cockpit remains 100% local and private.
