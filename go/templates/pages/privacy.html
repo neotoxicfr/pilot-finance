@@ -32,10 +32,12 @@
 
     </div>
 
+    {{if not .User}}
     <div class="mt-12 pt-8 border-t border-border">
         <a href="/login" class="text-blue-500 hover:text-blue-400 hover:underline text-sm font-medium transition-colors">
             ← {{index .T "privacy.back"}}
         </a>
     </div>
+    {{end}}
 </div>
 {{end}}
