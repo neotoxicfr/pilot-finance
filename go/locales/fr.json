@@ -36,6 +36,8 @@
   "accounts.interest_help": "Les intérêts non réinvestis seront versés sur ce compte",
   "accounts.submit": "Valider",
   "accounts.delete_confirm": "Supprimer ?",
+  "accounts.move_up": "Déplacer vers le haut",
+  "accounts.move_down": "Déplacer vers le bas",
 
   "recurring.title": "Opérations",
   "recurring.add": "Ajouter",
