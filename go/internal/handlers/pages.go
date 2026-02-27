@@ -132,6 +132,7 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 	data["Title"] = "Dashboard"
 	data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
 	data["Accounts"] = accounts
+	data["HasAccounts"] = len(accounts) > 0
 	data["AccountColors"] = accountColors
 	data["TotalBalance"] = projData.TotalBalance
 	data["TotalInterests"] = projData.TotalInterests
@@ -305,4 +306,14 @@ func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	templates.Render(w, "verify-email.html", data)
+}
+
+// PrivacyPage affiche la politique de confidentialité
+func PrivacyPage(w http.ResponseWriter, r *http.Request) {
+	data := baseData(r, nil)
+	data["Title"] = "Privacy Policy"
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := templates.Render(w, "privacy.html", data); err != nil {
+		http.Error(w, "Erreur template: "+err.Error(), http.StatusInternalServerError)
+	}
 }

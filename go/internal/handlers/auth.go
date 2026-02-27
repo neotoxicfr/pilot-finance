@@ -86,15 +86,8 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 		clearCookie(w, "pending_2fa")
 
-		// Déchiffrer l'email pour le token
-		decryptedEmail, err := crypto.Decrypt(user.EmailEncrypted)
-		if err != nil {
-			http.Error(w, "Erreur serveur", http.StatusInternalServerError)
-			return
-		}
-
 		// Générer le token JWT
-		token, err := auth.GenerateToken(user.ID, decryptedEmail, user.Role, user.Language, user.Currency, user.SessionVersion)
+		token, err := auth.GenerateToken(user.ID, user.Role, user.Language, user.Currency, user.SessionVersion)
 		if err != nil {
 			http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 			return
@@ -181,15 +174,8 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Déchiffrer l'email pour le token
-	decryptedEmail, err := crypto.Decrypt(user.EmailEncrypted)
-	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
-		return
-	}
-
 	// Générer le token JWT
-	token, err := auth.GenerateToken(user.ID, decryptedEmail, user.Role, user.Language, user.Currency, user.SessionVersion)
+	token, err := auth.GenerateToken(user.ID, user.Role, user.Language, user.Currency, user.SessionVersion)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
@@ -294,7 +280,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Générer le token et connecter (nouveaux utilisateurs : langue/devise par défaut)
-	token, err := auth.GenerateToken(userID, email, role, "fr", "EUR", 1)
+	token, err := auth.GenerateToken(userID, role, "fr", "EUR", 1)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
