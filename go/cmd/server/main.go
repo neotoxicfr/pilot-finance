@@ -107,6 +107,7 @@ func main() {
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Compress(5))
 	r.Use(securityHeaders)
+	r.Use(maxBodySize)
 	r.Use(httprate.LimitByRealIP(120, time.Minute)) // 120 req/min global (2/s, suffisant pour usage actif)
 
 	// Fichiers statiques avec cache (pas de rate limit)
@@ -133,7 +134,7 @@ func main() {
 	})
 
 	// Routes publiques sans rate limit strict
-	r.Post("/logout", handlers.Logout)
+	r.With(middleware.ValidateOrigin(host)).Post("/logout", handlers.Logout)
 	r.Get("/verify-email", handlers.VerifyEmailPage)
 
 	// Routes protégées
@@ -212,6 +213,14 @@ func main() {
 		slog.Error("serveur", "err", err)
 		os.Exit(1)
 	}
+}
+
+// maxBodySize limite la taille du body HTTP à 1MB pour prévenir les attaques DoS
+func maxBodySize(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1MB
+		next.ServeHTTP(w, r)
+	})
 }
 
 // cacheStatic ajoute des headers de cache pour les fichiers statiques
