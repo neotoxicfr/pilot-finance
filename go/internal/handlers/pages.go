@@ -310,8 +310,12 @@ func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 
 // PrivacyPage affiche la politique de confidentialité
 func PrivacyPage(w http.ResponseWriter, r *http.Request) {
-	data := baseData(r, nil)
+	user := middleware.GetUser(r)
+	data := baseData(r, user)
 	data["Title"] = "Privacy Policy"
+	if user != nil {
+		data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := templates.Render(w, "privacy.html", data); err != nil {
 		http.Error(w, "Erreur template: "+err.Error(), http.StatusInternalServerError)
