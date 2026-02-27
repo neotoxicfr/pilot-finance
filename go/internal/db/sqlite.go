@@ -51,7 +51,7 @@ func Init(cfg Config) error {
 	}
 
 	// Pool de connexions
-	DB.SetMaxOpenConns(1) // SQLite ne supporte qu'une seule connexion d'écriture
+	DB.SetMaxOpenConns(4) // WAL mode : 1 writer + N readers concurrents
 	DB.SetMaxIdleConns(1)
 	DB.SetConnMaxLifetime(time.Hour)
 
@@ -174,6 +174,17 @@ func GetSessionVersion(id int64) (int, error) {
 		return 0, nil
 	}
 	return sv, err
+}
+
+// GetUserAuthData récupère session_version et email chiffré en une seule requête.
+// Utilisé par RequireAuth pour peupler le contexte sans stocker l'email dans le JWT.
+func GetUserAuthData(id int64) (sessionVersion int, emailEncrypted string, err error) {
+	err = DB.QueryRow(`SELECT session_version, email_encrypted FROM users WHERE id = ?`, id).
+		Scan(&sessionVersion, &emailEncrypted)
+	if err == sql.ErrNoRows {
+		return 0, "", nil
+	}
+	return
 }
 
 // GetAccountsByUserID récupère tous les comptes d'un utilisateur

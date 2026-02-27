@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -9,7 +10,6 @@ import (
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/projection"
-	"pilot-finance/internal/templates"
 )
 
 // DashboardAPI retourne les donnees du dashboard en JSON
@@ -38,7 +38,10 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 	decryptAccountNames(accounts)
 
 	// Recuperer les operations recurrentes pour la projection et le resume mensuel
-	recurrings, _ := db.GetRecurringByUserID(user.ID)
+	recurrings, recErr := db.GetRecurringByUserID(user.ID)
+	if recErr != nil {
+		slog.Warn("DashboardAPI: recurring", "err", recErr, "userID", user.ID)
+	}
 
 	// Calculer les projections
 	data := projection.Calculate(accounts, recurrings, years, user.Language)
@@ -96,95 +99,6 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
-}
-
-// DashboardPartial retourne le HTML partiel du dashboard (pour HTMX)
-func DashboardPartial(w http.ResponseWriter, r *http.Request) {
-	user := middleware.GetUser(r)
-	if user == nil {
-		http.Error(w, "Non authentifie", http.StatusUnauthorized)
-		return
-	}
-
-	years := 5
-	if y := r.URL.Query().Get("years"); y != "" {
-		if parsed, err := strconv.Atoi(y); err == nil && parsed >= 1 && parsed <= 30 {
-			years = parsed
-		}
-	}
-
-	section := r.URL.Query().Get("section")
-
-	accounts, err := db.GetAccountsByUserID(user.ID)
-	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
-		return
-	}
-
-	decryptAccountNames(accounts)
-	recurrings, _ := db.GetRecurringByUserID(user.ID)
-
-	data := projection.Calculate(accounts, recurrings, years, user.Language)
-
-	pieData := make([]map[string]interface{}, 0)
-	for _, acc := range accounts {
-		if acc.Balance > 0 {
-			pieData = append(pieData, map[string]interface{}{
-				"name":  acc.Name,
-				"value": acc.Balance,
-				"color": acc.Color,
-			})
-		}
-	}
-
-	projectionData := make([]map[string]interface{}, len(data.Projection))
-	for i, p := range data.Projection {
-		projectionData[i] = map[string]interface{}{
-			"year":     p.Year,
-			"name":     p.Name,
-			"totalAvg": p.TotalAvg,
-			"totalMin": p.TotalMin,
-			"totalMax": p.TotalMax,
-			"accounts": p.Accounts,
-		}
-	}
-
-	// Preparer la liste des comptes avec couleurs pour le graphique
-	accountColors := make([]map[string]interface{}, 0)
-	for _, acc := range accounts {
-		accountColors = append(accountColors, map[string]interface{}{
-			"name":  acc.Name,
-			"color": acc.Color,
-		})
-	}
-
-	var projectionTotalPartial float64
-	if len(data.Projection) > 0 {
-		projectionTotalPartial = data.Projection[len(data.Projection)-1].TotalAvg
-	}
-
-	templateData := map[string]interface{}{
-		"Accounts":        accounts,
-		"AccountColors":   accountColors,
-		"TotalBalance":    data.TotalBalance,
-		"TotalInterests":  data.TotalInterests,
-		"ProjectionTotal": projectionTotalPartial,
-		"ProjectionData":  projectionData,
-		"PieData":         pieData,
-		"Years":           years,
-	}
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
-	// Rendre la section demandee
-	switch section {
-	case "kpi":
-		templates.RenderPartial(w, "dashboard.html", "kpi-cards", templateData)
-	case "projection":
-		templates.RenderPartial(w, "dashboard.html", "projection-chart", templateData)
-	default:
-		templates.RenderPartial(w, "dashboard.html", "dashboard-cards", templateData)
-	}
 }
 
 // AccountsAPI retourne les comptes en JSON

@@ -11,7 +11,8 @@ import (
 // Règles :
 //   - Si Origin est présent et ne correspond pas à l'hôte attendu → 403
 //   - Si Origin est absent mais Referer est présent et ne correspond pas → 403
-//   - Si les deux sont absents (ex. curl interne, health-check) → laisse passer
+//   - Si les deux sont absents → 403 (requête mutante sans contexte navigateur)
+//   - Exception : HOST non configuré (dev local) → laisse passer
 func ValidateOrigin(host string) func(http.Handler) http.Handler {
 	expected := "https://" + host
 	return func(next http.Handler) http.Handler {
@@ -28,6 +29,10 @@ func ValidateOrigin(host string) func(http.Handler) http.Handler {
 						http.Error(w, "Requête cross-origin refusée", http.StatusForbidden)
 						return
 					}
+				} else if host != "" {
+					// Les deux absents et HOST configuré : pas de contexte navigateur → rejeter
+					http.Error(w, "Requête refusée", http.StatusForbidden)
+					return
 				}
 			}
 			next.ServeHTTP(w, r)
