@@ -2,7 +2,7 @@
 <html lang="{{.Lang}}" class="overscroll-none bg-background {{block "htmlClass" .}}{{end}}">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" id="theme-color" content="#ffffff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -94,7 +94,7 @@
     <link rel="stylesheet" href="/static/css/tailwind.css?v={{.AssetVer}}">
     <link rel="stylesheet" href="/static/css/app.css?v={{.AssetVer}}">
     <script nonce="{{.Nonce}}" defer src="/static/js/htmx.min.js?v={{.AssetVer}}"></script>
-    {{if eq .CurrentPath "/"}}
+    {{if and (eq .CurrentPath "/") .HasAccounts}}
     <script nonce="{{.Nonce}}" defer src="/static/js/chart.umd.min.js?v={{.AssetVer}}"></script>
     {{end}}
     <script nonce="{{.Nonce}}" defer src="/static/js/alpine-csp.min.js?v={{.AssetVer}}"></script>
@@ -104,6 +104,7 @@
     {{end}}
 </head>
 <body class="font-sans antialiased bg-background text-foreground {{block "bodyClass" .}}min-h-screen flex flex-col{{end}}" x-data="themeData">
+    <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[200] focus:px-4 focus:py-2 focus:bg-background focus:text-foreground focus:border focus:border-border focus:rounded-lg focus:text-sm focus:font-bold">Skip to main content</a>
     {{if .User}}
     <nav class="border-b border-border bg-background/50 backdrop-blur-md sticky top-0 z-50">
         <div class="max-w-[1400px] mx-auto px-2 sm:px-4 h-16 flex items-center justify-between">
@@ -125,17 +126,17 @@
                 </div>
             </div>
             <div class="flex items-center gap-1 sm:gap-2">
-                <button @click="toggleTheme()" class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-all" :title="'Theme: ' + theme">
+                <button @click="toggleTheme()" class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-all" :aria-label="'Theme: ' + theme">
                     <span x-show="theme === 'light'" x-cloak>{{template "icon-sun" dict "Size" 20}}</span>
                     <span x-show="theme === 'dark'" x-cloak>{{template "icon-moon" dict "Size" 20}}</span>
                     <span x-show="theme === 'system'" x-cloak>{{template "icon-monitor" dict "Size" 20}}</span>
                 </button>
-                <a href="/settings" class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-all">
+                <a href="/settings" class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-all" aria-label="Settings">
                     {{template "icon-settings" dict "Size" 20}}
                 </a>
                 <div class="h-4 w-px bg-border mx-0.5"></div>
                 <form action="/logout" method="POST">
-                    <button type="submit" class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all">
+                    <button type="submit" class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all" aria-label="Sign out">
                         {{template "icon-logout" dict "Size" 20}}
                     </button>
                 </form>
@@ -143,7 +144,7 @@
         </div>
     </nav>
     {{end}}
-    <main class="flex-1 animate-in">
+    <main id="main" class="flex-1 animate-in">
         {{template "content" .}}
     </main>
     {{template "htmx-config" .}}
