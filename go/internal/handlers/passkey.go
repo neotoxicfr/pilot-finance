@@ -211,7 +211,7 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Générer le token JWT
-	token, err := auth.GenerateToken(user.ID, passkeyUser.Email, user.Role, user.Language, user.Currency, user.SessionVersion)
+	token, err := auth.GenerateToken(user.ID, user.Role, user.Language, user.Currency, user.SessionVersion)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return

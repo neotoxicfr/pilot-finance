@@ -17,7 +17,6 @@ var (
 // Claims représente les données du token JWT
 type Claims struct {
 	UserID         int64  `json:"id"`
-	Email          string `json:"email"`
 	Role           string `json:"role"`
 	SessionVersion int    `json:"sessionVersion"`
 	Language       string `json:"language"`
@@ -31,10 +30,9 @@ func InitJWT(secret string) {
 }
 
 // GenerateToken génère un nouveau token JWT
-func GenerateToken(userID int64, email, role, language, currency string, sessionVersion int) (string, error) {
+func GenerateToken(userID int64, role, language, currency string, sessionVersion int) (string, error) {
 	claims := &Claims{
 		UserID:         userID,
-		Email:          email,
 		Role:           role,
 		SessionVersion: sessionVersion,
 		Language:       language,

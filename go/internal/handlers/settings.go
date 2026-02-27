@@ -109,7 +109,7 @@ func UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Re-émettre le JWT avec les nouvelles préférences (Language/Currency dans les claims)
-	token, err := auth.GenerateToken(user.ID, user.Email, user.Role, language, currency, user.SessionVersion)
+	token, err := auth.GenerateToken(user.ID, user.Role, language, currency, user.SessionVersion)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
