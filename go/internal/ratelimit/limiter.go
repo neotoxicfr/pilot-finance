@@ -51,6 +51,7 @@ type attempt struct {
 type Limiter struct {
 	mu       sync.RWMutex
 	attempts map[string]*attempt
+	stop     chan struct{}
 }
 
 var (
@@ -69,14 +70,21 @@ func getLimiter(action string) *Limiter {
 
 	l := &Limiter{
 		attempts: make(map[string]*attempt),
+		stop:     make(chan struct{}),
 	}
 	limiters[action] = l
 
 	// Nettoyage périodique
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
-		for range ticker.C {
-			l.cleanup()
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				l.cleanup()
+			case <-l.stop:
+				return
+			}
 		}
 	}()
 
@@ -173,6 +181,16 @@ func Check(identifier, action string) Result {
 		Allowed:   true,
 		Remaining: cfg.MaxAttempts - att.count,
 	}
+}
+
+// StopAll arrête tous les goroutines de nettoyage (graceful shutdown)
+func StopAll() {
+	mu.Lock()
+	defer mu.Unlock()
+	for _, l := range limiters {
+		close(l.stop)
+	}
+	limiters = make(map[string]*Limiter)
 }
 
 // Reset réinitialise le compteur pour un identifiant

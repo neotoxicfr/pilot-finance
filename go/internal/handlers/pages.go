@@ -132,6 +132,7 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 	data["Title"] = "Dashboard"
 	data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
 	data["Accounts"] = accounts
+	data["HasAccounts"] = len(accounts) > 0
 	data["AccountColors"] = accountColors
 	data["TotalBalance"] = projData.TotalBalance
 	data["TotalInterests"] = projData.TotalInterests
