@@ -22,6 +22,7 @@ import (
 	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/mail"
 	"pilot-finance/internal/middleware"
+	"pilot-finance/internal/ratelimit"
 	"pilot-finance/internal/templates"
 )
 
@@ -203,6 +204,7 @@ func main() {
 		<-sigChan
 
 		slog.Info("arrêt en cours")
+		ratelimit.StopAll()
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		server.Shutdown(ctx)
