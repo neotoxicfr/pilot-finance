@@ -36,6 +36,7 @@ function loginPage() {
         init() {
             this.requires2FA = this.$el.dataset.requires2fa === 'true';
         },
+        setError(msg) { this.loading = false; this.error = msg; },
         loginWithPasskey() { window.loginWithPasskey(); },
         toggleRegister() { this.isRegister = !this.isRegister; this.error = ''; }
     };
@@ -67,6 +68,13 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
         </div>
         {{end}}
 
+        <template x-if="error">
+            <div class="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center text-red-600 dark:text-red-400 text-sm font-bold flex items-center justify-center gap-2">
+                {{template "icon-alert" dict "Size" 16}}
+                <span x-text="error"></span>
+            </div>
+        </template>
+
         {{if .CanUsePasskeys}}
         <template x-if="!isRegister && !requires2FA">
             <div>
@@ -89,6 +97,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
               hx-swap="outerHTML"
               @htmx:before-request="loading = true; error = ''"
               @htmx:after-request="loading = false"
+              @htmx:response-error="setError($event.detail.xhr.responseText)"
               class="space-y-4">
 
             <template x-if="!requires2FA">

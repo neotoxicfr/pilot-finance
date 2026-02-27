@@ -142,24 +142,24 @@ The application listens on port **3000** inside the container.
 - [x] `ValidateOrigin` applied to `/logout`
 
 **UX / Functional**
-- [ ] Client/server password validation alignment (12-char minimum)
-- [ ] `hx-confirm` on account deletion
-- [ ] Passkey rename: `prompt()` → modal
-- [ ] Auth errors returned as HTMX HTML partials
-- [ ] Empty dashboard state with "Create my first account" CTA
+- [x] Client/server password validation alignment (12-char minimum)
+- [x] Two-step confirmation on account deletion (trash → confirm/cancel)
+- [x] Passkey rename: `prompt()` → modal
+- [x] Auth errors returned as HTMX partials (inline, no page reload)
+- [x] Empty dashboard state with "Create my first account" CTA
 
 **Accessibility (WCAG 2.2)**
-- [ ] Remove `user-scalable=no` from viewport
-- [ ] `aria-label` on icon-only buttons
-- [ ] Explicit `<label>` on all form inputs
-- [ ] Skip-link `<a href="#main">`
+- [x] Remove `user-scalable=no` from viewport
+- [x] `aria-label` on icon-only buttons
+- [x] Explicit `<label>` on all form inputs
+- [x] Skip-link `<a href="#main">`
 
 **Performance & CI**
-- [ ] `MaxOpenConns` 1 → 4 (WAL mode)
-- [ ] Chart.js conditional loading
-- [ ] Goroutine leak fix in rate limiter
-- [ ] `go test -race` CI workflow
-- [ ] Privacy policy page `/privacy`
+- [x] `MaxOpenConns` 1 → 4 (WAL mode)
+- [x] Chart.js conditional loading
+- [x] Goroutine leak fix in rate limiter
+- [x] `go test -race` CI workflow
+- [x] Privacy policy page `/privacy`
 
 ### v2.6.0 — Major Refactoring, GDPR, Tests
 

@@ -41,8 +41,12 @@ function passkeyData() {
             this.renameName = name;
             document.getElementById('passkey-rename-dialog').showModal();
         },
+        closeRenameDialog() {
+            document.getElementById('passkey-rename-dialog').close();
+        },
         submitRename() {
             if (!this.renameId) return;
+            this.closeRenameDialog();
             fetch('/api/passkey/' + this.renameId + '/rename', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -219,19 +223,21 @@ document.addEventListener('alpine:init', () => {
 
 
             <!-- Modal renommage passkey -->
-            <dialog id="passkey-rename-dialog" class="p-0 border-none bg-transparent overflow-visible w-full h-full max-w-none max-h-none" @close="renameId = null">
+            <dialog id="passkey-rename-dialog" class="p-0 border-none bg-transparent overflow-visible w-full h-full max-w-none max-h-none"
+                    @click="$event.target === $el && $el.close()"
+                    @close="renameId = null">
                 <div class="modal-panel rounded-2xl p-6 w-full max-w-sm mx-auto mt-20 shadow-2xl" @click.stop>
                     <h3 class="text-lg font-bold text-foreground mb-4">{{index .T "settings.passkey_rename_title"}}</h3>
                     <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.passkey_name_prompt"}}</label>
                     <input type="text" x-model="renameName"
                            class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors mb-4"
-                           @keydown.enter="submitRename(); document.getElementById('passkey-rename-dialog').close()">
+                           @keydown.enter="submitRename()">
                     <div class="flex gap-2">
-                        <button @click="document.getElementById('passkey-rename-dialog').close()"
+                        <button @click="closeRenameDialog()"
                                 class="flex-1 bg-accent hover:bg-accent/80 text-foreground font-bold py-2.5 rounded-xl transition-all text-sm">
                             {{index .T "common.cancel"}}
                         </button>
-                        <button @click="submitRename(); document.getElementById('passkey-rename-dialog').close()"
+                        <button @click="submitRename()"
                                 class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl transition-all text-sm">
                             {{index .T "settings.passkey_rename_btn"}}
                         </button>
