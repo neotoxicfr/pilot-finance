@@ -250,7 +250,7 @@ func securityHeaders(next http.Handler) http.Handler {
 
 		w.Header().Set("Content-Security-Policy",
 			"default-src 'none'; "+
-				"script-src 'self' 'nonce-"+nonce+"'; "+
+				"script-src 'self' 'nonce-"+nonce+"' 'strict-dynamic'; "+
 				"style-src 'self' 'unsafe-inline'; "+
 				"img-src 'self' blob: data:; "+
 				"font-src 'self'; "+
