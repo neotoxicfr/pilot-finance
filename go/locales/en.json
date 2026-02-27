@@ -35,7 +35,6 @@
   "accounts.no_target": "None (not counted)",
   "accounts.interest_help": "Non-reinvested interest will be credited to this account",
   "accounts.submit": "Save",
-  "accounts.delete_confirm": "Delete?",
   "accounts.move_up": "Move up",
   "accounts.move_down": "Move down",
 
@@ -53,7 +52,6 @@
   "recurring.interest_prefix": "Interest",
   "recurring.auto_badge": "auto",
   "recurring.auto_badge_annual": "/ yr",
-  "recurring.delete_confirm": "Delete this operation?",
   "recurring.empty_title": "No operations yet",
   "recurring.empty_subtitle": "Add your recurring income, expenses and transfers",
 
