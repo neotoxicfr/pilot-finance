@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -37,7 +38,10 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 	decryptAccountNames(accounts)
 
 	// Recuperer les operations recurrentes pour la projection et le resume mensuel
-	recurrings, _ := db.GetRecurringByUserID(user.ID)
+	recurrings, recErr := db.GetRecurringByUserID(user.ID)
+	if recErr != nil {
+		slog.Warn("DashboardAPI: recurring", "err", recErr, "userID", user.ID)
+	}
 
 	// Calculer les projections
 	data := projection.Calculate(accounts, recurrings, years, user.Language)
