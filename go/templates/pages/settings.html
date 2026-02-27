@@ -32,17 +32,22 @@ function passkeyData() {
     return {
         passkeyLoading: false,
         passkeyMsg: '',
+        renameId: null,
+        renameName: '',
         registerPasskey() { window.registerPasskey(); },
         reload() { location.reload(); },
-        renamePasskey(id, currentName) {
-            const newName = prompt("{{index .T "settings.passkey_name_prompt"}}", currentName);
-            if (newName && newName !== currentName) {
-                fetch('/api/passkey/' + id + '/rename', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: newName })
-                }).then(() => location.reload());
-            }
+        openRename(id, name) {
+            this.renameId = id;
+            this.renameName = name;
+            document.getElementById('passkey-rename-dialog').showModal();
+        },
+        submitRename() {
+            if (!this.renameId) return;
+            fetch('/api/passkey/' + this.renameId + '/rename', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: this.renameName })
+            }).then(() => location.reload());
         }
     };
 }

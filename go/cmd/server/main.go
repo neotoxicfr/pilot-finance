@@ -145,7 +145,6 @@ func main() {
 		r.Use(middleware.ValidateOrigin(host))
 
 		r.Get("/", handlers.Dashboard)
-		r.Get("/dashboard-partial", handlers.DashboardPartial)
 		r.Get("/accounts", handlers.AccountsPage)
 		r.Post("/accounts", handlers.CreateAccount)
 		r.Post("/accounts/reorder", handlers.ReorderAccounts)
