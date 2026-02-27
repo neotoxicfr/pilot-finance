@@ -166,7 +166,6 @@ The application listens on port **3000** inside the container.
 - [ ] Encrypt `balance`, `amount`, `yield_min/max` fields in DB (AES-256-GCM)
 - [ ] Parallel decryption via `errgroup`
 - [ ] Versioned migrations
-- [ ] Automated SQLite backup
 - [ ] GDPR: data export (`GET /settings/export`) + account deletion
 - [ ] Audit log table
 - [ ] Handler, middleware and DB unit tests (>70% coverage target)

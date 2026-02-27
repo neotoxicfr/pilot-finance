@@ -165,7 +165,6 @@ L'application écoute sur le port **3000** à l'intérieur du conteneur.
 - [ ] Chiffrement des champs `balance`, `amount`, `yield_min/max` en BDD (AES-256-GCM)
 - [ ] Déchiffrement parallèle via `errgroup`
 - [ ] Migrations versionnées
-- [ ] Backup SQLite automatisé
 - [ ] RGPD : export données (`GET /settings/export`) + suppression de compte
 - [ ] Table d'audit log
 - [ ] Tests unitaires handlers, middleware et BDD (objectif >70% de couverture)
