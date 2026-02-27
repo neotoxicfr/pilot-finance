@@ -129,6 +129,50 @@ The application listens on port **3000** inside the container.
 
 ---
 
+
+## 🗺️ Roadmap
+
+### v2.5.0 — Security, UX, Accessibility, Performance
+
+**Security**
+- [x] CSP `default-src 'none'` + `strict-dynamic` + CORP `same-origin` (v2.4.2)
+- [x] `MaxBytesReader` — 1MB body limit (anti-DoS)
+- [x] Email removed from JWT claims — decrypted server-side per request
+- [x] CSRF strict — reject mutating requests when both Origin and Referer are absent
+- [x] `ValidateOrigin` applied to `/logout`
+
+**UX / Functional**
+- [x] Client/server password validation alignment (12-char minimum)
+- [x] Two-step confirmation on account deletion (trash → confirm/cancel)
+- [x] Passkey rename: `prompt()` → modal
+- [x] Auth errors returned as HTMX partials (inline, no page reload)
+- [x] Empty dashboard state with "Create my first account" CTA
+
+**Accessibility (WCAG 2.2)**
+- [x] Remove `user-scalable=no` from viewport
+- [x] `aria-label` on icon-only buttons
+- [x] Explicit `<label>` on all form inputs
+- [x] Skip-link `<a href="#main">`
+
+**Performance & CI**
+- [x] `MaxOpenConns` 1 → 4 (WAL mode)
+- [x] Chart.js conditional loading
+- [x] Goroutine leak fix in rate limiter
+- [x] `go test -race` CI workflow
+- [x] Privacy policy page `/privacy`
+
+### v2.6.0 — Major Refactoring, GDPR, Tests
+
+- [ ] Encrypt `balance`, `amount`, `yield_min/max` fields in DB (AES-256-GCM)
+- [ ] Parallel decryption via `errgroup`
+- [ ] Versioned migrations
+- [ ] Automated SQLite backup
+- [ ] GDPR: data export (`GET /settings/export`) + account deletion
+- [ ] Audit log table
+- [ ] Handler, middleware and DB unit tests (>70% coverage target)
+
+---
+
 ## 🤖 Credits
 
 This project was designed with AI assistance for code structure and optimization. The final code is purely applicative and uses no AI algorithms or third-party data processing at runtime. Your cockpit remains 100% local and private.

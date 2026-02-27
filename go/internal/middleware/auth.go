@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"pilot-finance/internal/auth"
+	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 )
 
@@ -53,8 +54,8 @@ func RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		// Vérifier que la version de session (requête allégée : 1 colonne)
-		sv, err := db.GetSessionVersion(claims.UserID)
+		// Vérifier la version de session et récupérer l'email (non stocké dans le JWT)
+		sv, emailEncrypted, err := db.GetUserAuthData(claims.UserID)
 		if err != nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
@@ -67,10 +68,11 @@ func RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		// Language/Currency lus depuis les claims JWT (mis à jour à la connexion et après UpdatePreferences)
+		email, _ := crypto.Decrypt(emailEncrypted)
+
 		user := &User{
 			ID:             claims.UserID,
-			Email:          claims.Email,
+			Email:          email,
 			Role:           claims.Role,
 			SessionVersion: claims.SessionVersion,
 			Language:       claims.Language,

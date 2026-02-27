@@ -32,17 +32,26 @@ function passkeyData() {
     return {
         passkeyLoading: false,
         passkeyMsg: '',
+        renameId: null,
+        renameName: '',
         registerPasskey() { window.registerPasskey(); },
         reload() { location.reload(); },
-        renamePasskey(id, currentName) {
-            const newName = prompt("{{index .T "settings.passkey_name_prompt"}}", currentName);
-            if (newName && newName !== currentName) {
-                fetch('/api/passkey/' + id + '/rename', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: newName })
-                }).then(() => location.reload());
-            }
+        openRename(id, name) {
+            this.renameId = id;
+            this.renameName = name;
+            document.getElementById('passkey-rename-dialog').showModal();
+        },
+        closeRenameDialog() {
+            document.getElementById('passkey-rename-dialog').close();
+        },
+        submitRename() {
+            if (!this.renameId) return;
+            this.closeRenameDialog();
+            fetch('/api/passkey/' + this.renameId + '/rename', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: this.renameName })
+            }).then(() => location.reload());
         }
     };
 }
@@ -60,7 +69,7 @@ function pwdData() {
         pwdLoading: false,
         password: '',
         confirm: '',
-        get hasLength()  { return this.password.length >= 8; },
+        get hasLength()  { return this.password.length >= 12; },
         get hasUpper()   { return /[A-Z]/.test(this.password); },
         get hasLower()   { return /[a-z]/.test(this.password); },
         get hasDigit()   { return /[0-9]/.test(this.password); },
@@ -194,7 +203,7 @@ document.addEventListener('alpine:init', () => {
                             </div>
                         </div>
                         <div class="flex gap-1">
-                            <button @click="renamePasskey($el.dataset.id, $el.dataset.name)"
+                            <button @click="openRename($el.dataset.id, $el.dataset.name)"
                                     data-id="{{.ID}}" data-name="{{.Name}}"
                                     class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-background rounded-lg transition-colors">
                                 {{template "icon-pencil" dict "Size" 14}}
@@ -212,6 +221,29 @@ document.addEventListener('alpine:init', () => {
                 </div>
                 {{end}}
 
+
+            <!-- Modal renommage passkey -->
+            <dialog id="passkey-rename-dialog" class="p-0 border-none bg-transparent overflow-visible w-full h-full max-w-none max-h-none"
+                    @click="$event.target === $el && $el.close()"
+                    @close="renameId = null">
+                <div class="modal-panel rounded-2xl p-6 w-full max-w-sm mx-auto mt-20 shadow-2xl" @click.stop>
+                    <h3 class="text-lg font-bold text-foreground mb-4">{{index .T "settings.passkey_rename_title"}}</h3>
+                    <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.passkey_name_prompt"}}</label>
+                    <input type="text" x-model="renameName"
+                           class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors mb-4"
+                           @keydown.enter="submitRename()">
+                    <div class="flex gap-2">
+                        <button @click="closeRenameDialog()"
+                                class="flex-1 bg-accent hover:bg-accent/80 text-foreground font-bold py-2.5 rounded-xl transition-all text-sm">
+                            {{index .T "common.cancel"}}
+                        </button>
+                        <button @click="submitRename()"
+                                class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl transition-all text-sm">
+                            {{index .T "settings.passkey_rename_btn"}}
+                        </button>
+                    </div>
+                </div>
+            </dialog>
                 <template x-if="passkeyMsg">
                     <div class="mb-4 text-sm font-bold text-center" x-text="passkeyMsg"></div>
                 </template>
@@ -251,18 +283,18 @@ document.addEventListener('alpine:init', () => {
                       @htmx:after-settle="afterPwdSettle($event)"
                       class="space-y-5">
                     <div>
-                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.current_password"}}</label>
-                        <input name="currentPassword" type="password" required
+                        <label for="currentPassword" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.current_password"}}</label>
+                        <input id="currentPassword" name="currentPassword" type="password" required
                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                     </div>
                     <div>
-                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.new_password"}}</label>
-                        <input name="newPassword" type="password" required minlength="12" x-model="password"
+                        <label for="newPassword" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.new_password"}}</label>
+                        <input id="newPassword" name="newPassword" type="password" required minlength="12" x-model="password"
                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                     </div>
                     <div>
-                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.confirm_password"}}</label>
-                        <input name="confirmPassword" type="password" required x-model="confirm"
+                        <label for="confirmPassword" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.confirm_password"}}</label>
+                        <input id="confirmPassword" name="confirmPassword" type="password" required x-model="confirm"
                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                     </div>
 
