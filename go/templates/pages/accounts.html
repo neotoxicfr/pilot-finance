@@ -410,6 +410,7 @@ document.addEventListener('alpine:init', () => {
             </div>
             <div x-show="del" class="flex flex-col gap-1">
                 <button hx-delete="/accounts/{{.ID}}" hx-target="#accounts-list" hx-swap="innerHTML"
+                        hx-confirm="{{index $.T "accounts.delete_confirm"}}"
                         class="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                     {{template "icon-check" dict "Size" 18}}
                 </button>
@@ -487,6 +488,7 @@ document.addEventListener('alpine:init', () => {
         </div>
         <div class="flex items-center gap-0.5 shrink-0" x-show="del">
             <button hx-delete="/recurring/{{.ID}}" hx-target="#recurring-list" hx-swap="innerHTML"
+                    hx-confirm="{{index $.T "recurring.delete_confirm"}}"
                     class="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                 {{template "icon-check" dict "Size" 15}}
             </button>

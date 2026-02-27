@@ -60,7 +60,7 @@ function pwdData() {
         pwdLoading: false,
         password: '',
         confirm: '',
-        get hasLength()  { return this.password.length >= 8; },
+        get hasLength()  { return this.password.length >= 12; },
         get hasUpper()   { return /[A-Z]/.test(this.password); },
         get hasLower()   { return /[a-z]/.test(this.password); },
         get hasDigit()   { return /[0-9]/.test(this.password); },
@@ -194,7 +194,7 @@ document.addEventListener('alpine:init', () => {
                             </div>
                         </div>
                         <div class="flex gap-1">
-                            <button @click="renamePasskey($el.dataset.id, $el.dataset.name)"
+                            <button @click="openRename($el.dataset.id, $el.dataset.name)"
                                     data-id="{{.ID}}" data-name="{{.Name}}"
                                     class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-background rounded-lg transition-colors">
                                 {{template "icon-pencil" dict "Size" 14}}
@@ -212,6 +212,27 @@ document.addEventListener('alpine:init', () => {
                 </div>
                 {{end}}
 
+
+            <!-- Modal renommage passkey -->
+            <dialog id="passkey-rename-dialog" class="p-0 border-none bg-transparent overflow-visible w-full h-full max-w-none max-h-none" @close="renameId = null">
+                <div class="modal-panel rounded-2xl p-6 w-full max-w-sm mx-auto mt-20 shadow-2xl" @click.stop>
+                    <h3 class="text-lg font-bold text-foreground mb-4">{{index .T "settings.passkey_rename_title"}}</h3>
+                    <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.passkey_name_prompt"}}</label>
+                    <input type="text" x-model="renameName"
+                           class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors mb-4"
+                           @keydown.enter="submitRename(); document.getElementById('passkey-rename-dialog').close()">
+                    <div class="flex gap-2">
+                        <button @click="document.getElementById('passkey-rename-dialog').close()"
+                                class="flex-1 bg-accent hover:bg-accent/80 text-foreground font-bold py-2.5 rounded-xl transition-all text-sm">
+                            {{index .T "common.cancel"}}
+                        </button>
+                        <button @click="submitRename(); document.getElementById('passkey-rename-dialog').close()"
+                                class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl transition-all text-sm">
+                            {{index .T "settings.passkey_rename_btn"}}
+                        </button>
+                    </div>
+                </div>
+            </dialog>
                 <template x-if="passkeyMsg">
                     <div class="mb-4 text-sm font-bold text-center" x-text="passkeyMsg"></div>
                 </template>
