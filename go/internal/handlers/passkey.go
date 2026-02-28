@@ -125,6 +125,8 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 
 	clearCookie(w, "passkey_challenge")
 
+	db.LogAudit(user.ID, db.AuditPasskeyAdd, getClientIP(r), r.UserAgent())
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
@@ -244,6 +246,8 @@ func DeletePasskey(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
 		return
 	}
+
+	db.LogAudit(user.ID, db.AuditPasskeyRemove, getClientIP(r), r.UserAgent())
 
 	w.WriteHeader(http.StatusNoContent)
 }
