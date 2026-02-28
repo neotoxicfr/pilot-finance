@@ -306,7 +306,7 @@ func ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.ReorderAccounts(user.ID, body.IDs); err != nil {
+	if err := hookReorderAccounts(user.ID, body.IDs); err != nil {
 		http.Error(w, "Erreur réordonnancement", http.StatusInternalServerError)
 		return
 	}
