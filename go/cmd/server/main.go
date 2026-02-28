@@ -101,10 +101,9 @@ func main() {
 
 	// Créer le routeur
 	r := chi.NewRouter()
-	r.NotFound(handlers.NotFound)
-	r.MethodNotAllowed(handlers.MethodNotAllowed)
 
-	// Middlewares globaux
+	// Middlewares globaux — doivent être déclarés AVANT NotFound/MethodNotAllowed
+	// pour que chi les applique aux handlers d'erreur
 	r.Use(chimw.RealIP)
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
@@ -112,6 +111,9 @@ func main() {
 	r.Use(securityHeaders)
 	r.Use(maxBodySize)
 	r.Use(httprate.LimitByRealIP(120, time.Minute)) // 120 req/min global (2/s, suffisant pour usage actif)
+
+	r.NotFound(handlers.NotFound)
+	r.MethodNotAllowed(handlers.MethodNotAllowed)
 
 	// Fichiers statiques avec cache (pas de rate limit)
 	fileServer := http.FileServer(http.Dir("static"))
