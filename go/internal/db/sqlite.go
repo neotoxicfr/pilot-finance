@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"pilot-finance/internal/crypto"
+	"golang.org/x/sync/errgroup"
 
 	_ "modernc.org/sqlite"
 )
@@ -353,7 +354,36 @@ func GetUserAuthData(id int64) (sessionVersion int, emailEncrypted string, err e
 	return
 }
 
-// GetAccountsByUserID récupère tous les comptes d'un utilisateur
+// rawAccount contient les données brutes d'un compte avant déchiffrement.
+type rawAccount struct {
+	acc          Account
+	balanceRaw   string
+	yieldMinRaw  string
+	yieldMaxRaw  string
+	reinvestRaw  string
+}
+
+// decryptAccountRow déchiffre les champs numériques d'un rawAccount vers un Account.
+func decryptAccountRow(dst *Account, raw rawAccount) error {
+	*dst = raw.acc
+	var err error
+	if dst.Balance, err = crypto.DecryptFloat(raw.balanceRaw); err != nil {
+		return fmt.Errorf("decrypt balance id=%d: %w", dst.ID, err)
+	}
+	if dst.YieldMin, err = crypto.DecryptFloat(raw.yieldMinRaw); err != nil {
+		return fmt.Errorf("decrypt yield_min id=%d: %w", dst.ID, err)
+	}
+	if dst.YieldMax, err = crypto.DecryptFloat(raw.yieldMaxRaw); err != nil {
+		return fmt.Errorf("decrypt yield_max id=%d: %w", dst.ID, err)
+	}
+	if dst.ReinvestmentRate, err = crypto.DecryptInt(raw.reinvestRaw); err != nil {
+		return fmt.Errorf("decrypt reinvestment_rate id=%d: %w", dst.ID, err)
+	}
+	return nil
+}
+
+// GetAccountsByUserID récupère tous les comptes d'un utilisateur.
+// Le déchiffrement des champs numériques est parallélisé via errgroup.
 func GetAccountsByUserID(userID int64) ([]Account, error) {
 	rows, err := DB.Query(`
 		SELECT id, user_id, name, balance, color, position, updated_at,
@@ -367,57 +397,69 @@ func GetAccountsByUserID(userID int64) ([]Account, error) {
 	}
 	defer rows.Close()
 
-	var accounts []Account
+	// Passe 1 : scan séquentiel des lignes SQL (driver non thread-safe)
+	var raws []rawAccount
 	for rows.Next() {
-		var acc Account
+		var r rawAccount
 		var updatedAt, lastYieldDate sql.NullInt64
 		var targetAccountID sql.NullInt64
 		var yieldType, yieldFreq, payoutFreq sql.NullString
-		// Champs numériques scannés comme string pour supporter le chiffrement AES
-		var balanceRaw, yieldMinRaw, yieldMaxRaw, reinvestRaw string
 
-		err := rows.Scan(
-			&acc.ID, &acc.UserID, &acc.Name, &balanceRaw, &acc.Color, &acc.Position,
-			&updatedAt, &acc.IsYieldActive, &yieldType, &yieldMinRaw, &yieldMaxRaw,
-			&yieldFreq, &payoutFreq, &lastYieldDate, &reinvestRaw, &targetAccountID,
-		)
-		if err != nil {
+		if err := rows.Scan(
+			&r.acc.ID, &r.acc.UserID, &r.acc.Name, &r.balanceRaw, &r.acc.Color, &r.acc.Position,
+			&updatedAt, &r.acc.IsYieldActive, &yieldType, &r.yieldMinRaw, &r.yieldMaxRaw,
+			&yieldFreq, &payoutFreq, &lastYieldDate, &r.reinvestRaw, &targetAccountID,
+		); err != nil {
 			return nil, err
 		}
-
-		// Déchiffrer les champs numériques
-		acc.Balance, _ = crypto.DecryptFloat(balanceRaw)
-		acc.YieldMin, _ = crypto.DecryptFloat(yieldMinRaw)
-		acc.YieldMax, _ = crypto.DecryptFloat(yieldMaxRaw)
-		acc.ReinvestmentRate, _ = crypto.DecryptInt(reinvestRaw)
-
 		if updatedAt.Valid {
-			acc.UpdatedAt = time.Unix(updatedAt.Int64, 0)
+			r.acc.UpdatedAt = time.Unix(updatedAt.Int64, 0)
 		}
 		if lastYieldDate.Valid {
 			t := time.Unix(lastYieldDate.Int64, 0)
-			acc.LastYieldDate = &t
+			r.acc.LastYieldDate = &t
 		}
 		if targetAccountID.Valid {
-			acc.TargetAccountID = &targetAccountID.Int64
+			r.acc.TargetAccountID = &targetAccountID.Int64
 		}
 		if yieldType.Valid {
-			acc.YieldType = yieldType.String
+			r.acc.YieldType = yieldType.String
 		}
 		if yieldFreq.Valid {
-			acc.YieldFrequency = yieldFreq.String
+			r.acc.YieldFrequency = yieldFreq.String
 		}
 		if payoutFreq.Valid {
-			acc.PayoutFrequency = payoutFreq.String
+			r.acc.PayoutFrequency = payoutFreq.String
 		}
-
-		accounts = append(accounts, acc)
+		raws = append(raws, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
-	return accounts, rows.Err()
+	// Passe 2 : déchiffrement parallèle des champs numériques
+	accounts := make([]Account, len(raws))
+	g := new(errgroup.Group)
+	for i := range raws {
+		i := i
+		g.Go(func() error {
+			return decryptAccountRow(&accounts[i], raws[i])
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+	return accounts, nil
 }
 
-// GetRecurringByUserID récupère toutes les opérations récurrentes d'un utilisateur
+// rawRecurring contient les données brutes d'une opération récurrente avant déchiffrement.
+type rawRecurring struct {
+	op        RecurringOperation
+	amountRaw string
+}
+
+// GetRecurringByUserID récupère toutes les opérations récurrentes d'un utilisateur.
+// Le déchiffrement du montant est parallélisé via errgroup.
 func GetRecurringByUserID(userID int64) ([]RecurringOperation, error) {
 	rows, err := DB.Query(`
 		SELECT id, user_id, account_id, to_account_id, amount, description,
@@ -429,35 +471,48 @@ func GetRecurringByUserID(userID int64) ([]RecurringOperation, error) {
 	}
 	defer rows.Close()
 
-	var ops []RecurringOperation
+	// Passe 1 : scan séquentiel
+	var raws []rawRecurring
 	for rows.Next() {
-		var op RecurringOperation
+		var r rawRecurring
 		var toAccountID sql.NullInt64
 		var lastRunDate sql.NullInt64
-		var amountRaw string // scanné comme string pour supporter le chiffrement AES
 
-		err := rows.Scan(
-			&op.ID, &op.UserID, &op.AccountID, &toAccountID, &amountRaw,
-			&op.Description, &op.DayOfMonth, &lastRunDate, &op.IsActive,
-		)
-		if err != nil {
+		if err := rows.Scan(
+			&r.op.ID, &r.op.UserID, &r.op.AccountID, &toAccountID, &r.amountRaw,
+			&r.op.Description, &r.op.DayOfMonth, &lastRunDate, &r.op.IsActive,
+		); err != nil {
 			return nil, err
 		}
-
-		op.Amount, _ = crypto.DecryptFloat(amountRaw)
-
 		if toAccountID.Valid {
-			op.ToAccountID = &toAccountID.Int64
+			r.op.ToAccountID = &toAccountID.Int64
 		}
 		if lastRunDate.Valid {
 			t := time.Unix(lastRunDate.Int64, 0)
-			op.LastRunDate = &t
+			r.op.LastRunDate = &t
 		}
-
-		ops = append(ops, op)
+		raws = append(raws, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
-	return ops, rows.Err()
+	// Passe 2 : déchiffrement parallèle des montants
+	ops := make([]RecurringOperation, len(raws))
+	g := new(errgroup.Group)
+	for i := range raws {
+		i := i
+		g.Go(func() error {
+			ops[i] = raws[i].op
+			var err error
+			ops[i].Amount, err = crypto.DecryptFloat(raws[i].amountRaw)
+			return err
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+	return ops, nil
 }
 
 // CountUsers retourne le nombre total d'utilisateurs
