@@ -25,7 +25,8 @@ var config *Config
 func Init() error {
 	host := os.Getenv("SMTP_HOST")
 	if host == "" {
-		return nil // Mail desactive
+		config = nil // Mail desactive
+		return nil
 	}
 
 	port := 587
