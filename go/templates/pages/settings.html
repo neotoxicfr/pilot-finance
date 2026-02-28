@@ -359,6 +359,43 @@ document.addEventListener('alpine:init', () => {
             </div>
             {{end}}
 
+            <!-- Danger Zone -->
+            <div x-data="dangerData">
+                <div class="dashboard-card bg-background border border-red-500/20 rounded-2xl p-6 relative overflow-hidden">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
+                    <h2 class="text-base font-bold text-red-500 mb-4 flex items-center gap-2">
+                        {{template "icon-trash" dict "Size" 18}}
+                        {{index .T "settings.danger_zone"}}
+                    </h2>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <a href="/settings/export"
+                           class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-background hover:bg-accent text-sm font-medium text-foreground transition-all w-full sm:w-auto">
+                            {{template "icon-save" dict "Size" 16}}
+                            {{index .T "settings.export_data"}}
+                        </a>
+                        <button x-show="!selfDeleteConfirm" @click="selfDeleteConfirm = true"
+                                class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-medium text-red-500 transition-all w-full sm:w-auto">
+                            {{template "icon-trash" dict "Size" 16}}
+                            {{index .T "settings.delete_account"}}
+                        </button>
+                        <template x-if="selfDeleteConfirm">
+                            <div class="flex gap-2">
+                                <button hx-delete="/settings/account"
+                                        hx-target="body"
+                                        class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-sm font-bold text-white transition-all">
+                                    {{template "icon-trash" dict "Size" 16}}
+                                    {{index .T "settings.delete_account_confirm"}}
+                                </button>
+                                <button @click="selfDeleteConfirm = false"
+                                        class="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all">
+                                    {{index .T "common.cancel"}}
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -431,43 +468,6 @@ document.addEventListener('alpine:init', () => {
         </div>
     </div>
     {{end}}
-
-    <!-- Danger Zone -->
-    <div x-data="dangerData">
-        <div class="dashboard-card bg-background border border-red-500/20 rounded-2xl p-6 relative overflow-hidden">
-            <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
-            <h2 class="text-base font-bold text-red-500 mb-4 flex items-center gap-2">
-                {{template "icon-trash" dict "Size" 18}}
-                {{index .T "settings.danger_zone"}}
-            </h2>
-            <div class="flex flex-col sm:flex-row gap-3">
-                <a href="/settings/export"
-                   class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-background hover:bg-accent text-sm font-medium text-foreground transition-all w-full sm:w-auto">
-                    {{template "icon-save" dict "Size" 16}}
-                    {{index .T "settings.export_data"}}
-                </a>
-                <button x-show="!selfDeleteConfirm" @click="selfDeleteConfirm = true"
-                        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-medium text-red-500 transition-all w-full sm:w-auto">
-                    {{template "icon-trash" dict "Size" 16}}
-                    {{index .T "settings.delete_account"}}
-                </button>
-                <template x-if="selfDeleteConfirm">
-                    <div class="flex gap-2">
-                        <button hx-delete="/settings/account"
-                                hx-target="body"
-                                class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-sm font-bold text-white transition-all">
-                            {{template "icon-trash" dict "Size" 16}}
-                            {{index .T "settings.delete_account_confirm"}}
-                        </button>
-                        <button @click="selfDeleteConfirm = false"
-                                class="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all">
-                            {{index .T "common.cancel"}}
-                        </button>
-                    </div>
-                </template>
-            </div>
-        </div>
-    </div>
 
     <!-- Privacy link -->
     <div class="text-center pb-2">
