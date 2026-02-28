@@ -160,11 +160,11 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lang, _ := userLocale(user)
-	accounts, accErr := db.GetAccountsByUserID(user.ID)
+	accounts, accErr := hookGetAccountsByUserID(user.ID)
 	if accErr != nil {
 		slog.Warn("AccountsPage: accounts", "err", accErr, "userID", user.ID)
 	}
-	recurrings, recErr2 := db.GetRecurringByUserID(user.ID)
+	recurrings, recErr2 := hookGetRecurringByUserID(user.ID)
 	if recErr2 != nil {
 		slog.Warn("AccountsPage: recurring", "err", recErr2, "userID", user.ID)
 	}

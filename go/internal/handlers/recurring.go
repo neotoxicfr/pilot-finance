@@ -196,11 +196,11 @@ func DeleteRecurring(w http.ResponseWriter, r *http.Request) {
 func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
 	lang, currency := userLocale(user)
 
-	recurrings, err := db.GetRecurringByUserID(user.ID)
+	recurrings, err := hookGetRecurringByUserID(user.ID)
 	if err != nil {
 		slog.Error("renderRecurringTable: recurring", "err", err)
 	}
-	accounts, err := db.GetAccountsByUserID(user.ID)
+	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
 		slog.Error("renderRecurringTable: accounts", "err", err)
 	}

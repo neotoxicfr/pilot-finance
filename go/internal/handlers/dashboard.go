@@ -38,7 +38,7 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 	decryptAccountNames(accounts)
 
 	// Recuperer les operations recurrentes pour la projection et le resume mensuel
-	recurrings, recErr := db.GetRecurringByUserID(user.ID)
+	recurrings, recErr := hookGetRecurringByUserID(user.ID)
 	if recErr != nil {
 		slog.Warn("DashboardAPI: recurring", "err", recErr, "userID", user.ID)
 	}
