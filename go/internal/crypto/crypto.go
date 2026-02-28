@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
@@ -167,6 +168,36 @@ func HashPassword(password string) (string, error) {
 // VerifyPassword vérifie un mot de passe contre son hash bcrypt
 func VerifyPassword(password, hash string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
+}
+
+// EncryptFloat chiffre un float64 après conversion en string.
+// Idempotent : si la valeur contient déjà ":" (déjà chiffrée), elle est retournée telle quelle.
+func EncryptFloat(f float64) (string, error) {
+	return Encrypt(strconv.FormatFloat(f, 'f', -1, 64))
+}
+
+// DecryptFloat déchiffre une valeur chiffrée vers un float64.
+// Si la valeur ne contient pas ":" (plaintext), elle est parsée directement.
+func DecryptFloat(s string) (float64, error) {
+	plain, err := Decrypt(s)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.ParseFloat(plain, 64)
+}
+
+// EncryptInt chiffre un int après conversion en string.
+func EncryptInt(i int) (string, error) {
+	return Encrypt(strconv.Itoa(i))
+}
+
+// DecryptInt déchiffre une valeur chiffrée vers un int.
+func DecryptInt(s string) (int, error) {
+	plain, err := Decrypt(s)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.Atoi(plain)
 }
 
 // ValidatePassword vérifie que le mot de passe respecte les 5 critères
