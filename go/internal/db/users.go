@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"time"
 )
 
@@ -83,8 +84,9 @@ func SetResetToken(userID int64, hashedToken string, expiry time.Time) error {
 // GetUserByResetToken récupère un utilisateur par son reset token
 func GetUserByResetToken(hashedToken string) (*User, error) {
 	var user User
-	var createdAt, lockUntil, resetTokenExpiry int64
-	var verificationToken, resetToken, mfaSecret *string
+	var createdAt sql.NullInt64
+	var lockUntil, resetTokenExpiry sql.NullInt64
+	var verificationToken, resetToken, mfaSecret sql.NullString
 
 	err := DB.QueryRow(`
 		SELECT id, email_encrypted, email_blind_index, password, role,
@@ -104,18 +106,26 @@ func GetUserByResetToken(hashedToken string) (*User, error) {
 		return nil, err
 	}
 
-	user.CreatedAt = time.Unix(createdAt, 0)
-	if lockUntil > 0 {
-		t := time.Unix(lockUntil, 0)
+	if createdAt.Valid {
+		user.CreatedAt = time.Unix(createdAt.Int64, 0)
+	}
+	if lockUntil.Valid && lockUntil.Int64 > 0 {
+		t := time.Unix(lockUntil.Int64, 0)
 		user.LockUntil = &t
 	}
-	if resetTokenExpiry > 0 {
-		t := time.Unix(resetTokenExpiry, 0)
+	if resetTokenExpiry.Valid && resetTokenExpiry.Int64 > 0 {
+		t := time.Unix(resetTokenExpiry.Int64, 0)
 		user.ResetTokenExpiry = &t
 	}
-	user.VerificationToken = verificationToken
-	user.ResetToken = resetToken
-	user.MFASecret = mfaSecret
+	if verificationToken.Valid {
+		user.VerificationToken = &verificationToken.String
+	}
+	if resetToken.Valid {
+		user.ResetToken = &resetToken.String
+	}
+	if mfaSecret.Valid {
+		user.MFASecret = &mfaSecret.String
+	}
 
 	return &user, nil
 }
