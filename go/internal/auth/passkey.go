@@ -14,6 +14,25 @@ import (
 
 var webAuthn *webauthn.WebAuthn
 
+// marshalJSON est injectable pour les tests (couvre la branche d'erreur json.Marshal).
+var marshalJSON = json.Marshal
+
+// Hooks injectables pour les tests — couvrent les branches d'erreur des appels webauthn.
+var (
+	beginRegistrationFn = func(wa *webauthn.WebAuthn, user webauthn.User, opts ...webauthn.RegistrationOption) (*protocol.CredentialCreation, *webauthn.SessionData, error) {
+		return wa.BeginRegistration(user, opts...)
+	}
+	beginDiscoverableLoginFn = func(wa *webauthn.WebAuthn, opts ...webauthn.LoginOption) (*protocol.CredentialAssertion, *webauthn.SessionData, error) {
+		return wa.BeginDiscoverableLogin(opts...)
+	}
+	createCredentialFn = func(wa *webauthn.WebAuthn, user webauthn.User, session webauthn.SessionData, response *protocol.ParsedCredentialCreationData) (*webauthn.Credential, error) {
+		return wa.CreateCredential(user, session, response)
+	}
+	finishDiscoverableLoginFn = func(wa *webauthn.WebAuthn, handler webauthn.DiscoverableUserHandler, session webauthn.SessionData, r *http.Request) (*webauthn.Credential, error) {
+		return wa.FinishDiscoverableLogin(handler, session, r)
+	}
+)
+
 // PasskeyUser implémente l'interface webauthn.User
 type PasskeyUser struct {
 	ID          int64
@@ -66,7 +85,7 @@ func InitWebAuthn(rpID, rpOrigin, rpName string) error {
 
 // BeginRegistration démarre l'enregistrement d'une passkey
 func BeginRegistration(user *PasskeyUser) (*protocol.CredentialCreation, string, error) {
-	options, session, err := webAuthn.BeginRegistration(user,
+	options, session, err := beginRegistrationFn(webAuthn, user,
 		webauthn.WithResidentKeyRequirement(protocol.ResidentKeyRequirementRequired),
 		webauthn.WithAuthenticatorSelection(protocol.AuthenticatorSelection{
 			UserVerification: protocol.VerificationPreferred,
@@ -78,7 +97,7 @@ func BeginRegistration(user *PasskeyUser) (*protocol.CredentialCreation, string,
 	}
 
 	// Sérialiser la session et encoder en base64 pour le cookie
-	sessionData, err := json.Marshal(session)
+	sessionData, err := marshalJSON(session)
 	if err != nil {
 		return nil, "", err
 	}
@@ -99,7 +118,7 @@ func FinishRegistration(user *PasskeyUser, sessionDataBase64 string, response *p
 		return nil, err
 	}
 
-	credential, err := webAuthn.CreateCredential(user, session, response)
+	credential, err := createCredentialFn(webAuthn, user, session, response)
 	if err != nil {
 		return nil, err
 	}
@@ -109,14 +128,14 @@ func FinishRegistration(user *PasskeyUser, sessionDataBase64 string, response *p
 
 // BeginLogin démarre l'authentification par passkey
 func BeginLogin() (*protocol.CredentialAssertion, string, error) {
-	options, session, err := webAuthn.BeginDiscoverableLogin(
+	options, session, err := beginDiscoverableLoginFn(webAuthn,
 		webauthn.WithUserVerification(protocol.VerificationPreferred),
 	)
 	if err != nil {
 		return nil, "", err
 	}
 
-	sessionData, err := json.Marshal(session)
+	sessionData, err := marshalJSON(session)
 	if err != nil {
 		return nil, "", err
 	}
@@ -138,7 +157,7 @@ func FinishLogin(sessionDataBase64 string, r *http.Request, userHandler func(raw
 		return nil, nil, err
 	}
 
-	credential, err := webAuthn.FinishDiscoverableLogin(userHandler, session, r)
+	credential, err := finishDiscoverableLoginFn(webAuthn, userHandler, session, r)
 	if err != nil {
 		return nil, nil, err
 	}

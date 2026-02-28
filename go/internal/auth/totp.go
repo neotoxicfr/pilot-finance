@@ -16,10 +16,13 @@ const (
 	totpPeriod = 30
 )
 
+// totpRandRead est injectable pour les tests (couvre la branche d'erreur rand.Read).
+var totpRandRead = rand.Read
+
 // GenerateTOTPSecret génère un nouveau secret TOTP
 func GenerateTOTPSecret() (string, error) {
 	secret := make([]byte, 20)
-	if _, err := rand.Read(secret); err != nil {
+	if _, err := totpRandRead(secret); err != nil {
 		return "", err
 	}
 	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(secret), nil

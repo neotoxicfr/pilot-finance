@@ -14,6 +14,9 @@ type contextKey string
 
 const UserContextKey contextKey = "user"
 
+// getUserAuthData est une variable de fonction pour faciliter les tests.
+var getUserAuthData = db.GetUserAuthData
+
 // User représente l'utilisateur authentifié dans le contexte
 type User struct {
 	ID             int64
@@ -55,7 +58,7 @@ func RequireAuth(next http.Handler) http.Handler {
 		}
 
 		// Vérifier la version de session et récupérer l'email (non stocké dans le JWT)
-		sv, emailEncrypted, err := db.GetUserAuthData(claims.UserID)
+		sv, emailEncrypted, err := getUserAuthData(claims.UserID)
 		if err != nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
@@ -96,7 +99,7 @@ func OptionalAuth(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		sv, emailEncrypted, err := db.GetUserAuthData(claims.UserID)
+		sv, emailEncrypted, err := getUserAuthData(claims.UserID)
 		if err != nil || sv != claims.SessionVersion {
 			next.ServeHTTP(w, r)
 			return
