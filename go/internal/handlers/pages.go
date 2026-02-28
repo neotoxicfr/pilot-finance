@@ -297,7 +297,7 @@ func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 	err := db.VerifyEmailByToken(hashedToken)
 	if err != nil {
 		if err == db.ErrTokenInvalid {
-			data["Error"] = "Jeton invalide ou expire."
+			data["Error"] = "Jeton invalide ou expiré."
 		} else {
 			data["Error"] = "Erreur serveur."
 		}

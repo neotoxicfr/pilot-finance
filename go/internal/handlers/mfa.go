@@ -17,7 +17,7 @@ import (
 func MFASetup(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifie", http.StatusUnauthorized)
+		http.Error(w, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
@@ -50,7 +50,7 @@ func MFASetup(w http.ResponseWriter, r *http.Request) {
 func MFAEnable(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifie", http.StatusUnauthorized)
+		http.Error(w, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
@@ -61,7 +61,7 @@ func MFAEnable(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"error": "Donnees invalides"})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Données invalides"})
 		return
 	}
 
@@ -96,7 +96,7 @@ func MFAEnable(w http.ResponseWriter, r *http.Request) {
 func MFADisable(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifie", http.StatusUnauthorized)
+		http.Error(w, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
