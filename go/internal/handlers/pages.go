@@ -89,7 +89,7 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accounts, err := db.GetAccountsByUserID(user.ID)
+	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
@@ -247,7 +247,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 	data["Passkeys"] = passkeys
 
 	if isAdmin {
-		users, err := db.GetAllUsers()
+		users, err := hookGetAllUsers()
 		if err != nil {
 			http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 			return

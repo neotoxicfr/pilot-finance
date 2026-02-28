@@ -24,4 +24,7 @@ var (
 	hookGenerateTOTPSecret   = auth.GenerateTOTPSecret
 	hookEnableMFA            = db.EnableMFA
 	hookDisableMFA           = db.DisableMFA
+	hookDeleteUserAndData    = db.DeleteUserAndData
+	hookDeleteUser           = db.DeleteUser
+	hookGetAllUsers          = db.GetAllUsers
 )
