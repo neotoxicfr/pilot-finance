@@ -173,6 +173,39 @@ func TestCheck_DifferentIdentifiers_Independent(t *testing.T) {
 	ratelimit.StopAll()
 }
 
+func TestCheck_BlockExpired_Unblocks(t *testing.T) {
+	ratelimit.StopAll()
+
+	ratelimit.Configs["testUnblock"] = ratelimit.Config{
+		MaxAttempts: 1,
+		WindowMs:    60000,
+		BlockMs:     50, // 50ms block
+	}
+	defer delete(ratelimit.Configs, "testUnblock")
+
+	ip := "10.0.0.200"
+	// Trigger block: 2 attempts (1 max + 1 over limit)
+	ratelimit.Check(ip, "testUnblock")
+	ratelimit.Check(ip, "testUnblock")
+
+	// Verify blocked immediately
+	r := ratelimit.Check(ip, "testUnblock")
+	if r.Allowed {
+		t.Fatal("should be blocked immediately after exceeding limit")
+	}
+
+	// Wait for block to expire
+	time.Sleep(60 * time.Millisecond)
+
+	// Next check should reset blockedAt and allow the request
+	r = ratelimit.Check(ip, "testUnblock")
+	if !r.Allowed {
+		t.Error("should be unblocked after block period expires")
+	}
+
+	ratelimit.StopAll()
+}
+
 func TestStopAll_ResetsState(t *testing.T) {
 	ip := "10.0.0.104"
 	cfg := ratelimit.Configs["login"]

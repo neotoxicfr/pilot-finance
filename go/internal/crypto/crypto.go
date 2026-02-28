@@ -29,6 +29,13 @@ var (
 	ErrDecryption  = errors.New("échec déchiffrement")
 )
 
+// Hooks injectables pour les tests (permettent de couvrir les branches d'erreur impossibles en prod).
+var (
+	cipherNewGCMFn  = cipher.NewGCM
+	cryptoRandRead  = rand.Read
+	bcryptGenerateFn = bcrypt.GenerateFromPassword
+)
+
 // Init initialise les clés de chiffrement
 func Init(encKeyHex, blindKeyHex string) error {
 	var err error
@@ -54,13 +61,13 @@ func Encrypt(plaintext string) (string, error) {
 		return "", err
 	}
 
-	gcm, err := cipher.NewGCM(block)
+	gcm, err := cipherNewGCMFn(block)
 	if err != nil {
 		return "", err
 	}
 
 	iv := make([]byte, ivLength)
-	if _, err := rand.Read(iv); err != nil {
+	if _, err := cryptoRandRead(iv); err != nil {
 		return "", err
 	}
 
@@ -158,7 +165,7 @@ func NeedsRehash(hash string) bool {
 
 // HashPassword génère un hash bcrypt du mot de passe
 func HashPassword(password string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	hash, err := bcryptGenerateFn([]byte(password), 12)
 	if err != nil {
 		return "", err
 	}

@@ -9,9 +9,11 @@ import (
 )
 
 var (
-	jwtSecret      []byte
-	ErrInvalidToken = errors.New("token invalide")
-	ErrExpiredToken = errors.New("token expiré")
+	jwtSecret        []byte
+	ErrInvalidToken  = errors.New("token invalide")
+	ErrExpiredToken  = errors.New("token expiré")
+	// parseWithClaimsFn est injectable pour les tests (couvre les branches mortes !ok || !token.Valid).
+	parseWithClaimsFn = jwt.ParseWithClaims
 )
 
 // Claims représente les données du token JWT
@@ -50,7 +52,7 @@ func GenerateToken(userID int64, role, language, currency string, sessionVersion
 
 // ValidateToken valide un token JWT et retourne les claims
 func ValidateToken(tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := parseWithClaimsFn(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, ErrInvalidToken
 		}
@@ -94,7 +96,7 @@ func GeneratePending2FAToken(userID int64) (string, error) {
 
 // ValidatePending2FAToken valide un token temporaire 2FA
 func ValidatePending2FAToken(tokenString string) (int64, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Pending2FAClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := parseWithClaimsFn(tokenString, &Pending2FAClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, ErrInvalidToken
 		}

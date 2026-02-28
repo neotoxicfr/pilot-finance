@@ -183,6 +183,35 @@ func TestOptionalAuth_InvalidJWT_NoUserInContext(t *testing.T) {
 	}
 }
 
+func TestOptionalAuth_SessionVersionMismatch_NoUserInContext(t *testing.T) {
+	defer setupMW(t)()
+
+	// Token for non-existent user: DB returns sv=0, token has sv=1 → mismatch
+	token, err := auth.GenerateToken(999999, "user", "fr", "EUR", 1)
+	if err != nil {
+		t.Fatalf("GenerateToken: %v", err)
+	}
+
+	var gotUser *middleware.User
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUser = middleware.GetUser(r)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: token})
+	rr := httptest.NewRecorder()
+
+	middleware.OptionalAuth(handler).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200 on session mismatch, got %d", rr.Code)
+	}
+	if gotUser != nil {
+		t.Error("user should be nil on session version mismatch")
+	}
+}
+
 func TestOptionalAuth_ValidSession_SetsUser(t *testing.T) {
 	defer setupMW(t)()
 	userID := createMWUser(t)

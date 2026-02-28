@@ -109,6 +109,14 @@ func TestValidatePending2FAToken_InvalidToken(t *testing.T) {
 	}
 }
 
+func TestValidatePending2FAToken_WrongAlgorithm(t *testing.T) {
+	// Token signed with "none" algorithm — keyFunc returns ErrInvalidToken → err != nil path
+	_, err := auth.ValidatePending2FAToken("eyJhbGciOiJub25lIn0.eyJ1aWQiOjF9.")
+	if err == nil {
+		t.Error("want error for none-algorithm token in ValidatePending2FAToken")
+	}
+}
+
 func TestValidatePending2FAToken_ExpiredToken(t *testing.T) {
 	claims := &jwt.RegisteredClaims{
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(-10 * time.Minute)),
