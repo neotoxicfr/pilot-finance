@@ -4,7 +4,9 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"mime"
 	"net"
+	"net/mail"
 	"net/smtp"
 	"os"
 	"strconv"
@@ -132,34 +134,19 @@ func sendTLS(addr string, auth smtp.Auth, from, to string, msg []byte) error {
 	return w.Close()
 }
 
-// sanitizeHeader supprime les caractères de contrôle pour prévenir l'injection d'en-têtes
-func sanitizeHeader(s string) string {
-	// Supprimer CR, LF et autres caractères de contrôle
-	result := strings.Map(func(r rune) rune {
-		if r == '\r' || r == '\n' || r == '\x00' {
-			return -1
-		}
-		return r
-	}, s)
-	return result
-}
+// headerReplacer supprime CR, LF et null pour prévenir l'injection d'en-têtes SMTP.
+var headerReplacer = strings.NewReplacer("\r", "", "\n", "", "\x00", "")
 
 func buildMessage(to, subject, body string) []byte {
-	// Sanitize headers pour prévenir l'injection
-	safeTo := sanitizeHeader(to)
-	safeSubject := sanitizeHeader(subject)
-
-	headers := make(map[string]string)
-	headers["From"] = config.From
-	headers["To"] = safeTo
-	headers["Subject"] = safeSubject
-	headers["MIME-Version"] = "1.0"
-	headers["Content-Type"] = "text/html; charset=UTF-8"
+	fromAddr := mail.Address{Address: config.From}
+	toAddr := mail.Address{Address: headerReplacer.Replace(to)}
 
 	var msg strings.Builder
-	for k, v := range headers {
-		msg.WriteString(k + ": " + v + "\r\n")
-	}
+	msg.WriteString("From: " + fromAddr.String() + "\r\n")
+	msg.WriteString("To: " + toAddr.String() + "\r\n")
+	msg.WriteString("Subject: " + mime.QEncoding.Encode("utf-8", headerReplacer.Replace(subject)) + "\r\n")
+	msg.WriteString("MIME-Version: 1.0\r\n")
+	msg.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
 	msg.WriteString("\r\n" + body)
 
 	return []byte(msg.String())

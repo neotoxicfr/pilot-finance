@@ -167,26 +167,26 @@ func TestIsEnabled_True(t *testing.T) {
 	}
 }
 
-// --- sanitizeHeader ---
+// --- headerReplacer ---
 
-func TestSanitizeHeader_CRLF(t *testing.T) {
-	got := sanitizeHeader("Subject\r\nX-Injected: evil")
+func TestHeaderReplacer_CRLF(t *testing.T) {
+	got := headerReplacer.Replace("Subject\r\nX-Injected: evil")
 	if strings.Contains(got, "\r") || strings.Contains(got, "\n") {
-		t.Errorf("sanitizeHeader did not remove CRLF: %q", got)
+		t.Errorf("headerReplacer did not remove CRLF: %q", got)
 	}
 }
 
-func TestSanitizeHeader_NullByte(t *testing.T) {
-	got := sanitizeHeader("hello\x00world")
+func TestHeaderReplacer_NullByte(t *testing.T) {
+	got := headerReplacer.Replace("hello\x00world")
 	if strings.Contains(got, "\x00") {
-		t.Errorf("sanitizeHeader did not remove null byte: %q", got)
+		t.Errorf("headerReplacer did not remove null byte: %q", got)
 	}
 }
 
-func TestSanitizeHeader_Clean(t *testing.T) {
+func TestHeaderReplacer_Clean(t *testing.T) {
 	input := "normal subject"
-	if got := sanitizeHeader(input); got != input {
-		t.Errorf("sanitizeHeader modified clean string: got %q", got)
+	if got := headerReplacer.Replace(input); got != input {
+		t.Errorf("headerReplacer modified clean string: got %q", got)
 	}
 }
 
@@ -199,20 +199,40 @@ func TestBuildMessage_ContainsHeaders(t *testing.T) {
 	msg := buildMessage("to@example.com", "Test Subject", "<b>body</b>")
 	s := string(msg)
 
-	if !strings.Contains(s, "From: from@example.com") {
-		t.Error("message missing From header")
+	if !strings.Contains(s, "From: <from@example.com>") {
+		t.Errorf("message missing From header, got: %s", s)
 	}
-	if !strings.Contains(s, "To: to@example.com") {
-		t.Error("message missing To header")
+	if !strings.Contains(s, "To: <to@example.com>") {
+		t.Errorf("message missing To header, got: %s", s)
 	}
-	if !strings.Contains(s, "Subject: Test Subject") {
-		t.Error("message missing Subject header")
+	if !strings.Contains(s, "Subject:") || !strings.Contains(s, "Test Subject") {
+		t.Errorf("message missing Subject header, got: %s", s)
 	}
 	if !strings.Contains(s, "Content-Type: text/html") {
 		t.Error("message missing Content-Type header")
 	}
 	if !strings.Contains(s, "<b>body</b>") {
 		t.Error("message missing body")
+	}
+}
+
+func TestBuildMessage_CRLFInjection(t *testing.T) {
+	config = &Config{From: "from@example.com"}
+	defer func() { config = nil }()
+
+	msg := buildMessage("to@example.com\r\nBcc: evil@example.com", "Sub\r\nject", "body")
+	s := string(msg)
+	// CRLF stripped → no new header line can be injected
+	if strings.Contains(s, "\r\nBcc:") || strings.Contains(s, "\nBcc:") {
+		t.Error("buildMessage should prevent CRLF header injection in To")
+	}
+	// Subject should not contain raw CRLF either
+	for _, line := range strings.Split(s, "\r\n") {
+		if strings.HasPrefix(line, "Subject:") {
+			if strings.Contains(line, "\n") {
+				t.Error("Subject header contains injected newline")
+			}
+		}
 	}
 }
 
