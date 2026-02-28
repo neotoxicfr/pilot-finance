@@ -67,7 +67,8 @@ func AuditPage(w http.ResponseWriter, r *http.Request) {
 	totalPages := (total + auditPageSize - 1) / auditPageSize
 
 	data := baseData(r, user)
-	data["Title"] = "Audit Log"
+	t := data["T"].(map[string]string)
+	data["Title"] = t["page.title_audit_log"]
 	data["Entries"] = rows
 	data["Page"] = page
 	data["TotalPages"] = totalPages

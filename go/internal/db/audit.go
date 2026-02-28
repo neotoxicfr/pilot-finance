@@ -18,8 +18,9 @@ const (
 	AuditAccountCreate = "ACCOUNT_CREATE"
 	AuditAccountUpdate = "ACCOUNT_UPDATE"
 	AuditAccountDelete = "ACCOUNT_DELETE"
-	AuditGDPRExport    = "GDPR_EXPORT"
-	AuditGDPRDelete    = "GDPR_DELETE"
+	AuditGDPRExport         = "GDPR_EXPORT"
+	AuditGDPRDelete         = "GDPR_DELETE"
+	AuditAdminDeleteUser    = "ADMIN_DELETE_USER"
 )
 
 // AuditEntry représente une entrée dans le journal d'audit
