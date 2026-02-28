@@ -138,8 +138,16 @@ func ExportData(w http.ResponseWriter, r *http.Request) {
 	}
 	email, _ := crypto.Decrypt(dbUser.EmailEncrypted)
 
-	accounts, _ := db.GetAccountsByUserID(user.ID)
-	recurrings, _ := db.GetRecurringByUserID(user.ID)
+	accounts, err := db.GetAccountsByUserID(user.ID)
+	if err != nil {
+		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		return
+	}
+	recurrings, err := db.GetRecurringByUserID(user.ID)
+	if err != nil {
+		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		return
+	}
 
 	// Déchiffrer les noms
 	for i := range accounts {
@@ -153,6 +161,26 @@ func ExportData(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	auditEntries, _ := db.GetAuditLogByUserID(user.ID)
+
+	// Passkeys : exporter sans la clé publique brute (non intelligible)
+	type passkeyExport struct {
+		ID         int64  `json:"id"`
+		Name       string `json:"name"`
+		DeviceType string `json:"device_type"`
+		BackedUp   bool   `json:"backed_up"`
+	}
+	rawPasskeys, _ := db.GetAuthenticatorsByUserID(user.ID)
+	passkeys := make([]passkeyExport, len(rawPasskeys))
+	for i, pk := range rawPasskeys {
+		passkeys[i] = passkeyExport{
+			ID:         pk.ID,
+			Name:       pk.Name,
+			DeviceType: pk.CredentialDeviceType,
+			BackedUp:   pk.CredentialBackedUp,
+		}
+	}
+
 	export := map[string]interface{}{
 		"exported_at": time.Now().UTC().Format(time.RFC3339),
 		"user": map[string]interface{}{
@@ -163,6 +191,8 @@ func ExportData(w http.ResponseWriter, r *http.Request) {
 		},
 		"accounts":   accounts,
 		"recurrings": recurrings,
+		"audit_log":  auditEntries,
+		"passkeys":   passkeys,
 	}
 
 	db.LogAudit(user.ID, db.AuditGDPRExport, getClientIP(r), r.UserAgent())
