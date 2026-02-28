@@ -14,6 +14,12 @@ import (
 // pageTemplates stocke un template combiné (base + components + page) pour chaque page
 var pageTemplates = make(map[string]*template.Template)
 
+// globFn et osReadFile sont injectables pour les tests (couvrent les branches d'erreur de Init).
+var (
+	globFn     = filepath.Glob
+	osReadFile = os.ReadFile
+)
+
 // FuncMap contient les fonctions personnalisees pour les templates
 var FuncMap = template.FuncMap{
 	"formatMoney":        formatMoney,
@@ -37,20 +43,20 @@ func Init(templatesDir string) error {
 	// Trouver tous les fichiers de base (layouts + components)
 	baseFiles := []string{}
 
-	layoutFiles, err := filepath.Glob(filepath.Join(templatesDir, "layouts", "*.html"))
+	layoutFiles, err := globFn(filepath.Join(templatesDir, "layouts", "*.html"))
 	if err != nil {
 		return err
 	}
 	baseFiles = append(baseFiles, layoutFiles...)
 
-	componentFiles, err := filepath.Glob(filepath.Join(templatesDir, "components", "*.html"))
+	componentFiles, err := globFn(filepath.Join(templatesDir, "components", "*.html"))
 	if err != nil {
 		return err
 	}
 	baseFiles = append(baseFiles, componentFiles...)
 
 	// Trouver toutes les pages
-	pageFiles, err := filepath.Glob(filepath.Join(templatesDir, "pages", "*.html"))
+	pageFiles, err := globFn(filepath.Join(templatesDir, "pages", "*.html"))
 	if err != nil {
 		return err
 	}
@@ -64,7 +70,7 @@ func Init(templatesDir string) error {
 
 		// Parser tous les fichiers de base
 		for _, baseFile := range baseFiles {
-			content, err := os.ReadFile(baseFile)
+			content, err := osReadFile(baseFile)
 			if err != nil {
 				return fmt.Errorf("erreur lecture %s: %v", baseFile, err)
 			}
@@ -76,7 +82,7 @@ func Init(templatesDir string) error {
 		}
 
 		// Parser la page (qui définit le bloc "content")
-		pageContent, err := os.ReadFile(pageFile)
+		pageContent, err := osReadFile(pageFile)
 		if err != nil {
 			return fmt.Errorf("erreur lecture %s: %v", pageFile, err)
 		}
