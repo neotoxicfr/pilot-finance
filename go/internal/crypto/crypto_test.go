@@ -115,6 +115,114 @@ func TestHashPassword(t *testing.T) {
 	}
 }
 
+func TestEncryptDecryptFloat(t *testing.T) {
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+
+	values := []float64{0, 1.23, -456.789, 100000.50, 0.001}
+	for _, v := range values {
+		enc, err := EncryptFloat(v)
+		if err != nil {
+			t.Errorf("EncryptFloat(%v): %v", v, err)
+			continue
+		}
+		got, err := DecryptFloat(enc)
+		if err != nil {
+			t.Errorf("DecryptFloat failed for %v: %v", v, err)
+			continue
+		}
+		if got != v {
+			t.Errorf("round-trip float: want %v, got %v", v, got)
+		}
+	}
+}
+
+func TestDecryptFloatPlaintext(t *testing.T) {
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+	// Legacy plaintext value stored without encryption
+	got, err := DecryptFloat("1234.56")
+	if err != nil {
+		t.Fatalf("DecryptFloat plaintext: %v", err)
+	}
+	if got != 1234.56 {
+		t.Errorf("want 1234.56, got %v", got)
+	}
+}
+
+func TestEncryptDecryptInt(t *testing.T) {
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+
+	values := []int{0, 1, 50, 100, -10}
+	for _, v := range values {
+		enc, err := EncryptInt(v)
+		if err != nil {
+			t.Errorf("EncryptInt(%v): %v", v, err)
+			continue
+		}
+		got, err := DecryptInt(enc)
+		if err != nil {
+			t.Errorf("DecryptInt failed for %v: %v", v, err)
+			continue
+		}
+		if got != v {
+			t.Errorf("round-trip int: want %v, got %v", v, got)
+		}
+	}
+}
+
+func TestDecryptIntPlaintext(t *testing.T) {
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+	got, err := DecryptInt("42")
+	if err != nil {
+		t.Fatalf("DecryptInt plaintext: %v", err)
+	}
+	if got != 42 {
+		t.Errorf("want 42, got %v", got)
+	}
+}
+
+func TestValidatePassword(t *testing.T) {
+	tests := []struct {
+		pwd string
+		ok  bool
+	}{
+		{"short", false},
+		{"alllowercase1!", false},     // no uppercase
+		{"ALLUPPERCASE1!", false},     // no lowercase
+		{"NoDigitHereAt!", false},     // no digit
+		{"NoSpecialChar12", false},    // no special char
+		{"ValidP@ssw0rd1!", true},
+		{"Another$ecure1!", true},
+	}
+	for _, tt := range tests {
+		err := ValidatePassword(tt.pwd)
+		if tt.ok && err != nil {
+			t.Errorf("ValidatePassword(%q) = %v, want nil", tt.pwd, err)
+		}
+		if !tt.ok && err == nil {
+			t.Errorf("ValidatePassword(%q) = nil, want error", tt.pwd)
+		}
+	}
+}
+
+func TestNeedsRehash(t *testing.T) {
+	// bcrypt cost 12 — should not need rehash
+	hash, err := HashPassword("TestP@ss123!")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if NeedsRehash(hash) {
+		t.Error("fresh hash at cost 12 should not need rehash")
+	}
+}
+
 func TestDecryptNonEncrypted(t *testing.T) {
 	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
 		t.Fatal(err)
