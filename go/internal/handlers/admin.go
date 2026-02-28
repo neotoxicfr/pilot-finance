@@ -26,14 +26,14 @@ func AuditPage(w http.ResponseWriter, r *http.Request) {
 		page = 1
 	}
 
-	entries, err := db.GetAuditLog(page, auditPageSize)
+	entries, err := hookGetAuditLog(page, auditPageSize)
 	if err != nil {
 		slog.Error("AuditPage: GetAuditLog", "err", err)
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
 	}
 
-	total, err := db.CountAuditLog()
+	total, err := hookCountAuditLog()
 	if err != nil {
 		slog.Error("AuditPage: CountAuditLog", "err", err)
 	}

@@ -60,20 +60,20 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	pendingCookie, _ := r.Cookie("pending_2fa")
 	if pendingCookie != nil && twoFactorCode != "" {
 		// Validation du code 2FA
-		pendingUserID, err := auth.ValidatePending2FAToken(pendingCookie.Value)
+		pendingUserID, err := hookValidatePending2FAToken(pendingCookie.Value)
 		if err != nil {
 			http.Error(w, "Session expirée, veuillez vous reconnecter", http.StatusUnauthorized)
 			return
 		}
 
-		user, err := db.GetUserByID(pendingUserID)
+		user, err := hookGetUserByID(pendingUserID)
 		if err != nil || user == nil {
 			http.Error(w, "Utilisateur non trouvé", http.StatusUnauthorized)
 			return
 		}
 
 		// Déchiffrer le secret MFA
-		secret, err := crypto.Decrypt(*user.MFASecret)
+		secret, err := hookDecryptStr(*user.MFASecret)
 		if err != nil {
 			http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 			return
@@ -87,7 +87,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		clearCookie(w, "pending_2fa")
 
 		// Générer le token JWT
-		token, err := auth.GenerateToken(user.ID, user.Role, user.Language, user.Currency, user.SessionVersion)
+		token, err := hookGenerateToken(user.ID, user.Role, user.Language, user.Currency, user.SessionVersion)
 		if err != nil {
 			http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 			return
@@ -116,7 +116,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Chercher l'utilisateur par blind index
 	blindIndex := crypto.ComputeBlindIndex(email)
-	user, err := db.GetUserByBlindIndex(blindIndex)
+	user, err := hookGetUserByBlindIndex(blindIndex)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
@@ -157,7 +157,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// Vérifier 2FA si activé
 	if user.MFAEnabled {
 		// Stocker l'ID utilisateur validé dans un cookie temporaire signé
-		pendingToken, err := auth.GeneratePending2FAToken(user.ID)
+		pendingToken, err := hookGeneratePending2FAToken(user.ID)
 		if err != nil {
 			http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 			return
@@ -178,7 +178,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Générer le token JWT
-	token, err := auth.GenerateToken(user.ID, user.Role, user.Language, user.Currency, user.SessionVersion)
+	token, err := hookGenerateToken(user.ID, user.Role, user.Language, user.Currency, user.SessionVersion)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return

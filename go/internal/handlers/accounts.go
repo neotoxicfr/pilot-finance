@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
@@ -51,7 +50,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Chiffrer le nom du compte
-	encryptedName, err := crypto.Encrypt(name)
+	encryptedName, err := hookEncryptStr(name)
 	if err != nil {
 		http.Error(w, "Erreur chiffrement", http.StatusInternalServerError)
 		return
@@ -134,7 +133,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "ID invalide", http.StatusBadRequest)
 			return
 		}
-		err = db.UpdateAccountWithYield(id, user.ID, encryptedName, balance, color, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
+		err = hookUpdateAccountWithYield(id, user.ID, encryptedName, balance, color, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
 		if err != nil {
 			http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 			return
@@ -142,13 +141,13 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		db.LogAudit(user.ID, db.AuditAccountUpdate, getClientIP(r), r.UserAgent())
 	} else {
 		// Creation d'un nouveau compte
-		existingAccounts, posErr := db.GetAccountsByUserID(user.ID)
+		existingAccounts, posErr := hookGetAccountsByUserID(user.ID)
 		if posErr != nil {
 			slog.Warn("CreateAccount: position lookup", "err", posErr)
 		}
 		position := len(existingAccounts)
 
-		err := db.CreateAccountWithYield(user.ID, encryptedName, balance, color, position, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
+		err := hookCreateAccountWithYield(user.ID, encryptedName, balance, color, position, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
 		if err != nil {
 			http.Error(w, "Erreur création", http.StatusInternalServerError)
 			return
@@ -175,7 +174,7 @@ func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = db.DeleteAccount(id, user.ID)
+	err = hookDeleteAccount(id, user.ID)
 	if err != nil {
 		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
 		return
@@ -214,7 +213,7 @@ func UpdateBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = db.UpdateAccountBalance(id, user.ID, balance)
+	err = hookUpdateAccountBalance(id, user.ID, balance)
 	if err != nil {
 		http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 		return
@@ -245,7 +244,7 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Recuperer tous les comptes tries par position
-	accounts, err := db.GetAccountsByUserID(user.ID)
+	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
@@ -281,7 +280,7 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Echanger les positions
-	err = db.SwapAccountPositions(accounts[currentIdx].ID, accounts[targetIdx].ID, user.ID)
+	err = hookSwapAccountPositions(accounts[currentIdx].ID, accounts[targetIdx].ID, user.ID)
 	if err != nil {
 		http.Error(w, "Erreur déplacement", http.StatusInternalServerError)
 		return
@@ -319,11 +318,11 @@ func ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 	lang, currency := userLocale(user)
 
-	accounts, err := db.GetAccountsByUserID(user.ID)
+	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
 		slog.Error("renderAccountsList: accounts", "err", err)
 	}
-	recurrings, err := db.GetRecurringByUserID(user.ID)
+	recurrings, err := hookGetRecurringByUserID(user.ID)
 	if err != nil {
 		slog.Error("renderAccountsList: recurring", "err", err)
 	}
