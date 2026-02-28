@@ -23,12 +23,12 @@ var hexColorRegex = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifie", http.StatusUnauthorized)
+		http.Error(w, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Donnees invalides", http.StatusBadRequest)
+		http.Error(w, "Données invalides", http.StatusBadRequest)
 		return
 	}
 
@@ -136,7 +136,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		}
 		err = db.UpdateAccountWithYield(id, user.ID, encryptedName, balance, color, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
 		if err != nil {
-			http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
+			http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 			return
 		}
 		db.LogAudit(user.ID, db.AuditAccountUpdate, getClientIP(r), r.UserAgent())
@@ -150,7 +150,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 
 		err := db.CreateAccountWithYield(user.ID, encryptedName, balance, color, position, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
 		if err != nil {
-			http.Error(w, "Erreur creation", http.StatusInternalServerError)
+			http.Error(w, "Erreur création", http.StatusInternalServerError)
 			return
 		}
 		db.LogAudit(user.ID, db.AuditAccountCreate, getClientIP(r), r.UserAgent())
@@ -164,7 +164,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifie", http.StatusUnauthorized)
+		http.Error(w, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
@@ -191,7 +191,7 @@ func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 func UpdateBalance(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifie", http.StatusUnauthorized)
+		http.Error(w, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
@@ -203,7 +203,7 @@ func UpdateBalance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Donnees invalides", http.StatusBadRequest)
+		http.Error(w, "Données invalides", http.StatusBadRequest)
 		return
 	}
 
@@ -216,7 +216,7 @@ func UpdateBalance(w http.ResponseWriter, r *http.Request) {
 
 	err = db.UpdateAccountBalance(id, user.ID, balance)
 	if err != nil {
-		http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
+		http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 		return
 	}
 
@@ -227,7 +227,7 @@ func UpdateBalance(w http.ResponseWriter, r *http.Request) {
 func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifie", http.StatusUnauthorized)
+		http.Error(w, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
@@ -261,7 +261,7 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if currentIdx == -1 {
-		http.Error(w, "Compte non trouve", http.StatusNotFound)
+		http.Error(w, "Compte non trouvé", http.StatusNotFound)
 		return
 	}
 
@@ -283,7 +283,7 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	// Echanger les positions
 	err = db.SwapAccountPositions(accounts[currentIdx].ID, accounts[targetIdx].ID, user.ID)
 	if err != nil {
-		http.Error(w, "Erreur deplacement", http.StatusInternalServerError)
+		http.Error(w, "Erreur déplacement", http.StatusInternalServerError)
 		return
 	}
 
@@ -295,7 +295,7 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 func ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifie", http.StatusUnauthorized)
+		http.Error(w, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
@@ -303,12 +303,12 @@ func ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 		IDs []int64 `json:"ids"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.IDs) == 0 {
-		http.Error(w, "Donnees invalides", http.StatusBadRequest)
+		http.Error(w, "Données invalides", http.StatusBadRequest)
 		return
 	}
 
 	if err := db.ReorderAccounts(user.ID, body.IDs); err != nil {
-		http.Error(w, "Erreur reordonnancement", http.StatusInternalServerError)
+		http.Error(w, "Erreur réordonnancement", http.StatusInternalServerError)
 		return
 	}
 

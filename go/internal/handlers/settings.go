@@ -18,12 +18,12 @@ import (
 func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifie", http.StatusUnauthorized)
+		http.Error(w, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Donnees invalides", http.StatusBadRequest)
+		http.Error(w, "Données invalides", http.StatusBadRequest)
 		return
 	}
 
@@ -49,7 +49,7 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	// Récupérer l'utilisateur complet pour vérifier le mot de passe
 	dbUser, err := db.GetUserByID(user.ID)
 	if err != nil || dbUser == nil {
-		http.Error(w, "Utilisateur non trouve", http.StatusNotFound)
+		http.Error(w, "Utilisateur non trouvé", http.StatusNotFound)
 		return
 	}
 
@@ -69,7 +69,7 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	// Mettre a jour
 	err = db.UpdatePassword(user.ID, hashedPassword)
 	if err != nil {
-		http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
+		http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 		return
 	}
 
@@ -82,12 +82,12 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 func UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifie", http.StatusUnauthorized)
+		http.Error(w, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Donnees invalides", http.StatusBadRequest)
+		http.Error(w, "Données invalides", http.StatusBadRequest)
 		return
 	}
 
@@ -108,7 +108,7 @@ func UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := db.UpdateUserPreferences(user.ID, language, currency); err != nil {
-		http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
+		http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 		return
 	}
 
@@ -226,7 +226,7 @@ func DeleteSelfAccount(w http.ResponseWriter, r *http.Request) {
 func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil || user.Role != "ADMIN" {
-		http.Error(w, "Non autorise", http.StatusForbidden)
+		http.Error(w, "Non autorisé", http.StatusForbidden)
 		return
 	}
 
@@ -240,7 +240,7 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	// Ne pas permettre de supprimer un admin
 	targetUser, err := db.GetUserByID(id)
 	if err != nil {
-		http.Error(w, "Utilisateur non trouve", http.StatusNotFound)
+		http.Error(w, "Utilisateur non trouvé", http.StatusNotFound)
 		return
 	}
 

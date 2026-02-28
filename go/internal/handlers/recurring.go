@@ -19,12 +19,12 @@ import (
 func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifie", http.StatusUnauthorized)
+		http.Error(w, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Donnees invalides", http.StatusBadRequest)
+		http.Error(w, "Données invalides", http.StatusBadRequest)
 		return
 	}
 
@@ -89,14 +89,14 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 		}
 		err = db.UpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
 		if err != nil {
-			http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
+			http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 			return
 		}
 	} else {
 		// Creation
 		err = db.CreateRecurring(user.ID, accountID, toAccountID, encryptedDesc, amount, day)
 		if err != nil {
-			http.Error(w, "Erreur creation", http.StatusInternalServerError)
+			http.Error(w, "Erreur création", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -109,7 +109,7 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifie", http.StatusUnauthorized)
+		http.Error(w, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
@@ -121,7 +121,7 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Donnees invalides", http.StatusBadRequest)
+		http.Error(w, "Données invalides", http.StatusBadRequest)
 		return
 	}
 
@@ -160,7 +160,7 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 
 	err = db.UpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
 	if err != nil {
-		http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
+		http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 		return
 	}
 
@@ -171,7 +171,7 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 func DeleteRecurring(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifie", http.StatusUnauthorized)
+		http.Error(w, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
