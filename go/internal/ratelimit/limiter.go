@@ -59,6 +59,9 @@ var (
 	mu       sync.Mutex
 )
 
+// limiterCleanupInterval est la durée entre deux nettoyages ; injectable dans les tests.
+var limiterCleanupInterval = 5 * time.Minute
+
 // getLimiter retourne le limiter pour une action donnée
 func getLimiter(action string) *Limiter {
 	mu.Lock()
@@ -76,7 +79,7 @@ func getLimiter(action string) *Limiter {
 
 	// Nettoyage périodique
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
+		ticker := time.NewTicker(limiterCleanupInterval)
 		defer ticker.Stop()
 		for {
 			select {

@@ -4,10 +4,16 @@ import (
 	"testing"
 )
 
-func TestLoad_Success(t *testing.T) {
+// setupBaseEnv configure les 3 variables d'environnement obligatoires avec des valeurs valides.
+func setupBaseEnv(t *testing.T) {
+	t.Helper()
 	t.Setenv("AUTH_SECRET", "this-is-a-32-char-secret-minimum!!")
 	t.Setenv("ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
 	t.Setenv("BLIND_INDEX_KEY", "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210")
+}
+
+func TestLoad_Success(t *testing.T) {
+	setupBaseEnv(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -22,9 +28,7 @@ func TestLoad_Success(t *testing.T) {
 }
 
 func TestLoad_WithDefaults(t *testing.T) {
-	t.Setenv("AUTH_SECRET", "this-is-a-32-char-secret-minimum!!")
-	t.Setenv("ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
-	t.Setenv("BLIND_INDEX_KEY", "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210")
+	setupBaseEnv(t)
 
 	cfg, err := Load()
 	if err != nil {
@@ -39,9 +43,7 @@ func TestLoad_WithDefaults(t *testing.T) {
 }
 
 func TestLoad_WithEnvOverrides(t *testing.T) {
-	t.Setenv("AUTH_SECRET", "this-is-a-32-char-secret-minimum!!")
-	t.Setenv("ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
-	t.Setenv("BLIND_INDEX_KEY", "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210")
+	setupBaseEnv(t)
 	t.Setenv("PORT", "8080")
 	t.Setenv("HOST", "myapp.example.com")
 	t.Setenv("ALLOW_REGISTER", "true")
@@ -62,9 +64,8 @@ func TestLoad_WithEnvOverrides(t *testing.T) {
 }
 
 func TestLoad_MissingAuthSecret(t *testing.T) {
+	setupBaseEnv(t)
 	t.Setenv("AUTH_SECRET", "")
-	t.Setenv("ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
-	t.Setenv("BLIND_INDEX_KEY", "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210")
 
 	_, err := Load()
 	if err == nil {
@@ -73,9 +74,8 @@ func TestLoad_MissingAuthSecret(t *testing.T) {
 }
 
 func TestLoad_AuthSecretTooShort(t *testing.T) {
+	setupBaseEnv(t)
 	t.Setenv("AUTH_SECRET", "short")
-	t.Setenv("ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
-	t.Setenv("BLIND_INDEX_KEY", "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210")
 
 	_, err := Load()
 	if err == nil {
@@ -84,9 +84,8 @@ func TestLoad_AuthSecretTooShort(t *testing.T) {
 }
 
 func TestLoad_MissingEncryptionKey(t *testing.T) {
-	t.Setenv("AUTH_SECRET", "this-is-a-32-char-secret-minimum!!")
+	setupBaseEnv(t)
 	t.Setenv("ENCRYPTION_KEY", "")
-	t.Setenv("BLIND_INDEX_KEY", "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210")
 
 	_, err := Load()
 	if err == nil {
@@ -95,9 +94,8 @@ func TestLoad_MissingEncryptionKey(t *testing.T) {
 }
 
 func TestLoad_WrongEncryptionKeyLength(t *testing.T) {
-	t.Setenv("AUTH_SECRET", "this-is-a-32-char-secret-minimum!!")
+	setupBaseEnv(t)
 	t.Setenv("ENCRYPTION_KEY", "0123456789abcdef") // 16 hex chars, not 64
-	t.Setenv("BLIND_INDEX_KEY", "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210")
 
 	_, err := Load()
 	if err == nil {
@@ -106,8 +104,7 @@ func TestLoad_WrongEncryptionKeyLength(t *testing.T) {
 }
 
 func TestLoad_MissingBlindIndexKey(t *testing.T) {
-	t.Setenv("AUTH_SECRET", "this-is-a-32-char-secret-minimum!!")
-	t.Setenv("ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+	setupBaseEnv(t)
 	t.Setenv("BLIND_INDEX_KEY", "")
 
 	_, err := Load()
@@ -117,8 +114,7 @@ func TestLoad_MissingBlindIndexKey(t *testing.T) {
 }
 
 func TestLoad_WrongBlindIndexKeyLength(t *testing.T) {
-	t.Setenv("AUTH_SECRET", "this-is-a-32-char-secret-minimum!!")
-	t.Setenv("ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+	setupBaseEnv(t)
 	t.Setenv("BLIND_INDEX_KEY", "fedcba98") // too short
 
 	_, err := Load()
@@ -128,9 +124,7 @@ func TestLoad_WrongBlindIndexKeyLength(t *testing.T) {
 }
 
 func TestLoad_MailEnabled_MissingSMTP(t *testing.T) {
-	t.Setenv("AUTH_SECRET", "this-is-a-32-char-secret-minimum!!")
-	t.Setenv("ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
-	t.Setenv("BLIND_INDEX_KEY", "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210")
+	setupBaseEnv(t)
 	t.Setenv("ENABLE_MAIL", "true")
 	t.Setenv("SMTP_HOST", "")
 	t.Setenv("SMTP_USER", "")
@@ -144,9 +138,7 @@ func TestLoad_MailEnabled_MissingSMTP(t *testing.T) {
 }
 
 func TestLoad_MailEnabled_FullSMTP(t *testing.T) {
-	t.Setenv("AUTH_SECRET", "this-is-a-32-char-secret-minimum!!")
-	t.Setenv("ENCRYPTION_KEY", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
-	t.Setenv("BLIND_INDEX_KEY", "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210")
+	setupBaseEnv(t)
 	t.Setenv("ENABLE_MAIL", "true")
 	t.Setenv("SMTP_HOST", "smtp.example.com")
 	t.Setenv("SMTP_USER", "user@example.com")
