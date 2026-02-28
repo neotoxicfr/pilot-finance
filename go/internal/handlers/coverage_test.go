@@ -394,6 +394,114 @@ func TestAuditPage_Pagination(t *testing.T) {
 	}
 }
 
+// --- UpdateBalance : ID invalide ---
+
+func TestUpdateBalance_InvalidID(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "updbalidx@example.com", "ValidP@ss1!", "USER")
+
+	req := injectUser(
+		withParam(post("/accounts/abc/balance", url.Values{"balance": {"1000"}}), "id", "abc"),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	UpdateBalance(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (invalid id), got %d", rr.Code)
+	}
+}
+
+// --- ChangePassword : utilisateur introuvable en DB ---
+
+func TestChangePassword_UserNotInDB(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+
+	// Injecter un utilisateur avec un ID qui n'existe pas en base
+	req := injectUser(post("/settings/password", url.Values{
+		"currentPassword": {"OldP@ss1!"},
+		"newPassword":     {"NewValidP@ssw0rd!"},
+		"confirmPassword": {"NewValidP@ssw0rd!"},
+	}), mu(99999, "USER")) // ID inexistant
+	rr := httptest.NewRecorder()
+	ChangePassword(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("want 404 (user not in db), got %d", rr.Code)
+	}
+}
+
+// --- renderAccountsList : compte avec rendement YEARLY + récurrente négative ---
+// Couvre les branches : payout.PayoutFrequency=="YEARLY" et rec.Amount < 0
+
+func TestCreateAccount_YieldYearly_CoversPayoutBranch(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "yldyrly@example.com", "ValidP@ss1!", "USER")
+
+	// 1. Créer un compte avec rendement annuel actif
+	req1 := injectUser(post("/accounts", url.Values{
+		"name":            {"PEA"},
+		"balance":         {"10000"},
+		"color":           {"#3b82f6"},
+		"isYieldActive":   {"on"},
+		"yieldType":       {"FIXED"},
+		"yieldMin":        {"5.0"},
+		"yieldMax":        {"5.0"},
+		"payoutFrequency": {"YEARLY"},
+	}), mu(uid, "USER"))
+	rr1 := httptest.NewRecorder()
+	CreateAccount(rr1, req1)
+	if rr1.Code != http.StatusOK {
+		t.Fatalf("create yield account: want 200, got %d (body: %s)", rr1.Code, rr1.Body.String())
+	}
+
+	// 2. Ajouter une récurrente avec montant négatif (dépense)
+	accID := createAcc(t, uid) // compte pour la récurrente
+	req2 := injectUser(post("/recurring", url.Values{
+		"description": {"Loyer"},
+		"amount":      {"-1200"},
+		"dayOfMonth":  {"1"},
+		"type":        {"expense"},
+		"accountId":   {strconv.FormatInt(accID, 10)},
+	}), mu(uid, "USER"))
+	rr2 := httptest.NewRecorder()
+	CreateRecurring(rr2, req2)
+	if rr2.Code != http.StatusOK {
+		t.Fatalf("create expense recurring: want 200, got %d", rr2.Code)
+	}
+}
+
+// --- AccountsPage avec données riches (YEARLY yield + récurrente transfer) ---
+
+func TestAccountsPage_WithRichData(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "richaccp@example.com", "ValidP@ss1!", "USER")
+
+	// Compte avec rendement YEARLY
+	accReq := injectUser(post("/accounts", url.Values{
+		"name":            {"Obligations"},
+		"balance":         {"5000"},
+		"color":           {"#10b981"},
+		"isYieldActive":   {"true"},
+		"yieldType":       {"FIXED"},
+		"yieldMin":        {"3.0"},
+		"yieldMax":        {"3.0"},
+		"payoutFrequency": {"YEARLY"},
+	}), mu(uid, "USER"))
+	rrAcc := httptest.NewRecorder()
+	CreateAccount(rrAcc, accReq)
+
+	// Accéder à AccountsPage
+	pageReq := injectUser(httptest.NewRequest(http.MethodGet, "/accounts", nil), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	AccountsPage(rr, pageReq)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d (body: %s)", rr.Code, rr.Body.String())
+	}
+}
+
 // --- DashboardAPI : paramètre years ---
 
 func TestDashboardAPI_WithYearsParam(t *testing.T) {
