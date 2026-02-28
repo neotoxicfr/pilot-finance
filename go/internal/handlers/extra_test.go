@@ -1095,3 +1095,98 @@ func TestHandleLogin_Success_ResetsFailedAttempts(t *testing.T) {
 		t.Errorf("want 303, got %d", rr.Code)
 	}
 }
+
+// --- LegalPage ---
+
+func TestLegalPage_Anonymous(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+
+	rr := httptest.NewRecorder()
+	LegalPage(rr, httptest.NewRequest(http.MethodGet, "/legal", nil))
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d", rr.Code)
+	}
+}
+
+func TestLegalPage_Authenticated(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "legal@example.com", "ValidP@ss1!", "USER")
+
+	rr := httptest.NewRecorder()
+	LegalPage(rr, injectUser(httptest.NewRequest(http.MethodGet, "/legal", nil), mu(uid, "USER")))
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d", rr.Code)
+	}
+}
+
+// --- CreateRecurring IDOR checks ---
+
+func TestCreateRecurring_AccountNotOwned(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "idor1@example.com", "ValidP@ss1!", "USER")
+	uid2 := newUser(t, "idor2@example.com", "ValidP@ss1!", "USER")
+	accID2 := createAcc(t, uid2) // compte de l'autre utilisateur
+
+	req := injectUser(post("/recurring", url.Values{
+		"description": {"Test"},
+		"amount":      {"100"},
+		"dayOfMonth":  {"1"},
+		"type":        {"expense"},
+		"accountId":   {strconv.FormatInt(accID2, 10)},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	CreateRecurring(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (IDOR), got %d", rr.Code)
+	}
+}
+
+func TestCreateRecurring_ToAccountNotOwned(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "idor3@example.com", "ValidP@ss1!", "USER")
+	uid2 := newUser(t, "idor4@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	accID2 := createAcc(t, uid2) // compte destinataire de l'autre utilisateur
+
+	req := injectUser(post("/recurring", url.Values{
+		"description": {"Virement"},
+		"amount":      {"500"},
+		"dayOfMonth":  {"15"},
+		"type":        {"transfer"},
+		"accountId":   {strconv.FormatInt(accID, 10)},
+		"toAccountId": {strconv.FormatInt(accID2, 10)},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	CreateRecurring(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (IDOR toAccount), got %d", rr.Code)
+	}
+}
+
+// --- CreateAccount IDOR check (targetAccountId) ---
+
+func TestCreateAccount_TargetAccountNotOwned(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "idor5@example.com", "ValidP@ss1!", "USER")
+	uid2 := newUser(t, "idor6@example.com", "ValidP@ss1!", "USER")
+	accID2 := createAcc(t, uid2)
+
+	req := injectUser(post("/accounts", url.Values{
+		"name":            {"Livret A"},
+		"balance":         {"1000"},
+		"isYieldActive":   {"on"},
+		"yieldType":       {"FIXED"},
+		"yieldMin":        {"2"},
+		"targetAccountId": {strconv.FormatInt(accID2, 10)},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	CreateAccount(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (IDOR targetAccount), got %d", rr.Code)
+	}
+}

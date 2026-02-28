@@ -279,7 +279,8 @@ func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 
 	data := baseData(r, nil)
-	data["Title"] = "Verification email"
+	t := data["T"].(map[string]string)
+	data["Title"] = t["page.title_verify_email"]
 	data["Success"] = false
 	data["Error"] = ""
 
@@ -316,12 +317,28 @@ func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 func PrivacyPage(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	data := baseData(r, user)
-	data["Title"] = "Privacy Policy"
+	t := data["T"].(map[string]string)
+	data["Title"] = t["page.title_privacy"]
 	if user != nil {
 		data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "privacy.html", data); err != nil {
+		http.Error(w, "Erreur template: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// LegalPage affiche les mentions légales
+func LegalPage(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUser(r)
+	data := baseData(r, user)
+	t := data["T"].(map[string]string)
+	data["Title"] = t["page.title_legal"]
+	if user != nil {
+		data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := hookRender(w, "legal.html", data); err != nil {
 		http.Error(w, "Erreur template: "+err.Error(), http.StatusInternalServerError)
 	}
 }

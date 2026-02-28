@@ -101,10 +101,9 @@ func main() {
 
 	// Créer le routeur
 	r := chi.NewRouter()
-	r.NotFound(handlers.NotFound)
-	r.MethodNotAllowed(handlers.MethodNotAllowed)
 
-	// Middlewares globaux
+	// Middlewares globaux — doivent être déclarés AVANT NotFound/MethodNotAllowed
+	// pour que chi les applique aux handlers d'erreur
 	r.Use(chimw.RealIP)
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
@@ -112,6 +111,9 @@ func main() {
 	r.Use(securityHeaders)
 	r.Use(maxBodySize)
 	r.Use(httprate.LimitByRealIP(120, time.Minute)) // 120 req/min global (2/s, suffisant pour usage actif)
+
+	r.NotFound(handlers.NotFound)
+	r.MethodNotAllowed(handlers.MethodNotAllowed)
 
 	// Fichiers statiques avec cache (pas de rate limit)
 	fileServer := http.FileServer(http.Dir("static"))
@@ -140,6 +142,7 @@ func main() {
 	r.With(middleware.ValidateOrigin(host), middleware.OptionalAuth).Post("/logout", handlers.Logout)
 	r.Get("/verify-email", handlers.VerifyEmailPage)
 	r.With(middleware.OptionalAuth).Get("/privacy", handlers.PrivacyPage)
+	r.With(middleware.OptionalAuth).Get("/legal", handlers.LegalPage)
 
 	// Routes protégées
 	r.Group(func(r chi.Router) {
@@ -161,7 +164,7 @@ func main() {
 		r.Get("/settings", handlers.SettingsPage)
 		r.Post("/settings/password", handlers.ChangePassword)
 		r.Post("/settings/preferences", handlers.UpdatePreferences)
-		r.Get("/settings/export", handlers.ExportData)
+		r.With(httprate.LimitByRealIP(10, time.Minute)).Get("/settings/export", handlers.ExportData)
 		r.Delete("/settings/account", handlers.DeleteSelfAccount)
 
 		// Routes MFA

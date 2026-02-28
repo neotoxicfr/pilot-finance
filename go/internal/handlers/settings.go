@@ -248,7 +248,9 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = hookDeleteUser(id)
+	db.LogAudit(user.ID, db.AuditAdminDeleteUser, getClientIP(r), r.UserAgent())
+
+	err = hookDeleteUserAndData(id)
 	if err != nil {
 		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
 		return

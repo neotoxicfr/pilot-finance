@@ -93,6 +93,13 @@ func DeleteAccount(id, userID int64) error {
 	return tx.Commit()
 }
 
+// AccountBelongsToUser vérifie qu'un compte appartient à l'utilisateur donné.
+func AccountBelongsToUser(accountID, userID int64) (bool, error) {
+	var count int
+	err := DB.QueryRow(`SELECT COUNT(*) FROM accounts WHERE id = ? AND user_id = ?`, accountID, userID).Scan(&count)
+	return count > 0, err
+}
+
 // SwapAccountPositions echange les positions de deux comptes
 func SwapAccountPositions(id1, id2, userID int64) error {
 	tx, err := DB.Begin()
