@@ -35,7 +35,7 @@
                           hx-swap="innerHTML"
                           data-toast=""
                           class="space-y-5">
-                        <input type="hidden" name="id" :value="editingAccount?.id || ''">
+                        <input type="hidden" name="id" x-model="accountEditId">
                         <div class="grid grid-cols-2 gap-4">
                             <input type="text" name="name" placeholder="{{index .T "accounts.name_placeholder"}}" required
                                    :value="editingAccount?.name || ''"
@@ -196,7 +196,7 @@
                           hx-swap="innerHTML"
                           data-toast=""
                           class="space-y-4">
-                            <input type="hidden" name="id" :value="editingRecurring?.ID || ''">
+                            <input type="hidden" name="id" x-model="recurringEditId">
                             <div class="flex gap-3">
                                 <input type="text" name="description" placeholder="{{index .T "recurring.label_placeholder"}}" required
                                        :value="editingRecurring?.Description || ''"
@@ -258,6 +258,7 @@
 function accountsPage() {
     return {
         editingAccount: null,
+        accountEditId: '',
         selectedColor: '#3b82f6',
         isYieldActive: false,
         yieldType: 'FIXED',
@@ -269,6 +270,7 @@ function accountsPage() {
 
         openAccountForm(account) {
             this.editingAccount = account;
+            this.accountEditId = account ? String(account.id) : '';
             this.selectedColor = account?.color || '#3b82f6';
             this.isYieldActive = account?.is_yield_active || false;
             this.yieldType = account?.yield_type || 'FIXED';
@@ -281,12 +283,14 @@ function accountsPage() {
         },
 
         editingRecurring: null,
+        recurringEditId: '',
         opType: 'expense',
         accountId: '',
         toAccountId: '',
 
         openRecurringForm(recurring) {
             this.editingRecurring = recurring;
+            this.recurringEditId = recurring ? String(recurring.ID) : '';
             this.accountId = recurring?.AccountID ? String(recurring.AccountID) : '';
             this.toAccountId = recurring?.ToAccountID ? String(recurring.ToAccountID) : '';
             if (!recurring) {
