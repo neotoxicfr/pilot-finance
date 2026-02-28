@@ -140,6 +140,7 @@ func main() {
 	r.With(middleware.ValidateOrigin(host), middleware.OptionalAuth).Post("/logout", handlers.Logout)
 	r.Get("/verify-email", handlers.VerifyEmailPage)
 	r.With(middleware.OptionalAuth).Get("/privacy", handlers.PrivacyPage)
+	r.With(middleware.OptionalAuth).Get("/legal", handlers.LegalPage)
 
 	// Routes protégées
 	r.Group(func(r chi.Router) {
@@ -161,7 +162,7 @@ func main() {
 		r.Get("/settings", handlers.SettingsPage)
 		r.Post("/settings/password", handlers.ChangePassword)
 		r.Post("/settings/preferences", handlers.UpdatePreferences)
-		r.Get("/settings/export", handlers.ExportData)
+		r.With(httprate.LimitByRealIP(10, time.Minute)).Get("/settings/export", handlers.ExportData)
 		r.Delete("/settings/account", handlers.DeleteSelfAccount)
 
 		// Routes MFA
