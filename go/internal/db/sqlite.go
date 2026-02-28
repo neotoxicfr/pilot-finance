@@ -89,6 +89,75 @@ func runMigrations(dbPath string) {
 	}
 
 	migrations := []migration{
+		{Name: "000_base_schema", Run: func(d *sql.DB) error {
+			for _, stmt := range []string{
+				`CREATE TABLE IF NOT EXISTS users (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					email_encrypted TEXT NOT NULL,
+					email_blind_index TEXT NOT NULL UNIQUE,
+					password TEXT NOT NULL,
+					role TEXT NOT NULL DEFAULT 'user',
+					created_at INTEGER,
+					email_verified INTEGER DEFAULT 0,
+					verification_token TEXT,
+					reset_token TEXT,
+					reset_token_expiry INTEGER,
+					mfa_enabled INTEGER DEFAULT 0,
+					mfa_secret TEXT,
+					failed_login_attempts INTEGER DEFAULT 0,
+					lock_until INTEGER,
+					session_version INTEGER DEFAULT 1,
+					language TEXT NOT NULL DEFAULT 'fr',
+					currency TEXT NOT NULL DEFAULT 'EUR'
+				)`,
+				`CREATE TABLE IF NOT EXISTS accounts (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					user_id INTEGER NOT NULL,
+					name TEXT NOT NULL,
+					balance TEXT,
+					color TEXT,
+					position INTEGER DEFAULT 0,
+					updated_at INTEGER,
+					is_yield_active INTEGER DEFAULT 0,
+					yield_type TEXT DEFAULT 'FIXED',
+					yield_min TEXT DEFAULT '0',
+					yield_max TEXT DEFAULT '0',
+					yield_frequency TEXT NOT NULL DEFAULT 'MONTHLY',
+					payout_frequency TEXT NOT NULL DEFAULT 'MONTHLY',
+					last_yield_date INTEGER,
+					reinvestment_rate TEXT DEFAULT '100',
+					target_account_id INTEGER
+				)`,
+				`CREATE TABLE IF NOT EXISTS recurring_operations (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					user_id INTEGER NOT NULL,
+					account_id INTEGER NOT NULL,
+					to_account_id INTEGER,
+					amount TEXT,
+					description TEXT,
+					day_of_month INTEGER DEFAULT 1,
+					last_run_date INTEGER,
+					is_active INTEGER DEFAULT 1
+				)`,
+				`CREATE TABLE IF NOT EXISTS authenticators (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					credential_id TEXT NOT NULL UNIQUE,
+					credential_public_key TEXT NOT NULL,
+					counter INTEGER DEFAULT 0,
+					credential_device_type TEXT,
+					credential_backed_up INTEGER DEFAULT 0,
+					backup_eligible INTEGER DEFAULT 0,
+					transports TEXT,
+					user_id INTEGER NOT NULL,
+					name TEXT
+				)`,
+			} {
+				if _, err := d.Exec(stmt); err != nil {
+					return err
+				}
+			}
+			return nil
+		}},
 		{Name: "001_backup_eligible", SQL: `ALTER TABLE authenticators ADD COLUMN backup_eligible INTEGER DEFAULT 0`},
 		{Name: "002_user_language", SQL: `ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'fr'`},
 		{Name: "003_user_currency", SQL: `ALTER TABLE users ADD COLUMN currency TEXT NOT NULL DEFAULT 'EUR'`},
