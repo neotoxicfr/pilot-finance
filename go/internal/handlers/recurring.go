@@ -7,8 +7,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"pilot-finance/internal/crypto"
-	"pilot-finance/internal/db"
 	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/projection"
@@ -42,7 +40,7 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Chiffrer la description
-	encryptedDesc, err := crypto.Encrypt(description)
+	encryptedDesc, err := hookEncryptStr(description)
 	if err != nil {
 		http.Error(w, "Erreur chiffrement", http.StatusInternalServerError)
 		return
@@ -87,14 +85,14 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "ID invalide", http.StatusBadRequest)
 			return
 		}
-		err = db.UpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
+		err = hookUpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
 		if err != nil {
 			http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 			return
 		}
 	} else {
 		// Creation
-		err = db.CreateRecurring(user.ID, accountID, toAccountID, encryptedDesc, amount, day)
+		err = hookCreateRecurring(user.ID, accountID, toAccountID, encryptedDesc, amount, day)
 		if err != nil {
 			http.Error(w, "Erreur création", http.StatusInternalServerError)
 			return
@@ -132,7 +130,7 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 	toAccountIDStr := r.FormValue("toAccountId")
 
 	// Chiffrer la description
-	encryptedDesc, encErr := crypto.Encrypt(description)
+	encryptedDesc, encErr := hookEncryptStr(description)
 	if encErr != nil {
 		http.Error(w, "Erreur chiffrement", http.StatusInternalServerError)
 		return
@@ -158,7 +156,7 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 		amount = -amount
 	}
 
-	err = db.UpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
+	err = hookUpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
 	if err != nil {
 		http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 		return
@@ -182,7 +180,7 @@ func DeleteRecurring(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = db.DeleteRecurring(id, user.ID)
+	err = hookDeleteRecurring(id, user.ID)
 	if err != nil {
 		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
 		return

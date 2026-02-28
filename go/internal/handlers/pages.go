@@ -47,7 +47,7 @@ func LoginPage(w http.ResponseWriter, r *http.Request) {
 	data["ResetSuccess"] = r.URL.Query().Get("reset") == "success"
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := templates.Render(w, "login.html", data); err != nil {
+	if err := hookRender(w, "login.html", data); err != nil {
 		http.Error(w, "Erreur template", http.StatusInternalServerError)
 	}
 }
@@ -96,7 +96,7 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	decryptAccountNames(accounts)
-	recurrings, recErr := db.GetRecurringByUserID(user.ID)
+	recurrings, recErr := hookGetRecurringByUserID(user.ID)
 	if recErr != nil {
 		slog.Warn("Dashboard: recurring", "err", recErr, "userID", user.ID)
 	}
@@ -146,7 +146,7 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 	data["PieData"] = pieData
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := templates.Render(w, "dashboard.html", data); err != nil {
+	if err := hookRender(w, "dashboard.html", data); err != nil {
 		http.Error(w, "Erreur template: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -211,7 +211,7 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	data["AnnualYield"] = annualYield
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := templates.Render(w, "accounts.html", data); err != nil {
+	if err := hookRender(w, "accounts.html", data); err != nil {
 		http.Error(w, "Erreur template: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -269,7 +269,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := templates.Render(w, "settings.html", data); err != nil {
+	if err := hookRender(w, "settings.html", data); err != nil {
 		http.Error(w, "Erreur template: "+err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -294,7 +294,7 @@ func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 	hashedToken := crypto.HashToken(token)
 
 	// Verifier le token
-	err := db.VerifyEmailByToken(hashedToken)
+	err := hookVerifyEmailByToken(hashedToken)
 	if err != nil {
 		if err == db.ErrTokenInvalid {
 			data["Error"] = "Jeton invalide ou expiré."
@@ -321,7 +321,7 @@ func PrivacyPage(w http.ResponseWriter, r *http.Request) {
 		data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := templates.Render(w, "privacy.html", data); err != nil {
+	if err := hookRender(w, "privacy.html", data); err != nil {
 		http.Error(w, "Erreur template: "+err.Error(), http.StatusInternalServerError)
 	}
 }
