@@ -101,6 +101,8 @@ func main() {
 
 	// Créer le routeur
 	r := chi.NewRouter()
+	r.NotFound(handlers.NotFound)
+	r.MethodNotAllowed(handlers.MethodNotAllowed)
 
 	// Middlewares globaux
 	r.Use(chimw.RealIP)

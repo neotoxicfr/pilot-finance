@@ -681,8 +681,8 @@ func TestHandleLogin_NeedsRehash(t *testing.T) {
 	email := "rehash@example.com"
 	password := "ValidP@ss1!"
 
-	// Créer un utilisateur avec un hash bcrypt cost 10 (< 12 → NeedsRehash=true)
-	lowCostHash, _ := bcrypt.GenerateFromPassword([]byte(password), 10)
+	// Créer un utilisateur avec un hash bcrypt cost 4 (< 12 → NeedsRehash=true)
+	lowCostHash, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
 	encEmail, _ := crypto.Encrypt(email)
 	blind := crypto.ComputeBlindIndex(email)
 	db.CreateUser(encEmail, blind, string(lowCostHash), "USER")
