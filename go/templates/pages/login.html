@@ -103,10 +103,11 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
             <template x-if="!requires2FA">
                 <div class="space-y-4">
                     <div class="relative group">
+                        <label for="login-email" class="sr-only">{{index .T "login.email_placeholder"}}</label>
                         <div class="absolute left-3 top-3 text-muted-foreground group-focus-within:text-blue-500 transition-colors">
                             {{template "icon-mail" dict "Size" 18}}
                         </div>
-                        <input name="email" type="email" required
+                        <input id="login-email" name="email" type="email" required
                                class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-hidden focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
                                placeholder="{{index .T "login.email_placeholder"}}">
                     </div>
@@ -117,10 +118,11 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
                         </div>
                         {{end}}
                         <div class="relative group">
+                            <label for="login-password" class="sr-only">{{index .T "login.password_placeholder"}}</label>
                             <div class="absolute left-3 top-3 text-muted-foreground group-focus-within:text-blue-500 transition-colors">
                                 {{template "icon-lock" dict "Size" 18}}
                             </div>
-                            <input name="password" type="password" required x-model="password"
+                            <input id="login-password" name="password" type="password" required x-model="password"
                                    class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-hidden focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
                                    placeholder="{{index .T "login.password_placeholder"}}">
                         </div>
@@ -129,10 +131,11 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
                     <template x-if="isRegister">
                         <div class="space-y-4">
                             <div class="relative group">
+                                <label for="login-confirm" class="sr-only">{{index .T "login.confirm_placeholder"}}</label>
                                 <div class="absolute left-3 top-3 text-muted-foreground group-focus-within:text-blue-500 transition-colors">
                                     {{template "icon-check" dict "Size" 18}}
                                 </div>
-                                <input name="confirmPassword" type="password" required x-model="confirm"
+                                <input id="login-confirm" name="confirmPassword" type="password" required x-model="confirm"
                                        class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-hidden focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
                                        placeholder="{{index .T "login.confirm_placeholder"}}">
                             </div>
@@ -147,7 +150,8 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
                     <div class="flex items-center gap-2 text-blue-500 font-bold text-sm mb-3">
                         {{template "icon-shield" dict "Size" 18}} {{index .T "login.totp_title"}}
                     </div>
-                    <input name="twoFactorCode" type="text" inputmode="numeric" maxlength="6" autofocus required
+                    <label for="login-totp" class="sr-only">{{index .T "login.totp_title"}}</label>
+                    <input id="login-totp" name="twoFactorCode" type="text" inputmode="numeric" maxlength="6" autofocus required
                            class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden text-center text-xl tracking-[0.5em] font-mono focus:border-blue-500 transition-colors"
                            placeholder="000000">
                     <p class="text-[10px] text-muted-foreground text-center mt-2">{{index .T "login.totp_help"}}</p>
