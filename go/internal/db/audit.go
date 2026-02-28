@@ -1,6 +1,7 @@
 package db
 
 import (
+	"log/slog"
 	"time"
 )
 
@@ -33,8 +34,35 @@ type AuditEntry struct {
 
 // LogAudit enregistre une action dans le journal d'audit (fire-and-forget).
 func LogAudit(userID int64, action, ip, userAgent string) {
-	DB.Exec(`INSERT INTO audit_log (user_id, action, ip, user_agent, created_at) VALUES (?, ?, ?, ?, ?)`,
-		userID, action, ip, userAgent, time.Now().Unix())
+	if _, err := DB.Exec(`INSERT INTO audit_log (user_id, action, ip, user_agent, created_at) VALUES (?, ?, ?, ?, ?)`,
+		userID, action, ip, userAgent, time.Now().Unix()); err != nil {
+		slog.Warn("audit log insert failed", "action", action, "userID", userID, "err", err)
+	}
+}
+
+// GetAuditLogByUserID retourne toutes les entrées d'audit d'un utilisateur (export GDPR).
+func GetAuditLogByUserID(userID int64) ([]AuditEntry, error) {
+	rows, err := DB.Query(`
+		SELECT id, user_id, action, ip, user_agent, created_at
+		FROM audit_log WHERE user_id = ?
+		ORDER BY created_at DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []AuditEntry
+	for rows.Next() {
+		var e AuditEntry
+		var ts int64
+		if err := rows.Scan(&e.ID, &e.UserID, &e.Action, &e.IP, &e.UserAgent, &ts); err != nil {
+			return nil, err
+		}
+		e.CreatedAt = time.Unix(ts, 0)
+		entries = append(entries, e)
+	}
+	return entries, rows.Err()
 }
 
 // GetAuditLog retourne les entrées d'audit paginées, les plus récentes en premier.
