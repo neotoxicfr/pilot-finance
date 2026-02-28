@@ -31,7 +31,6 @@ var (
 	hookEnableMFA                = db.EnableMFA
 	hookDisableMFA               = db.DisableMFA
 	hookDeleteUserAndData        = db.DeleteUserAndData
-	hookDeleteUser               = db.DeleteUser
 	hookGetAllUsers              = db.GetAllUsers
 	hookGetUserByID              = db.GetUserByID
 	hookValidatePending2FAToken  = auth.ValidatePending2FAToken
@@ -39,6 +38,7 @@ var (
 	hookUpdateAccountWithYield   = db.UpdateAccountWithYield
 	hookCreateAccountWithYield   = db.CreateAccountWithYield
 	hookDeleteAccount            = db.DeleteAccount
+	hookAccountBelongsToUser     = db.AccountBelongsToUser
 	hookUpdateAccountBalance     = db.UpdateAccountBalance
 	hookSwapAccountPositions     = db.SwapAccountPositions
 	hookGetAuditLog              = db.GetAuditLog

@@ -1293,9 +1293,9 @@ func TestDeleteUser_DBError(t *testing.T) {
 	adminUID := newUser(t, "admindelUserErr@example.com", "ValidP@ss1!", "ADMIN")
 	targetUID := newUser(t, "targetUserErr@example.com", "ValidP@ss1!", "USER")
 
-	orig := hookDeleteUser
-	hookDeleteUser = func(int64) error { return errTest }
-	t.Cleanup(func() { hookDeleteUser = orig })
+	orig := hookDeleteUserAndData
+	hookDeleteUserAndData = func(int64) error { return errTest }
+	t.Cleanup(func() { hookDeleteUserAndData = orig })
 
 	req := withParam(
 		injectUser(httptest.NewRequest(http.MethodDelete, "/admin/users/"+strconv.FormatInt(targetUID, 10), nil), mu(adminUID, "ADMIN")),
@@ -1324,6 +1324,198 @@ func TestSettingsPage_Admin_GetAllUsersError(t *testing.T) {
 	SettingsPage(rr, req)
 	if rr.Code != http.StatusInternalServerError {
 		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- CreateAccount: reinvestmentRate valide mais hors-limites (< 0) ---
+
+func TestCreateAccount_ReinvestmentRateOutOfRange(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "reinvrange@example.com", "ValidP@ss1!", "USER")
+
+	req := injectUser(post("/accounts", url.Values{
+		"name":             {"Savings"},
+		"balance":          {"1000"},
+		"color":            {"#3b82f6"},
+		"reinvestmentRate": {"-5"},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	CreateAccount(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (reinvestmentRate < 0), got %d", rr.Code)
+	}
+}
+
+// --- CreateAccount: targetAccountId non-numérique → parse error 400 ---
+
+func TestCreateAccount_TargetIDParseError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "targetparse@example.com", "ValidP@ss1!", "USER")
+
+	req := injectUser(post("/accounts", url.Values{
+		"name":            {"Savings"},
+		"balance":         {"1000"},
+		"color":           {"#3b82f6"},
+		"targetAccountId": {"notanid"},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	CreateAccount(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (targetAccountId parse error), got %d", rr.Code)
+	}
+}
+
+// --- CreateRecurring: dayOfMonth invalide → normalisé à 1, succès ---
+
+func TestCreateRecurring_DayNormalization(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "daynorm@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+
+	req := injectUser(post("/recurring", url.Values{
+		"description": {"Test"},
+		"amount":      {"100"},
+		"dayOfMonth":  {"0"},
+		"type":        {"income"},
+		"accountId":   {strconv.FormatInt(accID, 10)},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	CreateRecurring(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200 (day normalized), got %d", rr.Code)
+	}
+}
+
+// --- CreateRecurring: toAccountId non-numérique → 400 ---
+
+func TestCreateRecurring_ToAccountIDParseError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "toaccparse@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+
+	req := injectUser(post("/recurring", url.Values{
+		"description": {"Virement"},
+		"amount":      {"500"},
+		"dayOfMonth":  {"1"},
+		"type":        {"transfer"},
+		"accountId":   {strconv.FormatInt(accID, 10)},
+		"toAccountId": {"notanid"},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	CreateRecurring(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (toAccountId parse error), got %d", rr.Code)
+	}
+}
+
+// --- AccountsPage: branches MONTHLY payout + income + virement interne ---
+
+func TestAccountsPage_AllBranches(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "accpageall@example.com", "ValidP@ss1!", "USER")
+
+	// Compte cible
+	targetID := createAcc(t, uid)
+
+	// Compte source : rendement MONTHLY, reinvestment=0%, targetAccount → payout MONTHLY
+	enc, _ := crypto.Encrypt("Source Account")
+	tgt := targetID
+	db.CreateAccountWithYield(uid, enc, 10000, "#3b82f6", 1, true, "FIXED", 5.0, 5.0, 0, &tgt, "MONTHLY")
+
+	accs, _ := db.GetAccountsByUserID(uid)
+	var sourceID int64
+	for _, a := range accs {
+		if a.ID != targetID {
+			sourceID = a.ID
+		}
+	}
+
+	// Virement interne → rec.ToAccountID != nil → continue
+	db.CreateRecurring(uid, sourceID, &targetID, encStr(t, "Virement"), 300.0, 1)
+	// Revenu positif → rec.Amount > 0 → monthlyIncome
+	db.CreateRecurring(uid, sourceID, nil, encStr(t, "Salaire"), 2000.0, 1)
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/accounts", nil), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	AccountsPage(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d (body: %s)", rr.Code, rr.Body.String())
+	}
+}
+
+// --- SettingsPage: admin avec email_encrypted corrompu → continue ---
+
+func TestSettingsPage_Admin_CorruptedEmail(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	adminUID := newUser(t, "admincorrupt@example.com", "ValidP@ss1!", "ADMIN")
+	corruptUID := newUser(t, "corrupt@example.com", "ValidP@ss1!", "USER")
+
+	// Hex invalide → crypto.Decrypt échoue → slog.Warn + continue
+	db.DB.Exec("UPDATE users SET email_encrypted = ? WHERE id = ?", "gg:gg:gg", corruptUID)
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/settings", nil), mu(adminUID, "ADMIN"))
+	rr := httptest.NewRecorder()
+	SettingsPage(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200 (corrupt user skipped), got %d", rr.Code)
+	}
+}
+
+// --- ResetPasswordSubmit: hookHashPassword error → 500 ---
+
+func TestResetPasswordSubmit_HashError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "resethash@example.com", "ValidP@ss1!", "USER")
+
+	rawToken := "aabbccdd112233440000000000000000aabbccdd1122334400000000"
+	hashedToken := crypto.HashToken(rawToken)
+	db.SetResetToken(uid, hashedToken, time.Now().Add(time.Hour))
+
+	orig := hookHashPassword
+	hookHashPassword = func(string) (string, error) { return "", errTest }
+	t.Cleanup(func() { hookHashPassword = orig })
+
+	req := post("/reset-password", url.Values{
+		"token":           {rawToken},
+		"password":        {"NewValidP@ssw0rd!"},
+		"confirmPassword": {"NewValidP@ssw0rd!"},
+	})
+	rr := httptest.NewRecorder()
+	ResetPasswordSubmit(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500 (hash error), got %d", rr.Code)
+	}
+}
+
+// --- ExportData: avec passkey → couvre le loop du slice passkeys ---
+
+func TestExportData_WithPasskey(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "exportpk@example.com", "ValidP@ss1!", "USER")
+
+	db.CreateAuthenticator("cred-test-id", "pubkey-data", 0, "platform", true, true, "internal", uid)
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/settings/export", nil), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	ExportData(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d", rr.Code)
+	}
+	var export map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&export); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	passkeys, _ := export["passkeys"].([]interface{})
+	if len(passkeys) == 0 {
+		t.Error("export should contain at least one passkey")
 	}
 }
 

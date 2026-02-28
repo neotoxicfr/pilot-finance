@@ -1,0 +1,49 @@
+{{define "content"}}
+<div class="w-full flex-1 p-4 md:p-12 max-w-3xl mx-auto">
+    <h1 class="text-3xl font-bold text-foreground mb-2">{{index .T "legal.title"}}</h1>
+    <p class="text-sm text-muted-foreground mb-10">{{index .T "legal.updated"}}</p>
+
+    <div class="space-y-8 text-foreground/90 leading-relaxed">
+
+        <section>
+            <h2 class="text-lg font-bold text-foreground mb-3">{{index .T "legal.s1_title"}}</h2>
+            <p>{{index .T "legal.s1_body"}}</p>
+        </section>
+
+        <section>
+            <h2 class="text-lg font-bold text-foreground mb-3">{{index .T "legal.s2_title"}}</h2>
+            <p>{{index .T "legal.s2_body"}}</p>
+        </section>
+
+        <section>
+            <h2 class="text-lg font-bold text-foreground mb-3">{{index .T "legal.s3_title"}}</h2>
+            <p>{{index .T "legal.s3_body"}}</p>
+        </section>
+
+        <section>
+            <h2 class="text-lg font-bold text-foreground mb-3">{{index .T "legal.s4_title"}}</h2>
+            <p>{{index .T "legal.s4_body"}}</p>
+        </section>
+
+        <section>
+            <h2 class="text-lg font-bold text-foreground mb-3">{{index .T "legal.s5_title"}}</h2>
+            <p>{{index .T "legal.s5_body"}}</p>
+        </section>
+
+        <section class="pt-4 border-t border-border">
+            <a href="/privacy" class="text-blue-500 hover:text-blue-400 hover:underline text-sm font-medium transition-colors">
+                → {{index .T "legal.privacy_link"}}
+            </a>
+        </section>
+
+    </div>
+
+    {{if not .User}}
+    <div class="mt-12 pt-8 border-t border-border">
+        <a href="/login" class="text-blue-500 hover:text-blue-400 hover:underline text-sm font-medium transition-colors">
+            ← {{index .T "legal.back"}}
+        </a>
+    </div>
+    {{end}}
+</div>
+{{end}}
