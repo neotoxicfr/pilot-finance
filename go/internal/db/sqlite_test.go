@@ -4,6 +4,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"pilot-finance/internal/crypto"
 )
 
 // TestEncryptIfPlainAlreadyEncrypted covers the strings.Contains(raw, ":") true branch.
@@ -162,4 +164,92 @@ func TestGetUserByResetTokenWithLock(t *testing.T) {
 	if user.LockUntil == nil {
 		t.Error("LockUntil should be set")
 	}
+}
+
+// --- decryptAccountRow error branches ---
+
+// TestDecryptAccountRow_BalanceError covers the early-return on balance decrypt failure.
+func TestDecryptAccountRow_BalanceError(t *testing.T) {
+	raw := rawAccount{
+		acc:         Account{ID: 1},
+		balanceRaw:  "CORRUPTED-BALANCE",
+		yieldMinRaw: "0",
+		yieldMaxRaw: "0",
+		reinvestRaw: "0",
+	}
+	var dst Account
+	if err := decryptAccountRow(&dst, raw); err == nil {
+		t.Error("want error for corrupted balance")
+	}
+}
+
+// TestDecryptAccountRow_YieldMinError covers the yieldMin decrypt error branch.
+func TestDecryptAccountRow_YieldMinError(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+
+	// Use a real encrypted balance so that passes, but corrupt yieldMin
+	validBalance := encryptTestFloat(t, 100.0)
+	raw := rawAccount{
+		acc:         Account{ID: 2},
+		balanceRaw:  validBalance,
+		yieldMinRaw: "CORRUPTED-YIELD-MIN",
+		yieldMaxRaw: "0",
+		reinvestRaw: "0",
+	}
+	var dst Account
+	if err := decryptAccountRow(&dst, raw); err == nil {
+		t.Error("want error for corrupted yieldMin")
+	}
+}
+
+// TestDecryptAccountRow_YieldMaxError covers the yieldMax decrypt error branch.
+func TestDecryptAccountRow_YieldMaxError(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+
+	validBalance := encryptTestFloat(t, 100.0)
+	validYieldMin := encryptTestFloat(t, 1.5)
+	raw := rawAccount{
+		acc:         Account{ID: 3},
+		balanceRaw:  validBalance,
+		yieldMinRaw: validYieldMin,
+		yieldMaxRaw: "CORRUPTED-YIELD-MAX",
+		reinvestRaw: "0",
+	}
+	var dst Account
+	if err := decryptAccountRow(&dst, raw); err == nil {
+		t.Error("want error for corrupted yieldMax")
+	}
+}
+
+// TestDecryptAccountRow_ReinvestmentRateError covers the reinvestmentRate decrypt error branch.
+func TestDecryptAccountRow_ReinvestmentRateError(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+
+	validBalance := encryptTestFloat(t, 100.0)
+	validYieldMin := encryptTestFloat(t, 1.5)
+	validYieldMax := encryptTestFloat(t, 3.0)
+	raw := rawAccount{
+		acc:         Account{ID: 4},
+		balanceRaw:  validBalance,
+		yieldMinRaw: validYieldMin,
+		yieldMaxRaw: validYieldMax,
+		reinvestRaw: "CORRUPTED-REINVEST",
+	}
+	var dst Account
+	if err := decryptAccountRow(&dst, raw); err == nil {
+		t.Error("want error for corrupted reinvestmentRate")
+	}
+}
+
+// encryptTestFloat is a helper that encrypts a float64 for DB error-path tests.
+func encryptTestFloat(t *testing.T, f float64) string {
+	t.Helper()
+	s, err := crypto.EncryptFloat(f)
+	if err != nil {
+		t.Fatalf("encryptTestFloat(%v): %v", f, err)
+	}
+	return s
 }
