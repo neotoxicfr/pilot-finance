@@ -1,19 +1,26 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
 
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 )
+
+// errTest est une erreur factice pour les tests d'injection de dépendances.
+var errTest = errors.New("injected test error")
 
 // --- CreateAccount : branches de validation rendement ---
 
@@ -690,3 +697,515 @@ func TestHandleLogin_NeedsRehash(t *testing.T) {
 		t.Errorf("want 303 or 200, got %d (body: %s)", rr.Code, rr.Body.String())
 	}
 }
+
+// --- HandleRegister : méthode GET → 405 ---
+
+func TestHandleRegister_GetMethod(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+
+	rr := httptest.NewRecorder()
+	HandleRegister(rr, httptest.NewRequest(http.MethodGet, "/register", nil))
+	if rr.Code != http.StatusMethodNotAllowed {
+		t.Errorf("want 405, got %d", rr.Code)
+	}
+}
+
+// --- HandleRegister : second user → role USER ---
+
+func TestHandleRegister_SecondUser(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	newUser(t, "first@example.com", "ValidP@ss1!", "ADMIN") // premier user direct DB
+
+	// Deuxième inscription via HandleRegister → isFirstUser=false → role=USER
+	req := post("/register", url.Values{
+		"email":           {"second@example.com"},
+		"password":        {"ValidP@ssw0rd!"},
+		"confirmPassword": {"ValidP@ssw0rd!"},
+	})
+	req.Header.Set("HX-Request", "true")
+	rr := httptest.NewRecorder()
+	HandleRegister(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("second user register: want 200, got %d (body: %s)", rr.Code, rr.Body.String())
+	}
+}
+
+// --- ChangePassword : champs manquants → 400 ---
+
+func TestChangePassword_EmptyFields(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "pwdempty@example.com", "ValidP@ss1!", "USER")
+
+	req := injectUser(post("/settings/password", url.Values{
+		"currentPassword": {""},
+		"newPassword":     {""},
+		"confirmPassword": {""},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	ChangePassword(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (empty fields), got %d", rr.Code)
+	}
+}
+
+// --- ChangePassword : mots de passe ne correspondent pas → 400 ---
+
+func TestChangePassword_Mismatch(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "pwdmismatch@example.com", "ValidP@ss1!", "USER")
+
+	req := injectUser(post("/settings/password", url.Values{
+		"currentPassword": {"ValidP@ss1!"},
+		"newPassword":     {"NewP@ssw0rd!"},
+		"confirmPassword": {"DifferentP@ssw0rd!"},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	ChangePassword(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (mismatch), got %d", rr.Code)
+	}
+}
+
+// --- ChangePassword : nouveau mot de passe trop faible → 400 ---
+
+func TestChangePassword_WeakPassword(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "pwdweak@example.com", "ValidP@ss1!", "USER")
+
+	req := injectUser(post("/settings/password", url.Values{
+		"currentPassword": {"ValidP@ss1!"},
+		"newPassword":     {"weak"},
+		"confirmPassword": {"weak"},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	ChangePassword(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (weak password), got %d", rr.Code)
+	}
+}
+
+// --- UpdatePreferences : langue/devise invalides → fallback silencieux ---
+
+func TestUpdatePreferences_InvalidLangCurrency(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "prefsinvalid@example.com", "ValidP@ss1!", "USER")
+
+	req := injectUser(post("/settings/preferences", url.Values{
+		"language": {"es"},     // invalide → fallback "fr"
+		"currency": {"XBT"},   // invalide → fallback "EUR"
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	UpdatePreferences(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200 (with fallback), got %d", rr.Code)
+	}
+}
+
+// --- ExportData : utilisateur introuvable en DB → 404 ---
+
+func TestExportData_UserNotFound(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/settings/export", nil), mu(99999, "USER"))
+	rr := httptest.NewRecorder()
+	ExportData(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("want 404 (user not found), got %d", rr.Code)
+	}
+}
+
+// --- VerifyEmailPage : token vide → rendu avec erreur ---
+
+func TestVerifyEmailPage_EmptyToken(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+
+	rr := httptest.NewRecorder()
+	VerifyEmailPage(rr, httptest.NewRequest(http.MethodGet, "/verify-email", nil))
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200 (rendered with error), got %d", rr.Code)
+	}
+}
+
+// ============================================================
+// Hook-based error path tests — override function vars to inject errors
+// ============================================================
+
+// --- HandleRegister : rate limit → 429 ---
+
+func TestHandleRegister_RateLimit(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+
+	// 3 tentatives valides (MaxAttempts=3) pour remplir le compteur
+	for i := 0; i < 3; i++ {
+		req := post("/register", url.Values{
+			"email":           {strings.Replace("iter@example.com", "iter", strconv.Itoa(i), 1)},
+			"password":        {"weak"}, // échoue validation mais après le check ratelimit
+			"confirmPassword": {"weak"},
+		})
+		rr := httptest.NewRecorder()
+		HandleRegister(rr, req)
+	}
+
+	// 4ème tentative → rate limited
+	req := post("/register", url.Values{
+		"email":           {"limited@example.com"},
+		"password":        {"weak"},
+		"confirmPassword": {"weak"},
+	})
+	rr := httptest.NewRecorder()
+	HandleRegister(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("want 429 (rate limited), got %d", rr.Code)
+	}
+}
+
+// --- HandleRegister : db.CountUsers error → 500 ---
+
+func TestHandleRegister_CountUsersError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	orig := hookCountUsers
+	hookCountUsers = func() (int, error) { return 0, errTest }
+	t.Cleanup(func() { hookCountUsers = orig })
+
+	rr := httptest.NewRecorder()
+	HandleRegister(rr, post("/register", url.Values{
+		"email":           {"ok@example.com"},
+		"password":        {"ValidP@ssw0rd!"},
+		"confirmPassword": {"ValidP@ssw0rd!"},
+	}))
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- HandleRegister : db.GetUserByBlindIndex error → 500 ---
+
+func TestHandleRegister_BlindIndexError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	orig := hookGetUserByBlindIndex
+	hookGetUserByBlindIndex = func(string) (*db.User, error) { return nil, errTest }
+	t.Cleanup(func() { hookGetUserByBlindIndex = orig })
+
+	rr := httptest.NewRecorder()
+	HandleRegister(rr, post("/register", url.Values{
+		"email":           {"ok@example.com"},
+		"password":        {"ValidP@ssw0rd!"},
+		"confirmPassword": {"ValidP@ssw0rd!"},
+	}))
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- HandleRegister : crypto.HashPassword error → 500 ---
+
+func TestHandleRegister_HashPasswordError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	orig := hookHashPassword
+	hookHashPassword = func(string) (string, error) { return "", errTest }
+	t.Cleanup(func() { hookHashPassword = orig })
+
+	rr := httptest.NewRecorder()
+	HandleRegister(rr, post("/register", url.Values{
+		"email":           {"ok@example.com"},
+		"password":        {"ValidP@ssw0rd!"},
+		"confirmPassword": {"ValidP@ssw0rd!"},
+	}))
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- HandleRegister : crypto.Encrypt error → 500 ---
+
+func TestHandleRegister_EncryptError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	orig := hookEncryptStr
+	hookEncryptStr = func(string) (string, error) { return "", errTest }
+	t.Cleanup(func() { hookEncryptStr = orig })
+
+	rr := httptest.NewRecorder()
+	HandleRegister(rr, post("/register", url.Values{
+		"email":           {"ok@example.com"},
+		"password":        {"ValidP@ssw0rd!"},
+		"confirmPassword": {"ValidP@ssw0rd!"},
+	}))
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- HandleRegister : db.CreateUser error → 500 ---
+
+func TestHandleRegister_CreateUserError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	orig := hookCreateUser
+	hookCreateUser = func(string, string, string, string) (int64, error) { return 0, errTest }
+	t.Cleanup(func() { hookCreateUser = orig })
+
+	rr := httptest.NewRecorder()
+	HandleRegister(rr, post("/register", url.Values{
+		"email":           {"ok@example.com"},
+		"password":        {"ValidP@ssw0rd!"},
+		"confirmPassword": {"ValidP@ssw0rd!"},
+	}))
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- ChangePassword : crypto.HashPassword error → 500 ---
+
+func TestChangePassword_HashError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "pwdhash@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookHashPassword
+	hookHashPassword = func(string) (string, error) { return "", errTest }
+	t.Cleanup(func() { hookHashPassword = orig })
+
+	req := injectUser(post("/settings/password", url.Values{
+		"currentPassword": {"ValidP@ss1!"},
+		"newPassword":     {"NewValidP@ssw0rd!"},
+		"confirmPassword": {"NewValidP@ssw0rd!"},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	ChangePassword(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- ChangePassword : db.UpdatePassword error → 500 ---
+
+func TestChangePassword_UpdatePasswordError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "pwdupderr@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookUpdatePassword
+	hookUpdatePassword = func(int64, string) error { return errTest }
+	t.Cleanup(func() { hookUpdatePassword = orig })
+
+	req := injectUser(post("/settings/password", url.Values{
+		"currentPassword": {"ValidP@ss1!"},
+		"newPassword":     {"NewValidP@ssw0rd!"},
+		"confirmPassword": {"NewValidP@ssw0rd!"},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	ChangePassword(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- UpdatePreferences : db.UpdateUserPreferences error → 500 ---
+
+func TestUpdatePreferences_DBError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "prefsdberr@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookUpdateUserPrefs
+	hookUpdateUserPrefs = func(int64, string, string) error { return errTest }
+	t.Cleanup(func() { hookUpdateUserPrefs = orig })
+
+	req := injectUser(post("/settings/preferences", url.Values{
+		"language": {"fr"},
+		"currency": {"EUR"},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	UpdatePreferences(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- UpdatePreferences : auth.GenerateToken error → 500 ---
+
+func TestUpdatePreferences_TokenError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "prefstokenerr@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookGenerateToken
+	hookGenerateToken = func(int64, string, string, string, int) (string, error) { return "", errTest }
+	t.Cleanup(func() { hookGenerateToken = orig })
+
+	req := injectUser(post("/settings/preferences", url.Values{
+		"language": {"fr"},
+		"currency": {"EUR"},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	UpdatePreferences(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- AccountsAPI : db.GetAccountsByUserID error → 500 ---
+
+func TestAccountsAPI_DBError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "accapidberr@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookGetAccountsByUserID
+	hookGetAccountsByUserID = func(int64) ([]db.Account, error) { return nil, errTest }
+	t.Cleanup(func() { hookGetAccountsByUserID = orig })
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/api/accounts", nil), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	AccountsAPI(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- RecurringAPI : db.GetRecurringByUserID error → 500 ---
+
+func TestRecurringAPI_DBError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "recapidberr@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookGetRecurringByUserID
+	hookGetRecurringByUserID = func(int64) ([]db.RecurringOperation, error) { return nil, errTest }
+	t.Cleanup(func() { hookGetRecurringByUserID = orig })
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/api/recurring", nil), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	RecurringAPI(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- DashboardAPI : db.GetAccountsByUserID error → 500 ---
+
+func TestDashboardAPI_DBError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "dashdberr@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookGetAccountsByUserID
+	hookGetAccountsByUserID = func(int64) ([]db.Account, error) { return nil, errTest }
+	t.Cleanup(func() { hookGetAccountsByUserID = orig })
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/api/dashboard", nil), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	DashboardAPI(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- MFASetup : auth.GenerateTOTPSecret error → 500 ---
+
+func TestMFASetup_TOTPSecretError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "mfasetuperr@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookGenerateTOTPSecret
+	hookGenerateTOTPSecret = func() (string, error) { return "", errTest }
+	t.Cleanup(func() { hookGenerateTOTPSecret = orig })
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/api/mfa/setup", nil), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	MFASetup(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- MFAEnable : crypto.Encrypt error → JSON error ---
+
+func TestMFAEnable_EncryptError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "mfaencerr@example.com", "ValidP@ss1!", "USER")
+
+	secret, _ := hookGenerateTOTPSecret()
+	code, _ := totp.GenerateCode(secret, time.Now())
+
+	orig := hookEncryptStr
+	hookEncryptStr = func(string) (string, error) { return "", errTest }
+	t.Cleanup(func() { hookEncryptStr = orig })
+
+	body, _ := json.Marshal(map[string]string{"secret": secret, "code": code})
+	req := injectUser(
+		httptest.NewRequest(http.MethodPost, "/api/mfa/enable", bytes.NewReader(body)),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	MFAEnable(rr, req)
+	var resp map[string]string
+	json.NewDecoder(rr.Body).Decode(&resp)
+	if resp["error"] == "" {
+		t.Error("want error in response, got none")
+	}
+}
+
+// --- MFAEnable : db.EnableMFA error → JSON error ---
+
+func TestMFAEnable_EnableMFAError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "mfaenablerr@example.com", "ValidP@ss1!", "USER")
+
+	secret, _ := hookGenerateTOTPSecret()
+	code2, _ := totp.GenerateCode(secret, time.Now())
+
+	orig := hookEnableMFA
+	hookEnableMFA = func(int64, string) error { return errTest }
+	t.Cleanup(func() { hookEnableMFA = orig })
+
+	body, _ := json.Marshal(map[string]string{"secret": secret, "code": code2})
+	req := injectUser(
+		httptest.NewRequest(http.MethodPost, "/api/mfa/enable", bytes.NewReader(body)),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	MFAEnable(rr, req)
+	var resp map[string]string
+	json.NewDecoder(rr.Body).Decode(&resp)
+	if resp["error"] == "" {
+		t.Error("want error in response, got none")
+	}
+}
+
+// --- MFADisable : db.DisableMFA error → 500 ---
+
+func TestMFADisable_DBError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "mfadisdberr@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookDisableMFA
+	hookDisableMFA = func(int64) error { return errTest }
+	t.Cleanup(func() { hookDisableMFA = orig })
+
+	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/mfa/disable", nil), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	MFADisable(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
