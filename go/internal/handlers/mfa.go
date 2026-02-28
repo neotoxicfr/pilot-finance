@@ -8,7 +8,6 @@ import (
 	qrcode "github.com/skip2/go-qrcode"
 
 	"pilot-finance/internal/auth"
-	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
 )
@@ -22,7 +21,7 @@ func MFASetup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generer un nouveau secret
-	secret, err := auth.GenerateTOTPSecret()
+	secret, err := hookGenerateTOTPSecret()
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
@@ -73,14 +72,14 @@ func MFAEnable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Chiffrer et sauvegarder le secret
-	encryptedSecret, err := crypto.Encrypt(req.Secret)
+	encryptedSecret, err := hookEncryptStr(req.Secret)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"error": "Erreur serveur"})
 		return
 	}
 
-	if err := db.EnableMFA(user.ID, encryptedSecret); err != nil {
+	if err := hookEnableMFA(user.ID, encryptedSecret); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"error": "Erreur sauvegarde"})
 		return
@@ -100,7 +99,7 @@ func MFADisable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.DisableMFA(user.ID); err != nil {
+	if err := hookDisableMFA(user.ID); err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
 	}

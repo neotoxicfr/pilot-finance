@@ -29,7 +29,7 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Recuperer les comptes
-	accounts, err := db.GetAccountsByUserID(user.ID)
+	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
@@ -109,7 +109,7 @@ func AccountsAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accounts, err := db.GetAccountsByUserID(user.ID)
+	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
@@ -129,7 +129,7 @@ func RecurringAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	recurrings, err := db.GetRecurringByUserID(user.ID)
+	recurrings, err := hookGetRecurringByUserID(user.ID)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
