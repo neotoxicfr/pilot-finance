@@ -38,10 +38,10 @@
                         <input type="hidden" name="id" x-model="accountEditId">
                         <div class="grid grid-cols-2 gap-4">
                             <input type="text" name="name" placeholder="{{index .T "accounts.name_placeholder"}}" required
-                                   :value="editingAccount?.name || ''"
+                                   x-model="accountName"
                                    class="bg-accent border border-border rounded-xl p-3 text-sm w-full outline-hidden focus:border-blue-500 text-foreground">
                             <input type="text" inputmode="decimal" name="balance" placeholder="{{index .T "accounts.balance_placeholder"}}"
-                                   :value="editingAccount?.balance || ''"
+                                   x-model="accountBalance"
                                    class="bg-accent border border-border rounded-xl p-3 text-sm w-full font-mono outline-hidden focus:border-blue-500 text-foreground">
                         </div>
                         <div>
@@ -199,13 +199,13 @@
                             <input type="hidden" name="id" x-model="recurringEditId">
                             <div class="flex gap-3">
                                 <input type="text" name="description" placeholder="{{index .T "recurring.label_placeholder"}}" required
-                                       :value="editingRecurring?.Description || ''"
+                                       x-model="recurringDescription"
                                        class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-blue-500">
                                 <input type="number" step="0.01" name="amount" placeholder="{{$.Currency}}" required
-                                       :value="absAmount"
+                                       x-model="recurringAmount"
                                        class="w-24 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden font-mono focus:border-blue-500">
                                 <input type="number" min="1" max="31" name="dayOfMonth" placeholder="{{index .T "recurring.day_placeholder"}}" required
-                                       :value="editingRecurring?.DayOfMonth || ''"
+                                       x-model="recurringDay"
                                        class="w-14 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden text-center focus:border-blue-500">
                             </div>
                             <div class="flex gap-3">
@@ -259,6 +259,8 @@ function accountsPage() {
     return {
         editingAccount: null,
         accountEditId: '',
+        accountName: '',
+        accountBalance: '',
         selectedColor: '#3b82f6',
         isYieldActive: false,
         yieldType: 'FIXED',
@@ -271,6 +273,8 @@ function accountsPage() {
         openAccountForm(account) {
             this.editingAccount = account;
             this.accountEditId = account ? String(account.id) : '';
+            this.accountName = account ? account.name : '';
+            this.accountBalance = account ? String(account.balance) : '';
             this.selectedColor = account?.color || '#3b82f6';
             this.isYieldActive = account?.is_yield_active || false;
             this.yieldType = account?.yield_type || 'FIXED';
@@ -284,6 +288,9 @@ function accountsPage() {
 
         editingRecurring: null,
         recurringEditId: '',
+        recurringDescription: '',
+        recurringAmount: '',
+        recurringDay: '',
         opType: 'expense',
         accountId: '',
         toAccountId: '',
@@ -291,6 +298,9 @@ function accountsPage() {
         openRecurringForm(recurring) {
             this.editingRecurring = recurring;
             this.recurringEditId = recurring ? String(recurring.ID) : '';
+            this.recurringDescription = recurring ? recurring.Description : '';
+            this.recurringAmount = recurring ? String(Math.abs(recurring.Amount)) : '';
+            this.recurringDay = recurring ? String(recurring.DayOfMonth) : '';
             this.accountId = recurring?.AccountID ? String(recurring.AccountID) : '';
             this.toAccountId = recurring?.ToAccountID ? String(recurring.ToAccountID) : '';
             if (!recurring) {
@@ -301,11 +311,6 @@ function accountsPage() {
                 this.opType = recurring.Amount > 0 ? 'income' : 'expense';
             }
             document.getElementById('recurring-dialog').showModal();
-        },
-
-        get absAmount() {
-            if (!this.editingRecurring) return '';
-            return Math.abs(this.editingRecurring.Amount);
         },
 
         initSortable() {
