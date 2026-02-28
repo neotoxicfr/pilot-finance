@@ -144,6 +144,28 @@ func DeleteUser(userID int64) error {
 	return err
 }
 
+// DeleteUserAndData supprime un utilisateur et toutes ses données en cascade (GDPR).
+func DeleteUserAndData(userID int64) error {
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for _, q := range []string{
+		`DELETE FROM recurring_operations WHERE user_id = ?`,
+		`DELETE FROM accounts WHERE user_id = ?`,
+		`DELETE FROM authenticators WHERE user_id = ?`,
+		`DELETE FROM audit_log WHERE user_id = ?`,
+		`DELETE FROM users WHERE id = ?`,
+	} {
+		if _, err := tx.Exec(q, userID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 // VerifyEmailByToken vérifie l'email avec le token
 func VerifyEmailByToken(hashedToken string) error {
 	result, err := DB.Exec(`

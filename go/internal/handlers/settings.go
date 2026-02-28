@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -118,6 +120,75 @@ func UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	}
 	setSessionCookie(w, "session", token, 86400)
 
+	w.WriteHeader(http.StatusOK)
+}
+
+// ExportData exporte toutes les données de l'utilisateur en JSON (GDPR).
+func ExportData(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUser(r)
+	if user == nil {
+		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		return
+	}
+
+	dbUser, err := db.GetUserByID(user.ID)
+	if err != nil || dbUser == nil {
+		http.Error(w, "Utilisateur non trouvé", http.StatusNotFound)
+		return
+	}
+	email, _ := crypto.Decrypt(dbUser.EmailEncrypted)
+
+	accounts, _ := db.GetAccountsByUserID(user.ID)
+	recurrings, _ := db.GetRecurringByUserID(user.ID)
+
+	// Déchiffrer les noms
+	for i := range accounts {
+		if dec, err := crypto.Decrypt(accounts[i].Name); err == nil {
+			accounts[i].Name = dec
+		}
+	}
+	for i := range recurrings {
+		if dec, err := crypto.Decrypt(recurrings[i].Description); err == nil {
+			recurrings[i].Description = dec
+		}
+	}
+
+	export := map[string]interface{}{
+		"exported_at": time.Now().UTC().Format(time.RFC3339),
+		"user": map[string]interface{}{
+			"id":       user.ID,
+			"email":    email,
+			"language": dbUser.Language,
+			"currency": dbUser.Currency,
+		},
+		"accounts":   accounts,
+		"recurrings": recurrings,
+	}
+
+	db.LogAudit(user.ID, db.AuditGDPRExport, getClientIP(r), r.UserAgent())
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Disposition", `attachment; filename="pilot-finance-export.json"`)
+	json.NewEncoder(w).Encode(export)
+}
+
+// DeleteSelfAccount supprime le compte de l'utilisateur connecté et toutes ses données (GDPR).
+func DeleteSelfAccount(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUser(r)
+	if user == nil {
+		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		return
+	}
+
+	db.LogAudit(user.ID, db.AuditGDPRDelete, getClientIP(r), r.UserAgent())
+
+	if err := db.DeleteUserAndData(user.ID); err != nil {
+		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
+		return
+	}
+
+	clearCookie(w, "session")
+	w.Header().Set("HX-Redirect", "/login")
 	w.WriteHeader(http.StatusOK)
 }
 
