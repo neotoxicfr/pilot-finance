@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"pilot-finance/internal/auth"
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
@@ -60,14 +59,14 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Hasher le nouveau mot de passe
-	hashedPassword, err := crypto.HashPassword(newPassword)
+	hashedPassword, err := hookHashPassword(newPassword)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
 	}
 
 	// Mettre a jour
-	err = db.UpdatePassword(user.ID, hashedPassword)
+	err = hookUpdatePassword(user.ID, hashedPassword)
 	if err != nil {
 		http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 		return
@@ -107,13 +106,13 @@ func UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 		currency = "EUR"
 	}
 
-	if err := db.UpdateUserPreferences(user.ID, language, currency); err != nil {
+	if err := hookUpdateUserPrefs(user.ID, language, currency); err != nil {
 		http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 		return
 	}
 
 	// Re-émettre le JWT avec les nouvelles préférences (Language/Currency dans les claims)
-	token, err := auth.GenerateToken(user.ID, user.Role, language, currency, user.SessionVersion)
+	token, err := hookGenerateToken(user.ID, user.Role, language, currency, user.SessionVersion)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return

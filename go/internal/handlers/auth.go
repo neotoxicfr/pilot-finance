@@ -237,7 +237,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Vérifier si c'est le premier utilisateur
-	userCount, err := db.CountUsers()
+	userCount, err := hookCountUsers()
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
@@ -247,7 +247,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	// Vérifier si l'email existe déjà
 	blindIndex := crypto.ComputeBlindIndex(email)
-	existingUser, err := db.GetUserByBlindIndex(blindIndex)
+	existingUser, err := hookGetUserByBlindIndex(blindIndex)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
@@ -259,14 +259,14 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Hasher le mot de passe
-	hashedPassword, err := crypto.HashPassword(password)
+	hashedPassword, err := hookHashPassword(password)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
 	}
 
 	// Chiffrer l'email
-	encryptedEmail, err := crypto.Encrypt(email)
+	encryptedEmail, err := hookEncryptStr(email)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
@@ -278,14 +278,14 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		role = "ADMIN"
 	}
 
-	userID, err := db.CreateUser(encryptedEmail, blindIndex, hashedPassword, role)
+	userID, err := hookCreateUser(encryptedEmail, blindIndex, hashedPassword, role)
 	if err != nil {
 		http.Error(w, "Erreur création compte", http.StatusInternalServerError)
 		return
 	}
 
 	// Générer le token et connecter (nouveaux utilisateurs : langue/devise par défaut)
-	token, err := auth.GenerateToken(userID, role, "fr", "EUR", 1)
+	token, err := hookGenerateToken(userID, role, "fr", "EUR", 1)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
