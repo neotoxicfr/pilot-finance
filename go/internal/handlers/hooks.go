@@ -39,6 +39,7 @@ var (
 	hookUpdateAccountWithYield   = db.UpdateAccountWithYield
 	hookCreateAccountWithYield   = db.CreateAccountWithYield
 	hookDeleteAccount            = db.DeleteAccount
+	hookAccountBelongsToUser     = db.AccountBelongsToUser
 	hookUpdateAccountBalance     = db.UpdateAccountBalance
 	hookSwapAccountPositions     = db.SwapAccountPositions
 	hookGetAuditLog              = db.GetAuditLog

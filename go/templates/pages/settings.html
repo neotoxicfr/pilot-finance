@@ -466,12 +466,20 @@ document.addEventListener('alpine:init', () => {
                 </table>
             </div>
         </div>
+        <div class="text-right mt-3">
+            <a href="/admin/audit" class="text-xs text-purple-500 hover:text-purple-400 transition-colors font-medium flex items-center gap-1 justify-end">
+                {{template "icon-shield" dict "Size" 12}}
+                {{index .T "settings.admin_audit_link"}}
+            </a>
+        </div>
     </div>
     {{end}}
 
-    <!-- Privacy link -->
-    <div class="text-center pb-2">
+    <!-- Footer links -->
+    <div class="text-center pb-2 flex items-center justify-center gap-4">
         <a href="/privacy" class="text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors">{{index .T "privacy.title"}}</a>
+        <span class="text-muted-foreground/30 text-xs">·</span>
+        <a href="/legal" class="text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors">{{index .T "legal.title"}}</a>
     </div>
 
 </div>
