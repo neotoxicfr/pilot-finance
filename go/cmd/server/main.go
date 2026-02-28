@@ -135,7 +135,7 @@ func main() {
 	})
 
 	// Routes publiques sans rate limit strict
-	r.With(middleware.ValidateOrigin(host)).Post("/logout", handlers.Logout)
+	r.With(middleware.ValidateOrigin(host), middleware.OptionalAuth).Post("/logout", handlers.Logout)
 	r.Get("/verify-email", handlers.VerifyEmailPage)
 	r.With(middleware.OptionalAuth).Get("/privacy", handlers.PrivacyPage)
 
@@ -184,6 +184,7 @@ func main() {
 
 		r.Get("/admin", handlers.SettingsPage)
 		r.Delete("/admin/users/{id}", handlers.DeleteUser)
+		r.Get("/admin/audit", handlers.AuditPage)
 	})
 
 	// Démarrer le serveur

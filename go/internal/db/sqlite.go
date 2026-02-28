@@ -106,6 +106,14 @@ func runMigrations(dbPath string) {
 			}
 			return nil
 		}},
+		{Name: "007_audit_log", SQL: `CREATE TABLE IF NOT EXISTS audit_log (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER,
+			action TEXT NOT NULL,
+			ip TEXT,
+			user_agent TEXT,
+			created_at INTEGER NOT NULL
+		)`},
 	}
 
 	for _, m := range migrations {

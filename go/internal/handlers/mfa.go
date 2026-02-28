@@ -86,6 +86,8 @@ func MFAEnable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	db.LogAudit(user.ID, db.AuditMFAEnable, getClientIP(r), r.UserAgent())
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
@@ -102,6 +104,8 @@ func MFADisable(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
 	}
+
+	db.LogAudit(user.ID, db.AuditMFADisable, getClientIP(r), r.UserAgent())
 
 	// Rediriger vers settings pour recharger la page
 	http.Redirect(w, r, "/settings", http.StatusSeeOther)
