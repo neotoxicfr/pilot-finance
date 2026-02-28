@@ -239,7 +239,7 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	// Ne pas permettre de supprimer un admin
 	targetUser, err := db.GetUserByID(id)
-	if err != nil {
+	if err != nil || targetUser == nil {
 		http.Error(w, "Utilisateur non trouvé", http.StatusNotFound)
 		return
 	}
