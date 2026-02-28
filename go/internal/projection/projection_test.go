@@ -32,7 +32,6 @@ func TestCalculateSimpleNoYield(t *testing.T) {
 	if len(result.Projection) != 4 {
 		t.Errorf("want 4 data points, got %d", len(result.Projection))
 	}
-	// With no yield and no recurring, balance should stay constant
 	last := result.Projection[len(result.Projection)-1]
 	if last.TotalAvg != 10000 {
 		t.Errorf("final balance: want 10000, got %v", last.TotalAvg)
@@ -57,12 +56,11 @@ func TestCalculateWithYieldFixed(t *testing.T) {
 			YieldMin: 5.0, YieldMax: 5.0, ReinvestmentRate: 100, PayoutFrequency: "MONTHLY"},
 	}
 	result := projection.Calculate(accounts, nil, 3, "en")
-	// With 100% reinvestment at 5% annual, balance grows
 	last := result.Projection[len(result.Projection)-1]
 	if last.TotalAvg <= 10000 {
 		t.Errorf("yield account should grow: got %v", last.TotalAvg)
 	}
-	// All three scenarios should be equal for FIXED rate
+	// All three scenarios equal for FIXED rate
 	if last.TotalMin != last.TotalAvg || last.TotalAvg != last.TotalMax {
 		t.Errorf("FIXED rate: min/avg/max should be equal: %v/%v/%v", last.TotalMin, last.TotalAvg, last.TotalMax)
 	}
@@ -75,7 +73,6 @@ func TestCalculateWithYieldRange(t *testing.T) {
 	}
 	result := projection.Calculate(accounts, nil, 5, "en")
 	last := result.Projection[len(result.Projection)-1]
-	// TotalMin < TotalAvg < TotalMax for RANGE
 	if last.TotalMin >= last.TotalAvg {
 		t.Errorf("TotalMin should be < TotalAvg: %v >= %v", last.TotalMin, last.TotalAvg)
 	}
@@ -92,10 +89,45 @@ func TestCalculateWithRecurringIncome(t *testing.T) {
 		{ID: 1, UserID: 1, AccountID: 1, Amount: 1000, DayOfMonth: 1},
 	}
 	result := projection.Calculate(accounts, recurrings, 1, "en")
-	// After 12 months of +1000/month, balance = 12000
 	last := result.Projection[len(result.Projection)-1]
 	if last.TotalAvg != 12000 {
 		t.Errorf("12 months of 1000/month: want 12000, got %v", last.TotalAvg)
+	}
+}
+
+// TestCalculateWithTransfer covers the rec.ToAccountID != nil branch in Calculate.
+func TestCalculateWithTransfer(t *testing.T) {
+	fromID := int64(1)
+	toID := int64(2)
+	accounts := []db.Account{
+		{ID: fromID, Name: "Checking", Balance: 5000, IsYieldActive: false},
+		{ID: toID, Name: "Savings", Balance: 0, IsYieldActive: false},
+	}
+	recurrings := []db.RecurringOperation{
+		{ID: 1, UserID: 1, AccountID: fromID, ToAccountID: &toID, Amount: 500, DayOfMonth: 1},
+	}
+	result := projection.Calculate(accounts, recurrings, 1, "en")
+	last := result.Projection[len(result.Projection)-1]
+	// From: 5000 - 12*500 = -1000, To: 0 + 12*500 = 6000, total stays at 5000
+	if last.TotalAvg != 5000 {
+		t.Errorf("transfer: total should stay 5000, got %v", last.TotalAvg)
+	}
+}
+
+// TestCalculateWithYearlyPayout covers the YEARLY payout / annualAccum flush branch.
+func TestCalculateWithYearlyPayout(t *testing.T) {
+	targetID := int64(2)
+	accounts := []db.Account{
+		{ID: 1, Name: "Savings", Balance: 10000, IsYieldActive: true,
+			YieldType: "FIXED", YieldMin: 12.0, YieldMax: 12.0,
+			ReinvestmentRate: 0, TargetAccountID: &targetID, PayoutFrequency: "YEARLY"},
+		{ID: targetID, Name: "Checking", Balance: 0, IsYieldActive: false},
+	}
+	result := projection.Calculate(accounts, nil, 3, "en")
+	last := result.Projection[len(result.Projection)-1]
+	// Each year: 10000 * 12% = 1200 flushed to Checking. After 3 years: 3600 + 10000 = 13600
+	if last.TotalAvg != 13600 {
+		t.Errorf("yearly payout after 3 years: want 13600, got %v", last.TotalAvg)
 	}
 }
 
@@ -145,6 +177,46 @@ func TestCalculateYieldPayoutsYearly(t *testing.T) {
 	}
 }
 
+// TestCalculateYieldPayoutsRange covers the YieldType=="RANGE" branch in CalculateYieldPayouts.
+func TestCalculateYieldPayoutsRange(t *testing.T) {
+	targetID := int64(2)
+	accounts := []db.Account{
+		{ID: 1, Name: "PEA", Balance: 10000, IsYieldActive: true, YieldType: "RANGE",
+			YieldMin: 2.0, YieldMax: 8.0, ReinvestmentRate: 0, TargetAccountID: &targetID, PayoutFrequency: "MONTHLY"},
+		{ID: 2, Name: "Checking", Balance: 0},
+	}
+	names := map[int64]string{1: "PEA", 2: "Checking"}
+
+	payouts := projection.CalculateYieldPayouts(accounts, names)
+	if len(payouts) != 1 {
+		t.Fatalf("want 1 payout, got %d", len(payouts))
+	}
+	// avg rate = (2+8)/2 = 5%
+	if payouts[0].Rate != 5.0 {
+		t.Errorf("RANGE avg rate: want 5.0, got %v", payouts[0].Rate)
+	}
+}
+
+// TestCalculateYieldPayoutsEmptyFrequency covers the freq=="" → "MONTHLY" default.
+func TestCalculateYieldPayoutsEmptyFrequency(t *testing.T) {
+	targetID := int64(2)
+	accounts := []db.Account{
+		{ID: 1, Name: "Savings", Balance: 12000, IsYieldActive: true,
+			YieldType: "FIXED", YieldMin: 3.0, YieldMax: 3.0,
+			ReinvestmentRate: 0, TargetAccountID: &targetID, PayoutFrequency: ""},
+		{ID: 2, Name: "Checking", Balance: 0},
+	}
+	names := map[int64]string{1: "Savings", 2: "Checking"}
+
+	payouts := projection.CalculateYieldPayouts(accounts, names)
+	if len(payouts) != 1 {
+		t.Fatalf("want 1 payout, got %d", len(payouts))
+	}
+	if payouts[0].PayoutFrequency != "MONTHLY" {
+		t.Errorf("empty freq should default to MONTHLY, got %q", payouts[0].PayoutFrequency)
+	}
+}
+
 func TestCalculateYieldPayoutsNoTarget(t *testing.T) {
 	accounts := []db.Account{
 		{ID: 1, Name: "Savings", Balance: 5000, IsYieldActive: true,
@@ -153,10 +225,35 @@ func TestCalculateYieldPayoutsNoTarget(t *testing.T) {
 	}
 	names := map[int64]string{1: "Savings"}
 
-	// 100% reinvested and no target → no payout
 	payouts := projection.CalculateYieldPayouts(accounts, names)
 	if len(payouts) != 0 {
 		t.Errorf("want 0 payouts (100%% reinvested), got %d", len(payouts))
+	}
+}
+
+// TestCalculateMonthlyYieldPayoutRange covers the YieldType=="RANGE" branch.
+func TestCalculateMonthlyYieldPayoutRange(t *testing.T) {
+	accounts := []db.Account{
+		{ID: 1, Name: "PEA", Balance: 12000, IsYieldActive: true, YieldType: "RANGE",
+			YieldMin: 2.0, YieldMax: 10.0, ReinvestmentRate: 0, PayoutFrequency: "MONTHLY"},
+	}
+	// avg rate = (2+10)/2 = 6%, annual = 720, monthly = 60, payout (0% reinvested) = 60
+	got := projection.CalculateMonthlyYieldPayout(accounts)
+	if got != 60 {
+		t.Errorf("monthly payout RANGE: want 60, got %v", got)
+	}
+}
+
+// TestCalculateAnnualYieldPayoutRange covers the YieldType=="RANGE" branch.
+func TestCalculateAnnualYieldPayoutRange(t *testing.T) {
+	accounts := []db.Account{
+		{ID: 1, Name: "PEA", Balance: 10000, IsYieldActive: true, YieldType: "RANGE",
+			YieldMin: 3.0, YieldMax: 7.0, ReinvestmentRate: 0, PayoutFrequency: "YEARLY"},
+	}
+	// avg rate = (3+7)/2 = 5%, annual = 500
+	got := projection.CalculateAnnualYieldPayout(accounts)
+	if got != 500 {
+		t.Errorf("annual payout RANGE: want 500, got %v", got)
 	}
 }
 
@@ -194,6 +291,39 @@ func TestCalculateMonthlySummaryWithYield(t *testing.T) {
 		t.Errorf("yield: want 30, got %v", summary.Yield)
 	}
 	if summary.Income != 30 {
-		t.Errorf("income (should include yield): want 30, got %v", summary.Income)
+		t.Errorf("income (includes yield): want 30, got %v", summary.Income)
+	}
+}
+
+// TestCalculateMonthlySummaryTransferToYield covers the yieldAccounts[*rec.ToAccountID] branch.
+func TestCalculateMonthlySummaryTransferToYield(t *testing.T) {
+	toID := int64(2)
+	accounts := []db.Account{
+		{ID: 1, Name: "Checking", Balance: 5000, IsYieldActive: false},
+		{ID: 2, Name: "Investment", Balance: 10000, IsYieldActive: true,
+			YieldType: "FIXED", YieldMin: 5.0, YieldMax: 5.0,
+			ReinvestmentRate: 100, PayoutFrequency: "MONTHLY"},
+	}
+	recurrings := []db.RecurringOperation{
+		{ID: 1, UserID: 1, AccountID: 1, ToAccountID: &toID, Amount: 500, DayOfMonth: 1},
+	}
+	summary := projection.CalculateMonthlySummary(recurrings, accounts)
+	if summary.Transfers != 500 {
+		t.Errorf("transfer to yield account: want 500, got %v", summary.Transfers)
+	}
+}
+
+// TestCalculateMonthlySummaryWithAnnualYield covers CalculateAnnualYieldPayout via MonthlySummary.
+func TestCalculateMonthlySummaryWithAnnualYield(t *testing.T) {
+	targetID := int64(1)
+	accounts := []db.Account{
+		{ID: 1, Name: "Livret", Balance: 10000, IsYieldActive: true,
+			YieldType: "FIXED", YieldMin: 2.0, YieldMax: 2.0,
+			ReinvestmentRate: 0, TargetAccountID: &targetID, PayoutFrequency: "YEARLY"},
+	}
+	summary := projection.CalculateMonthlySummary(nil, accounts)
+	// 10000 * 2% = 200 annual
+	if summary.YieldAnnual != 200 {
+		t.Errorf("annual yield: want 200, got %v", summary.YieldAnnual)
 	}
 }
