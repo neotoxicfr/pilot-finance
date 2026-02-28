@@ -1,7 +1,16 @@
 package crypto
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"strings"
 	"testing"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Clés de test (NE PAS utiliser en production)
@@ -14,6 +23,48 @@ func TestInit(t *testing.T) {
 	err := Init(testEncryptionKey, testBlindIndexKey)
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
+	}
+}
+
+func TestInitInvalidEncKey(t *testing.T) {
+	err := Init("not-valid-hex!!", testBlindIndexKey)
+	if err == nil {
+		t.Fatal("expected error for invalid encryption key hex")
+	}
+	if !errors.Is(err, ErrInvalidKey) {
+		t.Errorf("want ErrInvalidKey, got: %v", err)
+	}
+}
+
+func TestInitEncKeyTooShort(t *testing.T) {
+	// 16 hex chars = 8 bytes, not 32
+	err := Init("0102030405060708090a0b0c0d0e0f10", testBlindIndexKey)
+	if err == nil {
+		t.Fatal("expected error for short encryption key")
+	}
+	if !errors.Is(err, ErrInvalidKey) {
+		t.Errorf("want ErrInvalidKey, got: %v", err)
+	}
+}
+
+func TestInitInvalidBlindKey(t *testing.T) {
+	err := Init(testEncryptionKey, "not-valid-hex!!")
+	if err == nil {
+		t.Fatal("expected error for invalid blind index key hex")
+	}
+	if !errors.Is(err, ErrInvalidKey) {
+		t.Errorf("want ErrInvalidKey, got: %v", err)
+	}
+}
+
+func TestInitBlindKeyTooShort(t *testing.T) {
+	// 8 hex chars = 4 bytes, not 32
+	err := Init(testEncryptionKey, "01020304")
+	if err == nil {
+		t.Fatal("expected error for short blind key")
+	}
+	if !errors.Is(err, ErrInvalidKey) {
+		t.Errorf("want ErrInvalidKey, got: %v", err)
 	}
 }
 
@@ -50,16 +101,150 @@ func TestEncryptDecrypt(t *testing.T) {
 }
 
 func TestDecryptNodeJSFormat(t *testing.T) {
-	// Ce test sera utilisé avec des données réelles chiffrées par Node.js
-	// Pour valider la compatibilité entre les deux implémentations
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+	t.Skip("Test à activer avec données Node.js réelles")
+}
 
+func TestDecryptNonEncrypted(t *testing.T) {
 	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
 		t.Fatal(err)
 	}
 
-	// Format: IV:TAG:CIPHERTEXT
-	// Les données de test doivent être générées par le code Node.js actuel
-	t.Skip("Test à activer avec données Node.js réelles")
+	plaintext := "not encrypted"
+	result, err := Decrypt(plaintext)
+	if err != nil {
+		t.Errorf("Decrypt failed for non-encrypted: %v", err)
+	}
+	if result != plaintext {
+		t.Errorf("Decrypt(%q) = %q, want %q", plaintext, result, plaintext)
+	}
+}
+
+func TestDecryptWrongPartCount(t *testing.T) {
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+	// 2 parts → not 3 → return as-is, no error
+	result, err := Decrypt("a:b")
+	if err != nil {
+		t.Fatalf("2-part string: unexpected error: %v", err)
+	}
+	if result != "a:b" {
+		t.Errorf("want 'a:b', got %q", result)
+	}
+	// 4 parts → not 3 → return as-is, no error
+	result, err = Decrypt("a:b:c:d")
+	if err != nil {
+		t.Fatalf("4-part string: unexpected error: %v", err)
+	}
+	if result != "a:b:c:d" {
+		t.Errorf("want 'a:b:c:d', got %q", result)
+	}
+}
+
+func TestDecryptBadHexIV(t *testing.T) {
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+	// 'g' is not valid hex → IV decode fails → ErrDecryption
+	_, err := Decrypt("gggggggggggggggggggggggg:aabbccddeeff001122334455aabbccdd:aabb")
+	if !errors.Is(err, ErrDecryption) {
+		t.Errorf("bad IV hex: want ErrDecryption, got: %v", err)
+	}
+}
+
+func TestDecryptBadHexAuthTag(t *testing.T) {
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+	// Valid 12-byte IV (24 hex chars), invalid auth tag
+	_, err := Decrypt("0123456789abcdef01234567:gggggggggggggggggggggggggggggggg:aabb")
+	if !errors.Is(err, ErrDecryption) {
+		t.Errorf("bad authTag hex: want ErrDecryption, got: %v", err)
+	}
+}
+
+func TestDecryptBadHexCiphertext(t *testing.T) {
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+	// Valid 12-byte IV, valid 16-byte auth tag, invalid ciphertext
+	_, err := Decrypt("0123456789abcdef01234567:aabbccddeeff001122334455aabbccdd:gg")
+	if !errors.Is(err, ErrDecryption) {
+		t.Errorf("bad ciphertext hex: want ErrDecryption, got: %v", err)
+	}
+}
+
+func TestDecryptZeroLengthIV(t *testing.T) {
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+	// Empty IV → len=0 → NewGCMWithNonceSize(block, 0) returns error (nonce cannot be zero length)
+	_, err := Decrypt(":aabbccddeeff001122334455aabbccdd:aabb")
+	if err == nil {
+		t.Error("zero-length IV should return an error")
+	}
+}
+
+func TestDecryptTamperedData(t *testing.T) {
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+	enc, err := Encrypt("secret data to tamper")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Flip first byte of auth tag → GCM authentication fails → ErrDecryption
+	parts := strings.Split(enc, ":")
+	tag := []byte(parts[1])
+	if tag[0] == '0' {
+		tag[0] = '1'
+	} else {
+		tag[0] = '0'
+	}
+	parts[1] = string(tag)
+	tampered := strings.Join(parts, ":")
+	_, err = Decrypt(tampered)
+	if !errors.Is(err, ErrDecryption) {
+		t.Errorf("tampered auth tag: want ErrDecryption, got: %v", err)
+	}
+}
+
+func TestDecryptLegacy16ByteNonce(t *testing.T) {
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+	// Build a ciphertext with 16-byte nonce (legacy Node.js format)
+	block, err := aes.NewCipher(encryptionKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gcm, err := cipher.NewGCMWithNonceSize(block, 16)
+	if err != nil {
+		t.Fatal(err)
+	}
+	iv := make([]byte, 16)
+	if _, err := rand.Read(iv); err != nil {
+		t.Fatal(err)
+	}
+	const plaintext = "legacy node data"
+	ciphertextWithTag := gcm.Seal(nil, iv, []byte(plaintext), nil)
+	ct := ciphertextWithTag[:len(ciphertextWithTag)-16]
+	authTag := ciphertextWithTag[len(ciphertextWithTag)-16:]
+	encrypted := fmt.Sprintf("%s:%s:%s",
+		hex.EncodeToString(iv),
+		hex.EncodeToString(authTag),
+		hex.EncodeToString(ct),
+	)
+	result, err := Decrypt(encrypted)
+	if err != nil {
+		t.Fatalf("legacy 16-byte nonce: %v", err)
+	}
+	if result != plaintext {
+		t.Errorf("want %q, got %q", plaintext, result)
+	}
 }
 
 func TestComputeBlindIndex(t *testing.T) {
@@ -67,7 +252,6 @@ func TestComputeBlindIndex(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Le même input doit toujours produire le même index
 	input := "test@example.com"
 	index1 := ComputeBlindIndex(input)
 	index2 := ComputeBlindIndex(input)
@@ -76,7 +260,6 @@ func TestComputeBlindIndex(t *testing.T) {
 		t.Errorf("ComputeBlindIndex not deterministic: %s != %s", index1, index2)
 	}
 
-	// Des inputs différents doivent produire des index différents
 	index3 := ComputeBlindIndex("autre@example.com")
 	if index1 == index3 {
 		t.Error("Different inputs produced same blind index")
@@ -92,7 +275,6 @@ func TestHashToken(t *testing.T) {
 		t.Error("HashToken not deterministic")
 	}
 
-	// Vérifier la longueur (SHA256 = 64 caractères hex)
 	if len(hash1) != 64 {
 		t.Errorf("HashToken length = %d, want 64", len(hash1))
 	}
@@ -142,13 +324,34 @@ func TestDecryptFloatPlaintext(t *testing.T) {
 	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
 		t.Fatal(err)
 	}
-	// Legacy plaintext value stored without encryption
 	got, err := DecryptFloat("1234.56")
 	if err != nil {
 		t.Fatalf("DecryptFloat plaintext: %v", err)
 	}
 	if got != 1234.56 {
 		t.Errorf("want 1234.56, got %v", got)
+	}
+}
+
+func TestDecryptFloatError(t *testing.T) {
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+	// Bad hex IV → ErrDecryption propagated through DecryptFloat
+	_, err := DecryptFloat("gg:aabbccddeeff001122334455aabbccdd:aabb")
+	if err == nil {
+		t.Error("bad encrypted float should return error")
+	}
+}
+
+func TestDecryptFloatBadValue(t *testing.T) {
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+	// Plain text that is not a valid float → ParseFloat error
+	_, err := DecryptFloat("notafloat")
+	if err == nil {
+		t.Error("non-float plaintext should return strconv error")
 	}
 }
 
@@ -188,16 +391,37 @@ func TestDecryptIntPlaintext(t *testing.T) {
 	}
 }
 
+func TestDecryptIntError(t *testing.T) {
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+	_, err := DecryptInt("gg:aabbccddeeff001122334455aabbccdd:aabb")
+	if err == nil {
+		t.Error("bad encrypted int should return error")
+	}
+}
+
+func TestDecryptIntBadValue(t *testing.T) {
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+	// Plain text that is not a valid int → Atoi error
+	_, err := DecryptInt("notanint")
+	if err == nil {
+		t.Error("non-integer plaintext should return strconv error")
+	}
+}
+
 func TestValidatePassword(t *testing.T) {
 	tests := []struct {
 		pwd string
 		ok  bool
 	}{
 		{"short", false},
-		{"alllowercase1!", false},     // no uppercase
-		{"ALLUPPERCASE1!", false},     // no lowercase
-		{"NoDigitHereAt!", false},     // no digit
-		{"NoSpecialChar12", false},    // no special char
+		{"alllowercase1!", false},  // no uppercase
+		{"ALLUPPERCASE1!", false},  // no lowercase
+		{"NoDigitHereAt!", false},  // no digit
+		{"NoSpecialChar12", false}, // no special char
 		{"ValidP@ssw0rd1!", true},
 		{"Another$ecure1!", true},
 	}
@@ -223,18 +447,20 @@ func TestNeedsRehash(t *testing.T) {
 	}
 }
 
-func TestDecryptNonEncrypted(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+func TestNeedsRehashLowCost(t *testing.T) {
+	// cost 4 (below 12) → NeedsRehash must return true
+	hash, err := bcrypt.GenerateFromPassword([]byte("testpassword"), 4)
+	if err != nil {
 		t.Fatal(err)
 	}
-
-	// Les données non chiffrées doivent être retournées telles quelles
-	plaintext := "not encrypted"
-	result, err := Decrypt(plaintext)
-	if err != nil {
-		t.Errorf("Decrypt failed for non-encrypted: %v", err)
+	if !NeedsRehash(string(hash)) {
+		t.Error("cost-4 hash should need rehash")
 	}
-	if result != plaintext {
-		t.Errorf("Decrypt(%q) = %q, want %q", plaintext, result, plaintext)
+}
+
+func TestNeedsRehashInvalidHash(t *testing.T) {
+	// Invalid bcrypt hash → bcrypt.Cost returns error → NeedsRehash returns false
+	if NeedsRehash("not-a-bcrypt-hash") {
+		t.Error("invalid hash should return false")
 	}
 }
