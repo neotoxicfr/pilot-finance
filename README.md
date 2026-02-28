@@ -163,12 +163,28 @@ The application listens on port **3000** inside the container.
 
 ### v2.6.0 — Major Refactoring, GDPR, Tests
 
-- [ ] Encrypt `balance`, `amount`, `yield_min/max` fields in DB (AES-256-GCM)
-- [ ] Parallel decryption via `errgroup`
-- [ ] Versioned migrations
-- [ ] GDPR: data export (`GET /settings/export`) + account deletion
-- [ ] Audit log table
-- [ ] Handler, middleware and DB unit tests (>70% coverage target)
+- [x] Encrypt `balance`, `amount`, `yield_min/max` fields in DB (AES-256-GCM)
+- [x] Parallel decryption via `errgroup`
+- [x] Versioned migrations with auto-backup
+- [x] GDPR: data export (`GET /settings/export`) + account deletion
+- [x] Audit log table + admin page `/admin/audit`
+- [x] Handler, middleware and DB unit tests (91% global coverage)
+
+### v2.6.1 — Security patches, Legal mentions, CI
+
+**Security**
+- [x] IDOR fix — `accountId`, `toAccountId`, `targetAccountId` ownership validated against authenticated user
+- [x] Middleware order — security headers (CSP, CORP…) now correctly applied to 404/405 error pages
+- [x] Rate limit on `GET /settings/export` (10 req/min)
+
+**UX / Functional**
+- [x] Legal mentions page `/legal` + mutual Privacy ↔ Legal footer links
+- [x] Bug fix — 404/405/500 pages returned empty body (missing icon templates)
+- [x] i18n titles for Verify Email, Privacy, Legal, Audit Log pages
+
+**CI / Tests**
+- [x] `go build ./...` + `govulncheck` added to CI on every push/PR
+- [x] Handler test coverage: **100%** (up from 98.7%)
 
 ---
 
