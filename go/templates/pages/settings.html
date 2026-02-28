@@ -122,7 +122,8 @@ document.addEventListener('alpine:init', () => {
         <div class="space-y-8">
 
             <!-- Preferences -->
-            <div class="dashboard-card bg-background border rounded-2xl p-6" x-data="prefsData">
+            <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden" x-data="prefsData">
+                <div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></div>
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-blue-500">{{template "icon-settings" dict "Size" 20}}</span>
                     {{index .T "settings.preferences_title"}}
@@ -160,7 +161,8 @@ document.addEventListener('alpine:init', () => {
             </div>
 
             <!-- Password -->
-            <div class="dashboard-card bg-background border rounded-2xl p-6" x-data="pwdData">
+            <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden" x-data="pwdData">
+                <div class="absolute left-0 top-0 bottom-0 w-1 bg-slate-400 dark:bg-slate-600"></div>
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-muted-foreground">{{template "icon-lock" dict "Size" 20}}</span>
                     {{index .T "settings.password_title"}}
@@ -215,7 +217,8 @@ document.addEventListener('alpine:init', () => {
         <div class="space-y-8">
 
             <!-- 2FA -->
-            <div class="dashboard-card bg-background border rounded-2xl p-6" x-data="mfaData">
+            <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden" x-data="mfaData">
+                <div class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"></div>
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-blue-500">{{template "icon-smartphone" dict "Size" 20}}</span>
                     {{index .T "settings.mfa_title"}}
@@ -279,7 +282,8 @@ document.addEventListener('alpine:init', () => {
 
             <!-- Passkeys -->
             {{if .PasskeysEnabled}}
-            <div class="dashboard-card bg-background border rounded-2xl p-6" x-data="passkeyData">
+            <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden" x-data="passkeyData">
+                <div class="absolute left-0 top-0 bottom-0 w-1 bg-purple-500"></div>
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-purple-500">{{template "icon-fingerprint" dict "Size" 20}}</span>
                     {{index .T "settings.passkeys_title"}}
@@ -374,7 +378,8 @@ document.addEventListener('alpine:init', () => {
             </div>
         </div>
 
-        <div class="dashboard-card bg-background border rounded-2xl p-6">
+        <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden">
+            <div class="absolute left-0 top-0 bottom-0 w-1 bg-purple-500"></div>
             <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                 <span class="text-purple-500">{{template "icon-shield" dict "Size" 20}}</span>
                 {{index .T "settings.admin_title"}} ({{len .Users}})
@@ -437,31 +442,29 @@ document.addEventListener('alpine:init', () => {
             </h2>
             <div class="flex flex-col sm:flex-row gap-3">
                 <a href="/settings/export"
-                   class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-background hover:bg-accent text-sm font-medium text-foreground transition-all">
+                   class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-background hover:bg-accent text-sm font-medium text-foreground transition-all w-full sm:w-auto">
                     {{template "icon-save" dict "Size" 16}}
                     {{index .T "settings.export_data"}}
                 </a>
-                <div class="flex items-center gap-2">
-                    <button x-show="!selfDeleteConfirm" @click="selfDeleteConfirm = true"
-                            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-medium text-red-500 transition-all">
-                        {{template "icon-trash" dict "Size" 16}}
-                        {{index .T "settings.delete_account"}}
-                    </button>
-                    <template x-if="selfDeleteConfirm">
-                        <div class="flex items-center gap-2">
-                            <button hx-delete="/settings/account"
-                                    hx-target="body"
-                                    class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-sm font-bold text-white transition-all">
-                                {{template "icon-trash" dict "Size" 16}}
-                                {{index .T "settings.delete_account_confirm"}}
-                            </button>
-                            <button @click="selfDeleteConfirm = false"
-                                    class="px-4 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all">
-                                {{index .T "common.cancel"}}
-                            </button>
-                        </div>
-                    </template>
-                </div>
+                <button x-show="!selfDeleteConfirm" @click="selfDeleteConfirm = true"
+                        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-medium text-red-500 transition-all w-full sm:w-auto">
+                    {{template "icon-trash" dict "Size" 16}}
+                    {{index .T "settings.delete_account"}}
+                </button>
+                <template x-if="selfDeleteConfirm">
+                    <div class="flex gap-2">
+                        <button hx-delete="/settings/account"
+                                hx-target="body"
+                                class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-sm font-bold text-white transition-all">
+                            {{template "icon-trash" dict "Size" 16}}
+                            {{index .T "settings.delete_account_confirm"}}
+                        </button>
+                        <button @click="selfDeleteConfirm = false"
+                                class="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all">
+                            {{index .T "common.cancel"}}
+                        </button>
+                    </div>
+                </template>
             </div>
         </div>
     </div>
