@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -15,6 +16,8 @@ import (
 	"pilot-finance/internal/projection"
 	"pilot-finance/internal/templates"
 )
+
+var hexColorRegex = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 // CreateAccount cree ou met a jour un compte
 func CreateAccount(w http.ResponseWriter, r *http.Request) {
@@ -66,6 +69,9 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 
 	if color == "" {
 		color = "#3b82f6"
+	} else if !hexColorRegex.MatchString(color) {
+		http.Error(w, "Format couleur invalide (ex: #3b82f6)", http.StatusBadRequest)
+		return
 	}
 
 	// Parser les valeurs de rendement
