@@ -16,6 +16,7 @@ import (
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
+	"pilot-finance/internal/ratelimit"
 	"pilot-finance/internal/templates"
 )
 
@@ -35,6 +36,8 @@ func goRoot() string {
 func setupHandlerTest(t *testing.T) func() {
 	t.Helper()
 	root := goRoot()
+
+	ratelimit.StopAll() // reset global in-memory state between tests
 
 	if err := crypto.Init(hTestEncKey, hTestBlindKey); err != nil {
 		t.Fatalf("crypto.Init: %v", err)
