@@ -60,41 +60,80 @@ func Init(cfg Config) error {
 		return fmt.Errorf("ping DB: %w", err)
 	}
 
-	// Migrations automatiques
-	runMigrations()
+	// Migrations automatiques versionnées
+	runMigrations(cfg.Path)
 
 	slog.Info("base de données connectée", "path", cfg.Path)
 	return nil
 }
 
-// runMigrations exécute les migrations de schéma
-func runMigrations() {
-	migrations := []string{
-		// Ajouter backup_eligible aux authenticators (pour go-webauthn)
-		`ALTER TABLE authenticators ADD COLUMN backup_eligible INTEGER DEFAULT 0`,
-		// Multi-langue et multi-devise par utilisateur
-		`ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'fr'`,
-		`ALTER TABLE users ADD COLUMN currency TEXT NOT NULL DEFAULT 'EUR'`,
-		// Périodicité du rendement et des versements
-		`ALTER TABLE accounts ADD COLUMN yield_frequency TEXT NOT NULL DEFAULT 'MONTHLY'`,
-		`ALTER TABLE accounts ADD COLUMN payout_frequency TEXT NOT NULL DEFAULT 'MONTHLY'`,
-		// Index de performance
-		`CREATE INDEX IF NOT EXISTS idx_accounts_user_id       ON accounts(user_id, position)`,
-		`CREATE INDEX IF NOT EXISTS idx_recurring_user_id      ON recurring_operations(user_id, day_of_month)`,
-		`CREATE INDEX IF NOT EXISTS idx_authenticators_user_id ON authenticators(user_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_authenticators_cred_id ON authenticators(credential_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_users_blind            ON users(email_blind_index)`,
-		`CREATE INDEX IF NOT EXISTS idx_users_reset_token      ON users(reset_token)`,
-		`CREATE INDEX IF NOT EXISTS idx_users_verif_token      ON users(verification_token)`,
+// migration représente une migration de schéma nommée et idempotente.
+// SQL : instruction DDL unique. Run : migration Go complexe (chiffrement in-place, etc.)
+type migration struct {
+	Name string
+	SQL  string
+	Run  func(*sql.DB) error
+}
+
+// runMigrations exécute les migrations de schéma de manière versionnée.
+// Chaque migration est enregistrée dans schema_migrations ; les migrations déjà
+// appliquées sont ignorées. dbPath est utilisé pour le backup avant migrations Go.
+func runMigrations(dbPath string) {
+	if _, err := DB.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at INTEGER NOT NULL)`); err != nil {
+		slog.Error("schema_migrations: création impossible", "err", err)
+		return
 	}
 
-	for _, migration := range migrations {
-		_, err := DB.Exec(migration)
-		if err != nil {
-			msg := err.Error()
-			if !strings.Contains(msg, "already exists") && !strings.Contains(msg, "duplicate column name") {
-				slog.Warn("migration error", "err", err, "sql", migration[:min(80, len(migration))])
+	migrations := []migration{
+		{Name: "001_backup_eligible", SQL: `ALTER TABLE authenticators ADD COLUMN backup_eligible INTEGER DEFAULT 0`},
+		{Name: "002_user_language", SQL: `ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'fr'`},
+		{Name: "003_user_currency", SQL: `ALTER TABLE users ADD COLUMN currency TEXT NOT NULL DEFAULT 'EUR'`},
+		{Name: "004_yield_frequency", SQL: `ALTER TABLE accounts ADD COLUMN yield_frequency TEXT NOT NULL DEFAULT 'MONTHLY'`},
+		{Name: "005_payout_frequency", SQL: `ALTER TABLE accounts ADD COLUMN payout_frequency TEXT NOT NULL DEFAULT 'MONTHLY'`},
+		{Name: "006_indexes", Run: func(d *sql.DB) error {
+			for _, idx := range []string{
+				`CREATE INDEX IF NOT EXISTS idx_accounts_user_id       ON accounts(user_id, position)`,
+				`CREATE INDEX IF NOT EXISTS idx_recurring_user_id      ON recurring_operations(user_id, day_of_month)`,
+				`CREATE INDEX IF NOT EXISTS idx_authenticators_user_id ON authenticators(user_id)`,
+				`CREATE INDEX IF NOT EXISTS idx_authenticators_cred_id ON authenticators(credential_id)`,
+				`CREATE INDEX IF NOT EXISTS idx_users_blind            ON users(email_blind_index)`,
+				`CREATE INDEX IF NOT EXISTS idx_users_reset_token      ON users(reset_token)`,
+				`CREATE INDEX IF NOT EXISTS idx_users_verif_token      ON users(verification_token)`,
+			} {
+				if _, err := d.Exec(idx); err != nil {
+					return err
+				}
 			}
+			return nil
+		}},
+	}
+
+	for _, m := range migrations {
+		var count int
+		DB.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE name = ?`, m.Name).Scan(&count)
+		if count > 0 {
+			continue
+		}
+
+		var applyErr error
+		if m.Run != nil {
+			applyErr = m.Run(DB)
+		} else {
+			_, applyErr = DB.Exec(m.SQL)
+		}
+
+		if applyErr != nil {
+			msg := applyErr.Error()
+			if !strings.Contains(msg, "already exists") && !strings.Contains(msg, "duplicate column name") {
+				slog.Warn("migration échouée", "name", m.Name, "err", applyErr)
+				continue
+			}
+		}
+
+		if _, err := DB.Exec(`INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)`, m.Name, time.Now().Unix()); err != nil {
+			slog.Warn("schema_migrations: enregistrement impossible", "name", m.Name, "err", err)
+		} else {
+			slog.Info("migration appliquée", "name", m.Name)
 		}
 	}
 }
