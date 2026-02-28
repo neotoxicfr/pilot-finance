@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strconv"
 	"strings"
 	"testing"
+
+	"golang.org/x/crypto/bcrypt"
 
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
@@ -431,24 +434,30 @@ func TestChangePassword_UserNotInDB(t *testing.T) {
 	}
 }
 
-// --- renderAccountsList : compte avec rendement YEARLY + récurrente négative ---
-// Couvre les branches : payout.PayoutFrequency=="YEARLY" et rec.Amount < 0
+// --- renderAccountsList : compte avec rendement YEARLY ---
+// Couvre la branche : payout.PayoutFrequency=="YEARLY" dans renderAccountsList et AccountsPage
+// Conditions : IsYieldActive && ReinvestmentRate < 100 && TargetAccountID != nil
 
 func TestCreateAccount_YieldYearly_CoversPayoutBranch(t *testing.T) {
 	cleanup := setupHandlerTest(t)
 	defer cleanup()
 	uid := newUser(t, "yldyrly@example.com", "ValidP@ss1!", "USER")
 
-	// 1. Créer un compte avec rendement annuel actif
+	// 1. Créer un compte cible (destination des intérêts)
+	targetID := createAcc(t, uid)
+
+	// 2. Créer le compte source avec rendement YEARLY, reinvestment=0% → payout distribué
 	req1 := injectUser(post("/accounts", url.Values{
-		"name":            {"PEA"},
-		"balance":         {"10000"},
-		"color":           {"#3b82f6"},
-		"isYieldActive":   {"on"},
-		"yieldType":       {"FIXED"},
-		"yieldMin":        {"5.0"},
-		"yieldMax":        {"5.0"},
-		"payoutFrequency": {"YEARLY"},
+		"name":             {"PEA"},
+		"balance":          {"10000"},
+		"color":            {"#3b82f6"},
+		"isYieldActive":    {"on"},
+		"yieldType":        {"FIXED"},
+		"yieldMin":         {"5.0"},
+		"yieldMax":         {"5.0"},
+		"reinvestmentRate": {"0"},
+		"targetAccountId":  {strconv.FormatInt(targetID, 10)},
+		"payoutFrequency":  {"YEARLY"},
 	}), mu(uid, "USER"))
 	rr1 := httptest.NewRecorder()
 	CreateAccount(rr1, req1)
@@ -456,44 +465,53 @@ func TestCreateAccount_YieldYearly_CoversPayoutBranch(t *testing.T) {
 		t.Fatalf("create yield account: want 200, got %d (body: %s)", rr1.Code, rr1.Body.String())
 	}
 
-	// 2. Ajouter une récurrente avec montant négatif (dépense)
-	accID := createAcc(t, uid) // compte pour la récurrente
-	req2 := injectUser(post("/recurring", url.Values{
-		"description": {"Loyer"},
-		"amount":      {"-1200"},
-		"dayOfMonth":  {"1"},
-		"type":        {"expense"},
-		"accountId":   {strconv.FormatInt(accID, 10)},
-	}), mu(uid, "USER"))
-	rr2 := httptest.NewRecorder()
-	CreateRecurring(rr2, req2)
-	if rr2.Code != http.StatusOK {
-		t.Fatalf("create expense recurring: want 200, got %d", rr2.Code)
+	// 3. Appeler AccountsPage pour couvrir la branche YEARLY dans renderAccountsList
+	pageReq := injectUser(httptest.NewRequest(http.MethodGet, "/accounts", nil), mu(uid, "USER"))
+	rrPage := httptest.NewRecorder()
+	AccountsPage(rrPage, pageReq)
+	if rrPage.Code != http.StatusOK {
+		t.Errorf("AccountsPage with YEARLY yield: want 200, got %d", rrPage.Code)
 	}
 }
 
-// --- AccountsPage avec données riches (YEARLY yield + récurrente transfer) ---
+// --- AccountsPage avec données riches (YEARLY yield + récurrente dépense) ---
 
 func TestAccountsPage_WithRichData(t *testing.T) {
 	cleanup := setupHandlerTest(t)
 	defer cleanup()
 	uid := newUser(t, "richaccp@example.com", "ValidP@ss1!", "USER")
 
-	// Compte avec rendement YEARLY
+	// Compte cible (destination des intérêts non réinvestis)
+	targetID := createAcc(t, uid)
+
+	// Compte avec rendement YEARLY, reinvestment=0%, targetAccount → génère payout YEARLY
 	accReq := injectUser(post("/accounts", url.Values{
-		"name":            {"Obligations"},
-		"balance":         {"5000"},
-		"color":           {"#10b981"},
-		"isYieldActive":   {"true"},
-		"yieldType":       {"FIXED"},
-		"yieldMin":        {"3.0"},
-		"yieldMax":        {"3.0"},
-		"payoutFrequency": {"YEARLY"},
+		"name":             {"Obligations"},
+		"balance":          {"5000"},
+		"color":            {"#10b981"},
+		"isYieldActive":    {"on"},
+		"yieldType":        {"FIXED"},
+		"yieldMin":         {"3.0"},
+		"yieldMax":         {"3.0"},
+		"reinvestmentRate": {"0"},
+		"targetAccountId":  {strconv.FormatInt(targetID, 10)},
+		"payoutFrequency":  {"YEARLY"},
 	}), mu(uid, "USER"))
 	rrAcc := httptest.NewRecorder()
 	CreateAccount(rrAcc, accReq)
 
-	// Accéder à AccountsPage
+	// Ajouter une récurrente dépense pour couvrir la branche monthlyExpenses
+	req2 := injectUser(post("/recurring", url.Values{
+		"description": {"Abonnement"},
+		"amount":      {"50"},
+		"dayOfMonth":  {"5"},
+		"type":        {"expense"},
+		"accountId":   {strconv.FormatInt(targetID, 10)},
+	}), mu(uid, "USER"))
+	rr2 := httptest.NewRecorder()
+	CreateRecurring(rr2, req2)
+
+	// Accéder à AccountsPage — doit rendre 200
 	pageReq := injectUser(httptest.NewRequest(http.MethodGet, "/accounts", nil), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
 	AccountsPage(rr, pageReq)
@@ -517,5 +535,158 @@ func TestDashboardAPI_WithYearsParam(t *testing.T) {
 	DashboardAPI(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Errorf("want 200, got %d", rr.Code)
+	}
+}
+
+// --- ChangePassword : nil user (401) ---
+
+func TestChangePassword_Unauthorized(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+
+	rr := httptest.NewRecorder()
+	ChangePassword(rr, post("/settings/password", url.Values{
+		"currentPassword": {"OldP@ss1!"},
+		"newPassword":     {"NewValidP@ssw0rd!"},
+		"confirmPassword": {"NewValidP@ssw0rd!"},
+	}))
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("want 401, got %d", rr.Code)
+	}
+}
+
+// --- ExportData : avec données accounts + recurrings ---
+
+func TestExportData_WithData(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "exportdata@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	createRec(t, uid, accID)
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/settings/export", nil), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	ExportData(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d (body: %s)", rr.Code, rr.Body.String())
+	}
+	if ct := rr.Header().Get("Content-Type"); !strings.Contains(ct, "application/json") {
+		t.Errorf("Content-Type: got %q", ct)
+	}
+	if cd := rr.Header().Get("Content-Disposition"); !strings.Contains(cd, "attachment") {
+		t.Errorf("Content-Disposition: got %q", cd)
+	}
+	var export map[string]interface{}
+	if err := json.NewDecoder(rr.Body).Decode(&export); err != nil {
+		t.Fatalf("decode JSON: %v", err)
+	}
+	if _, ok := export["accounts"]; !ok {
+		t.Error("export should contain 'accounts'")
+	}
+}
+
+// --- renderAccountsList : branches MONTHLY payout + recurrings loop ---
+// Couvre: else branch (payout MONTHLY), rec.ToAccountID!=nil, rec.Amount>0, rec.Amount<0
+
+func TestRenderAccountsList_MonthlyAndRecurrings(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "rendlist@example.com", "ValidP@ss1!", "USER")
+
+	// Compte cible pour les intérêts distribués
+	targetID := createAcc(t, uid)
+
+	// Compte source avec rendement MONTHLY, reinvestment=0%, targetAccountId=targetID
+	// → génère un payout MONTHLY dans renderAccountsList (via CreateAccount)
+	req1 := injectUser(post("/accounts", url.Values{
+		"name":             {"Livret A"},
+		"balance":          {"5000"},
+		"color":            {"#3b82f6"},
+		"isYieldActive":    {"on"},
+		"yieldType":        {"FIXED"},
+		"yieldMin":         {"3.0"},
+		"yieldMax":         {"3.0"},
+		"reinvestmentRate": {"0"},
+		"targetAccountId":  {strconv.FormatInt(targetID, 10)},
+		// payoutFrequency absent → default MONTHLY
+	}), mu(uid, "USER"))
+	rr1 := httptest.NewRecorder()
+	CreateAccount(rr1, req1) // triggers renderAccountsList with MONTHLY payout
+
+	// Récupérer l'ID du compte yield créé
+	accs, _ := db.GetAccountsByUserID(uid)
+	var sourceID int64
+	for _, a := range accs {
+		if a.ID != targetID {
+			sourceID = a.ID
+		}
+	}
+
+	// Créer récurrentes pour couvrir les branches du loop dans renderAccountsList
+	toID := targetID
+	// 1. Virement interne → rec.ToAccountID != nil → continue
+	db.CreateRecurring(uid, sourceID, &toID, encStr(t, "Virement"), 300.0, 1)
+	// 2. Revenu positif → rec.Amount > 0 → monthlyIncome +=
+	db.CreateRecurring(uid, sourceID, nil, encStr(t, "Salaire"), 2000.0, 1)
+	// 3. Dépense négative → rec.Amount < 0 → monthlyExpenses +=
+	db.CreateRecurring(uid, sourceID, nil, encStr(t, "Loyer"), -1000.0, 1)
+
+	// Déclencher renderAccountsList via UpdateBalance (avec les récurrentes déjà créées)
+	idStr := strconv.FormatInt(targetID, 10)
+	req2 := injectUser(
+		withParam(post("/accounts/"+idStr+"/balance", url.Values{"balance": {"5500"}}), "id", idStr),
+		mu(uid, "USER"),
+	)
+	rr2 := httptest.NewRecorder()
+	UpdateBalance(rr2, req2)
+	if rr2.Code != http.StatusOK {
+		t.Errorf("UpdateBalance: want 200, got %d", rr2.Code)
+	}
+}
+
+// --- AuditPage : entrée orpheline (user_id inexistant) ---
+// Couvre emailCache[e.UserID] = strconv.FormatInt(e.UserID, 10) (fallback)
+
+func TestAuditPage_OrphanEntry(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "auditorphan@example.com", "ValidP@ss1!", "ADMIN")
+
+	// Entrée d'audit pour un user inexistant → emailCache ne trouve pas → fallback ID string
+	db.LogAudit(99999, db.AuditLoginSuccess, "10.0.0.1", "test-agent")
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/admin/audit", nil), mu(uid, "ADMIN"))
+	rr := httptest.NewRecorder()
+	AuditPage(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d (body: %s)", rr.Code, rr.Body.String())
+	}
+}
+
+// --- HandleLogin : NeedsRehash (bcrypt cost < 12) ---
+// Couvre la branche if crypto.NeedsRehash(user.Password) { ... }
+
+func TestHandleLogin_NeedsRehash(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+
+	email := "rehash@example.com"
+	password := "ValidP@ss1!"
+
+	// Créer un utilisateur avec un hash bcrypt cost 10 (< 12 → NeedsRehash=true)
+	lowCostHash, _ := bcrypt.GenerateFromPassword([]byte(password), 10)
+	encEmail, _ := crypto.Encrypt(email)
+	blind := crypto.ComputeBlindIndex(email)
+	db.CreateUser(encEmail, blind, string(lowCostHash), "USER")
+
+	rr := httptest.NewRecorder()
+	HandleLogin(rr, post("/login", url.Values{
+		"email":    {email},
+		"password": {password},
+	}))
+	// Le login doit réussir (303 redirect ou 200 HTMX)
+	if rr.Code != http.StatusSeeOther && rr.Code != http.StatusOK {
+		t.Errorf("want 303 or 200, got %d (body: %s)", rr.Code, rr.Body.String())
 	}
 }
