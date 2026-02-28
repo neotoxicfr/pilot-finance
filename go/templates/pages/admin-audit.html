@@ -1,0 +1,85 @@
+{{define "content"}}
+<div class="max-w-[1400px] mx-auto px-4 py-8">
+
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold text-foreground">Audit Log</h1>
+        <p class="text-sm text-muted-foreground mt-1">{{.Total}} entrées au total</p>
+    </div>
+
+    <div class="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="border-b border-border bg-accent/40">
+                    <tr>
+                        <th class="px-4 py-3 text-left font-semibold text-foreground">Date</th>
+                        <th class="px-4 py-3 text-left font-semibold text-foreground">Utilisateur</th>
+                        <th class="px-4 py-3 text-left font-semibold text-foreground">Action</th>
+                        <th class="hidden md:table-cell px-4 py-3 text-left font-semibold text-foreground">IP</th>
+                        <th class="hidden lg:table-cell px-4 py-3 text-left font-semibold text-foreground">User-Agent</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border">
+                    {{range .Entries}}
+                    <tr class="hover:bg-accent/20 transition-colors">
+                        <td class="px-4 py-3 text-muted-foreground whitespace-nowrap font-mono text-xs">
+                            {{.CreatedAt.Format "2006-01-02 15:04:05"}}
+                        </td>
+                        <td class="px-4 py-3 text-foreground max-w-[180px] truncate">
+                            {{.Email}}
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wide
+                                {{if or (eq .Action "LOGIN_SUCCESS") (eq .Action "PASSKEY_ADD") (eq .Action "MFA_ENABLE") (eq .Action "ACCOUNT_CREATE")}}
+                                    bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20
+                                {{else if or (eq .Action "LOGIN_FAIL") (eq .Action "GDPR_DELETE") (eq .Action "ACCOUNT_DELETE") (eq .Action "PASSKEY_REMOVE") (eq .Action "MFA_DISABLE")}}
+                                    bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20
+                                {{else}}
+                                    bg-accent text-muted-foreground border border-border
+                                {{end}}">
+                                {{.Action}}
+                            </span>
+                        </td>
+                        <td class="hidden md:table-cell px-4 py-3 text-muted-foreground font-mono text-xs whitespace-nowrap">
+                            {{.IP}}
+                        </td>
+                        <td class="hidden lg:table-cell px-4 py-3 text-muted-foreground text-xs max-w-[260px] truncate">
+                            {{.UserAgent}}
+                        </td>
+                    </tr>
+                    {{else}}
+                    <tr>
+                        <td colspan="5" class="px-4 py-12 text-center text-muted-foreground">
+                            Aucune entrée dans l'audit log.
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+
+        {{if gt .TotalPages 1}}
+        <div class="border-t border-border px-4 py-3 flex items-center justify-between gap-4 text-sm">
+            <span class="text-muted-foreground">Page {{.Page}} / {{.TotalPages}}</span>
+            <div class="flex gap-2">
+                {{if gt .Page 1}}
+                <a href="/admin/audit?page={{sub .Page 1}}"
+                   class="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-accent text-foreground transition-colors">
+                    ← Précédent
+                </a>
+                {{end}}
+                {{if lt .Page .TotalPages}}
+                <a href="/admin/audit?page={{add .Page 1}}"
+                   class="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-accent text-foreground transition-colors">
+                    Suivant →
+                </a>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+    </div>
+
+    <div class="mt-4">
+        <a href="/settings" class="text-sm text-muted-foreground hover:text-foreground transition-colors">← Retour aux paramètres</a>
+    </div>
+</div>
+{{end}}

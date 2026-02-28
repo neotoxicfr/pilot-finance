@@ -73,6 +73,10 @@ func RegisterSubmit(w http.ResponseWriter, r *http.Request) {
 
 // Logout deconnecte l'utilisateur
 func Logout(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUser(r)
+	if user != nil {
+		db.LogAudit(user.ID, db.AuditLogout, getClientIP(r), r.UserAgent())
+	}
 	clearCookie(w, "session")
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
