@@ -176,5 +176,10 @@
   "dashboard.empty_cta": "Create my first account",
 
   "common.saved": "Saved",
-  "common.cancel": "Cancel"
+  "common.cancel": "Cancel",
+
+  "settings.danger_zone": "Danger Zone",
+  "settings.export_data": "Download my data",
+  "settings.delete_account": "Delete my account",
+  "settings.delete_account_confirm": "Confirm deletion"
 }
