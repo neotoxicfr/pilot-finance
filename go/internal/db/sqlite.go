@@ -6,8 +6,11 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
+
+	"pilot-finance/internal/crypto"
 
 	_ "modernc.org/sqlite"
 )
@@ -114,6 +117,109 @@ func runMigrations(dbPath string) {
 			user_agent TEXT,
 			created_at INTEGER NOT NULL
 		)`},
+		{Name: "008_encrypt_account_fields", Run: func(d *sql.DB) error {
+			// Backup avant chiffrement via VACUUM INTO (copie propre incluant le WAL)
+			backupPath := dbPath + ".bak"
+			if _, err := d.Exec("VACUUM INTO ?", backupPath); err != nil {
+				slog.Warn("migration 008: backup impossible", "err", err)
+			} else {
+				slog.Info("migration 008: backup créé", "path", backupPath)
+			}
+
+			rows, err := d.Query(`SELECT id, balance, yield_min, yield_max, reinvestment_rate FROM accounts`)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+
+			type accRow struct {
+				id          int64
+				balance     string
+				yieldMin    string
+				yieldMax    string
+				reinvestRate string
+			}
+			var toUpdate []accRow
+			for rows.Next() {
+				var r accRow
+				if err := rows.Scan(&r.id, &r.balance, &r.yieldMin, &r.yieldMax, &r.reinvestRate); err != nil {
+					return err
+				}
+				toUpdate = append(toUpdate, r)
+			}
+			rows.Close()
+
+			for _, r := range toUpdate {
+				balEnc := encryptIfPlain(r.balance, func(s string) (string, error) {
+					f, err := strconv.ParseFloat(s, 64)
+					if err != nil {
+						return s, nil
+					}
+					return crypto.EncryptFloat(f)
+				})
+				ymEnc := encryptIfPlain(r.yieldMin, func(s string) (string, error) {
+					f, err := strconv.ParseFloat(s, 64)
+					if err != nil {
+						return s, nil
+					}
+					return crypto.EncryptFloat(f)
+				})
+				yxEnc := encryptIfPlain(r.yieldMax, func(s string) (string, error) {
+					f, err := strconv.ParseFloat(s, 64)
+					if err != nil {
+						return s, nil
+					}
+					return crypto.EncryptFloat(f)
+				})
+				rrEnc := encryptIfPlain(r.reinvestRate, func(s string) (string, error) {
+					n, err := strconv.Atoi(s)
+					if err != nil {
+						return s, nil
+					}
+					return crypto.EncryptInt(n)
+				})
+				if _, err := d.Exec(`UPDATE accounts SET balance=?, yield_min=?, yield_max=?, reinvestment_rate=? WHERE id=?`,
+					balEnc, ymEnc, yxEnc, rrEnc, r.id); err != nil {
+					return fmt.Errorf("update account id=%d: %w", r.id, err)
+				}
+			}
+			return nil
+		}},
+		{Name: "009_encrypt_recurring_amount", Run: func(d *sql.DB) error {
+			rows, err := d.Query(`SELECT id, amount FROM recurring_operations`)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+
+			type recRow struct {
+				id     int64
+				amount string
+			}
+			var toUpdate []recRow
+			for rows.Next() {
+				var r recRow
+				if err := rows.Scan(&r.id, &r.amount); err != nil {
+					return err
+				}
+				toUpdate = append(toUpdate, r)
+			}
+			rows.Close()
+
+			for _, r := range toUpdate {
+				amtEnc := encryptIfPlain(r.amount, func(s string) (string, error) {
+					f, err := strconv.ParseFloat(s, 64)
+					if err != nil {
+						return s, nil
+					}
+					return crypto.EncryptFloat(f)
+				})
+				if _, err := d.Exec(`UPDATE recurring_operations SET amount=? WHERE id=?`, amtEnc, r.id); err != nil {
+					return fmt.Errorf("update recurring id=%d: %w", r.id, err)
+				}
+			}
+			return nil
+		}},
 	}
 
 	for _, m := range migrations {
@@ -144,6 +250,19 @@ func runMigrations(dbPath string) {
 			slog.Info("migration appliquée", "name", m.Name)
 		}
 	}
+}
+
+// encryptIfPlain chiffre une valeur si elle n'est pas déjà chiffrée (pas de ":").
+// fn reçoit la valeur brute et retourne la valeur chiffrée.
+func encryptIfPlain(raw string, fn func(string) (string, error)) string {
+	if strings.Contains(raw, ":") {
+		return raw // déjà chiffré
+	}
+	enc, err := fn(raw)
+	if err != nil {
+		return raw
+	}
+	return enc
 }
 
 // Close ferme la connexion à la base de données
@@ -254,15 +373,23 @@ func GetAccountsByUserID(userID int64) ([]Account, error) {
 		var updatedAt, lastYieldDate sql.NullInt64
 		var targetAccountID sql.NullInt64
 		var yieldType, yieldFreq, payoutFreq sql.NullString
+		// Champs numériques scannés comme string pour supporter le chiffrement AES
+		var balanceRaw, yieldMinRaw, yieldMaxRaw, reinvestRaw string
 
 		err := rows.Scan(
-			&acc.ID, &acc.UserID, &acc.Name, &acc.Balance, &acc.Color, &acc.Position,
-			&updatedAt, &acc.IsYieldActive, &yieldType, &acc.YieldMin, &acc.YieldMax,
-			&yieldFreq, &payoutFreq, &lastYieldDate, &acc.ReinvestmentRate, &targetAccountID,
+			&acc.ID, &acc.UserID, &acc.Name, &balanceRaw, &acc.Color, &acc.Position,
+			&updatedAt, &acc.IsYieldActive, &yieldType, &yieldMinRaw, &yieldMaxRaw,
+			&yieldFreq, &payoutFreq, &lastYieldDate, &reinvestRaw, &targetAccountID,
 		)
 		if err != nil {
 			return nil, err
 		}
+
+		// Déchiffrer les champs numériques
+		acc.Balance, _ = crypto.DecryptFloat(balanceRaw)
+		acc.YieldMin, _ = crypto.DecryptFloat(yieldMinRaw)
+		acc.YieldMax, _ = crypto.DecryptFloat(yieldMaxRaw)
+		acc.ReinvestmentRate, _ = crypto.DecryptInt(reinvestRaw)
 
 		if updatedAt.Valid {
 			acc.UpdatedAt = time.Unix(updatedAt.Int64, 0)
@@ -307,14 +434,17 @@ func GetRecurringByUserID(userID int64) ([]RecurringOperation, error) {
 		var op RecurringOperation
 		var toAccountID sql.NullInt64
 		var lastRunDate sql.NullInt64
+		var amountRaw string // scanné comme string pour supporter le chiffrement AES
 
 		err := rows.Scan(
-			&op.ID, &op.UserID, &op.AccountID, &toAccountID, &op.Amount,
+			&op.ID, &op.UserID, &op.AccountID, &toAccountID, &amountRaw,
 			&op.Description, &op.DayOfMonth, &lastRunDate, &op.IsActive,
 		)
 		if err != nil {
 			return nil, err
 		}
+
+		op.Amount, _ = crypto.DecryptFloat(amountRaw)
 
 		if toAccountID.Valid {
 			op.ToAccountID = &toAccountID.Int64
