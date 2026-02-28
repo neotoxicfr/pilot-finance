@@ -77,9 +77,10 @@ func getLimiter(action string) *Limiter {
 	}
 	limiters[action] = l
 
-	// Nettoyage périodique
+	// Nettoyage périodique — capturer la valeur avant la goroutine pour éviter la race
+	interval := limiterCleanupInterval
 	go func() {
-		ticker := time.NewTicker(limiterCleanupInterval)
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {
 			select {

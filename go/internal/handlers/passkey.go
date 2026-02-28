@@ -219,7 +219,7 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Mettre à jour le compteur (base64 encode credential ID)
-	db.UpdateAuthenticatorCounter(base64.StdEncoding.EncodeToString(credential.ID), int(credential.Authenticator.SignCount))
+	hookUpdateAuthCounter(base64.StdEncoding.EncodeToString(credential.ID), int(credential.Authenticator.SignCount)) //nolint:errcheck
 
 	// Récupérer l'utilisateur complet
 	user, err := dbGetUserByIDFn(passkeyUser.ID)
@@ -257,7 +257,7 @@ func DeletePasskey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = db.DeleteAuthenticator(id, user.ID)
+	err = hookDeleteAuthenticator(id, user.ID)
 	if err != nil {
 		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
 		return
@@ -291,7 +291,7 @@ func RenamePasskey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = db.RenameAuthenticator(id, user.ID, req.Name)
+	err = hookRenameAuthenticator(id, user.ID, req.Name)
 	if err != nil {
 		http.Error(w, "Erreur renommage", http.StatusInternalServerError)
 		return

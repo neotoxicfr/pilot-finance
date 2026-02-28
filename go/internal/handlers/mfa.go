@@ -31,7 +31,7 @@ func MFASetup(w http.ResponseWriter, r *http.Request) {
 	otpauthURI := auth.GenerateTOTPURI(secret, user.Email)
 
 	// Generer le QR code localement (zéro dépendance externe)
-	png, err := qrcode.Encode(otpauthURI, qrcode.Medium, 200)
+	png, err := hookQREncode(otpauthURI, qrcode.Medium, 200)
 	if err != nil {
 		http.Error(w, "Erreur generation QR", http.StatusInternalServerError)
 		return
