@@ -3,11 +3,22 @@ package mail
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
+	"net"
 	"net/smtp"
 	"os"
 	"strconv"
 	"strings"
 )
+
+// dialTLS et smtpDataWrite sont des variables de fonction pour faciliter les tests.
+var dialTLS = func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+	return tls.Dial(network, addr, cfg)
+}
+
+var smtpDataWrite = func(w io.Writer, msg []byte) (int, error) {
+	return w.Write(msg)
+}
 
 // Config contient la configuration SMTP
 type Config struct {
@@ -82,7 +93,7 @@ func sendTLS(addr string, auth smtp.Auth, from, to string, msg []byte) error {
 		ServerName: strings.Split(addr, ":")[0],
 	}
 
-	conn, err := tls.Dial("tcp", addr, tlsConfig)
+	conn, err := dialTLS("tcp", addr, tlsConfig)
 	if err != nil {
 		return err
 	}
@@ -113,7 +124,7 @@ func sendTLS(addr string, auth smtp.Auth, from, to string, msg []byte) error {
 		return err
 	}
 
-	_, err = w.Write(msg)
+	_, err = smtpDataWrite(w, msg)
 	if err != nil {
 		return err
 	}

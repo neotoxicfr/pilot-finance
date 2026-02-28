@@ -464,3 +464,79 @@ func TestNeedsRehashInvalidHash(t *testing.T) {
 		t.Error("invalid hash should return false")
 	}
 }
+
+// --- error branches via hooks / key corruption ---
+
+func TestEncrypt_NewCipherError(t *testing.T) {
+	// Corrupt the key to trigger aes.NewCipher failure.
+	orig := encryptionKey
+	encryptionKey = []byte("bad-key") // wrong length
+	defer func() { encryptionKey = orig }()
+
+	_, err := Encrypt("test")
+	if err == nil {
+		t.Error("Encrypt: want error with bad key, got nil")
+	}
+}
+
+func TestEncrypt_NewGCMError(t *testing.T) {
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+	orig := cipherNewGCMFn
+	defer func() { cipherNewGCMFn = orig }()
+
+	cipherNewGCMFn = func(_ cipher.Block) (cipher.AEAD, error) {
+		return nil, errors.New("forced gcm error")
+	}
+
+	_, err := Encrypt("test")
+	if err == nil || err.Error() != "forced gcm error" {
+		t.Errorf("Encrypt: want 'forced gcm error', got %v", err)
+	}
+}
+
+func TestEncrypt_RandReadError(t *testing.T) {
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatal(err)
+	}
+	orig := cryptoRandRead
+	defer func() { cryptoRandRead = orig }()
+
+	cryptoRandRead = func(_ []byte) (int, error) {
+		return 0, errors.New("forced rand error")
+	}
+
+	_, err := Encrypt("test")
+	if err == nil || err.Error() != "forced rand error" {
+		t.Errorf("Encrypt: want 'forced rand error', got %v", err)
+	}
+}
+
+func TestDecrypt_NewCipherError(t *testing.T) {
+	// Corrupt the key to trigger aes.NewCipher failure in Decrypt.
+	orig := encryptionKey
+	encryptionKey = []byte("bad") // wrong length
+	defer func() { encryptionKey = orig }()
+
+	// Valid 3-part hex string: IV (12 bytes), authTag (16 bytes), ciphertext (1 byte)
+	encrypted := "616161616161616161616161:61616161616161616161616161616161:61"
+	_, err := Decrypt(encrypted)
+	if err == nil {
+		t.Error("Decrypt: want error with bad key, got nil")
+	}
+}
+
+func TestHashPassword_Error(t *testing.T) {
+	orig := bcryptGenerateFn
+	defer func() { bcryptGenerateFn = orig }()
+
+	bcryptGenerateFn = func(_ []byte, _ int) ([]byte, error) {
+		return nil, errors.New("forced bcrypt error")
+	}
+
+	_, err := HashPassword("any-password")
+	if err == nil || err.Error() != "forced bcrypt error" {
+		t.Errorf("HashPassword: want 'forced bcrypt error', got %v", err)
+	}
+}

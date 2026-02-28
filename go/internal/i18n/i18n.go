@@ -10,6 +10,9 @@ import (
 
 var translations = map[string]map[string]string{}
 
+// readFileFn est injectable pour les tests (couvre la branche d'erreur os.ReadFile).
+var readFileFn = os.ReadFile
+
 // Load charge les fichiers de traduction depuis le dossier locales
 func Load(localesDir string) error {
 	entries, err := os.ReadDir(localesDir)
@@ -25,7 +28,7 @@ func Load(localesDir string) error {
 		lang := entry.Name()[:len(entry.Name())-5] // strip .json
 		path := filepath.Join(localesDir, entry.Name())
 
-		data, err := os.ReadFile(path)
+		data, err := readFileFn(path)
 		if err != nil {
 			return fmt.Errorf("i18n: lecture %s: %w", path, err)
 		}
