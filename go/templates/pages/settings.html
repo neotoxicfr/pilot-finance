@@ -98,11 +98,16 @@ function pwdData() {
     };
 }
 
+function dangerData() {
+    return { selfDeleteConfirm: false };
+}
+
 document.addEventListener('alpine:init', () => {
     Alpine.data('mfaData',    mfaData);
     Alpine.data('passkeyData', passkeyData);
     Alpine.data('pwdData',    pwdData);
     Alpine.data('prefsData',  prefsData);
+    Alpine.data('dangerData', dangerData);
 });
 </script>
 <div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8 text-foreground">
@@ -421,6 +426,47 @@ document.addEventListener('alpine:init', () => {
         </div>
     </div>
     {{end}}
+</div>
+
+<!-- Danger Zone -->
+<div class="max-w-5xl mx-auto px-4 pb-4" x-data="dangerData">
+    <div class="dashboard-card bg-background border border-red-500/20 rounded-2xl p-6 relative overflow-hidden">
+        <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
+        <h2 class="text-base font-bold text-red-500 mb-4 flex items-center gap-2">
+            {{template "icon-trash" dict "Size" 18}}
+            {{index .T "settings.danger_zone"}}
+        </h2>
+        <div class="flex flex-col sm:flex-row gap-3">
+            <!-- Export -->
+            <a href="/settings/export"
+               class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-background hover:bg-accent text-sm font-medium text-foreground transition-all">
+                {{template "icon-save" dict "Size" 16}}
+                {{index .T "settings.export_data"}}
+            </a>
+            <!-- Suppression two-step -->
+            <div class="flex items-center gap-2">
+                <button x-show="!selfDeleteConfirm" @click="selfDeleteConfirm = true"
+                        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-medium text-red-500 transition-all">
+                    {{template "icon-trash" dict "Size" 16}}
+                    {{index .T "settings.delete_account"}}
+                </button>
+                <template x-if="selfDeleteConfirm">
+                    <div class="flex items-center gap-2">
+                        <button hx-delete="/settings/account"
+                                hx-target="body"
+                                class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-sm font-bold text-white transition-all">
+                            {{template "icon-trash" dict "Size" 16}}
+                            {{index .T "settings.delete_account_confirm"}}
+                        </button>
+                        <button @click="selfDeleteConfirm = false"
+                                class="px-4 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all">
+                            {{index .T "common.cancel"}}
+                        </button>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="max-w-5xl mx-auto px-4 pb-6 text-center">

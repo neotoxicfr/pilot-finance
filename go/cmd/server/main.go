@@ -159,6 +159,8 @@ func main() {
 		r.Get("/settings", handlers.SettingsPage)
 		r.Post("/settings/password", handlers.ChangePassword)
 		r.Post("/settings/preferences", handlers.UpdatePreferences)
+		r.Get("/settings/export", handlers.ExportData)
+		r.Delete("/settings/account", handlers.DeleteSelfAccount)
 
 		// Routes MFA
 		r.Get("/settings/mfa/setup", handlers.MFASetup)
