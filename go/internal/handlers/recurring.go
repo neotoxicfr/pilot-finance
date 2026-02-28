@@ -62,13 +62,23 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Compte invalide", http.StatusBadRequest)
 		return
 	}
+	if ok, err := hookAccountBelongsToUser(accountID, user.ID); err != nil || !ok {
+		http.Error(w, "Compte invalide", http.StatusBadRequest)
+		return
+	}
 
 	var toAccountID *int64
 	if toAccountIDStr != "" {
 		id, err := strconv.ParseInt(toAccountIDStr, 10, 64)
-		if err == nil {
-			toAccountID = &id
+		if err != nil {
+			http.Error(w, "Compte destinataire invalide", http.StatusBadRequest)
+			return
 		}
+		if ok, err := hookAccountBelongsToUser(id, user.ID); err != nil || !ok {
+			http.Error(w, "Compte destinataire invalide", http.StatusBadRequest)
+			return
+		}
+		toAccountID = &id
 	}
 
 	// Ajuster le signe selon le type
