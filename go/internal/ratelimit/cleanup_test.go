@@ -41,6 +41,25 @@ func TestCleanup_RemovesExpiredEntries(t *testing.T) {
 	StopAll()
 }
 
+// TestGetLimiter_TickerCleanup couvre limiter.go:83-84 — case <-ticker.C: l.cleanup().
+// On utilise un intervalle de 1ms pour que le ticker se déclenche pendant le test.
+func TestGetLimiter_TickerCleanup(t *testing.T) {
+	StopAll()
+
+	orig := limiterCleanupInterval
+	limiterCleanupInterval = 1 * time.Millisecond
+	defer func() {
+		limiterCleanupInterval = orig
+		StopAll()
+	}()
+
+	// Créer un limiter — goroutine démarre avec intervalle 1ms
+	getLimiter("login")
+
+	// Attendre que le ticker se déclenche → case <-ticker.C: l.cleanup() exécuté
+	time.Sleep(20 * time.Millisecond)
+}
+
 func TestCleanup_EmptyMap_NoOp(t *testing.T) {
 	StopAll()
 

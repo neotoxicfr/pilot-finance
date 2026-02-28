@@ -7,6 +7,29 @@ import (
 	"pilot-finance/internal/projection"
 )
 
+// TestCalculate_YearlyPayoutFlush couvre projection.go:159 — inner loop body du flush annuel.
+// Nécessite annualAccum non vide à m=12 (years=1, useMonths=true, PayoutFrequency=YEARLY).
+func TestCalculate_YearlyPayoutFlush(t *testing.T) {
+	targetID := int64(2)
+	accounts := []db.Account{
+		{
+			ID: 1, Name: "Source", Balance: 12000,
+			IsYieldActive: true, YieldType: "FIXED", YieldMin: 12,
+			ReinvestmentRate: 0, PayoutFrequency: "YEARLY",
+			TargetAccountID: &targetID,
+		},
+		{ID: 2, Name: "Target", Balance: 1000},
+	}
+	result := projection.Calculate(accounts, nil, 1, "fr")
+	if len(result.Projection) == 0 {
+		t.Fatal("projection vide")
+	}
+	// Le flush annuel à m=12 doit avoir crédité Target — TotalInterests > 0
+	if result.TotalInterests <= 0 {
+		t.Errorf("TotalInterests: want >0 (flush YEARLY), got %v", result.TotalInterests)
+	}
+}
+
 func TestCalculateEmpty(t *testing.T) {
 	result := projection.Calculate(nil, nil, 5, "en")
 	if result.TotalBalance != 0 {
@@ -310,6 +333,22 @@ func TestCalculateMonthlySummaryTransferToYield(t *testing.T) {
 	summary := projection.CalculateMonthlySummary(recurrings, accounts)
 	if summary.Transfers != 500 {
 		t.Errorf("transfer to yield account: want 500, got %v", summary.Transfers)
+	}
+}
+
+// TestCalculate_MonthlyPayoutToTarget couvre projection.go:149-151 — else branch :
+// versement mensuel (non YEARLY) vers un TargetAccountID.
+func TestCalculate_MonthlyPayoutToTarget(t *testing.T) {
+	targetID := int64(2)
+	accounts := []db.Account{
+		{ID: 1, Name: "Savings", Balance: 12000, IsYieldActive: true,
+			YieldType: "FIXED", YieldMin: 12, ReinvestmentRate: 0,
+			PayoutFrequency: "MONTHLY", TargetAccountID: &targetID},
+		{ID: 2, Name: "Current", Balance: 0},
+	}
+	result := projection.Calculate(accounts, nil, 1, "fr")
+	if result.TotalInterests <= 0 {
+		t.Errorf("TotalInterests: want >0 (monthly payout to target), got %v", result.TotalInterests)
 	}
 }
 

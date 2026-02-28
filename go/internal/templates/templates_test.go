@@ -2,6 +2,7 @@ package templates
 
 import (
 	"bytes"
+	"errors"
 	"html/template"
 	"math"
 	"os"
@@ -382,5 +383,94 @@ func TestInit_InvalidPageTemplate(t *testing.T) {
 
 	if err := Init(dir); err == nil {
 		t.Error("want error for invalid page template syntax")
+	}
+}
+
+// --- Init glob/readfile error paths (via hooks) ---
+
+func TestInit_GlobLayoutError(t *testing.T) {
+	orig := globFn
+	defer func() { globFn = orig }()
+	count := 0
+	globFn = func(p string) ([]string, error) {
+		count++
+		if count == 1 {
+			return nil, errors.New("glob-layout-error")
+		}
+		return filepath.Glob(p)
+	}
+	if err := Init("/any"); err == nil || err.Error() != "glob-layout-error" {
+		t.Errorf("want glob-layout-error, got %v", err)
+	}
+}
+
+func TestInit_GlobComponentError(t *testing.T) {
+	orig := globFn
+	defer func() { globFn = orig }()
+	count := 0
+	globFn = func(p string) ([]string, error) {
+		count++
+		if count == 2 {
+			return nil, errors.New("glob-component-error")
+		}
+		return filepath.Glob(p)
+	}
+	if err := Init("/any"); err == nil || err.Error() != "glob-component-error" {
+		t.Errorf("want glob-component-error, got %v", err)
+	}
+}
+
+func TestInit_GlobPageError(t *testing.T) {
+	orig := globFn
+	defer func() { globFn = orig }()
+	count := 0
+	globFn = func(p string) ([]string, error) {
+		count++
+		if count == 3 {
+			return nil, errors.New("glob-page-error")
+		}
+		return filepath.Glob(p)
+	}
+	if err := Init("/any"); err == nil || err.Error() != "glob-page-error" {
+		t.Errorf("want glob-page-error, got %v", err)
+	}
+}
+
+func TestInit_ReadBaseFileError(t *testing.T) {
+	orig := osReadFile
+	defer func() { osReadFile = orig }()
+	osReadFile = func(name string) ([]byte, error) {
+		return nil, errors.New("read-base-error")
+	}
+	// Need at least one page so the per-page loop runs, and at least one base file
+	dir := makeMinimalTemplateDir(t)
+	os.WriteFile(filepath.Join(dir, "layouts", "base.html"), []byte(`ok`), 0644) //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, "pages", "index.html"), []byte(`ok`), 0644)  //nolint:errcheck
+
+	err := Init(dir)
+	if err == nil {
+		t.Error("want error from osReadFile on base file")
+	}
+}
+
+func TestInit_ReadPageFileError(t *testing.T) {
+	dir := makeMinimalTemplateDir(t)
+	os.WriteFile(filepath.Join(dir, "layouts", "base.html"), []byte(`ok`), 0644) //nolint:errcheck
+	os.WriteFile(filepath.Join(dir, "pages", "index.html"), []byte(`ok`), 0644)  //nolint:errcheck
+
+	orig := osReadFile
+	defer func() { osReadFile = orig }()
+	baseRead := false
+	osReadFile = func(name string) ([]byte, error) {
+		if !baseRead {
+			baseRead = true
+			return []byte(`ok`), nil // laisser le base file réussir
+		}
+		return nil, errors.New("read-page-error")
+	}
+
+	err := Init(dir)
+	if err == nil {
+		t.Error("want error from osReadFile on page file")
 	}
 }
