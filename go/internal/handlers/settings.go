@@ -71,6 +71,8 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	db.LogAudit(user.ID, db.AuditPasswordChange, getClientIP(r), r.UserAgent())
+
 	w.WriteHeader(http.StatusOK)
 }
 

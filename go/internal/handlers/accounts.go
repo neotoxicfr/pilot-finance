@@ -133,6 +133,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Erreur mise a jour", http.StatusInternalServerError)
 			return
 		}
+		db.LogAudit(user.ID, db.AuditAccountUpdate, getClientIP(r), r.UserAgent())
 	} else {
 		// Creation d'un nouveau compte
 		existingAccounts, posErr := db.GetAccountsByUserID(user.ID)
@@ -146,6 +147,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Erreur creation", http.StatusInternalServerError)
 			return
 		}
+		db.LogAudit(user.ID, db.AuditAccountCreate, getClientIP(r), r.UserAgent())
 	}
 
 	// Retourner la liste mise a jour en HTML
@@ -172,6 +174,8 @@ func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
 		return
 	}
+
+	db.LogAudit(user.ID, db.AuditAccountDelete, getClientIP(r), r.UserAgent())
 
 	// Retourner la liste mise a jour en HTML
 	renderAccountsList(w, user)

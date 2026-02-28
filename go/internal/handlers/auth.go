@@ -98,6 +98,8 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		// Réinitialiser le rate limiter
 		ratelimit.Reset(clientIP, "login")
 
+		db.LogAudit(user.ID, db.AuditLoginSuccess, clientIP, r.UserAgent())
+
 		// Rediriger vers le dashboard
 		htmxRedirect(w, r, "/")
 		return
@@ -134,6 +136,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Vérifier le mot de passe
 	if !crypto.VerifyPassword(password, user.Password) {
+		db.LogAudit(user.ID, db.AuditLoginFail, clientIP, r.UserAgent())
 		handleFailedLogin(user)
 		http.Error(w, "Identifiants incorrects", http.StatusUnauthorized)
 		return
@@ -185,6 +188,8 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Réinitialiser le rate limiter
 	ratelimit.Reset(clientIP, "login")
+
+	db.LogAudit(user.ID, db.AuditLoginSuccess, clientIP, r.UserAgent())
 
 	// Rediriger vers le dashboard
 	htmxRedirect(w, r, "/")
