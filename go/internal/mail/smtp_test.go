@@ -542,6 +542,15 @@ func TestSendTLS_Success(t *testing.T) {
 	}
 }
 
+// TestSendTLS_DefaultDialTLS couvre smtp.go:15-17 — corps de dialTLS par défaut.
+// Sans injection, tls.Dial est appelé sur un port inexistant → connexion refusée, return exécuté.
+func TestSendTLS_DefaultDialTLS(t *testing.T) {
+	err := sendTLS("127.0.0.1:19999", nil, "from@example.com", "to@example.com", []byte("msg"))
+	if err == nil {
+		t.Error("want connection error from real tls.Dial on non-existent port")
+	}
+}
+
 // --- SendPasswordReset ---
 
 func TestSendPasswordReset_MailDisabled(t *testing.T) {

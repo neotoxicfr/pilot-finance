@@ -221,3 +221,29 @@ func TestFinishLogin_Success(t *testing.T) {
 		t.Error("want non-nil credential")
 	}
 }
+
+// TestFinishRegistration_DefaultBody couvre passkey.go:28-30 — corps de createCredentialFn par défaut.
+// Sans injection, wa.CreateCredential est appelé (response=nil → erreur), le return est exécuté.
+func TestFinishRegistration_DefaultBody(t *testing.T) {
+	if err := InitWebAuthn("localhost", "http://localhost:8080", "Test"); err != nil {
+		t.Fatal(err)
+	}
+	u := &PasskeyUser{ID: 1}
+	_, err := FinishRegistration(u, validSessionBase64(t), nil)
+	if err == nil {
+		t.Error("want error from real wa.CreateCredential with nil response")
+	}
+}
+
+// TestFinishLogin_DefaultBody couvre passkey.go:31-33 — corps de finishDiscoverableLoginFn par défaut.
+// Sans injection, wa.FinishDiscoverableLogin est appelé (body vide → erreur), le return est exécuté.
+func TestFinishLogin_DefaultBody(t *testing.T) {
+	if err := InitWebAuthn("localhost", "http://localhost:8080", "Test"); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest("POST", "/", nil)
+	_, _, err := FinishLogin(validSessionBase64(t), req, nil)
+	if err == nil {
+		t.Error("want error from real wa.FinishDiscoverableLogin with empty request")
+	}
+}
