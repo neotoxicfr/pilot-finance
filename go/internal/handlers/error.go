@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 
 	"pilot-finance/internal/middleware"
@@ -13,7 +14,9 @@ func NotFound(w http.ResponseWriter, r *http.Request) {
 	data["Title"] = "404"
 	data["Code"] = "404"
 	w.WriteHeader(http.StatusNotFound)
-	hookRender(w, "error.html", data) //nolint:errcheck
+	if err := hookRender(w, "error.html", data); err != nil {
+		slog.Error("NotFound render", "err", err)
+	}
 }
 
 // MethodNotAllowed affiche la page d'erreur 405
