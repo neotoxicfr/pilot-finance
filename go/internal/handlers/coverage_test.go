@@ -1209,3 +1209,121 @@ func TestMFADisable_DBError(t *testing.T) {
 	}
 }
 
+// --- Dashboard : hookGetAccountsByUserID error → 500 ---
+
+func TestDashboard_GetAccountsError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "dashdberr@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookGetAccountsByUserID
+	hookGetAccountsByUserID = func(int64) ([]db.Account, error) { return nil, errTest }
+	t.Cleanup(func() { hookGetAccountsByUserID = orig })
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/", nil), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	Dashboard(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- ExportData : hookGetAccountsByUserID error → 500 ---
+
+func TestExportData_AccountsDBError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "exportaccerr@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookGetAccountsByUserID
+	hookGetAccountsByUserID = func(int64) ([]db.Account, error) { return nil, errTest }
+	t.Cleanup(func() { hookGetAccountsByUserID = orig })
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/settings/export", nil), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	ExportData(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- ExportData : hookGetRecurringByUserID error → 500 ---
+
+func TestExportData_RecurringDBError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "exportrecerr@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookGetRecurringByUserID
+	hookGetRecurringByUserID = func(int64) ([]db.RecurringOperation, error) { return nil, errTest }
+	t.Cleanup(func() { hookGetRecurringByUserID = orig })
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/settings/export", nil), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	ExportData(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- DeleteSelfAccount : hookDeleteUserAndData error → 500 ---
+
+func TestDeleteSelfAccount_DBError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "delselfErr@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookDeleteUserAndData
+	hookDeleteUserAndData = func(int64) error { return errTest }
+	t.Cleanup(func() { hookDeleteUserAndData = orig })
+
+	req := injectUser(httptest.NewRequest(http.MethodDelete, "/settings/account", nil), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	DeleteSelfAccount(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- DeleteUser (admin) : hookDeleteUser error → 500 ---
+
+func TestDeleteUser_DBError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	adminUID := newUser(t, "admindelUserErr@example.com", "ValidP@ss1!", "ADMIN")
+	targetUID := newUser(t, "targetUserErr@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookDeleteUser
+	hookDeleteUser = func(int64) error { return errTest }
+	t.Cleanup(func() { hookDeleteUser = orig })
+
+	req := withParam(
+		injectUser(httptest.NewRequest(http.MethodDelete, "/admin/users/"+strconv.FormatInt(targetUID, 10), nil), mu(adminUID, "ADMIN")),
+		"id", strconv.FormatInt(targetUID, 10),
+	)
+	rr := httptest.NewRecorder()
+	DeleteUser(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// --- SettingsPage (admin) : hookGetAllUsers error → 500 ---
+
+func TestSettingsPage_Admin_GetAllUsersError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "settingsadminerr@example.com", "ValidP@ss1!", "ADMIN")
+
+	orig := hookGetAllUsers
+	hookGetAllUsers = func() ([]db.User, error) { return nil, errTest }
+	t.Cleanup(func() { hookGetAllUsers = orig })
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/settings", nil), mu(uid, "ADMIN"))
+	rr := httptest.NewRecorder()
+	SettingsPage(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
