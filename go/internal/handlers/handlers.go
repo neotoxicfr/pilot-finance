@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"runtime"
@@ -32,9 +33,11 @@ func HealthCheck(w http.ResponseWriter, r *http.Request) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
-	// Test de la base de données
+	// Test de la base de données (timeout 2s)
 	dbStatus := "ok"
-	if err := db.DB.Ping(); err != nil {
+	pingCtx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+	if err := db.DB.PingContext(pingCtx); err != nil {
 		dbStatus = "error"
 	}
 
