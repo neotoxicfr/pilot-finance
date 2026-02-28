@@ -38,3 +38,5 @@ CLAUDE.md
 go/server
 go/*.exe
 go/vendor/
+go/*.out
+go/*.html
