@@ -162,12 +162,28 @@ L'application écoute sur le port **3000** à l'intérieur du conteneur.
 
 ### v2.6.0 — Refactoring majeur, RGPD, Tests
 
-- [ ] Chiffrement des champs `balance`, `amount`, `yield_min/max` en BDD (AES-256-GCM)
-- [ ] Déchiffrement parallèle via `errgroup`
-- [ ] Migrations versionnées
-- [ ] RGPD : export données (`GET /settings/export`) + suppression de compte
-- [ ] Table d'audit log
-- [ ] Tests unitaires handlers, middleware et BDD (objectif >70% de couverture)
+- [x] Chiffrement des champs `balance`, `amount`, `yield_min/max` en BDD (AES-256-GCM)
+- [x] Déchiffrement parallèle via `errgroup`
+- [x] Migrations versionnées avec backup automatique
+- [x] RGPD : export données (`GET /settings/export`) + suppression de compte
+- [x] Table d'audit log + page admin `/admin/audit`
+- [x] Tests unitaires handlers, middleware et BDD (91% de couverture globale)
+
+### v2.6.1 — Correctifs sécurité, Mentions légales, CI
+
+**Sécurité**
+- [x] Correctif IDOR — `accountId`, `toAccountId`, `targetAccountId` validés contre l'utilisateur authentifié
+- [x] Ordre middleware — headers de sécurité (CSP, CORP…) désormais appliqués aux pages d'erreur 404/405
+- [x] Rate limit sur `GET /settings/export` (10 req/min)
+
+**UX / Fonctionnel**
+- [x] Page mentions légales `/legal` + liens mutuels Privacy ↔ Legal dans le footer
+- [x] Correctif — les pages 404/405/500 retournaient un body vide (templates d'icônes manquants)
+- [x] Titres i18n pour les pages Vérification email, Privacy, Légal, Audit Log
+
+**CI / Tests**
+- [x] `go build ./...` + `govulncheck` ajoutés au CI sur chaque push/PR
+- [x] Couverture tests handlers : **100%** (contre 98,7% auparavant)
 
 ---
 
