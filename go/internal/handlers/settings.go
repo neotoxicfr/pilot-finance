@@ -137,12 +137,12 @@ func ExportData(w http.ResponseWriter, r *http.Request) {
 	}
 	email, _ := crypto.Decrypt(dbUser.EmailEncrypted)
 
-	accounts, err := db.GetAccountsByUserID(user.ID)
+	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
 	}
-	recurrings, err := db.GetRecurringByUserID(user.ID)
+	recurrings, err := hookGetRecurringByUserID(user.ID)
 	if err != nil {
 		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
 		return
@@ -211,7 +211,7 @@ func DeleteSelfAccount(w http.ResponseWriter, r *http.Request) {
 
 	db.LogAudit(user.ID, db.AuditGDPRDelete, getClientIP(r), r.UserAgent())
 
-	if err := db.DeleteUserAndData(user.ID); err != nil {
+	if err := hookDeleteUserAndData(user.ID); err != nil {
 		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
 		return
 	}
@@ -248,7 +248,7 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = db.DeleteUser(id)
+	err = hookDeleteUser(id)
 	if err != nil {
 		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
 		return
