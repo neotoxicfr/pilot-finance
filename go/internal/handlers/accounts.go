@@ -100,25 +100,39 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Validation des taux pour le type RANGE
-	if isYieldActive && yieldType == "RANGE" {
+	// Validation des taux de rendement
+	if isYieldActive {
 		if yieldMin < 0 || yieldMax < 0 {
 			http.Error(w, "Les taux de rendement ne peuvent pas être négatifs", http.StatusBadRequest)
 			return
 		}
-		if yieldMin > yieldMax {
+		if yieldType == "RANGE" && yieldMin > yieldMax {
 			http.Error(w, "Le taux minimum doit être inférieur ou égal au taux maximum", http.StatusBadRequest)
 			return
 		}
+	}
+
+	// Validation du taux de réinvestissement
+	if reinvestmentRate < 0 || reinvestmentRate > 100 {
+		http.Error(w, "Le taux de réinvestissement doit être compris entre 0 et 100", http.StatusBadRequest)
+		return
 	}
 
 	// Parser le compte cible pour les interets non reinvestis
 	var targetAccountID *int64
 	if targetAccountIDStr != "" && targetAccountIDStr != "0" {
 		targetID, err := strconv.ParseInt(targetAccountIDStr, 10, 64)
-		if err == nil {
-			targetAccountID = &targetID
+		if err != nil {
+			http.Error(w, "Compte cible invalide", http.StatusBadRequest)
+			return
 		}
+		// Vérifier que le compte cible appartient à l'utilisateur
+		ok, err := hookAccountBelongsToUser(targetID, user.ID)
+		if err != nil || !ok {
+			http.Error(w, "Compte cible invalide", http.StatusBadRequest)
+			return
+		}
+		targetAccountID = &targetID
 	}
 
 	payoutFrequency := r.FormValue("payoutFrequency")

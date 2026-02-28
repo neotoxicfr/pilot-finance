@@ -1293,9 +1293,9 @@ func TestDeleteUser_DBError(t *testing.T) {
 	adminUID := newUser(t, "admindelUserErr@example.com", "ValidP@ss1!", "ADMIN")
 	targetUID := newUser(t, "targetUserErr@example.com", "ValidP@ss1!", "USER")
 
-	orig := hookDeleteUser
-	hookDeleteUser = func(int64) error { return errTest }
-	t.Cleanup(func() { hookDeleteUser = orig })
+	orig := hookDeleteUserAndData
+	hookDeleteUserAndData = func(int64) error { return errTest }
+	t.Cleanup(func() { hookDeleteUserAndData = orig })
 
 	req := withParam(
 		injectUser(httptest.NewRequest(http.MethodDelete, "/admin/users/"+strconv.FormatInt(targetUID, 10), nil), mu(adminUID, "ADMIN")),
