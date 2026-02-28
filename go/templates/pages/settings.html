@@ -56,12 +56,10 @@ function passkeyData() {
     };
 }
 
-// Composant Preferences (reload uniquement)
 function prefsData() {
     return { reload() { location.reload(); } };
 }
 
-// Composant mot de passe
 function pwdData() {
     return {
         pwdSuccess: false,
@@ -111,6 +109,7 @@ document.addEventListener('alpine:init', () => {
 });
 </script>
 <div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8 text-foreground">
+
     <!-- Header -->
     <div class="flex items-center gap-3 border-b border-border pb-4">
         <span class="text-blue-500">{{template "icon-settings" dict "Size" 32}}</span>
@@ -118,11 +117,105 @@ document.addEventListener('alpine:init', () => {
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <!-- Colonne gauche : Authentification multi-facteur -->
+
+        <!-- Colonne gauche : Preferences + Password -->
         <div class="space-y-8">
-            <!-- 2FA Section -->
-            <div class="dashboard-card bg-background border rounded-2xl p-6"
-                 x-data="mfaData">
+
+            <!-- Preferences -->
+            <div class="dashboard-card bg-background border rounded-2xl p-6" x-data="prefsData">
+                <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
+                    <span class="text-blue-500">{{template "icon-settings" dict "Size" 20}}</span>
+                    {{index .T "settings.preferences_title"}}
+                </h2>
+                <form hx-post="/settings/preferences"
+                      hx-swap="none"
+                      @htmx:after-request="event.detail.successful && reload()"
+                      class="space-y-5">
+                    <div>
+                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.language_label"}}</label>
+                        <select name="language"
+                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
+                            <option value="fr" {{if eq .Lang "fr"}}selected{{end}}>Fran&#231;ais</option>
+                            <option value="en" {{if eq .Lang "en"}}selected{{end}}>English</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.currency_label"}}</label>
+                        <select name="currency"
+                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
+                            <option value="EUR" {{if eq .Currency "EUR"}}selected{{end}}>EUR &mdash; Euro (&euro;)</option>
+                            <option value="USD" {{if eq .Currency "USD"}}selected{{end}}>USD &mdash; Dollar ($)</option>
+                            <option value="GBP" {{if eq .Currency "GBP"}}selected{{end}}>GBP &mdash; Pound (&pound;)</option>
+                            <option value="CHF" {{if eq .Currency "CHF"}}selected{{end}}>CHF &mdash; Swiss Franc</option>
+                            <option value="JPY" {{if eq .Currency "JPY"}}selected{{end}}>JPY &mdash; Yen (&yen;)</option>
+                            <option value="CAD" {{if eq .Currency "CAD"}}selected{{end}}>CAD &mdash; Canadian Dollar</option>
+                            <option value="AUD" {{if eq .Currency "AUD"}}selected{{end}}>AUD &mdash; Australian Dollar</option>
+                        </select>
+                    </div>
+                    <button type="submit"
+                            class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all">
+                        {{index .T "settings.save_preferences"}}
+                    </button>
+                </form>
+            </div>
+
+            <!-- Password -->
+            <div class="dashboard-card bg-background border rounded-2xl p-6" x-data="pwdData">
+                <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
+                    <span class="text-muted-foreground">{{template "icon-lock" dict "Size" 20}}</span>
+                    {{index .T "settings.password_title"}}
+                </h2>
+
+                <template x-if="pwdSuccess">
+                    <div class="mb-6 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-3 text-emerald-600 dark:text-emerald-400 text-sm">
+                        {{template "icon-check-circle" dict "Size" 20}} {{index .T "settings.password_success"}}
+                    </div>
+                </template>
+
+                <form hx-post="/settings/password"
+                      hx-swap="none"
+                      @htmx:before-request="pwdLoading = true; pwdError = ''; pwdSuccess = false"
+                      @htmx:after-request="pwdLoading = false"
+                      @htmx:response-error="pwdError = event.detail.xhr.responseText"
+                      @htmx:after-settle="afterPwdSettle($event)"
+                      class="space-y-5">
+                    <div>
+                        <label for="currentPassword" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.current_password"}}</label>
+                        <input id="currentPassword" name="currentPassword" type="password" required
+                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
+                    </div>
+                    <div>
+                        <label for="newPassword" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.new_password"}}</label>
+                        <input id="newPassword" name="newPassword" type="password" required minlength="12" x-model="password"
+                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
+                    </div>
+                    <div>
+                        <label for="confirmPassword" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.confirm_password"}}</label>
+                        <input id="confirmPassword" name="confirmPassword" type="password" required x-model="confirm"
+                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
+                    </div>
+
+                    {{template "password-feedback" .}}
+
+                    <template x-if="pwdError">
+                        <div class="text-red-500 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="pwdError"></div>
+                    </template>
+
+                    <button type="submit" :disabled="submitDisabled"
+                            class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span x-show="pwdLoading">{{index .T "settings.password_saving"}}</span>
+                        <span x-show="!pwdLoading">{{index .T "settings.password_change_btn"}}</span>
+                    </button>
+                </form>
+            </div>
+
+        </div>
+
+        <!-- Colonne droite : 2FA + Passkeys -->
+        <div class="space-y-8">
+
+            <!-- 2FA -->
+            <div class="dashboard-card bg-background border rounded-2xl p-6" x-data="mfaData">
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-blue-500">{{template "icon-smartphone" dict "Size" 20}}</span>
                     {{index .T "settings.mfa_title"}}
@@ -184,10 +277,9 @@ document.addEventListener('alpine:init', () => {
                 {{end}}
             </div>
 
-            <!-- Passkeys Section -->
+            <!-- Passkeys -->
             {{if .PasskeysEnabled}}
-            <div class="dashboard-card bg-background border rounded-2xl p-6"
-                 x-data="passkeyData">
+            <div class="dashboard-card bg-background border rounded-2xl p-6" x-data="passkeyData">
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
                     <span class="text-purple-500">{{template "icon-fingerprint" dict "Size" 20}}</span>
                     {{index .T "settings.passkeys_title"}}
@@ -226,29 +318,29 @@ document.addEventListener('alpine:init', () => {
                 </div>
                 {{end}}
 
-
-            <!-- Modal renommage passkey -->
-            <dialog id="passkey-rename-dialog" class="p-0 border-none bg-transparent overflow-visible w-full h-full max-w-none max-h-none"
-                    @click="$event.target === $el && $el.close()"
-                    @close="renameId = null">
-                <div class="modal-panel rounded-2xl p-6 w-full max-w-sm mx-auto mt-20 shadow-2xl" @click.stop>
-                    <h3 class="text-lg font-bold text-foreground mb-4">{{index .T "settings.passkey_rename_title"}}</h3>
-                    <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.passkey_name_prompt"}}</label>
-                    <input type="text" x-model="renameName"
-                           class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors mb-4"
-                           @keydown.enter="submitRename()">
-                    <div class="flex gap-2">
-                        <button @click="closeRenameDialog()"
-                                class="flex-1 bg-accent hover:bg-accent/80 text-foreground font-bold py-2.5 rounded-xl transition-all text-sm">
-                            {{index .T "common.cancel"}}
-                        </button>
-                        <button @click="submitRename()"
-                                class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl transition-all text-sm">
-                            {{index .T "settings.passkey_rename_btn"}}
-                        </button>
+                <!-- Modal renommage passkey -->
+                <dialog id="passkey-rename-dialog" class="p-0 border-none bg-transparent overflow-visible w-full h-full max-w-none max-h-none"
+                        @click="$event.target === $el && $el.close()"
+                        @close="renameId = null">
+                    <div class="modal-panel rounded-2xl p-6 w-full max-w-sm mx-auto mt-20 shadow-2xl" @click.stop>
+                        <h3 class="text-lg font-bold text-foreground mb-4">{{index .T "settings.passkey_rename_title"}}</h3>
+                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.passkey_name_prompt"}}</label>
+                        <input type="text" x-model="renameName"
+                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors mb-4"
+                               @keydown.enter="submitRename()">
+                        <div class="flex gap-2">
+                            <button @click="closeRenameDialog()"
+                                    class="flex-1 bg-accent hover:bg-accent/80 text-foreground font-bold py-2.5 rounded-xl transition-all text-sm">
+                                {{index .T "common.cancel"}}
+                            </button>
+                            <button @click="submitRename()"
+                                    class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl transition-all text-sm">
+                                {{index .T "settings.passkey_rename_btn"}}
+                            </button>
+                        </div>
                     </div>
-                </div>
-            </dialog>
+                </dialog>
+
                 <template x-if="passkeyMsg">
                     <div class="mb-4 text-sm font-bold text-center" x-text="passkeyMsg"></div>
                 </template>
@@ -262,103 +354,11 @@ document.addEventListener('alpine:init', () => {
                 </button>
             </div>
             {{end}}
-        </div>
 
-        <!-- Colonne droite : Compte -->
-        <div class="space-y-8">
-            <!-- Password Section -->
-            <div class="dashboard-card bg-background border rounded-2xl p-6"
-                 x-data="pwdData">
-                <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
-                    <span class="text-muted-foreground">{{template "icon-lock" dict "Size" 20}}</span>
-                    {{index .T "settings.password_title"}}
-                </h2>
-
-                <template x-if="pwdSuccess">
-                    <div class="mb-6 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-3 text-emerald-600 dark:text-emerald-400 text-sm">
-                        {{template "icon-check-circle" dict "Size" 20}} {{index .T "settings.password_success"}}
-                    </div>
-                </template>
-
-                <form hx-post="/settings/password"
-                      hx-swap="none"
-                      @htmx:before-request="pwdLoading = true; pwdError = ''; pwdSuccess = false"
-                      @htmx:after-request="pwdLoading = false"
-                      @htmx:response-error="pwdError = event.detail.xhr.responseText"
-                      @htmx:after-settle="afterPwdSettle($event)"
-                      class="space-y-5">
-                    <div>
-                        <label for="currentPassword" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.current_password"}}</label>
-                        <input id="currentPassword" name="currentPassword" type="password" required
-                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
-                    </div>
-                    <div>
-                        <label for="newPassword" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.new_password"}}</label>
-                        <input id="newPassword" name="newPassword" type="password" required minlength="12" x-model="password"
-                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
-                    </div>
-                    <div>
-                        <label for="confirmPassword" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.confirm_password"}}</label>
-                        <input id="confirmPassword" name="confirmPassword" type="password" required x-model="confirm"
-                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
-                    </div>
-
-                    {{template "password-feedback" .}}
-
-                    <template x-if="pwdError">
-                        <div class="text-red-500 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="pwdError"></div>
-                    </template>
-
-                    <button type="submit" :disabled="submitDisabled"
-                            class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                        <span x-show="pwdLoading">{{index .T "settings.password_saving"}}</span>
-                        <span x-show="!pwdLoading">{{index .T "settings.password_change_btn"}}</span>
-                    </button>
-                </form>
-            </div>
-
-            <!-- Preferences Section -->
-            <div class="dashboard-card bg-background border rounded-2xl p-6" x-data="prefsData">
-                <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
-                    <span class="text-blue-500">{{template "icon-settings" dict "Size" 20}}</span>
-                    {{index .T "settings.preferences_title"}}
-                </h2>
-
-                <form hx-post="/settings/preferences"
-                      hx-swap="none"
-                      @htmx:after-request="event.detail.successful && reload()"
-                      class="space-y-5">
-                    <div>
-                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.language_label"}}</label>
-                        <select name="language"
-                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
-                            <option value="fr" {{if eq .Lang "fr"}}selected{{end}}>Français</option>
-                            <option value="en" {{if eq .Lang "en"}}selected{{end}}>English</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.currency_label"}}</label>
-                        <select name="currency"
-                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
-                            <option value="EUR" {{if eq .Currency "EUR"}}selected{{end}}>EUR — Euro (€)</option>
-                            <option value="USD" {{if eq .Currency "USD"}}selected{{end}}>USD — Dollar ($)</option>
-                            <option value="GBP" {{if eq .Currency "GBP"}}selected{{end}}>GBP — Pound (£)</option>
-                            <option value="CHF" {{if eq .Currency "CHF"}}selected{{end}}>CHF — Swiss Franc</option>
-                            <option value="JPY" {{if eq .Currency "JPY"}}selected{{end}}>JPY — Yen (¥)</option>
-                            <option value="CAD" {{if eq .Currency "CAD"}}selected{{end}}>CAD — Canadian Dollar</option>
-                            <option value="AUD" {{if eq .Currency "AUD"}}selected{{end}}>AUD — Australian Dollar</option>
-                        </select>
-                    </div>
-                    <button type="submit"
-                            class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all">
-                        {{index .T "settings.save_preferences"}}
-                    </button>
-                </form>
-            </div>
         </div>
     </div>
 
-    <!-- Admin Section — pleine largeur -->
+    <!-- Admin Section -->
     {{if .IsAdmin}}
     <div class="space-y-6">
         <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden">
@@ -426,51 +426,50 @@ document.addEventListener('alpine:init', () => {
         </div>
     </div>
     {{end}}
-</div>
 
-<!-- Danger Zone -->
-<div class="max-w-5xl mx-auto px-4 pb-4" x-data="dangerData">
-    <div class="dashboard-card bg-background border border-red-500/20 rounded-2xl p-6 relative overflow-hidden">
-        <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
-        <h2 class="text-base font-bold text-red-500 mb-4 flex items-center gap-2">
-            {{template "icon-trash" dict "Size" 18}}
-            {{index .T "settings.danger_zone"}}
-        </h2>
-        <div class="flex flex-col sm:flex-row gap-3">
-            <!-- Export -->
-            <a href="/settings/export"
-               class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-background hover:bg-accent text-sm font-medium text-foreground transition-all">
-                {{template "icon-save" dict "Size" 16}}
-                {{index .T "settings.export_data"}}
-            </a>
-            <!-- Suppression two-step -->
-            <div class="flex items-center gap-2">
-                <button x-show="!selfDeleteConfirm" @click="selfDeleteConfirm = true"
-                        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-medium text-red-500 transition-all">
-                    {{template "icon-trash" dict "Size" 16}}
-                    {{index .T "settings.delete_account"}}
-                </button>
-                <template x-if="selfDeleteConfirm">
-                    <div class="flex items-center gap-2">
-                        <button hx-delete="/settings/account"
-                                hx-target="body"
-                                class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-sm font-bold text-white transition-all">
-                            {{template "icon-trash" dict "Size" 16}}
-                            {{index .T "settings.delete_account_confirm"}}
-                        </button>
-                        <button @click="selfDeleteConfirm = false"
-                                class="px-4 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all">
-                            {{index .T "common.cancel"}}
-                        </button>
-                    </div>
-                </template>
+    <!-- Danger Zone -->
+    <div x-data="dangerData">
+        <div class="dashboard-card bg-background border border-red-500/20 rounded-2xl p-6 relative overflow-hidden">
+            <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
+            <h2 class="text-base font-bold text-red-500 mb-4 flex items-center gap-2">
+                {{template "icon-trash" dict "Size" 18}}
+                {{index .T "settings.danger_zone"}}
+            </h2>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <a href="/settings/export"
+                   class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-background hover:bg-accent text-sm font-medium text-foreground transition-all">
+                    {{template "icon-save" dict "Size" 16}}
+                    {{index .T "settings.export_data"}}
+                </a>
+                <div class="flex items-center gap-2">
+                    <button x-show="!selfDeleteConfirm" @click="selfDeleteConfirm = true"
+                            class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-medium text-red-500 transition-all">
+                        {{template "icon-trash" dict "Size" 16}}
+                        {{index .T "settings.delete_account"}}
+                    </button>
+                    <template x-if="selfDeleteConfirm">
+                        <div class="flex items-center gap-2">
+                            <button hx-delete="/settings/account"
+                                    hx-target="body"
+                                    class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-sm font-bold text-white transition-all">
+                                {{template "icon-trash" dict "Size" 16}}
+                                {{index .T "settings.delete_account_confirm"}}
+                            </button>
+                            <button @click="selfDeleteConfirm = false"
+                                    class="px-4 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all">
+                                {{index .T "common.cancel"}}
+                            </button>
+                        </div>
+                    </template>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<div class="max-w-5xl mx-auto px-4 pb-6 text-center">
-    <a href="/privacy" class="text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors">{{index .T "privacy.title"}}</a>
-</div>
+    <!-- Privacy link -->
+    <div class="text-center pb-2">
+        <a href="/privacy" class="text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors">{{index .T "privacy.title"}}</a>
+    </div>
 
+</div>
 {{end}}

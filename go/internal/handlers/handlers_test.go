@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"pilot-finance/internal/auth"
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
@@ -44,6 +46,14 @@ func setupHandlerTest(t *testing.T) func() {
 	}
 	auth.InitJWT(hTestJWTKey)
 
+	// Réduire le coût bcrypt au minimum pour accélérer les tests (surtout avec -race)
+	origHash := hookHashPassword
+	hookHashPassword = func(pwd string) (string, error) {
+		b, err := bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.MinCost)
+		return string(b), err
+	}
+	t.Cleanup(func() { hookHashPassword = origHash })
+
 	dir := t.TempDir()
 	if err := db.Init(db.Config{Path: dir + "/test.db"}); err != nil {
 		t.Fatalf("db.Init: %v", err)
@@ -65,7 +75,7 @@ func newUser(t *testing.T, email, password, role string) int64 {
 		t.Fatalf("encrypt: %v", err)
 	}
 	bi := crypto.ComputeBlindIndex(email)
-	hash, err := crypto.HashPassword(password)
+	hash, err := hookHashPassword(password)
 	if err != nil {
 		t.Fatalf("hash: %v", err)
 	}

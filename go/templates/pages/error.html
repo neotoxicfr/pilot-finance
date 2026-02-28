@@ -1,0 +1,61 @@
+{{define "content"}}
+<div class="w-full flex-1 flex items-center justify-center p-6 md:p-12">
+    <div class="text-center max-w-md mx-auto space-y-6">
+
+        <!-- Code erreur -->
+        <div class="relative">
+            <div class="text-[8rem] md:text-[10rem] font-black leading-none select-none
+                        {{if eq .Code "404"}}text-blue-500/10 dark:text-blue-400/10
+                        {{else if eq .Code "500"}}text-red-500/10 dark:text-red-400/10
+                        {{else}}text-muted-foreground/10{{end}}">
+                {{.Code}}
+            </div>
+            <div class="absolute inset-0 flex items-center justify-center">
+                <div class="p-5 rounded-2xl
+                            {{if eq .Code "404"}}bg-blue-500/10 text-blue-500
+                            {{else if eq .Code "500"}}bg-red-500/10 text-red-500
+                            {{else}}bg-muted text-muted-foreground{{end}}">
+                    {{if eq .Code "404"}}
+                        {{template "icon-search" dict "Size" 40}}
+                    {{else if eq .Code "500"}}
+                        {{template "icon-alert-triangle" dict "Size" 40}}
+                    {{else}}
+                        {{template "icon-alert-triangle" dict "Size" 40}}
+                    {{end}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Titre et description -->
+        <div class="space-y-2">
+            <h1 class="text-2xl font-bold text-foreground">
+                {{if eq .Code "404"}}{{index .T "error.not_found_title"}}
+                {{else if eq .Code "500"}}{{index .T "error.server_title"}}
+                {{else}}{{index .T "error.method_title"}}{{end}}
+            </h1>
+            <p class="text-muted-foreground text-sm leading-relaxed">
+                {{if eq .Code "404"}}{{index .T "error.not_found_desc"}}
+                {{else if eq .Code "500"}}{{index .T "error.server_desc"}}
+                {{else}}{{index .T "error.method_desc"}}{{end}}
+            </p>
+        </div>
+
+        <!-- Boutons -->
+        <div class="flex items-center justify-center gap-3 pt-2">
+            <button onclick="history.back()"
+                    class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border
+                           bg-background hover:bg-accent text-sm font-medium text-foreground transition-all">
+                {{template "icon-arrow-left" dict "Size" 16}}
+                {{index .T "error.back"}}
+            </button>
+            <a href="/"
+               class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
+                      bg-blue-600 hover:bg-blue-500 text-sm font-bold text-white transition-all">
+                {{template "icon-home" dict "Size" 16}}
+                {{index .T "error.home"}}
+            </a>
+        </div>
+
+    </div>
+</div>
+{{end}}
