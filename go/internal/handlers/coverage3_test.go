@@ -772,3 +772,54 @@ func TestExportData_RecurringError(t *testing.T) {
 		t.Errorf("want 500 (recurring error), got %d", rr.Code)
 	}
 }
+
+// ── error.go ─────────────────────────────────────────────────────────────────
+
+func TestNotFound_Renders(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	rr := httptest.NewRecorder()
+	NotFound(rr, httptest.NewRequest(http.MethodGet, "/bad", nil))
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("want 404, got %d", rr.Code)
+	}
+}
+
+func TestMethodNotAllowed_Renders(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	rr := httptest.NewRecorder()
+	MethodNotAllowed(rr, httptest.NewRequest(http.MethodGet, "/bad", nil))
+	if rr.Code != http.StatusMethodNotAllowed {
+		t.Errorf("want 405, got %d", rr.Code)
+	}
+}
+
+func TestInternalServerError_Renders(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	rr := httptest.NewRecorder()
+	InternalServerError(rr, httptest.NewRequest(http.MethodGet, "/bad", nil))
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// ── pages.go — LegalPage ──────────────────────────────────────────────────────
+
+func TestLegalPage_RenderError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+
+	orig := hookRender
+	hookRender = func(w io.Writer, name string, data interface{}) error {
+		return errTest2
+	}
+	defer func() { hookRender = orig }()
+
+	rr := httptest.NewRecorder()
+	LegalPage(rr, httptest.NewRequest(http.MethodGet, "/legal", nil))
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
