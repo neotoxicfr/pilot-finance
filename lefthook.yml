@@ -1,0 +1,11 @@
+pre-commit:
+  commands:
+    lint:
+      glob: "*.go"
+      run: cd go && golangci-lint run --new-from-rev=HEAD
+    vet:
+      glob: "*.go"
+      run: cd go && go vet ./...
+    build:
+      glob: "*.go"
+      run: cd go && go build ./...

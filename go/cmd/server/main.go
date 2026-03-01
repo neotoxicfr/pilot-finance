@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"crypto/md5"
+	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -30,7 +33,14 @@ import (
 var Version = "dev"
 
 func main() {
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
+	// JSON logs en production, texte en dev
+	var logHandler slog.Handler
+	if os.Getenv("ENV") == "production" {
+		logHandler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})
+	} else {
+		logHandler = slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})
+	}
+	slog.SetDefault(slog.New(logHandler))
 
 	// Propager la version au package handlers (health check)
 	handlers.Version = Version
@@ -105,6 +115,7 @@ func main() {
 	// Middlewares globaux — doivent être déclarés AVANT NotFound/MethodNotAllowed
 	// pour que chi les applique aux handlers d'erreur
 	r.Use(chimw.RealIP)
+	r.Use(chimw.RequestID)
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Compress(5))
@@ -205,24 +216,28 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 	}
 
-	// Graceful shutdown
-	go func() {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-		<-sigChan
+	// Graceful shutdown via signal.NotifyContext
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-		slog.Info("arrêt en cours")
-		ratelimit.StopAll()
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		server.Shutdown(ctx)
+	go func() {
+		slog.Info("serveur démarré", "addr", "http://localhost"+addr)
+		if err := server.ListenAndServe(); err != http.ErrServerClosed {
+			slog.Error("serveur", "err", err)
+			os.Exit(1)
+		}
 	}()
 
-	slog.Info("serveur démarré", "addr", "http://localhost"+addr)
-	if err := server.ListenAndServe(); err != http.ErrServerClosed {
-		slog.Error("serveur", "err", err)
-		os.Exit(1)
+	<-ctx.Done()
+	slog.Info("arrêt en cours")
+	ratelimit.StopAll()
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		slog.Error("shutdown", "err", err)
 	}
+	slog.Info("serveur arrêté proprement")
 }
 
 // maxBodySize limite la taille du body HTTP à 1MB pour prévenir les attaques DoS
@@ -233,7 +248,23 @@ func maxBodySize(next http.Handler) http.Handler {
 	})
 }
 
-// cacheStatic ajoute des headers de cache pour les fichiers statiques
+// staticETags calcule les ETag au démarrage pour chaque fichier statique
+var staticETags = func() map[string]string {
+	tags := make(map[string]string)
+	fs.WalkDir(os.DirFS("static"), ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if info, err := d.Info(); err == nil {
+			hash := md5.Sum([]byte(fmt.Sprintf("%s-%d-%d", path, info.Size(), info.ModTime().UnixNano())))
+			tags["/"+path] = fmt.Sprintf(`"%x"`, hash)
+		}
+		return nil
+	})
+	return tags
+}()
+
+// cacheStatic ajoute des headers de cache et ETag pour les fichiers statiques
 func cacheStatic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
@@ -242,6 +273,16 @@ func cacheStatic(next http.Handler) http.Handler {
 		} else {
 			w.Header().Set("Cache-Control", "public, max-age=2592000") // 30 jours (images, icônes)
 		}
+
+		// ETag pour cache conditionnel
+		if etag, ok := staticETags[path]; ok {
+			w.Header().Set("ETag", etag)
+			if r.Header.Get("If-None-Match") == etag {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+		}
+
 		next.ServeHTTP(w, r)
 	})
 }

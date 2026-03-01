@@ -67,6 +67,19 @@ func Init(cfg Config) error {
 	// Migrations automatiques versionnées
 	runMigrations(cfg.Path)
 
+	// VACUUM périodique au démarrage pour compacter la DB
+	if _, err := DB.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+		slog.Warn("WAL checkpoint", "err", err)
+	}
+
+	// Backup automatique quotidien (même volume, pas de mount supplémentaire)
+	backupPath := cfg.Path + ".backup"
+	if _, err := DB.Exec("VACUUM INTO ?", backupPath); err != nil {
+		slog.Warn("backup automatique", "err", err)
+	} else {
+		slog.Info("backup créé", "path", backupPath)
+	}
+
 	slog.Info("base de données connectée", "path", cfg.Path)
 	return nil
 }
