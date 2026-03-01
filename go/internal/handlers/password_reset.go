@@ -164,7 +164,10 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Mettre a jour le mot de passe
-	db.UpdatePassword(user.ID, hashedPassword)
+	if err := hookUpdatePassword(user.ID, hashedPassword); err != nil {
+		serverError(w, "update password", err)
+		return
+	}
 
 	// Effacer le token
 	db.ClearResetToken(user.ID)

@@ -30,7 +30,6 @@ linters:
         - pilot-finance/internal/db.UpdatePasswordHash
         - pilot-finance/internal/db.UpdateLoginAttempts
         - pilot-finance/internal/db.SetResetToken
-        - pilot-finance/internal/db.UpdatePassword
         - pilot-finance/internal/db.ClearResetToken
         # Best-effort email (anti-enumeration: always show success)
         - pilot-finance/internal/mail.SendPasswordReset
