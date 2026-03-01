@@ -157,6 +157,18 @@ func TestMap_FallsBackToFr(t *testing.T) {
 	}
 }
 
+func TestMap_ReturnsCopy(t *testing.T) {
+	resetTranslations()
+	translations["fr"] = map[string]string{"key": "value"}
+
+	m := Map("fr")
+	m["key"] = "mutated"
+	// La source ne doit pas être modifiée
+	if translations["fr"]["key"] != "value" {
+		t.Error("Map() should return a copy; source was mutated")
+	}
+}
+
 func TestMap_NoTranslations_ReturnsEmpty(t *testing.T) {
 	resetTranslations()
 

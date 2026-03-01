@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -155,13 +156,19 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 		credIDBase64 := base64.StdEncoding.EncodeToString(rawID)
 
 		authenticator, err := hookGetAuthByCredentialID(credIDBase64)
-		if err != nil || authenticator == nil {
+		if err != nil {
 			return nil, err
+		}
+		if authenticator == nil {
+			return nil, fmt.Errorf("authenticator not found")
 		}
 
 		user, err := hookGetUserByID(authenticator.UserID)
-		if err != nil || user == nil {
+		if err != nil {
 			return nil, err
+		}
+		if user == nil {
+			return nil, fmt.Errorf("user not found")
 		}
 
 		email, _ := hookDecryptStr(user.EmailEncrypted)
@@ -203,8 +210,8 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 
 	// Récupérer l'utilisateur complet
 	user, err := hookGetUserByID(passkeyUser.ID)
-	if err != nil {
-		serverError(w, "get user", err)
+	if err != nil || user == nil {
+		serverError(w, "get user", fmt.Errorf("user %d not found", passkeyUser.ID))
 		return
 	}
 

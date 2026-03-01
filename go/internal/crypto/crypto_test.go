@@ -413,6 +413,11 @@ func TestDecryptIntBadValue(t *testing.T) {
 }
 
 func TestValidatePassword(t *testing.T) {
+	// "Aa1!" repeated 18 times = exactly 72 bytes
+	max72 := ""
+	for i := 0; i < 18; i++ {
+		max72 += "Aa1!"
+	}
 	tests := []struct {
 		pwd string
 		ok  bool
@@ -422,8 +427,12 @@ func TestValidatePassword(t *testing.T) {
 		{"ALLUPPERCASE1!", false},  // no lowercase
 		{"NoDigitHereAt!", false},  // no digit
 		{"NoSpecialChar12", false}, // no special char
-		{"ValidP@ssw0rd1!", true},
-		{"Another$ecure1!", true},
+		{"ValidP@ssw0rd1!", true},  // classic special chars
+		{"Another$ecure1!", true},  // dollar sign
+		{"Valid-Pass_w0rd", true},  // dash and underscore as special
+		{"MyP4ssWithTilde~", true}, // tilde as special
+		{max72, true},             // exactly 72 bytes — OK
+		{max72 + "x", false},      // 73 bytes — too long for bcrypt
 	}
 	for _, tt := range tests {
 		err := ValidatePassword(tt.pwd)

@@ -151,6 +151,42 @@ func TestHandleLogin_2FA_Success(t *testing.T) {
 	}
 }
 
+// --- HandleLogin : 2FA second step — MFASecret nil (DB inconsistency) ---
+
+func TestHandleLogin_2FA_NilMFASecret(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "mfanil@example.com", "ValidP@ss1!", "USER")
+
+	// Activer MFA sans secret (simule une incohérence DB)
+	if err := db.EnableMFA(uid, ""); err != nil {
+		t.Fatalf("EnableMFA: %v", err)
+	}
+	// Forcer MFASecret à nil via hook
+	origGetUser := hookGetUserByID
+	defer func() { hookGetUserByID = origGetUser }()
+	hookGetUserByID = func(id int64) (*db.User, error) {
+		u, err := origGetUser(id)
+		if u != nil {
+			u.MFASecret = nil // simuler DB inconsistency
+		}
+		return u, err
+	}
+
+	pendingToken, err := auth.GeneratePending2FAToken(uid)
+	if err != nil {
+		t.Fatalf("GeneratePending2FAToken: %v", err)
+	}
+
+	req := post("/login", url.Values{"twoFactorCode": {"123456"}})
+	req.AddCookie(&http.Cookie{Name: "pending_2fa", Value: pendingToken})
+	rr := httptest.NewRecorder()
+	HandleLogin(rr, req)
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("want 401 (nil MFASecret), got %d", rr.Code)
+	}
+}
+
 // --- UpdatePreferences : langue/devise invalides → fallback silencieux ---
 
 func TestUpdatePreferences_InvalidLang_FallsBack(t *testing.T) {

@@ -341,7 +341,7 @@ function accountsPage() {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ ids })
-                    });
+                    }).catch(() => location.reload());
                 }
             });
         },

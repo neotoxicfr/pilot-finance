@@ -444,6 +444,73 @@ func TestPasskeyLoginFinish_ClosureUserError(t *testing.T) {
 	}
 }
 
+// passkey.go: closure — hookGetAuthByCredentialID returns (nil, nil) → error "authenticator not found"
+func TestPasskeyLoginFinish_ClosureAuthNil(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+
+	origGetAuth := hookGetAuthByCredentialID
+	defer func() { hookGetAuthByCredentialID = origGetAuth }()
+	hookGetAuthByCredentialID = func(id string) (*db.Authenticator, error) {
+		return nil, nil // not found, no error
+	}
+
+	origFinish := hookFinishLogin
+	defer func() { hookFinishLogin = origFinish }()
+	hookFinishLogin = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
+		_, err := h([]byte("nonexistent"), nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, nil, errTest2
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/passkey/auth/finish", nil)
+	req.AddCookie(&http.Cookie{Name: "passkey_auth_challenge", Value: "dummysession"})
+	rr := httptest.NewRecorder()
+	PasskeyLoginFinish(rr, req)
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("want 401 (auth nil), got %d", rr.Code)
+	}
+}
+
+// passkey.go: closure — authenticator found but hookGetUserByID returns (nil, nil) → error "user not found"
+func TestPasskeyLoginFinish_ClosureUserNil(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "pkclosusernil@example.com", "ValidP@ss1!", "USER")
+
+	rawCredID := []byte("closure-user-nil-cred-67890")
+	credIDBase64 := base64.StdEncoding.EncodeToString(rawCredID)
+	if err := db.CreateAuthenticator(credIDBase64, "pubkey", 0, "multiDevice", false, false, "[]", uid); err != nil {
+		t.Fatalf("CreateAuthenticator: %v", err)
+	}
+
+	origGetUser := hookGetUserByID
+	defer func() { hookGetUserByID = origGetUser }()
+	hookGetUserByID = func(id int64) (*db.User, error) {
+		return nil, nil // user not found, no error
+	}
+
+	origFinish := hookFinishLogin
+	defer func() { hookFinishLogin = origFinish }()
+	hookFinishLogin = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
+		_, err := h(rawCredID, nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, nil, errTest2
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/passkey/auth/finish", nil)
+	req.AddCookie(&http.Cookie{Name: "passkey_auth_challenge", Value: "dummysession"})
+	rr := httptest.NewRecorder()
+	PasskeyLoginFinish(rr, req)
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("want 401 (user nil), got %d", rr.Code)
+	}
+}
+
 // ── password_reset.go ────────────────────────────────────────────────────────
 
 // password_reset.go:39-42 — rate limit exhausted → 429
@@ -689,6 +756,60 @@ func TestUpdateRecurring_DBError(t *testing.T) {
 	UpdateRecurring(rr, req)
 	if rr.Code != http.StatusInternalServerError {
 		t.Errorf("want 500 (update DB error), got %d", rr.Code)
+	}
+}
+
+// recurring.go: UpdateRecurring — day out of range → clamped to 1
+func TestUpdateRecurring_DayOutOfRange(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "updrec_day@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	recID := createRec(t, uid, accID)
+
+	req := injectUser(
+		withParam(
+			post("/recurring/"+intStr(recID), url.Values{
+				"description": {"Test day"},
+				"amount":      {"100"},
+				"dayOfMonth":  {"0"},
+				"type":        {"income"},
+			}),
+			"id", intStr(recID),
+		),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	UpdateRecurring(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d", rr.Code)
+	}
+}
+
+// recurring.go: UpdateRecurring — income with negative amount → flipped to positive
+func TestUpdateRecurring_IncomeNegative(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "updrec_incneg@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	recID := createRec(t, uid, accID)
+
+	req := injectUser(
+		withParam(
+			post("/recurring/"+intStr(recID), url.Values{
+				"description": {"Salary"},
+				"amount":      {"-500"},
+				"dayOfMonth":  {"15"},
+				"type":        {"income"},
+			}),
+			"id", intStr(recID),
+		),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	UpdateRecurring(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d", rr.Code)
 	}
 }
 

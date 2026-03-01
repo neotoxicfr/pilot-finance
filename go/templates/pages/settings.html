@@ -11,7 +11,8 @@ function mfaData() {
             this.mfaLoading = true;
             fetch('/settings/mfa/setup')
                 .then(r => r.json())
-                .then(d => { this.mfaSetup = d; this.mfaLoading = false; });
+                .then(d => { this.mfaSetup = d; this.mfaLoading = false; })
+                .catch(() => { this.mfaLoading = false; this.mfaError = 'Erreur réseau'; });
         },
         enableMfa() {
             fetch('/settings/mfa/enable', {
@@ -21,7 +22,7 @@ function mfaData() {
             }).then(r => r.json()).then(d => {
                 if (d.error) this.mfaError = d.error;
                 else location.reload();
-            });
+            }).catch(() => { this.mfaError = 'Erreur réseau'; });
         },
         reload() { location.reload(); }
     };
@@ -51,7 +52,7 @@ function passkeyData() {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: this.renameName })
-            }).then(() => location.reload());
+            }).then(() => location.reload()).catch(() => location.reload());
         }
     };
 }

@@ -152,6 +152,9 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 	}
 
 	day, _ := strconv.Atoi(dayStr)
+	if day < 1 || day > 31 {
+		day = 1
+	}
 
 	var toAccountID *int64
 	if toAccountIDStr != "" {
@@ -162,6 +165,8 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if opType == "expense" && amount > 0 {
+		amount = -amount
+	} else if opType == "income" && amount < 0 {
 		amount = -amount
 	}
 

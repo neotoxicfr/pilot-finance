@@ -211,17 +211,22 @@ func DecryptInt(s string) (int, error) {
 // Utiliser i18n.T(lang, "pwd_error."+err.Error()) pour obtenir le message traduit.
 var (
 	ErrPwdMinLength = errors.New("min_length")
+	ErrPwdMaxLength = errors.New("max_length")
 	ErrPwdUppercase = errors.New("uppercase")
 	ErrPwdLowercase = errors.New("lowercase")
 	ErrPwdDigit     = errors.New("digit")
 	ErrPwdSpecial   = errors.New("special")
 )
 
-// ValidatePassword vérifie que le mot de passe respecte les 5 critères.
+// ValidatePassword vérifie que le mot de passe respecte les critères.
 // Returns nil si valide, sinon une erreur codée (ErrPwd*) à traduire via i18n.
 func ValidatePassword(password string) error {
 	if len(password) < 12 {
 		return ErrPwdMinLength
+	}
+	// bcrypt tronque silencieusement au-delà de 72 octets
+	if len(password) > 72 {
+		return ErrPwdMaxLength
 	}
 
 	hasUpper := false
@@ -237,7 +242,7 @@ func ValidatePassword(password string) error {
 			hasLower = true
 		case c >= '0' && c <= '9':
 			hasDigit = true
-		case strings.ContainsRune("!@#$%^&*(),.?:{}|", c):
+		case !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')):
 			hasSpecial = true
 		}
 	}

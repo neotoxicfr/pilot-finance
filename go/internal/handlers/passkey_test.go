@@ -468,6 +468,31 @@ func TestPasskeyLoginFinish_GetUserError(t *testing.T) {
 	}
 }
 
+func TestPasskeyLoginFinish_GetUserNil(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "pklgnil@example.com", "ValidP@ss1!", "USER")
+
+	origFinish := hookFinishLogin
+	defer func() { hookFinishLogin = origFinish }()
+	hookFinishLogin = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
+		return &auth.PasskeyUser{ID: uid}, &webauthn.Credential{}, nil
+	}
+	origGetUser := hookGetUserByID
+	defer func() { hookGetUserByID = origGetUser }()
+	hookGetUserByID = func(id int64) (*db.User, error) {
+		return nil, nil // user not found but no error
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/passkey/auth/finish", nil)
+	req.AddCookie(&http.Cookie{Name: "passkey_auth_challenge", Value: "dummysession"})
+	rr := httptest.NewRecorder()
+	PasskeyLoginFinish(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500 (user nil), got %d", rr.Code)
+	}
+}
+
 func TestPasskeyLoginFinish_GenerateTokenError(t *testing.T) {
 	cleanup := setupHandlerTest(t)
 	defer cleanup()
