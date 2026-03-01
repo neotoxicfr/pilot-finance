@@ -52,6 +52,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	// Chiffrer le nom du compte
 	encryptedName, err := hookEncryptStr(name)
 	if err != nil {
+		slog.Error("encrypt name", "err", err)
 		http.Error(w, "Erreur chiffrement", http.StatusInternalServerError)
 		return
 	}
@@ -149,6 +150,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		}
 		err = hookUpdateAccountWithYield(id, user.ID, encryptedName, balance, color, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
 		if err != nil {
+			slog.Error("update account", "err", err)
 			http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 			return
 		}
@@ -163,6 +165,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 
 		err := hookCreateAccountWithYield(user.ID, encryptedName, balance, color, position, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
 		if err != nil {
+			slog.Error("create account", "err", err)
 			http.Error(w, "Erreur création", http.StatusInternalServerError)
 			return
 		}
@@ -190,6 +193,7 @@ func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 	err = hookDeleteAccount(id, user.ID)
 	if err != nil {
+		slog.Error("delete account", "err", err)
 		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
 		return
 	}
@@ -229,6 +233,7 @@ func UpdateBalance(w http.ResponseWriter, r *http.Request) {
 
 	err = hookUpdateAccountBalance(id, user.ID, balance)
 	if err != nil {
+		slog.Error("update balance", "err", err)
 		http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 		return
 	}
@@ -260,7 +265,7 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	// Recuperer tous les comptes tries par position
 	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "get accounts", err)
 		return
 	}
 
@@ -296,6 +301,7 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	// Echanger les positions
 	err = hookSwapAccountPositions(accounts[currentIdx].ID, accounts[targetIdx].ID, user.ID)
 	if err != nil {
+		slog.Error("swap positions", "err", err)
 		http.Error(w, "Erreur déplacement", http.StatusInternalServerError)
 		return
 	}
@@ -321,6 +327,7 @@ func ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := hookReorderAccounts(user.ID, body.IDs); err != nil {
+		slog.Error("reorder accounts", "err", err)
 		http.Error(w, "Erreur réordonnancement", http.StatusInternalServerError)
 		return
 	}

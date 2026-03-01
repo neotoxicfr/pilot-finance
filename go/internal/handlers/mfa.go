@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/base64"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	qrcode "github.com/skip2/go-qrcode"
@@ -23,7 +24,7 @@ func MFASetup(w http.ResponseWriter, r *http.Request) {
 	// Generer un nouveau secret
 	secret, err := hookGenerateTOTPSecret()
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "generate TOTP secret", err)
 		return
 	}
 
@@ -33,6 +34,7 @@ func MFASetup(w http.ResponseWriter, r *http.Request) {
 	// Generer le QR code localement (zéro dépendance externe)
 	png, err := hookQREncode(otpauthURI, qrcode.Medium, 200)
 	if err != nil {
+		slog.Error("generate QR code", "err", err)
 		http.Error(w, "Erreur generation QR", http.StatusInternalServerError)
 		return
 	}
@@ -100,7 +102,7 @@ func MFADisable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := hookDisableMFA(user.ID); err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "disable MFA", err)
 		return
 	}
 

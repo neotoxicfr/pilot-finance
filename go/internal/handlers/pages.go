@@ -91,7 +91,7 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 
 	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "get accounts", err)
 		return
 	}
 
@@ -249,7 +249,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 	if isAdmin {
 		users, err := hookGetAllUsers()
 		if err != nil {
-			http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+			serverError(w, "get all users", err)
 			return
 		}
 		var usersWithEmail []map[string]interface{}

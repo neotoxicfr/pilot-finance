@@ -191,10 +191,9 @@ func runMigrations(dbPath string) {
 			// Backup avant chiffrement via VACUUM INTO (copie propre incluant le WAL)
 			backupPath := dbPath + ".bak"
 			if _, err := d.Exec("VACUUM INTO ?", backupPath); err != nil {
-				slog.Warn("migration 008: backup impossible", "err", err)
-			} else {
-				slog.Info("migration 008: backup créé", "path", backupPath)
+				return fmt.Errorf("migration 008: backup impossible (arrêt par sécurité): %w", err)
 			}
+			slog.Info("migration 008: backup créé", "path", backupPath)
 
 			rows, err := d.Query(`SELECT id, balance, yield_min, yield_max, reinvestment_rate FROM accounts`)
 			if err != nil {
@@ -286,6 +285,17 @@ func runMigrations(dbPath string) {
 				})
 				if _, err := d.Exec(`UPDATE recurring_operations SET amount=? WHERE id=?`, amtEnc, r.id); err != nil {
 					return fmt.Errorf("update recurring id=%d: %w", r.id, err)
+				}
+			}
+			return nil
+		}},
+		{Name: "010_audit_log_indexes", Run: func(d *sql.DB) error {
+			for _, idx := range []string{
+				`CREATE INDEX IF NOT EXISTS idx_audit_user_id ON audit_log(user_id, created_at DESC)`,
+				`CREATE INDEX IF NOT EXISTS idx_audit_created_at ON audit_log(created_at DESC)`,
+			} {
+				if _, err := d.Exec(idx); err != nil {
+					return err
 				}
 			}
 			return nil
