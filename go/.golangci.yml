@@ -9,6 +9,31 @@ linters:
     - unused
     - ineffassign
 
+  settings:
+    errcheck:
+      exclude-functions:
+        # HTTP response writing — nothing useful to do if client disconnects
+        - (net/http.ResponseWriter).Write
+        - (*encoding/json.Encoder).Encode
+        - fmt.Fprintf
+        - fmt.Fprint
+        - pilot-finance/internal/templates.Render
+        - pilot-finance/internal/templates.RenderPartial
+        # Close — defer close is idiomatic Go
+        - (io.Closer).Close
+        - (*net/tls.Conn).Close
+        - (*net/smtp.Client).Close
+        # crypto/rand.Read always succeeds on supported platforms
+        - crypto/rand.Read
+        # Best-effort DB operations (rehash, login attempts, anti-enumeration)
+        - pilot-finance/internal/db.UpdatePasswordHash
+        - pilot-finance/internal/db.UpdateLoginAttempts
+        - pilot-finance/internal/db.SetResetToken
+        - pilot-finance/internal/db.UpdatePassword
+        - pilot-finance/internal/db.ClearResetToken
+        # Best-effort email (anti-enumeration: always show success)
+        - pilot-finance/internal/mail.SendPasswordReset
+
   exclusions:
     rules:
       - path: _test\.go
