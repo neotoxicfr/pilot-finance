@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -16,7 +15,7 @@ import (
 func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
@@ -97,15 +96,14 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 		"monthly":         summary,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	jsonSuccess(w, response)
 }
 
 // AccountsAPI retourne les comptes en JSON
 func AccountsAPI(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
@@ -117,15 +115,14 @@ func AccountsAPI(w http.ResponseWriter, r *http.Request) {
 
 	decryptAccountNames(accounts)
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(accounts)
+	jsonSuccess(w, accounts)
 }
 
 // RecurringAPI retourne les operations recurrentes en JSON
 func RecurringAPI(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
@@ -164,6 +161,5 @@ func RecurringAPI(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	jsonSuccess(w, result)
 }

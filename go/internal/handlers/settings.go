@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -18,12 +16,12 @@ import (
 func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Données invalides", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
 		return
 	}
 
@@ -32,30 +30,30 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	confirmPassword := r.FormValue("confirmPassword")
 
 	if currentPassword == "" || newPassword == "" {
-		http.Error(w, "Tous les champs sont requis", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Tous les champs sont requis", http.StatusBadRequest)
 		return
 	}
 
 	if newPassword != confirmPassword {
-		http.Error(w, "Les mots de passe ne correspondent pas", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Les mots de passe ne correspondent pas", http.StatusBadRequest)
 		return
 	}
 
 	if err := crypto.ValidatePassword(newPassword); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		clientError(w, ErrValidation, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Récupérer l'utilisateur complet pour vérifier le mot de passe
 	dbUser, err := db.GetUserByID(user.ID)
 	if err != nil || dbUser == nil {
-		http.Error(w, "Utilisateur non trouvé", http.StatusNotFound)
+		clientError(w, ErrNotFound, "Utilisateur non trouvé", http.StatusNotFound)
 		return
 	}
 
 	// Verifier le mot de passe actuel
 	if !crypto.VerifyPassword(currentPassword, dbUser.Password) {
-		http.Error(w, "Mot de passe actuel incorrect", http.StatusUnauthorized)
+		clientError(w, ErrAuthInvalid, "Mot de passe actuel incorrect", http.StatusUnauthorized)
 		return
 	}
 
@@ -69,8 +67,7 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	// Mettre a jour
 	err = hookUpdatePassword(user.ID, hashedPassword)
 	if err != nil {
-		slog.Error("update password", "err", err)
-		http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
+		srvError(w, "update password", err)
 		return
 	}
 
@@ -83,12 +80,12 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 func UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Données invalides", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
 		return
 	}
 
@@ -109,8 +106,7 @@ func UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := hookUpdateUserPrefs(user.ID, language, currency); err != nil {
-		slog.Error("update preferences", "err", err)
-		http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
+		srvError(w, "update preferences", err)
 		return
 	}
 
@@ -129,13 +125,13 @@ func UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 func ExportData(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	dbUser, err := db.GetUserByID(user.ID)
 	if err != nil || dbUser == nil {
-		http.Error(w, "Utilisateur non trouvé", http.StatusNotFound)
+		clientError(w, ErrNotFound, "Utilisateur non trouvé", http.StatusNotFound)
 		return
 	}
 	email, _ := crypto.Decrypt(dbUser.EmailEncrypted)
@@ -199,24 +195,22 @@ func ExportData(w http.ResponseWriter, r *http.Request) {
 
 	db.LogAudit(user.ID, db.AuditGDPRExport, getClientIP(r), r.UserAgent())
 
-	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Content-Disposition", `attachment; filename="pilot-finance-export.json"`)
-	json.NewEncoder(w).Encode(export)
+	jsonSuccess(w, export)
 }
 
 // DeleteSelfAccount supprime le compte de l'utilisateur connecté et toutes ses données (GDPR).
 func DeleteSelfAccount(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	db.LogAudit(user.ID, db.AuditGDPRDelete, getClientIP(r), r.UserAgent())
 
 	if err := hookDeleteUserAndData(user.ID); err != nil {
-		slog.Error("delete user", "err", err)
-		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
+		srvError(w, "delete user", err)
 		return
 	}
 
@@ -229,26 +223,26 @@ func DeleteSelfAccount(w http.ResponseWriter, r *http.Request) {
 func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil || user.Role != "ADMIN" {
-		http.Error(w, "Non autorisé", http.StatusForbidden)
+		clientError(w, ErrForbidden, "Non autorisé", http.StatusForbidden)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "ID invalide", http.StatusBadRequest)
+		clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
 		return
 	}
 
 	// Ne pas permettre de supprimer un admin
 	targetUser, err := db.GetUserByID(id)
 	if err != nil || targetUser == nil {
-		http.Error(w, "Utilisateur non trouvé", http.StatusNotFound)
+		clientError(w, ErrNotFound, "Utilisateur non trouvé", http.StatusNotFound)
 		return
 	}
 
 	if targetUser.Role == "ADMIN" {
-		http.Error(w, "Impossible de supprimer un administrateur", http.StatusForbidden)
+		clientError(w, ErrForbidden, "Impossible de supprimer un administrateur", http.StatusForbidden)
 		return
 	}
 
@@ -256,8 +250,7 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	err = hookDeleteUserAndData(id)
 	if err != nil {
-		slog.Error("delete user", "err", err)
-		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
+		srvError(w, "delete user", err)
 		return
 	}
 

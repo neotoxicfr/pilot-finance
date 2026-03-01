@@ -40,7 +40,7 @@ func getClientIP(r *http.Request) string {
 // HandleLogin gère la soumission du formulaire de connexion
 func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Méthode non autorisée", http.StatusMethodNotAllowed)
+		clientError(w, ErrForbidden, "Méthode non autorisée", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -50,7 +50,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	result := ratelimit.Check(clientIP, "login")
 	if !result.Allowed {
 		waitMin := (result.RetryAfterMs / 60000) + 1
-		http.Error(w, "Trop de tentatives. Réessayez dans "+strconv.FormatInt(waitMin, 10)+" min.", http.StatusTooManyRequests)
+		clientError(w, ErrRateLimited, "Trop de tentatives. Réessayez dans "+strconv.FormatInt(waitMin, 10)+" min.", http.StatusTooManyRequests)
 		return
 	}
 
@@ -62,13 +62,13 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		// Validation du code 2FA
 		pendingUserID, err := hookValidatePending2FAToken(pendingCookie.Value)
 		if err != nil {
-			http.Error(w, "Session expirée, veuillez vous reconnecter", http.StatusUnauthorized)
+			clientError(w, ErrAuthInvalid, "Session expirée, veuillez vous reconnecter", http.StatusUnauthorized)
 			return
 		}
 
 		user, err := hookGetUserByID(pendingUserID)
 		if err != nil || user == nil {
-			http.Error(w, "Utilisateur non trouvé", http.StatusUnauthorized)
+			clientError(w, ErrAuthInvalid, "Utilisateur non trouvé", http.StatusUnauthorized)
 			return
 		}
 
@@ -80,7 +80,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if !auth.ValidateTOTP(secret, twoFactorCode) {
-			http.Error(w, "Code 2FA invalide", http.StatusUnauthorized)
+			clientError(w, ErrAuthInvalid, "Code 2FA invalide", http.StatusUnauthorized)
 			return
 		}
 
@@ -110,7 +110,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 
 	if email == "" || password == "" {
-		http.Error(w, "Email et mot de passe requis", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Email et mot de passe requis", http.StatusBadRequest)
 		return
 	}
 
@@ -123,14 +123,14 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if user == nil {
-		http.Error(w, "Identifiants incorrects", http.StatusUnauthorized)
+		clientError(w, ErrAuthInvalid, "Identifiants incorrects", http.StatusUnauthorized)
 		return
 	}
 
 	// Vérifier le verrouillage
 	if user.LockUntil != nil && user.LockUntil.After(time.Now()) {
 		waitMin := int(time.Until(*user.LockUntil).Minutes()) + 1
-		http.Error(w, "Compte verrouillé. Réessayez dans "+strconv.Itoa(waitMin)+" min.", http.StatusTooManyRequests)
+		clientError(w, ErrAccountLocked, "Compte verrouillé. Réessayez dans "+strconv.Itoa(waitMin)+" min.", http.StatusTooManyRequests)
 		return
 	}
 
@@ -138,7 +138,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if !crypto.VerifyPassword(password, user.Password) {
 		db.LogAudit(user.ID, db.AuditLoginFail, clientIP, r.UserAgent())
 		handleFailedLogin(user)
-		http.Error(w, "Identifiants incorrects", http.StatusUnauthorized)
+		clientError(w, ErrAuthInvalid, "Identifiants incorrects", http.StatusUnauthorized)
 		return
 	}
 
@@ -198,7 +198,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 // HandleRegister gère l'inscription
 func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Méthode non autorisée", http.StatusMethodNotAllowed)
+		clientError(w, ErrForbidden, "Méthode non autorisée", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -207,7 +207,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	// Rate limiting
 	result := ratelimit.Check(clientIP, "register")
 	if !result.Allowed {
-		http.Error(w, "Trop de tentatives. Réessayez plus tard.", http.StatusTooManyRequests)
+		clientError(w, ErrRateLimited, "Trop de tentatives. Réessayez plus tard.", http.StatusTooManyRequests)
 		return
 	}
 
@@ -217,22 +217,22 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	// Validation
 	if email == "" || password == "" {
-		http.Error(w, "Email et mot de passe requis", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Email et mot de passe requis", http.StatusBadRequest)
 		return
 	}
 
 	if !strings.Contains(email, "@") || len(email) < 3 || len(email) > 254 {
-		http.Error(w, "Email invalide", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Email invalide", http.StatusBadRequest)
 		return
 	}
 
 	if password != confirmPassword {
-		http.Error(w, "Les mots de passe ne correspondent pas", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Les mots de passe ne correspondent pas", http.StatusBadRequest)
 		return
 	}
 
 	if err := crypto.ValidatePassword(password); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		clientError(w, ErrValidation, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -254,7 +254,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if existingUser != nil {
-		http.Error(w, "Email déjà utilisé", http.StatusConflict)
+		clientError(w, ErrConflict, "Email déjà utilisé", http.StatusConflict)
 		return
 	}
 

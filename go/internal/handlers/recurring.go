@@ -17,12 +17,12 @@ import (
 func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Données invalides", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
 		return
 	}
 
@@ -35,21 +35,20 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 	toAccountIDStr := r.FormValue("toAccountId")
 
 	if description == "" || amountStr == "" || accountIDStr == "" {
-		http.Error(w, "Champs requis manquants", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Champs requis manquants", http.StatusBadRequest)
 		return
 	}
 
 	// Chiffrer la description
 	encryptedDesc, err := hookEncryptStr(description)
 	if err != nil {
-		slog.Error("encrypt description", "err", err)
-		http.Error(w, "Erreur chiffrement", http.StatusInternalServerError)
+		clientError(w, ErrEncryption, "Erreur chiffrement", http.StatusInternalServerError)
 		return
 	}
 
 	amount, err := strconv.ParseFloat(amountStr, 64)
 	if err != nil {
-		http.Error(w, "Montant invalide", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Montant invalide", http.StatusBadRequest)
 		return
 	}
 
@@ -60,11 +59,11 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 
 	accountID, err := strconv.ParseInt(accountIDStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Compte invalide", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Compte invalide", http.StatusBadRequest)
 		return
 	}
 	if ok, err := hookAccountBelongsToUser(accountID, user.ID); err != nil || !ok {
-		http.Error(w, "Compte invalide", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Compte invalide", http.StatusBadRequest)
 		return
 	}
 
@@ -72,11 +71,11 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 	if toAccountIDStr != "" {
 		id, err := strconv.ParseInt(toAccountIDStr, 10, 64)
 		if err != nil {
-			http.Error(w, "Compte destinataire invalide", http.StatusBadRequest)
+			clientError(w, ErrValidation, "Compte destinataire invalide", http.StatusBadRequest)
 			return
 		}
 		if ok, err := hookAccountBelongsToUser(id, user.ID); err != nil || !ok {
-			http.Error(w, "Compte destinataire invalide", http.StatusBadRequest)
+			clientError(w, ErrValidation, "Compte destinataire invalide", http.StatusBadRequest)
 			return
 		}
 		toAccountID = &id
@@ -93,21 +92,19 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 	if idStr != "" {
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
-			http.Error(w, "ID invalide", http.StatusBadRequest)
+			clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
 			return
 		}
 		err = hookUpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
 		if err != nil {
-			slog.Error("update recurring", "err", err)
-			http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
+			srvError(w, "update recurring", err)
 			return
 		}
 	} else {
 		// Creation
 		err = hookCreateRecurring(user.ID, accountID, toAccountID, encryptedDesc, amount, day)
 		if err != nil {
-			slog.Error("create recurring", "err", err)
-			http.Error(w, "Erreur création", http.StatusInternalServerError)
+			srvError(w, "create recurring", err)
 			return
 		}
 	}
@@ -120,19 +117,19 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "ID invalide", http.StatusBadRequest)
+		clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Données invalides", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
 		return
 	}
 
@@ -145,14 +142,13 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 	// Chiffrer la description
 	encryptedDesc, encErr := hookEncryptStr(description)
 	if encErr != nil {
-		slog.Error("encrypt description", "err", encErr)
-		http.Error(w, "Erreur chiffrement", http.StatusInternalServerError)
+		clientError(w, ErrEncryption, "Erreur chiffrement", http.StatusInternalServerError)
 		return
 	}
 
 	amount, err := strconv.ParseFloat(amountStr, 64)
 	if err != nil {
-		http.Error(w, "Montant invalide", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Montant invalide", http.StatusBadRequest)
 		return
 	}
 
@@ -172,8 +168,7 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 
 	err = hookUpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
 	if err != nil {
-		slog.Error("update recurring", "err", err)
-		http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
+		srvError(w, "update recurring", err)
 		return
 	}
 
@@ -184,21 +179,20 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 func DeleteRecurring(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "ID invalide", http.StatusBadRequest)
+		clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
 		return
 	}
 
 	err = hookDeleteRecurring(id, user.ID)
 	if err != nil {
-		slog.Error("delete recurring", "err", err)
-		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
+		srvError(w, "delete recurring", err)
 		return
 	}
 

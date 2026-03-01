@@ -48,7 +48,7 @@ func LoginPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "login.html", data); err != nil {
-		http.Error(w, "Erreur template", http.StatusInternalServerError)
+		srvError(w, "render login", err)
 	}
 }
 
@@ -147,7 +147,7 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "dashboard.html", data); err != nil {
-		http.Error(w, "Erreur template: "+err.Error(), http.StatusInternalServerError)
+		srvError(w, "render dashboard", err)
 	}
 }
 
@@ -212,7 +212,7 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "accounts.html", data); err != nil {
-		http.Error(w, "Erreur template: "+err.Error(), http.StatusInternalServerError)
+		srvError(w, "render accounts", err)
 	}
 }
 
@@ -270,7 +270,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "settings.html", data); err != nil {
-		http.Error(w, "Erreur template: "+err.Error(), http.StatusInternalServerError)
+		srvError(w, "render settings", err)
 	}
 }
 
@@ -324,7 +324,7 @@ func PrivacyPage(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "privacy.html", data); err != nil {
-		http.Error(w, "Erreur template: "+err.Error(), http.StatusInternalServerError)
+		srvError(w, "render privacy", err)
 	}
 }
 
@@ -339,6 +339,6 @@ func LegalPage(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "legal.html", data); err != nil {
-		http.Error(w, "Erreur template: "+err.Error(), http.StatusInternalServerError)
+		srvError(w, "render legal", err)
 	}
 }
