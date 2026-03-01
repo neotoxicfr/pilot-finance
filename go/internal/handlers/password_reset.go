@@ -159,7 +159,7 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	// Hasher le nouveau mot de passe
 	hashedPassword, err := hookHashPassword(password)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "hash password", err)
 		return
 	}
 

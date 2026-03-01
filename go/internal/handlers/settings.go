@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -61,13 +62,14 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	// Hasher le nouveau mot de passe
 	hashedPassword, err := hookHashPassword(newPassword)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "hash password", err)
 		return
 	}
 
 	// Mettre a jour
 	err = hookUpdatePassword(user.ID, hashedPassword)
 	if err != nil {
+		slog.Error("update password", "err", err)
 		http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 		return
 	}
@@ -107,6 +109,7 @@ func UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := hookUpdateUserPrefs(user.ID, language, currency); err != nil {
+		slog.Error("update preferences", "err", err)
 		http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 		return
 	}
@@ -114,7 +117,7 @@ func UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	// Re-émettre le JWT avec les nouvelles préférences (Language/Currency dans les claims)
 	token, err := hookGenerateToken(user.ID, user.Role, language, currency, user.SessionVersion)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "generate token", err)
 		return
 	}
 	setSessionCookie(w, "session", token, 86400)
@@ -139,12 +142,12 @@ func ExportData(w http.ResponseWriter, r *http.Request) {
 
 	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "get accounts", err)
 		return
 	}
 	recurrings, err := hookGetRecurringByUserID(user.ID)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "get recurrings", err)
 		return
 	}
 
@@ -212,6 +215,7 @@ func DeleteSelfAccount(w http.ResponseWriter, r *http.Request) {
 	db.LogAudit(user.ID, db.AuditGDPRDelete, getClientIP(r), r.UserAgent())
 
 	if err := hookDeleteUserAndData(user.ID); err != nil {
+		slog.Error("delete user", "err", err)
 		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
 		return
 	}
@@ -252,6 +256,7 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	err = hookDeleteUserAndData(id)
 	if err != nil {
+		slog.Error("delete user", "err", err)
 		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
 		return
 	}

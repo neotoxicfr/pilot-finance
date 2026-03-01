@@ -75,7 +75,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		// Déchiffrer le secret MFA
 		secret, err := hookDecryptStr(*user.MFASecret)
 		if err != nil {
-			http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+			serverError(w, "decrypt MFA secret", err)
 			return
 		}
 
@@ -89,7 +89,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		// Générer le token JWT
 		token, err := hookGenerateToken(user.ID, user.Role, user.Language, user.Currency, user.SessionVersion)
 		if err != nil {
-			http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+			serverError(w, "generate token", err)
 			return
 		}
 
@@ -118,7 +118,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	blindIndex := crypto.ComputeBlindIndex(email)
 	user, err := hookGetUserByBlindIndex(blindIndex)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "get user", err)
 		return
 	}
 
@@ -159,7 +159,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		// Stocker l'ID utilisateur validé dans un cookie temporaire signé
 		pendingToken, err := hookGeneratePending2FAToken(user.ID)
 		if err != nil {
-			http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+			serverError(w, "generate pending 2FA token", err)
 			return
 		}
 
@@ -180,7 +180,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// Générer le token JWT
 	token, err := hookGenerateToken(user.ID, user.Role, user.Language, user.Currency, user.SessionVersion)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "generate token", err)
 		return
 	}
 
@@ -239,7 +239,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	// Vérifier si c'est le premier utilisateur
 	userCount, err := hookCountUsers()
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "count users", err)
 		return
 	}
 
@@ -249,7 +249,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	blindIndex := crypto.ComputeBlindIndex(email)
 	existingUser, err := hookGetUserByBlindIndex(blindIndex)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "get user", err)
 		return
 	}
 
@@ -261,14 +261,14 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	// Hasher le mot de passe
 	hashedPassword, err := hookHashPassword(password)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "hash password", err)
 		return
 	}
 
 	// Chiffrer l'email
 	encryptedEmail, err := hookEncryptStr(email)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "encrypt email", err)
 		return
 	}
 
@@ -280,14 +280,14 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	userID, err := hookCreateUser(encryptedEmail, blindIndex, hashedPassword, role)
 	if err != nil {
-		http.Error(w, "Erreur création compte", http.StatusInternalServerError)
+		serverError(w, "create user", err)
 		return
 	}
 
 	// Générer le token et connecter (nouveaux utilisateurs : langue/devise par défaut)
 	token, err := hookGenerateToken(userID, role, "fr", "EUR", 1)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "generate token", err)
 		return
 	}
 

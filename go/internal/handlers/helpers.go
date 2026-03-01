@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 
 	"pilot-finance/internal/crypto"
@@ -8,6 +9,12 @@ import (
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/projection"
 )
+
+// serverError logue l'erreur interne et renvoie une 500 générique au client.
+func serverError(w http.ResponseWriter, context string, err error) {
+	slog.Error(context, "err", err)
+	http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+}
 
 // setSessionCookie pose un cookie de session avec les flags de sécurité appropriés
 func setSessionCookie(w http.ResponseWriter, name, value string, maxAge int) {

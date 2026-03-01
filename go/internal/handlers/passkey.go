@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/base64"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -43,7 +44,7 @@ func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 	// Récupérer les passkeys existantes
 	authenticators, err := dbGetAuthsByUserIDFn(user.ID)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "get authenticators", err)
 		return
 	}
 
@@ -73,6 +74,7 @@ func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 
 	options, sessionData, err := authBeginRegistrationFn(passkeyUser)
 	if err != nil {
+		slog.Error("begin registration", "err", err)
 		http.Error(w, "Erreur WebAuthn", http.StatusInternalServerError)
 		return
 	}
@@ -135,6 +137,7 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 		user.ID,
 	)
 	if err != nil {
+		slog.Error("save authenticator", "err", err)
 		http.Error(w, "Erreur sauvegarde", http.StatusInternalServerError)
 		return
 	}
@@ -151,6 +154,7 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 func PasskeyLoginStart(w http.ResponseWriter, r *http.Request) {
 	options, sessionData, err := authBeginLoginFn()
 	if err != nil {
+		slog.Error("begin login", "err", err)
 		http.Error(w, "Erreur WebAuthn", http.StatusInternalServerError)
 		return
 	}
@@ -224,14 +228,14 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 	// Récupérer l'utilisateur complet
 	user, err := dbGetUserByIDFn(passkeyUser.ID)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "get user", err)
 		return
 	}
 
 	// Générer le token JWT
 	token, err := authGenerateTokenFn(user.ID, user.Role, user.Language, user.Currency, user.SessionVersion)
 	if err != nil {
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		serverError(w, "generate token", err)
 		return
 	}
 
@@ -259,6 +263,7 @@ func DeletePasskey(w http.ResponseWriter, r *http.Request) {
 
 	err = hookDeleteAuthenticator(id, user.ID)
 	if err != nil {
+		slog.Error("delete authenticator", "err", err)
 		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
 		return
 	}
@@ -293,6 +298,7 @@ func RenamePasskey(w http.ResponseWriter, r *http.Request) {
 
 	err = hookRenameAuthenticator(id, user.ID, req.Name)
 	if err != nil {
+		slog.Error("rename authenticator", "err", err)
 		http.Error(w, "Erreur renommage", http.StatusInternalServerError)
 		return
 	}

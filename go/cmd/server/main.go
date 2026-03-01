@@ -256,6 +256,7 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
 		w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
+		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		w.Header().Set("Cache-Control", "no-store")
 
 		// Les routes /api/ retournent du JSON : pas de CSP HTML ni de nonce
@@ -270,7 +271,8 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("Content-Security-Policy",
 			"default-src 'none'; "+
 				"script-src 'self' 'nonce-"+nonce+"' 'strict-dynamic'; "+
-				"style-src 'self' 'unsafe-inline'; "+
+				"style-src 'self' 'unsafe-inline'; "+ // unsafe-inline requis par Tailwind CSS v4 (styles inline générés)
+
 				"img-src 'self' blob: data:; "+
 				"font-src 'self'; "+
 				"connect-src 'self'; "+

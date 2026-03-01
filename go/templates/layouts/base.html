@@ -98,7 +98,9 @@
     <script nonce="{{.Nonce}}" defer src="/static/js/chart.umd.min.js?v={{.AssetVer}}"></script>
     {{end}}
     <script nonce="{{.Nonce}}" defer src="/static/js/alpine-csp.min.js?v={{.AssetVer}}"></script>
+    {{if or (eq .CurrentPath "/login") (eq .CurrentPath "/settings")}}
     <script nonce="{{.Nonce}}" async src="/static/js/passkey.js?v={{.AssetVer}}"></script>
+    {{end}}
     {{if eq .CurrentPath "/accounts"}}
     <script nonce="{{.Nonce}}" defer src="/static/js/sortable.min.js?v={{.AssetVer}}"></script>
     {{end}}

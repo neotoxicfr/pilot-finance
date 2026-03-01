@@ -366,3 +366,52 @@ func TestCalculateMonthlySummaryWithAnnualYield(t *testing.T) {
 		t.Errorf("annual yield: want 200, got %v", summary.YieldAnnual)
 	}
 }
+
+// ----- Benchmarks -----
+
+// BenchmarkCalculate_5years benchmarks a 5-year projection with 10 accounts and recurring ops.
+func BenchmarkCalculate_5years(b *testing.B) {
+	targetID := int64(10)
+	accounts := make([]db.Account, 10)
+	for i := range accounts {
+		accounts[i] = db.Account{
+			ID: int64(i + 1), Name: "Account",
+			Balance: float64((i + 1) * 10000), IsYieldActive: true,
+			YieldType: "RANGE", YieldMin: 2.0, YieldMax: 8.0,
+			ReinvestmentRate: 80, PayoutFrequency: "MONTHLY",
+			TargetAccountID: &targetID,
+		}
+	}
+	recurrings := []db.RecurringOperation{
+		{ID: 1, UserID: 1, AccountID: 1, Amount: 2000, DayOfMonth: 1},
+		{ID: 2, UserID: 1, AccountID: 1, Amount: -1200, DayOfMonth: 15},
+		{ID: 3, UserID: 1, AccountID: 2, Amount: 500, DayOfMonth: 1},
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		projection.Calculate(accounts, recurrings, 5, "fr")
+	}
+}
+
+// BenchmarkCalculate_30years benchmarks a 30-year projection (worst case).
+func BenchmarkCalculate_30years(b *testing.B) {
+	targetID := int64(5)
+	accounts := make([]db.Account, 5)
+	for i := range accounts {
+		accounts[i] = db.Account{
+			ID: int64(i + 1), Name: "Account",
+			Balance: float64((i + 1) * 50000), IsYieldActive: true,
+			YieldType: "RANGE", YieldMin: 1.0, YieldMax: 10.0,
+			ReinvestmentRate: 50, PayoutFrequency: "YEARLY",
+			TargetAccountID: &targetID,
+		}
+	}
+	recurrings := []db.RecurringOperation{
+		{ID: 1, UserID: 1, AccountID: 1, Amount: 3000, DayOfMonth: 1},
+		{ID: 2, UserID: 1, AccountID: 1, Amount: -2000, DayOfMonth: 15},
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		projection.Calculate(accounts, recurrings, 30, "fr")
+	}
+}

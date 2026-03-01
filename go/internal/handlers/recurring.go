@@ -42,6 +42,7 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 	// Chiffrer la description
 	encryptedDesc, err := hookEncryptStr(description)
 	if err != nil {
+		slog.Error("encrypt description", "err", err)
 		http.Error(w, "Erreur chiffrement", http.StatusInternalServerError)
 		return
 	}
@@ -97,6 +98,7 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 		}
 		err = hookUpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
 		if err != nil {
+			slog.Error("update recurring", "err", err)
 			http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 			return
 		}
@@ -104,6 +106,7 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 		// Creation
 		err = hookCreateRecurring(user.ID, accountID, toAccountID, encryptedDesc, amount, day)
 		if err != nil {
+			slog.Error("create recurring", "err", err)
 			http.Error(w, "Erreur création", http.StatusInternalServerError)
 			return
 		}
@@ -142,6 +145,7 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 	// Chiffrer la description
 	encryptedDesc, encErr := hookEncryptStr(description)
 	if encErr != nil {
+		slog.Error("encrypt description", "err", encErr)
 		http.Error(w, "Erreur chiffrement", http.StatusInternalServerError)
 		return
 	}
@@ -168,6 +172,7 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 
 	err = hookUpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
 	if err != nil {
+		slog.Error("update recurring", "err", err)
 		http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
 		return
 	}
@@ -192,6 +197,7 @@ func DeleteRecurring(w http.ResponseWriter, r *http.Request) {
 
 	err = hookDeleteRecurring(id, user.ID)
 	if err != nil {
+		slog.Error("delete recurring", "err", err)
 		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
 		return
 	}
