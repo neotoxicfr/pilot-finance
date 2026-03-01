@@ -134,6 +134,20 @@ L'application écoute sur le port **3000** à l'intérieur du conteneur.
 
 ---
 
+## Roadmap
+
+| Catégorie | Élément | Statut |
+|---|---|---|
+| **UI/UX** | Refonte visuelle — animations, micro-interactions, wow factor | Prévu |
+| **Sécurité** | Rate limiting par compte (protection contre le brute-force distribué) | Prévu |
+| **Sécurité** | Verrouillage temporaire du compte après N échecs de connexion | Prévu |
+| **Sécurité** | Directive CSP `report-to` pointant vers `/api/csp-report` en production | Prévu |
+| **Sécurité** | Forcer TLS sur les connexions SMTP sortantes | Prévu |
+| **Monitoring** | Endpoint Prometheus `/metrics` (latence requêtes, taux d'erreur, stats DB) | Prévu |
+| **Testing** | Tests E2E navigateur (Playwright) | Prévu |
+
+---
+
 ## Crédits
 
 Ce projet a été conçu avec l'assistance d'une Intelligence Artificielle pour la structure et l'optimisation du code. Le code final est purement applicatif et n'utilise aucun algorithme d'IA ou service tiers lors de son exécution. Votre cockpit reste 100% local et privé.
