@@ -298,7 +298,7 @@ document.addEventListener('alpine:init', () => {
                             <div class="p-2 bg-purple-500/10 text-purple-500 rounded-lg">{{template "icon-fingerprint" dict "Size" 16}}</div>
                             <div>
                                 <div class="font-bold text-sm text-foreground">{{or .Name (index $.T "settings.passkey_unnamed")}}</div>
-                                <div class="text-[10px] text-muted-foreground uppercase font-bold">
+                                <div class="text-xs text-muted-foreground uppercase font-bold">
                                     {{if eq .CredentialDeviceType "singleDevice"}}{{index $.T "settings.passkey_physical"}}{{else}}{{index $.T "settings.passkey_device"}}{{end}}
                                 </div>
                             </div>
@@ -442,12 +442,12 @@ document.addEventListener('alpine:init', () => {
                                     </div>
                                     <div class="truncate max-w-[150px] sm:max-w-none">
                                         <div class="font-bold text-foreground truncate">{{.Email}}</div>
-                                        <div class="sm:hidden text-[10px] text-muted-foreground uppercase font-bold mt-0.5">{{.Role}}</div>
+                                        <div class="sm:hidden text-xs text-muted-foreground uppercase font-bold mt-0.5">{{.Role}}</div>
                                     </div>
                                 </div>
                             </td>
                             <td class="hidden sm:table-cell px-4 py-3">
-                                <span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide {{if eq .Role "ADMIN"}}bg-purple-500/10 text-purple-500 border border-purple-500/20{{else}}bg-accent text-muted-foreground border border-border{{end}}">
+                                <span class="px-2 py-1 rounded text-xs font-bold uppercase tracking-wide {{if eq .Role "ADMIN"}}bg-purple-500/10 text-purple-500 border border-purple-500/20{{else}}bg-accent text-muted-foreground border border-border{{end}}">
                                     {{.Role}}
                                 </span>
                             </td>

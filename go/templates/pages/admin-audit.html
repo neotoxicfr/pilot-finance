@@ -28,7 +28,7 @@
                             {{.Email}}
                         </td>
                         <td class="px-4 py-3">
-                            <span class="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wide
+                            <span class="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide
                                 {{if or (eq .Action "LOGIN_SUCCESS") (eq .Action "PASSKEY_ADD") (eq .Action "MFA_ENABLE") (eq .Action "ACCOUNT_CREATE")}}
                                     bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20
                                 {{else if or (eq .Action "LOGIN_FAIL") (eq .Action "GDPR_DELETE") (eq .Action "ACCOUNT_DELETE") (eq .Action "PASSKEY_REMOVE") (eq .Action "MFA_DISABLE")}}
@@ -63,13 +63,13 @@
             <div class="flex gap-2">
                 {{if gt .Page 1}}
                 <a href="/admin/audit?page={{sub .Page 1}}"
-                   class="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-accent text-foreground transition-colors">
+                   class="px-4 py-2 rounded-xl border border-border bg-background hover:bg-accent text-foreground text-sm font-medium transition-colors">
                     {{index .T "audit.previous"}}
                 </a>
                 {{end}}
                 {{if lt .Page .TotalPages}}
                 <a href="/admin/audit?page={{add .Page 1}}"
-                   class="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-accent text-foreground transition-colors">
+                   class="px-4 py-2 rounded-xl border border-border bg-background hover:bg-accent text-foreground text-sm font-medium transition-colors">
                     {{index .T "audit.next"}}
                 </a>
                 {{end}}
@@ -79,7 +79,9 @@
     </div>
 
     <div class="mt-4">
-        <a href="/settings" class="text-sm text-muted-foreground hover:text-foreground transition-colors">{{index .T "audit.back_to_settings"}}</a>
+        <a href="/settings" class="text-sm text-muted-foreground hover:text-foreground font-medium transition-colors">
+            ← {{index .T "audit.back_to_settings"}}
+        </a>
     </div>
 </div>
 {{end}}
