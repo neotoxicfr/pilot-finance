@@ -375,12 +375,12 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 
 	// Rendre la liste des comptes
 	if len(accounts) == 0 {
-		hookRenderPartial(w, "accounts.html", "accounts-empty", map[string]interface{}{
+		hookRenderPartial(w, "accounts.html", "accounts-empty", map[string]interface{}{ //nolint:errcheck
 			"T": i18n.Map(lang),
 		})
 	}
 	for _, acc := range accounts {
-		hookRenderPartial(w, "accounts.html", "account-row", map[string]interface{}{
+		hookRenderPartial(w, "accounts.html", "account-row", map[string]interface{}{ //nolint:errcheck
 			"Account":  acc,
 			"Currency": currency,
 		})
@@ -388,7 +388,7 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 
 	// OOB: Rendre le summary card
 	w.Write([]byte(`<div id="summary-card" hx-swap-oob="innerHTML">`))
-	hookRenderPartial(w, "accounts.html", "summary-card", map[string]interface{}{
+	hookRenderPartial(w, "accounts.html", "summary-card", map[string]interface{}{ //nolint:errcheck
 		"T":               i18n.Map(lang),
 		"MonthlyIncome":   monthlyIncome,
 		"MonthlyExpenses": monthlyExpenses,
@@ -401,7 +401,7 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 
 	// OOB: Rendre le tableau des recurrents
 	w.Write([]byte(`<div id="recurring-list" hx-swap-oob="innerHTML">`))
-	hookRenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{
+	hookRenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{ //nolint:errcheck
 		"Recurrings": recurringData,
 		"Currency":   currency,
 		"T":          i18n.Map(lang),

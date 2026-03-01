@@ -222,7 +222,7 @@ func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
 	recurringData := buildRecurringData(yieldPayouts, recurrings, accountMap, interestPrefix)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	hookRenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{
+	hookRenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{ //nolint:errcheck
 		"Recurrings": recurringData,
 		"Currency":   currency,
 		"T":          i18n.Map(lang),
