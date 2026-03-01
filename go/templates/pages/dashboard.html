@@ -179,7 +179,9 @@ function dashboardData() {
         },
 
         init() {
-            const initial = JSON.parse(document.getElementById('initial-data').textContent);
+            const el = document.getElementById('initial-data');
+            if (!el) return;
+            const initial = JSON.parse(el.textContent);
             this.countUp(initial.totalBalance || 0, v => this.totalBalance = v);
             this.countUp(initial.totalInterests || 0, v => this.totalInterests = v);
             this.countUp(initial.projectionTotal || 0, v => this.projectionTotal = v);

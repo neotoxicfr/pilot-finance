@@ -70,6 +70,10 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Déchiffrer le secret MFA
+		if user.MFASecret == nil {
+			clientError(w, ErrAuthInvalid, "Configuration MFA incomplète", http.StatusUnauthorized)
+			return
+		}
 		secret, err := hookDecryptStr(*user.MFASecret)
 		if err != nil {
 			serverError(w, "decrypt MFA secret", err)

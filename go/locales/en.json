@@ -221,8 +221,9 @@
   "verify.token_invalid": "Invalid or expired token.",
   "verify.server_error": "Server error.",
   "pwd_error.min_length": "Minimum 12 characters required",
+  "pwd_error.max_length": "Maximum 72 characters allowed",
   "pwd_error.uppercase": "One uppercase letter required",
   "pwd_error.lowercase": "One lowercase letter required",
   "pwd_error.digit": "One digit required",
-  "pwd_error.special": "One special character required (!@#$...)"
+  "pwd_error.special": "One special character required"
 }

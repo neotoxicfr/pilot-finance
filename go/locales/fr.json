@@ -221,8 +221,9 @@
   "verify.token_invalid": "Jeton invalide ou expiré.",
   "verify.server_error": "Erreur serveur.",
   "pwd_error.min_length": "Minimum 12 caractères requis",
+  "pwd_error.max_length": "Maximum 72 caractères autorisés",
   "pwd_error.uppercase": "Une majuscule requise",
   "pwd_error.lowercase": "Une minuscule requise",
   "pwd_error.digit": "Un chiffre requis",
-  "pwd_error.special": "Un caractère spécial requis (!@#$...)"
+  "pwd_error.special": "Un caractère spécial requis"
 }

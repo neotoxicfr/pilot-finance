@@ -321,13 +321,14 @@ window.initPieChart = (accounts, animated = true) => {
                 const tm = ctx.tooltip;
                 if (!tm.opacity) { t.style.opacity = 0; return; }
                 const cc = getColors(), d = tm.dataPoints[0], total = d.dataset.data.reduce((a,b) => a+b, 0);
-                t.innerHTML = '<strong>'+d.label+'</strong><br>'+fmt(d.raw)+' ('+(d.raw/total*100).toFixed(1)+'%)';
+                const esc = s => { const d2 = document.createElement('div'); d2.textContent = s; return d2.innerHTML; };
+                t.innerHTML = '<strong>'+esc(d.label)+'</strong><br>'+fmt(d.raw)+' ('+(d.raw/total*100).toFixed(1)+'%)';
                 Object.assign(t.style, { backgroundColor: cc.tipBg, color: cc.tipBody, border: '1px solid '+cc.tipBorder, opacity: 1, left: (ctx.chart.canvas.getBoundingClientRect().left+tm.caretX+10)+'px', top: (ctx.chart.canvas.getBoundingClientRect().top+tm.caretY-10)+'px' });
             } } }
         }
     });
     const leg = document.getElementById('chartLegend');
-    if (leg) leg.innerHTML = accounts.map(a => '<div class="flex items-center gap-2 text-sm"><span class="w-3 h-3 rounded-full flex-shrink-0" style="background:'+a.color+'"></span><span class="text-muted-foreground font-medium">'+a.name+'</span></div>').join('');
+    if (leg) { const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }; leg.innerHTML = accounts.map(a => '<div class="flex items-center gap-2 text-sm"><span class="w-3 h-3 rounded-full flex-shrink-0" style="background:'+esc(a.color)+'"></span><span class="text-muted-foreground font-medium">'+esc(a.name)+'</span></div>').join(''); }
     window.pieChartData = accounts;
 };
 
