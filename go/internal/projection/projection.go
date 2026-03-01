@@ -285,6 +285,7 @@ type MonthlySummary struct {
 	Transfers   float64 `json:"transfers"`
 }
 
+// CalculateMonthlySummary agrège les opérations récurrentes en revenus, dépenses et transferts mensuels
 func CalculateMonthlySummary(recurrings []db.RecurringOperation, accounts []db.Account) MonthlySummary {
 	var summary MonthlySummary
 

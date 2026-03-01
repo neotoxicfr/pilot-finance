@@ -130,8 +130,9 @@ func main() {
 	fileServer := http.FileServer(http.Dir("static"))
 	r.Handle("/static/*", http.StripPrefix("/static/", cacheStatic(fileServer)))
 
-	// Health check (pas de rate limit strict)
+	// Health check + CSP report (pas de rate limit strict)
 	r.Get("/api/health", handlers.HealthCheck)
+	r.Post("/api/csp-report", handlers.CSPReport)
 
 	// Routes auth avec rate limit (10 req/min anti-bruteforce, humain = ~1 essai/6s)
 	r.Group(func(r chi.Router) {
@@ -321,7 +322,8 @@ func securityHeaders(next http.Handler) http.Handler {
 				"object-src 'none'; "+
 				"frame-ancestors 'none'; "+
 				"base-uri 'self'; "+
-				"form-action 'self'")
+				"form-action 'self'; "+
+				"report-uri /api/csp-report")
 
 		next.ServeHTTP(w, r)
 	})

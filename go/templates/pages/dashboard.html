@@ -24,7 +24,8 @@
                 {{template "icon-shield-check" dict "Size" 80}}
             </div>
             <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">{{index .T "dashboard.net_worth"}}</p>
-            <div class="flex items-baseline gap-2 font-mono tracking-tight">
+            <div x-show="!ready" class="skeleton skeleton-kpi mt-1"></div>
+            <div x-show="ready" x-cloak class="flex items-baseline gap-2 font-mono tracking-tight">
                 <span class="text-3xl md:text-4xl font-bold text-foreground" x-text="formatAmount(totalBalance)"></span>
                 <span class="text-lg font-medium text-muted-foreground" x-text="currency()"></span>
             </div>
@@ -34,7 +35,8 @@
                 {{template "icon-trending-up" dict "Size" 80}}
             </div>
             <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">{{index .T "dashboard.compound_interests"}}</p>
-            <div class="flex items-baseline gap-2 font-mono tracking-tight">
+            <div x-show="!ready" class="skeleton skeleton-kpi mt-1"></div>
+            <div x-show="ready" x-cloak class="flex items-baseline gap-2 font-mono tracking-tight">
                 <span class="text-3xl md:text-4xl font-bold text-emerald-500" x-text="'+' + formatAmount(totalInterests)"></span>
                 <span class="text-lg font-medium text-emerald-500/60" x-text="currency()"></span>
             </div>
@@ -44,7 +46,8 @@
                 {{template "icon-piggybank" dict "Size" 80}}
             </div>
             <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">{{index .T "dashboard.projection_years"}} <span x-text="years"></span> {{index .T "dashboard.years_suffix"}}</p>
-            <div class="flex items-baseline gap-2 font-mono tracking-tight">
+            <div x-show="!ready" class="skeleton skeleton-kpi mt-1"></div>
+            <div x-show="ready" x-cloak class="flex items-baseline gap-2 font-mono tracking-tight">
                 <span class="text-3xl md:text-4xl font-bold text-blue-500" x-text="formatAmount(projectionTotal)"></span>
                 <span class="text-lg font-medium text-blue-500/60" x-text="currency()"></span>
             </div>
@@ -72,7 +75,8 @@
                     </div>
                 </div>
             </div>
-            <div class="flex-1 min-h-[250px] md:min-h-[350px] w-full">
+            <div class="flex-1 min-h-[250px] md:min-h-[350px] w-full relative">
+                <div x-show="!ready" class="skeleton skeleton-chart absolute inset-0"></div>
                 <canvas id="projectionCanvas" role="img" aria-label="{{index .T "dashboard.trajectory"}}"></canvas>
             </div>
         </div>
@@ -84,6 +88,7 @@
             </h3>
             <div class="flex-1 md:min-h-0 flex items-center justify-center">
                 <div class="relative w-full max-w-xs md:max-w-none md:max-h-full [container-type:inline-size]" style="aspect-ratio: 1;">
+                    <div x-show="!ready" class="skeleton absolute inset-0 rounded-full"></div>
                     <canvas id="pieCanvas" role="img" aria-label="{{index .T "dashboard.distribution"}}"></canvas>
                     <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                         <div class="font-bold font-mono text-foreground [font-size:clamp(1.25rem,6cqi,1.75rem)]" x-text="formatMoneyCompact(totalBalance)"></div>
@@ -113,6 +118,7 @@ function dashboardData() {
     const initial = initialEl ? JSON.parse(initialEl.textContent) : {};
 
     return {
+        ready: false,
         years: initial.years || 5,
         totalBalance: 0,
         totalInterests: 0,
@@ -180,6 +186,7 @@ function dashboardData() {
             this.$nextTick(() => {
                 window.initProjectionChart(initial.projectionData, this.accountColors);
                 window.initPieChart(initial.pieData);
+                this.ready = true;
             });
         }
     };
