@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"pilot-finance/internal/db"
+	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
 )
 
@@ -39,7 +40,8 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := hookValidatePassword(newPassword); err != nil {
-		clientError(w, ErrValidation, err.Error(), http.StatusBadRequest)
+		lang, _ := userLocale(user)
+		clientError(w, ErrValidation, i18n.T(lang, "pwd_error."+err.Error()), http.StatusBadRequest)
 		return
 	}
 
@@ -66,7 +68,7 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	// Mettre a jour
 	err = hookUpdatePassword(user.ID, hashedPassword)
 	if err != nil {
-		srvError(w, "update password", err)
+		serverError(w, "update password", err)
 		return
 	}
 
@@ -105,7 +107,7 @@ func UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := hookUpdateUserPrefs(user.ID, language, currency); err != nil {
-		srvError(w, "update preferences", err)
+		serverError(w, "update preferences", err)
 		return
 	}
 
@@ -209,7 +211,7 @@ func DeleteSelfAccount(w http.ResponseWriter, r *http.Request) {
 	hookLogAudit(user.ID, db.AuditGDPRDelete, getClientIP(r), r.UserAgent())
 
 	if err := hookDeleteUserAndData(user.ID); err != nil {
-		srvError(w, "delete user", err)
+		serverError(w, "delete user", err)
 		return
 	}
 
@@ -249,7 +251,7 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	err = hookDeleteUserAndData(id)
 	if err != nil {
-		srvError(w, "delete user", err)
+		serverError(w, "delete user", err)
 		return
 	}
 

@@ -96,14 +96,14 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 		}
 		err = hookUpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
 		if err != nil {
-			srvError(w, "update recurring", err)
+			serverError(w, "update recurring", err)
 			return
 		}
 	} else {
 		// Creation
 		err = hookCreateRecurring(user.ID, accountID, toAccountID, encryptedDesc, amount, day)
 		if err != nil {
-			srvError(w, "create recurring", err)
+			serverError(w, "create recurring", err)
 			return
 		}
 	}
@@ -161,13 +161,13 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if opType == "expense" {
+	if opType == "expense" && amount > 0 {
 		amount = -amount
 	}
 
 	err = hookUpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
 	if err != nil {
-		srvError(w, "update recurring", err)
+		serverError(w, "update recurring", err)
 		return
 	}
 
@@ -191,7 +191,7 @@ func DeleteRecurring(w http.ResponseWriter, r *http.Request) {
 
 	err = hookDeleteRecurring(id, user.ID)
 	if err != nil {
-		srvError(w, "delete recurring", err)
+		serverError(w, "delete recurring", err)
 		return
 	}
 

@@ -2,6 +2,7 @@
 package config
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 )
@@ -58,14 +59,14 @@ func Load() (*Config, error) {
 	if cfg.EncryptionKey == "" {
 		return nil, fmt.Errorf("ENCRYPTION_KEY requis")
 	}
-	if len(cfg.EncryptionKey) != 64 {
-		return nil, fmt.Errorf("ENCRYPTION_KEY doit faire 64 caractères hex (32 bytes)")
+	if _, err := hex.DecodeString(cfg.EncryptionKey); err != nil || len(cfg.EncryptionKey) != 64 {
+		return nil, fmt.Errorf("ENCRYPTION_KEY doit faire 64 caractères hex valides (32 bytes)")
 	}
 	if cfg.BlindIndexKey == "" {
 		return nil, fmt.Errorf("BLIND_INDEX_KEY requis")
 	}
-	if len(cfg.BlindIndexKey) != 64 {
-		return nil, fmt.Errorf("BLIND_INDEX_KEY doit faire 64 caractères hex (32 bytes)")
+	if _, err := hex.DecodeString(cfg.BlindIndexKey); err != nil || len(cfg.BlindIndexKey) != 64 {
+		return nil, fmt.Errorf("BLIND_INDEX_KEY doit faire 64 caractères hex valides (32 bytes)")
 	}
 
 	// Validation SMTP si configuré

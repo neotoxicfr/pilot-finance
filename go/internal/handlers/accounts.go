@@ -149,7 +149,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		}
 		err = hookUpdateAccountWithYield(id, user.ID, encryptedName, balance, color, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
 		if err != nil {
-			srvError(w, "update account", err)
+			serverError(w, "update account", err)
 			return
 		}
 		hookLogAudit(user.ID, db.AuditAccountUpdate, getClientIP(r), r.UserAgent())
@@ -163,7 +163,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 
 		err := hookCreateAccountWithYield(user.ID, encryptedName, balance, color, position, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
 		if err != nil {
-			srvError(w, "create account", err)
+			serverError(w, "create account", err)
 			return
 		}
 		hookLogAudit(user.ID, db.AuditAccountCreate, getClientIP(r), r.UserAgent())
@@ -190,7 +190,7 @@ func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 
 	err = hookDeleteAccount(id, user.ID)
 	if err != nil {
-		srvError(w, "delete account", err)
+		serverError(w, "delete account", err)
 		return
 	}
 
@@ -229,7 +229,7 @@ func UpdateBalance(w http.ResponseWriter, r *http.Request) {
 
 	err = hookUpdateAccountBalance(id, user.ID, balance)
 	if err != nil {
-		srvError(w, "update balance", err)
+		serverError(w, "update balance", err)
 		return
 	}
 
@@ -296,7 +296,7 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	// Echanger les positions
 	err = hookSwapAccountPositions(accounts[currentIdx].ID, accounts[targetIdx].ID, user.ID)
 	if err != nil {
-		srvError(w, "swap positions", err)
+		serverError(w, "swap positions", err)
 		return
 	}
 
@@ -321,7 +321,7 @@ func ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := hookReorderAccounts(user.ID, body.IDs); err != nil {
-		srvError(w, "reorder accounts", err)
+		serverError(w, "reorder accounts", err)
 		return
 	}
 

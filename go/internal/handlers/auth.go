@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"pilot-finance/internal/db"
+	"pilot-finance/internal/i18n"
 )
 
 // htmxRedirect envoie HX-Redirect pour les requêtes HTMX (navigation complète),
@@ -228,7 +229,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := hookValidatePassword(password); err != nil {
-		clientError(w, ErrValidation, err.Error(), http.StatusBadRequest)
+		clientError(w, ErrValidation, i18n.T("fr", "pwd_error."+err.Error()), http.StatusBadRequest)
 		return
 	}
 

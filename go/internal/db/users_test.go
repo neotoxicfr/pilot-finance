@@ -161,13 +161,13 @@ func TestGetAllUsers(t *testing.T) {
 	}
 }
 
-func TestDeleteUser(t *testing.T) {
+func TestDeleteUserAndData_SingleUser(t *testing.T) {
 	cleanup := setupTestDB(t)
 	defer cleanup()
 	userID := createTestUser(t)
 
-	if err := DeleteUser(userID); err != nil {
-		t.Fatalf("DeleteUser: %v", err)
+	if err := DeleteUserAndData(userID); err != nil {
+		t.Fatalf("DeleteUserAndData: %v", err)
 	}
 
 	user, _ := GetUserByID(userID)

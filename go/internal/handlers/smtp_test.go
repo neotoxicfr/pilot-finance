@@ -10,7 +10,9 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
+	"pilot-finance/internal/db"
 	"pilot-finance/internal/mail"
 )
 
@@ -127,5 +129,81 @@ func TestForgotPasswordSubmit_MailEnabled_KnownEmail(t *testing.T) {
 	ForgotPasswordSubmit(rr, post("/forgot-password", url.Values{"email": {"resetflow@example.com"}}))
 	if rr.Code != http.StatusOK {
 		t.Errorf("want 200, got %d (body: %s)", rr.Code, rr.Body.String())
+	}
+}
+
+func TestForgotPasswordSubmit_EmptyLanguageFallback(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "nolang@example.com", "ValidP@ssw0rd!", "USER")
+	enableTestSMTP(t)
+
+	// Force language to empty string to trigger fallback
+	origPrefs := hookUpdateUserPrefs
+	defer func() { hookUpdateUserPrefs = origPrefs }()
+	db.DB.Exec("UPDATE users SET language='' WHERE id=?", uid) //nolint:errcheck
+
+	rr := httptest.NewRecorder()
+	ForgotPasswordSubmit(rr, post("/forgot-password", url.Values{"email": {"nolang@example.com"}}))
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d", rr.Code)
+	}
+}
+
+func TestForgotPasswordSubmit_SendEmailError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	newUser(t, "senderr@example.com", "ValidP@ssw0rd!", "USER")
+	enableTestSMTP(t)
+
+	orig := hookSendPasswordReset
+	hookSendPasswordReset = func(_, _, _, _ string) error {
+		return fmt.Errorf("smtp failure")
+	}
+	defer func() { hookSendPasswordReset = orig }()
+
+	rr := httptest.NewRecorder()
+	ForgotPasswordSubmit(rr, post("/forgot-password", url.Values{"email": {"senderr@example.com"}}))
+	// Should still return 200 (don't reveal email existence)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d", rr.Code)
+	}
+}
+
+func TestForgotPasswordSubmit_RandReadError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	newUser(t, "randerr@example.com", "ValidP@ssw0rd!", "USER")
+	enableTestSMTP(t)
+
+	orig := hookRandRead
+	hookRandRead = func(_ []byte) (int, error) {
+		return 0, fmt.Errorf("entropy error")
+	}
+	defer func() { hookRandRead = orig }()
+
+	rr := httptest.NewRecorder()
+	ForgotPasswordSubmit(rr, post("/forgot-password", url.Values{"email": {"randerr@example.com"}}))
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+func TestForgotPasswordSubmit_SetResetTokenError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	newUser(t, "reseterr@example.com", "ValidP@ssw0rd!", "USER")
+	enableTestSMTP(t)
+
+	orig := hookSetResetToken
+	hookSetResetToken = func(_ int64, _ string, _ time.Time) error {
+		return fmt.Errorf("db error")
+	}
+	defer func() { hookSetResetToken = orig }()
+
+	rr := httptest.NewRecorder()
+	ForgotPasswordSubmit(rr, post("/forgot-password", url.Values{"email": {"reseterr@example.com"}}))
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
 	}
 }

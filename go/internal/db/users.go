@@ -1,7 +1,6 @@
 package db
 
 import (
-	"database/sql"
 	"time"
 )
 
@@ -83,51 +82,7 @@ func SetResetToken(userID int64, hashedToken string, expiry time.Time) error {
 
 // GetUserByResetToken récupère un utilisateur par son reset token
 func GetUserByResetToken(hashedToken string) (*User, error) {
-	var user User
-	var createdAt sql.NullInt64
-	var lockUntil, resetTokenExpiry sql.NullInt64
-	var verificationToken, resetToken, mfaSecret sql.NullString
-
-	err := DB.QueryRow(`
-		SELECT id, email_encrypted, email_blind_index, password, role,
-		       created_at, email_verified, verification_token, reset_token,
-		       reset_token_expiry, mfa_enabled, mfa_secret, failed_login_attempts,
-		       lock_until, session_version
-		FROM users
-		WHERE reset_token = ? AND reset_token_expiry > ?
-	`, hashedToken, time.Now().Unix()).Scan(
-		&user.ID, &user.EmailEncrypted, &user.EmailBlindIndex, &user.Password, &user.Role,
-		&createdAt, &user.EmailVerified, &verificationToken, &resetToken,
-		&resetTokenExpiry, &user.MFAEnabled, &mfaSecret, &user.FailedLoginAttempts,
-		&lockUntil, &user.SessionVersion,
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if createdAt.Valid {
-		user.CreatedAt = time.Unix(createdAt.Int64, 0)
-	}
-	if lockUntil.Valid && lockUntil.Int64 > 0 {
-		t := time.Unix(lockUntil.Int64, 0)
-		user.LockUntil = &t
-	}
-	if resetTokenExpiry.Valid && resetTokenExpiry.Int64 > 0 {
-		t := time.Unix(resetTokenExpiry.Int64, 0)
-		user.ResetTokenExpiry = &t
-	}
-	if verificationToken.Valid {
-		user.VerificationToken = &verificationToken.String
-	}
-	if resetToken.Valid {
-		user.ResetToken = &resetToken.String
-	}
-	if mfaSecret.Valid {
-		user.MFASecret = &mfaSecret.String
-	}
-
-	return &user, nil
+	return scanUser(DB.QueryRow(userSelectCols+` WHERE reset_token = ? AND reset_token_expiry > ?`, hashedToken, time.Now().Unix()))
 }
 
 // ClearResetToken efface le reset token
@@ -145,12 +100,6 @@ func UpdateUserPreferences(userID int64, language, currency string) error {
 	_, err := DB.Exec(`
 		UPDATE users SET language = ?, currency = ? WHERE id = ?
 	`, language, currency, userID)
-	return err
-}
-
-// DeleteUser supprime un utilisateur
-func DeleteUser(userID int64) error {
-	_, err := DB.Exec(`DELETE FROM users WHERE id = ?`, userID)
 	return err
 }
 

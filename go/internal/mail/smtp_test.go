@@ -575,8 +575,35 @@ func TestSendTLS_DefaultDialTLS(t *testing.T) {
 
 func TestSendPasswordReset_MailDisabled(t *testing.T) {
 	config = nil
-	err := SendPasswordReset("to@example.com", "mytoken", "example.com")
+	err := SendPasswordReset("to@example.com", "mytoken", "example.com", "fr")
 	if err == nil {
 		t.Error("SendPasswordReset: want error when mail disabled")
+	}
+}
+
+func TestSendPasswordReset_EnglishTemplate(t *testing.T) {
+	config = nil
+	err := SendPasswordReset("to@example.com", "mytoken", "example.com", "en")
+	if err == nil {
+		t.Error("SendPasswordReset: want error when mail disabled")
+	}
+}
+
+// --- resetEmailTexts ---
+
+func TestResetEmailTexts_French(t *testing.T) {
+	txt := resetEmailTexts("fr")
+	if txt.subject == "" || txt.title == "" {
+		t.Error("French email texts should not be empty")
+	}
+}
+
+func TestResetEmailTexts_English(t *testing.T) {
+	txt := resetEmailTexts("en")
+	if txt.subject == "" || txt.title == "" {
+		t.Error("English email texts should not be empty")
+	}
+	if txt.subject != "Password Reset - Pilot Finance" {
+		t.Errorf("English subject: want 'Password Reset - Pilot Finance', got %q", txt.subject)
 	}
 }

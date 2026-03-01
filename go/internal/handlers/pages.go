@@ -46,7 +46,7 @@ func LoginPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "login.html", data); err != nil {
-		srvError(w, "render login", err)
+		serverError(w, "render login", err)
 	}
 }
 
@@ -145,7 +145,7 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "dashboard.html", data); err != nil {
-		srvError(w, "render dashboard", err)
+		serverError(w, "render dashboard", err)
 	}
 }
 
@@ -210,7 +210,7 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "accounts.html", data); err != nil {
-		srvError(w, "render accounts", err)
+		serverError(w, "render accounts", err)
 	}
 }
 
@@ -268,7 +268,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "settings.html", data); err != nil {
-		srvError(w, "render settings", err)
+		serverError(w, "render settings", err)
 	}
 }
 
@@ -283,7 +283,7 @@ func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 	data["Error"] = ""
 
 	if token == "" {
-		data["Error"] = "Jeton manquant."
+		data["Error"] = t["verify.token_missing"]
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		hookRender(w, "verify-email.html", data)
 		return
@@ -296,9 +296,9 @@ func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 	err := hookVerifyEmailByToken(hashedToken)
 	if err != nil {
 		if err == db.ErrTokenInvalid {
-			data["Error"] = "Jeton invalide ou expiré."
+			data["Error"] = t["verify.token_invalid"]
 		} else {
-			data["Error"] = "Erreur serveur."
+			data["Error"] = t["verify.server_error"]
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		hookRender(w, "verify-email.html", data)
@@ -322,7 +322,7 @@ func PrivacyPage(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "privacy.html", data); err != nil {
-		srvError(w, "render privacy", err)
+		serverError(w, "render privacy", err)
 	}
 }
 
@@ -337,6 +337,6 @@ func LegalPage(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "legal.html", data); err != nil {
-		srvError(w, "render legal", err)
+		serverError(w, "render legal", err)
 	}
 }

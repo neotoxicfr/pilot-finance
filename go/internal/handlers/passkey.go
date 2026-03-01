@@ -56,7 +56,7 @@ func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 
 	options, sessionData, err := hookBeginRegistration(passkeyUser)
 	if err != nil {
-		srvError(w, "begin registration", err)
+		serverError(w, "begin registration", err)
 		return
 	}
 
@@ -117,7 +117,7 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 		user.ID,
 	)
 	if err != nil {
-		srvError(w, "save authenticator", err)
+		serverError(w, "save authenticator", err)
 		return
 	}
 
@@ -132,7 +132,7 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 func PasskeyLoginStart(w http.ResponseWriter, r *http.Request) {
 	options, sessionData, err := hookBeginLogin()
 	if err != nil {
-		srvError(w, "begin login", err)
+		serverError(w, "begin login", err)
 		return
 	}
 
@@ -218,6 +218,8 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 	clearCookie(w, "passkey_auth_challenge")
 	setSessionCookie(w, "session", token, 86400) // 24 heures
 
+	hookLogAudit(user.ID, db.AuditLoginSuccess, getClientIP(r), r.UserAgent())
+
 	jsonSuccess(w, map[string]bool{"success": true})
 }
 
@@ -238,7 +240,7 @@ func DeletePasskey(w http.ResponseWriter, r *http.Request) {
 
 	err = hookDeleteAuthenticator(id, user.ID)
 	if err != nil {
-		srvError(w, "delete authenticator", err)
+		serverError(w, "delete authenticator", err)
 		return
 	}
 
@@ -272,7 +274,7 @@ func RenamePasskey(w http.ResponseWriter, r *http.Request) {
 
 	err = hookRenameAuthenticator(id, user.ID, req.Name)
 	if err != nil {
-		srvError(w, "rename authenticator", err)
+		serverError(w, "rename authenticator", err)
 		return
 	}
 

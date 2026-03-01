@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"context"
+	"crypto/rand"
 	"io"
 	"time"
 
@@ -102,4 +103,7 @@ var (
 	// --- ratelimit ---
 	hookRateLimitCheck = ratelimit.Check
 	hookRateLimitReset = ratelimit.Reset
+
+	// --- stdlib ---
+	hookRandRead = rand.Read
 )

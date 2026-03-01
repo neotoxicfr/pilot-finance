@@ -207,11 +207,21 @@ func DecryptInt(s string) (int, error) {
 	return strconv.Atoi(plain)
 }
 
-// ValidatePassword vérifie que le mot de passe respecte les 5 critères
-// Returns nil si valide, sinon une erreur descriptive
+// Erreurs de validation du mot de passe — codes machine-readable pour i18n.
+// Utiliser i18n.T(lang, "pwd_error."+err.Error()) pour obtenir le message traduit.
+var (
+	ErrPwdMinLength = errors.New("min_length")
+	ErrPwdUppercase = errors.New("uppercase")
+	ErrPwdLowercase = errors.New("lowercase")
+	ErrPwdDigit     = errors.New("digit")
+	ErrPwdSpecial   = errors.New("special")
+)
+
+// ValidatePassword vérifie que le mot de passe respecte les 5 critères.
+// Returns nil si valide, sinon une erreur codée (ErrPwd*) à traduire via i18n.
 func ValidatePassword(password string) error {
 	if len(password) < 12 {
-		return errors.New("minimum 12 caracteres requis")
+		return ErrPwdMinLength
 	}
 
 	hasUpper := false
@@ -233,16 +243,16 @@ func ValidatePassword(password string) error {
 	}
 
 	if !hasUpper {
-		return errors.New("une majuscule requise")
+		return ErrPwdUppercase
 	}
 	if !hasLower {
-		return errors.New("une minuscule requise")
+		return ErrPwdLowercase
 	}
 	if !hasDigit {
-		return errors.New("un chiffre requis")
+		return ErrPwdDigit
 	}
 	if !hasSpecial {
-		return errors.New("un caractere special requis (!@#$...)")
+		return ErrPwdSpecial
 	}
 
 	return nil

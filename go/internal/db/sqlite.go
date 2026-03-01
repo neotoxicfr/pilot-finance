@@ -17,6 +17,7 @@ import (
 )
 
 var DB *sql.DB
+var bgDone chan struct{}
 
 // Config contient la configuration de la base de données
 type Config struct {
@@ -77,14 +78,20 @@ func Init(cfg Config) error {
 
 	// VACUUM + backup périodique toutes les 24h
 	dbPath := cfg.Path
+	bgDone = make(chan struct{})
 	go func() {
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()
-		for range ticker.C {
-			if _, err := DB.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
-				slog.Warn("WAL checkpoint périodique", "err", err)
+		for {
+			select {
+			case <-ticker.C:
+				if _, err := DB.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+					slog.Warn("WAL checkpoint périodique", "err", err)
+				}
+				rotateBackups(dbPath)
+			case <-bgDone:
+				return
 			}
-			rotateBackups(dbPath)
 		}
 	}()
 
@@ -416,8 +423,12 @@ func encryptIfPlain(raw string, fn func(string) (string, error)) string {
 	return enc
 }
 
-// Close ferme la connexion à la base de données
+// Close ferme la connexion à la base de données et arrête la goroutine de maintenance.
 func Close() error {
+	if bgDone != nil {
+		close(bgDone)
+		bgDone = nil
+	}
 	if DB != nil {
 		return DB.Close()
 	}

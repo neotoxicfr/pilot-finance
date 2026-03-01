@@ -213,5 +213,16 @@
   "legal.s5_title": "5. Intellectual Property",
   "legal.s5_body": "Pilot Finance is distributed as free software. The source code is available under the terms of its license.",
   "legal.privacy_link": "Privacy Policy",
-  "legal.back": "Back to login"
+  "legal.back": "Back to login",
+  "reset.link_expired": "Link expired",
+  "reset.link_expired_desc": "This reset link has expired or is invalid.",
+  "reset.passwords_mismatch": "Passwords do not match",
+  "verify.token_missing": "Missing token.",
+  "verify.token_invalid": "Invalid or expired token.",
+  "verify.server_error": "Server error.",
+  "pwd_error.min_length": "Minimum 12 characters required",
+  "pwd_error.uppercase": "One uppercase letter required",
+  "pwd_error.lowercase": "One lowercase letter required",
+  "pwd_error.digit": "One digit required",
+  "pwd_error.special": "One special character required (!@#$...)"
 }
