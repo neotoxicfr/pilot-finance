@@ -13,6 +13,8 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"errors"
+
 	"pilot-finance/internal/auth"
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
@@ -21,6 +23,13 @@ import (
 	"pilot-finance/internal/ratelimit"
 	"pilot-finance/internal/templates"
 )
+
+// errReader simule un io.Reader qui échoue
+type errReader struct{}
+
+func (e *errReader) Read([]byte) (int, error) {
+	return 0, errors.New("read error")
+}
 
 const (
 	hTestEncKey  = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -121,6 +130,39 @@ func TestHealthCheck(t *testing.T) {
 	}
 	if resp["database"] != "ok" {
 		t.Errorf("database: got %v, want ok", resp["database"])
+	}
+}
+
+// ----- CSPReport -----
+
+func TestCSPReport_ValidReport(t *testing.T) {
+	body := strings.NewReader(`{"csp-report":{"document-uri":"https://example.com","violated-directive":"script-src"}}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/csp-report", body)
+	rr := httptest.NewRecorder()
+	CSPReport(rr, req)
+
+	if rr.Code != http.StatusNoContent {
+		t.Errorf("got %d, want 204", rr.Code)
+	}
+}
+
+func TestCSPReport_ReadError(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/csp-report", &errReader{})
+	rr := httptest.NewRecorder()
+	CSPReport(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("got %d, want 400", rr.Code)
+	}
+}
+
+func TestCSPReport_EmptyBody(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/csp-report", strings.NewReader(""))
+	rr := httptest.NewRecorder()
+	CSPReport(rr, req)
+
+	if rr.Code != http.StatusNoContent {
+		t.Errorf("got %d, want 204", rr.Code)
 	}
 }
 
