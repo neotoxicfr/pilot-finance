@@ -4,6 +4,7 @@ package auth
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -170,7 +171,7 @@ func FinishLogin(sessionDataBase64 string, r *http.Request, userHandler func(raw
 
 	passkeyUser, ok := user.(*PasskeyUser)
 	if !ok {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("unexpected user type: %T", user)
 	}
 
 	return passkeyUser, credential, nil

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"log/slog"
 	"net/http"
 )
 
@@ -41,10 +40,4 @@ func jsonError(w http.ResponseWriter, code string, message string, status int) {
 func jsonSuccess(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(data)
-}
-
-// srvError logue et renvoie une 500 avec code structuré.
-func srvError(w http.ResponseWriter, context string, err error) {
-	slog.Error(context, "err", err)
-	clientError(w, ErrInternal, "Erreur serveur", http.StatusInternalServerError)
 }

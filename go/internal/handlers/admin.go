@@ -26,7 +26,7 @@ func AuditPage(w http.ResponseWriter, r *http.Request) {
 
 	entries, err := hookGetAuditLog(page, auditPageSize)
 	if err != nil {
-		srvError(w, "AuditPage: GetAuditLog", err)
+		serverError(w, "AuditPage: GetAuditLog", err)
 		return
 	}
 

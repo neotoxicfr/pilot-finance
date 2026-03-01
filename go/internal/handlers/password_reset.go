@@ -1,18 +1,21 @@
 package handlers
 
 import (
-	"crypto/rand"
 	"encoding/hex"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"pilot-finance/internal/i18n"
 )
 
 // ForgotPasswordPage affiche la page de mot de passe oublie
 func ForgotPasswordPage(w http.ResponseWriter, r *http.Request) {
 	data := baseData(r, nil)
-	data["Title"] = "Mot de passe oublie"
+	t := data["T"].(map[string]string)
+	data["Title"] = t["forgot.title"]
 	data["MailEnabled"] = hookMailIsEnabled()
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -22,7 +25,7 @@ func ForgotPasswordPage(w http.ResponseWriter, r *http.Request) {
 // ForgotPasswordSubmit traite la demande de reinitialisation
 func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	if !hookMailIsEnabled() {
-		clientError(w, ErrDisabled, "Fonction desactivee", http.StatusBadRequest)
+		clientError(w, ErrDisabled, "Feature disabled", http.StatusBadRequest)
 		return
 	}
 
@@ -31,13 +34,13 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	// Rate limiting
 	result := hookRateLimitCheck(clientIP, "forgotPassword")
 	if !result.Allowed {
-		clientError(w, ErrRateLimited, "Trop de tentatives. Reessayez plus tard.", http.StatusTooManyRequests)
+		clientError(w, ErrRateLimited, "Too many attempts", http.StatusTooManyRequests)
 		return
 	}
 
 	email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
 	if email == "" {
-		clientError(w, ErrValidation, "Email requis", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Email required", http.StatusBadRequest)
 		return
 	}
 
@@ -47,7 +50,8 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	if err != nil || user == nil {
 		// Ne pas reveler si l'email existe ou non
 		data := baseData(r, nil)
-		data["Title"] = "Mot de passe oublie"
+		t := data["T"].(map[string]string)
+		data["Title"] = t["forgot.title"]
 		data["MailEnabled"] = true
 		data["Success"] = true
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -57,23 +61,36 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 
 	// Generer un token
 	tokenBytes := make([]byte, 32)
-	rand.Read(tokenBytes)
+	if _, err := hookRandRead(tokenBytes); err != nil {
+		serverError(w, "generate token", err)
+		return
+	}
 	token := hex.EncodeToString(tokenBytes)
 	hashedToken := hookHashToken(token)
 
 	// Sauvegarder le token avec expiration 1h
 	expiry := time.Now().Add(1 * time.Hour)
-	hookSetResetToken(user.ID, hashedToken, expiry)
+	if err := hookSetResetToken(user.ID, hashedToken, expiry); err != nil {
+		serverError(w, "set reset token", err)
+		return
+	}
 
 	// Envoyer l'email
 	host := os.Getenv("HOST")
 	if host == "" {
 		host = "localhost:3000"
 	}
-	hookSendPasswordReset(email, token, host)
+	lang := user.Language
+	if lang == "" {
+		lang = "fr"
+	}
+	if err := hookSendPasswordReset(email, token, host, lang); err != nil {
+		slog.Warn("send password reset email", "err", err)
+	}
 
 	data := baseData(r, nil)
-	data["Title"] = "Mot de passe oublie"
+	t := data["T"].(map[string]string)
+	data["Title"] = t["forgot.title"]
 	data["MailEnabled"] = true
 	data["Success"] = true
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -93,15 +110,17 @@ func ResetPasswordPage(w http.ResponseWriter, r *http.Request) {
 	user, err := hookGetUserByResetToken(hashedToken)
 	if err != nil || user == nil {
 		data := baseData(r, nil)
-		data["Title"] = "Lien expire"
-		data["Error"] = "Ce lien de reinitialisation a expire ou est invalide."
+		t := data["T"].(map[string]string)
+		data["Title"] = t["reset.link_expired"]
+		data["Error"] = t["reset.link_expired_desc"]
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		hookRender(w, "reset-password.html", data)
 		return
 	}
 
 	data := baseData(r, nil)
-	data["Title"] = "Nouveau mot de passe"
+	t := data["T"].(map[string]string)
+	data["Title"] = t["reset.new_password"]
 	data["Token"] = token
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	hookRender(w, "reset-password.html", data)
@@ -114,15 +133,18 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	confirmPassword := r.FormValue("confirmPassword")
 
 	if token == "" || password == "" {
-		clientError(w, ErrValidation, "Donnees manquantes", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Missing data", http.StatusBadRequest)
 		return
 	}
 
+	lang := "fr" // default for unauthenticated context
+
 	if password != confirmPassword {
 		data := baseData(r, nil)
-		data["Title"] = "Nouveau mot de passe"
+		t := data["T"].(map[string]string)
+		data["Title"] = t["reset.new_password"]
 		data["Token"] = token
-		data["Error"] = "Les mots de passe ne correspondent pas"
+		data["Error"] = t["reset.passwords_mismatch"]
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		hookRender(w, "reset-password.html", data)
 		return
@@ -130,9 +152,10 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 
 	if err := hookValidatePassword(password); err != nil {
 		data := baseData(r, nil)
-		data["Title"] = "Nouveau mot de passe"
+		t := data["T"].(map[string]string)
+		data["Title"] = t["reset.new_password"]
 		data["Token"] = token
-		data["Error"] = err.Error()
+		data["Error"] = i18n.T(lang, "pwd_error."+err.Error())
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		hookRender(w, "reset-password.html", data)
 		return
@@ -143,8 +166,9 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	user, err := hookGetUserByResetToken(hashedToken)
 	if err != nil || user == nil {
 		data := baseData(r, nil)
-		data["Title"] = "Lien expire"
-		data["Error"] = "Ce lien de reinitialisation a expire ou est invalide."
+		t := data["T"].(map[string]string)
+		data["Title"] = t["reset.link_expired"]
+		data["Error"] = t["reset.link_expired_desc"]
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		hookRender(w, "reset-password.html", data)
 		return

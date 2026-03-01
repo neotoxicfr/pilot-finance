@@ -152,10 +152,12 @@ func buildMessage(to, subject, body string) []byte {
 	return []byte(msg.String())
 }
 
-// SendPasswordReset envoie un email de reinitialisation de mot de passe
-func SendPasswordReset(to, token, host string) error {
+// SendPasswordReset envoie un email de reinitialisation de mot de passe.
+// lang contrôle la langue du template ("fr" ou "en").
+func SendPasswordReset(to, token, host, lang string) error {
 	resetURL := fmt.Sprintf("https://%s/reset-password?token=%s", host, token)
 
+	t := resetEmailTexts(lang)
 	body := fmt.Sprintf(`
 <!DOCTYPE html>
 <html>
@@ -172,19 +174,55 @@ func SendPasswordReset(to, token, host string) error {
 </head>
 <body>
     <div class="container">
-        <h1>Reinitialisation du mot de passe</h1>
-        <p>Vous avez demande a reinitialiser votre mot de passe Pilot Finance.</p>
-        <p>Cliquez sur le bouton ci-dessous pour choisir un nouveau mot de passe :</p>
-        <a href="%s" class="btn">Reinitialiser mon mot de passe</a>
-        <p>Ce lien expire dans 1 heure.</p>
-        <p>Si vous n'avez pas demande cette reinitialisation, ignorez cet email.</p>
+        <h1>%s</h1>
+        <p>%s</p>
+        <p>%s</p>
+        <a href="%s" class="btn">%s</a>
+        <p>%s</p>
+        <p>%s</p>
         <div class="footer">
-            <p>Pilot Finance - Votre cockpit financier personnel</p>
+            <p>%s</p>
         </div>
     </div>
 </body>
 </html>
-`, resetURL)
+`, t.title, t.intro, t.action, resetURL, t.btn, t.expiry, t.ignore, t.footer)
 
-	return Send(to, "Reinitialisation de votre mot de passe - Pilot Finance", body)
+	return Send(to, t.subject, body)
+}
+
+type resetEmailContent struct {
+	subject string
+	title   string
+	intro   string
+	action  string
+	btn     string
+	expiry  string
+	ignore  string
+	footer  string
+}
+
+func resetEmailTexts(lang string) resetEmailContent {
+	if lang == "en" {
+		return resetEmailContent{
+			subject: "Password Reset - Pilot Finance",
+			title:   "Password Reset",
+			intro:   "You have requested to reset your Pilot Finance password.",
+			action:  "Click the button below to choose a new password:",
+			btn:     "Reset my password",
+			expiry:  "This link expires in 1 hour.",
+			ignore:  "If you did not request this reset, please ignore this email.",
+			footer:  "Pilot Finance - Your personal financial cockpit",
+		}
+	}
+	return resetEmailContent{
+		subject: "Reinitialisation de votre mot de passe - Pilot Finance",
+		title:   "Reinitialisation du mot de passe",
+		intro:   "Vous avez demande a reinitialiser votre mot de passe Pilot Finance.",
+		action:  "Cliquez sur le bouton ci-dessous pour choisir un nouveau mot de passe :",
+		btn:     "Reinitialiser mon mot de passe",
+		expiry:  "Ce lien expire dans 1 heure.",
+		ignore:  "Si vous n'avez pas demande cette reinitialisation, ignorez cet email.",
+		footer:  "Pilot Finance - Votre cockpit financier personnel",
+	}
 }

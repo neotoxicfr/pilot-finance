@@ -128,9 +128,9 @@ func TestGetUserByResetTokenNotFound(t *testing.T) {
 	defer cleanup()
 
 	user, err := GetUserByResetToken("nonexistent-token-xyz")
-	// GetUserByResetToken returns (nil, sql.ErrNoRows) for missing token
-	if err == nil {
-		t.Error("expected error for non-existent reset token")
+	// scanUser returns (nil, nil) for sql.ErrNoRows — consistent with GetUserByID
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 	if user != nil {
 		t.Error("user should be nil for non-existent reset token")

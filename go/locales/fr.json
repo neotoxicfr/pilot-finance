@@ -213,5 +213,16 @@
   "legal.s5_title": "5. Propriété intellectuelle",
   "legal.s5_body": "Pilot Finance est distribué sous licence libre. Le code source est disponible selon les termes de sa licence.",
   "legal.privacy_link": "Politique de confidentialité",
-  "legal.back": "Retour à la connexion"
+  "legal.back": "Retour à la connexion",
+  "reset.link_expired": "Lien expiré",
+  "reset.link_expired_desc": "Ce lien de réinitialisation a expiré ou est invalide.",
+  "reset.passwords_mismatch": "Les mots de passe ne correspondent pas",
+  "verify.token_missing": "Jeton manquant.",
+  "verify.token_invalid": "Jeton invalide ou expiré.",
+  "verify.server_error": "Erreur serveur.",
+  "pwd_error.min_length": "Minimum 12 caractères requis",
+  "pwd_error.uppercase": "Une majuscule requise",
+  "pwd_error.lowercase": "Une minuscule requise",
+  "pwd_error.digit": "Un chiffre requis",
+  "pwd_error.special": "Un caractère spécial requis (!@#$...)"
 }
