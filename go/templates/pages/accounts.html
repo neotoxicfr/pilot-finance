@@ -11,7 +11,7 @@
         <!-- Accounts -->
         <div class="space-y-4">
             <div class="flex justify-between items-center">
-                <h2 class="text-lg font-semibold flex items-center gap-2 text-foreground">
+                <h2 class="text-lg font-bold flex items-center gap-2 text-foreground">
                     {{template "icon-wallet" dict "Size" 18}} {{index .T "accounts.title"}}
                 </h2>
                 <button @click="openAccountForm(null)"
@@ -45,7 +45,7 @@
                                    class="bg-accent border border-border rounded-xl p-3 text-sm w-full font-mono outline-hidden focus:border-blue-500 text-foreground">
                         </div>
                         <div>
-                            <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.color_label"}}</label>
+                            <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.color_label"}}</label>
                             <div class="flex flex-wrap gap-2 mb-3">
                                 <template x-for="c in ['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#10b981','#14b8a6','#06b6d4','#0ea5e9','#3b82f6','#6366f1','#8b5cf6','#a855f7','#d946ef','#ec4899','#f43f5e','#64748b']">
                                     <button type="button" @click="selectedColor = c"
@@ -79,7 +79,7 @@
 
                             <div x-show="isYieldActive" x-cloak class="mt-4 space-y-4 pl-8">
                                 <div>
-                                    <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.yield_type"}}</label>
+                                    <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.yield_type"}}</label>
                                     <div class="flex gap-3">
                                         <label class="flex items-center gap-2 cursor-pointer">
                                             <input type="radio" name="yieldType" value="FIXED" x-model="yieldType"
@@ -96,26 +96,26 @@
 
                                 <div class="grid gap-4" :class="yieldType === 'RANGE' ? 'grid-cols-2' : 'grid-cols-1'">
                                     <div>
-                                        <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider"
+                                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider"
                                                x-text="yieldType === 'RANGE' ? '{{index .T "accounts.yield_rate_min"}}' : '{{index .T "accounts.yield_rate"}}'"></label>
                                         <input type="number" step="0.01" name="yieldMin" x-model="yieldMin" placeholder="3.5"
                                                class="bg-accent border border-border rounded-xl p-2.5 text-sm w-full font-mono outline-hidden focus:border-emerald-500 text-foreground">
                                     </div>
                                     <div x-show="yieldType === 'RANGE'">
-                                        <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.yield_rate_max"}}</label>
+                                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.yield_rate_max"}}</label>
                                         <input type="number" step="0.01" name="yieldMax" x-model="yieldMax" placeholder="5.0"
                                                class="bg-accent border border-border rounded-xl p-2.5 text-sm w-full font-mono outline-hidden focus:border-emerald-500 text-foreground">
                                     </div>
                                 </div>
 
                                 <div>
-                                    <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">
+                                    <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">
                                         {{index .T "accounts.reinvestment"}}: <span x-text="reinvestmentRate + '%'" class="text-emerald-500"></span>
                                     </label>
                                     <input type="range" min="0" max="100" step="5" name="reinvestmentRate" x-model="reinvestmentRate"
                                            aria-label="{{index .T "accounts.reinvestment"}}"
                                            class="w-full h-2 bg-accent rounded-lg appearance-none cursor-pointer accent-emerald-500">
-                                    <div class="flex justify-between text-[10px] text-muted-foreground mt-1">
+                                    <div class="flex justify-between text-xs text-muted-foreground mt-1">
                                         <span>{{index .T "accounts.reinvestment_0"}}</span>
                                         <span>{{index .T "accounts.reinvestment_100"}}</span>
                                     </div>
@@ -123,7 +123,7 @@
 
                                 <div x-show="reinvestmentRate < 100" x-cloak class="space-y-3">
                                     <div>
-                                        <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">
+                                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">
                                             {{index .T "accounts.target_account"}}
                                         </label>
                                         <select name="targetAccountId"
@@ -134,12 +134,12 @@
                                             <option value="{{.ID}}">{{.Name}}</option>
                                             {{end}}
                                         </select>
-                                        <p class="text-[10px] text-muted-foreground mt-1">
+                                        <p class="text-xs text-muted-foreground mt-1">
                                             {{index .T "accounts.interest_help"}}
                                         </p>
                                     </div>
                                     <div>
-                                        <label class="text-[10px] uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.payout_frequency"}}</label>
+                                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.payout_frequency"}}</label>
                                         <div class="flex gap-4">
                                             <label class="flex items-center gap-2 cursor-pointer">
                                                 <input type="radio" name="payoutFrequency" value="MONTHLY" x-model="payoutFrequency" class="accent-emerald-500">
@@ -175,7 +175,7 @@
         <!-- Recurring Operations -->
         <div class="space-y-4">
             <div class="flex justify-between items-center">
-                <h2 class="text-lg font-semibold flex items-center gap-2 text-foreground">
+                <h2 class="text-lg font-bold flex items-center gap-2 text-foreground">
                     {{template "icon-refresh" dict "Size" 18}} {{index .T "recurring.title"}}
                 </h2>
                 <button @click="openRecurringForm(null)"
@@ -454,9 +454,9 @@ document.addEventListener('alpine:init', () => {
         <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-sm font-medium text-emerald-600 dark:text-emerald-400 truncate">{{.Description}}</span>
-                <span class="text-[10px] font-bold bg-emerald-500/20 text-emerald-500 px-1.5 py-0.5 rounded shrink-0">{{printf "%.2f" .YieldRate}}%</span>
+                <span class="text-xs font-bold bg-emerald-500/20 text-emerald-500 px-1.5 py-0.5 rounded shrink-0">{{printf "%.2f" .YieldRate}}%</span>
             </div>
-            <div class="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground truncate">
+            <div class="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground truncate">
                 <span class="truncate">{{.AccountName}}</span>
                 {{if .ToAccountName}}
                 <span class="shrink-0">{{template "icon-arrow-right" dict "Size" 9}}</span>
@@ -466,7 +466,7 @@ document.addEventListener('alpine:init', () => {
         </div>
         <div class="text-right shrink-0">
             <div class="font-mono font-bold text-sm text-emerald-500 tabular-nums">+{{formatMoney .Amount $.Currency}}</div>
-            <div class="text-[10px] text-muted-foreground italic mt-0.5">
+            <div class="text-xs text-muted-foreground italic mt-0.5">
                 {{if eq .PayoutFrequency "YEARLY"}}{{index $.T "recurring.auto_badge_annual"}}{{else}}{{index $.T "recurring.auto_badge"}}{{end}}
             </div>
         </div>
@@ -480,7 +480,7 @@ document.addEventListener('alpine:init', () => {
         </div>
         <div class="flex-1 min-w-0">
             <div class="text-sm font-medium text-foreground truncate">{{.Description}}</div>
-            <div class="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground truncate">
+            <div class="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground truncate">
                 {{if .ToAccountID}}
                 <span class="text-blue-500 truncate">{{.AccountName}}</span>
                 <span class="shrink-0">{{template "icon-arrow-right" dict "Size" 9}}</span>
@@ -495,23 +495,23 @@ document.addEventListener('alpine:init', () => {
         </div>
         <div class="flex items-center gap-0.5 shrink-0" x-show="!del">
             <button @click="openRecurringForm({{. | json}})" aria-label="{{index $.T "common.edit"}}"
-                    class="p-1.5 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors">
-                {{template "icon-pencil" dict "Size" 15}}
+                    class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors">
+                {{template "icon-pencil" dict "Size" 16}}
             </button>
             <button @click.prevent="del = true" aria-label="{{index $.T "common.delete"}}"
-                    class="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
-                {{template "icon-trash" dict "Size" 15}}
+                    class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                {{template "icon-trash" dict "Size" 16}}
             </button>
         </div>
         <div class="flex items-center gap-0.5 shrink-0" x-show="del">
             <button hx-delete="/recurring/{{.ID}}" hx-target="#recurring-list" hx-swap="innerHTML"
                     aria-label="{{index $.T "common.confirm_delete"}}"
-                    class="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
-                {{template "icon-check" dict "Size" 15}}
+                    class="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                {{template "icon-check" dict "Size" 16}}
             </button>
             <button @click.prevent="del = false" aria-label="{{index $.T "common.cancel_delete"}}"
-                    class="p-1.5 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
-                {{template "icon-x" dict "Size" 15}}
+                    class="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
+                {{template "icon-x" dict "Size" 16}}
             </button>
         </div>
     </div>
@@ -519,9 +519,9 @@ document.addEventListener('alpine:init', () => {
     {{end}}
 </div>
 {{else}}
-<div class="flex flex-col items-center justify-center py-12 text-center">
-    <div class="text-muted-foreground/20 mb-3">{{template "icon-refresh" dict "Size" 40}}</div>
-    <p class="text-sm font-medium text-foreground mb-1">{{index $.T "recurring.empty_title"}}</p>
+<div class="flex flex-col items-center justify-center py-16 text-center">
+    <div class="text-muted-foreground/20 mb-4">{{template "icon-refresh" dict "Size" 40}}</div>
+    <p class="font-semibold text-foreground mb-1">{{index $.T "recurring.empty_title"}}</p>
     <p class="text-xs text-muted-foreground">{{index $.T "recurring.empty_subtitle"}}</p>
 </div>
 {{end}}
@@ -536,16 +536,16 @@ document.addEventListener('alpine:init', () => {
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
             <div class="min-w-0">
-                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.income"}}</div>
+                <div class="text-xs sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.income"}}</div>
                 <div class="text-lg sm:text-2xl font-mono font-bold text-emerald-500">+{{formatMoney .MonthlyIncome $.Currency}}</div>
-                {{if gt .MonthlyYield 0.0}}<div class="text-[10px] text-emerald-400/80 mt-0.5 font-medium">{{index $.T "summary.yield_auto"}} +{{formatMoney .MonthlyYield $.Currency}}</div>{{end}}
+                {{if gt .MonthlyYield 0.0}}<div class="text-xs text-emerald-400/80 mt-0.5 font-medium">{{index $.T "summary.yield_auto"}} +{{formatMoney .MonthlyYield $.Currency}}</div>{{end}}
             </div>
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
-                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.expenses"}}</div>
+                <div class="text-xs sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.expenses"}}</div>
                 <div class="text-lg sm:text-2xl font-mono font-bold text-foreground">-{{formatMoney .MonthlyExpenses $.Currency}}</div>
             </div>
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
-                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.balance"}}</div>
+                <div class="text-xs sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.balance"}}</div>
                 <div class="text-lg sm:text-2xl font-mono font-bold {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
                     {{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney .MonthlyNet $.Currency}}
                 </div>
@@ -559,16 +559,16 @@ document.addEventListener('alpine:init', () => {
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 opacity-90">
             <div class="min-w-0">
-                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.income"}}</div>
+                <div class="text-xs sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.income"}}</div>
                 <div class="text-base sm:text-xl font-mono font-bold text-emerald-500">+{{formatMoney (add (mult .MonthlyIncome 12) .AnnualYield) $.Currency}}</div>
-                {{if gt (add .MonthlyYield .AnnualYield) 0.0}}<div class="text-[10px] text-emerald-400/80 mt-0.5 font-medium">{{index $.T "summary.yield_auto"}} +{{formatMoney (add (mult .MonthlyYield 12) .AnnualYield) $.Currency}}</div>{{end}}
+                {{if gt (add .MonthlyYield .AnnualYield) 0.0}}<div class="text-xs text-emerald-400/80 mt-0.5 font-medium">{{index $.T "summary.yield_auto"}} +{{formatMoney (add (mult .MonthlyYield 12) .AnnualYield) $.Currency}}</div>{{end}}
             </div>
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
-                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.expenses"}}</div>
+                <div class="text-xs sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.expenses"}}</div>
                 <div class="text-base sm:text-xl font-mono font-bold text-foreground">-{{formatMoney (mult .MonthlyExpenses 12) $.Currency}}</div>
             </div>
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
-                <div class="text-[10px] sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.balance"}}</div>
+                <div class="text-xs sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.balance"}}</div>
                 <div class="text-base sm:text-xl font-mono font-bold {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
                     {{if gt (add (mult .MonthlyNet 12) .AnnualYield) 0.0}}+{{end}}{{formatMoney (add (mult .MonthlyNet 12) .AnnualYield) $.Currency}}
                 </div>
