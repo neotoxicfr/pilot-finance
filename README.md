@@ -134,6 +134,20 @@ The application listens on port **3000** inside the container.
 
 ---
 
+## Roadmap
+
+| Category | Item | Status |
+|---|---|---|
+| **UI/UX** | Visual overhaul — animations, micro-interactions, wow factor | Planned |
+| **Security** | Per-account rate limiting (protect against distributed brute-force) | Planned |
+| **Security** | Temporary account lock-out after N failed login attempts | Planned |
+| **Security** | CSP `report-to` directive pointing to `/api/csp-report` in production | Planned |
+| **Security** | Force TLS on outbound SMTP connections | Planned |
+| **Monitoring** | Prometheus `/metrics` endpoint (request latency, error rates, DB stats) | Planned |
+| **Testing** | E2E browser tests (Playwright) | Planned |
+
+---
+
 ## Credits
 
 This project was designed with AI assistance for code structure and optimization. The final code is purely applicative and uses no AI algorithms or third-party data processing at runtime. Your cockpit remains 100% local and private.
