@@ -383,6 +383,7 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 		hookRenderPartial(w, "accounts.html", "account-row", map[string]interface{}{ //nolint:errcheck
 			"Account":  acc,
 			"Currency": currency,
+			"T":        i18n.Map(lang),
 		})
 	}
 

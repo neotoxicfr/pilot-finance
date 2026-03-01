@@ -12,7 +12,7 @@ function mfaData() {
             fetch('/settings/mfa/setup')
                 .then(r => r.json())
                 .then(d => { this.mfaSetup = d; this.mfaLoading = false; })
-                .catch(() => { this.mfaLoading = false; this.mfaError = 'Erreur réseau'; });
+                .catch(() => { this.mfaLoading = false; this.mfaError = '{{index .T "common.network_error"}}'; });
         },
         enableMfa() {
             fetch('/settings/mfa/enable', {
@@ -22,7 +22,7 @@ function mfaData() {
             }).then(r => r.json()).then(d => {
                 if (d.error) this.mfaError = d.error;
                 else location.reload();
-            }).catch(() => { this.mfaError = 'Erreur réseau'; });
+            }).catch(() => { this.mfaError = '{{index .T "common.network_error"}}'; });
         },
         reload() { location.reload(); }
     };
