@@ -152,7 +152,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 			srvError(w, "update account", err)
 			return
 		}
-		db.LogAudit(user.ID, db.AuditAccountUpdate, getClientIP(r), r.UserAgent())
+		hookLogAudit(user.ID, db.AuditAccountUpdate, getClientIP(r), r.UserAgent())
 	} else {
 		// Creation d'un nouveau compte
 		existingAccounts, posErr := hookGetAccountsByUserID(user.ID)
@@ -166,7 +166,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 			srvError(w, "create account", err)
 			return
 		}
-		db.LogAudit(user.ID, db.AuditAccountCreate, getClientIP(r), r.UserAgent())
+		hookLogAudit(user.ID, db.AuditAccountCreate, getClientIP(r), r.UserAgent())
 	}
 
 	// Retourner la liste mise a jour en HTML
@@ -194,7 +194,7 @@ func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db.LogAudit(user.ID, db.AuditAccountDelete, getClientIP(r), r.UserAgent())
+	hookLogAudit(user.ID, db.AuditAccountDelete, getClientIP(r), r.UserAgent())
 
 	// Retourner la liste mise a jour en HTML
 	renderAccountsList(w, user)

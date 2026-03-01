@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
 )
@@ -39,7 +38,7 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := crypto.ValidatePassword(newPassword); err != nil {
+	if err := hookValidatePassword(newPassword); err != nil {
 		clientError(w, ErrValidation, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -52,7 +51,7 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verifier le mot de passe actuel
-	if !crypto.VerifyPassword(currentPassword, dbUser.Password) {
+	if !hookVerifyPassword(currentPassword, dbUser.Password) {
 		clientError(w, ErrAuthInvalid, "Mot de passe actuel incorrect", http.StatusUnauthorized)
 		return
 	}
@@ -71,7 +70,7 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db.LogAudit(user.ID, db.AuditPasswordChange, getClientIP(r), r.UserAgent())
+	hookLogAudit(user.ID, db.AuditPasswordChange, getClientIP(r), r.UserAgent())
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -159,7 +158,7 @@ func ExportData(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	auditEntries, _ := db.GetAuditLogByUserID(user.ID)
+	auditEntries, _ := hookGetAuditLogByUserID(user.ID)
 
 	// Passkeys : exporter sans la clé publique brute (non intelligible)
 	type passkeyExport struct {
@@ -168,7 +167,7 @@ func ExportData(w http.ResponseWriter, r *http.Request) {
 		DeviceType string `json:"device_type"`
 		BackedUp   bool   `json:"backed_up"`
 	}
-	rawPasskeys, _ := db.GetAuthenticatorsByUserID(user.ID)
+	rawPasskeys, _ := hookGetAuthenticatorsByUserID(user.ID)
 	passkeys := make([]passkeyExport, len(rawPasskeys))
 	for i, pk := range rawPasskeys {
 		passkeys[i] = passkeyExport{
@@ -193,7 +192,7 @@ func ExportData(w http.ResponseWriter, r *http.Request) {
 		"passkeys":   passkeys,
 	}
 
-	db.LogAudit(user.ID, db.AuditGDPRExport, getClientIP(r), r.UserAgent())
+	hookLogAudit(user.ID, db.AuditGDPRExport, getClientIP(r), r.UserAgent())
 
 	w.Header().Set("Content-Disposition", `attachment; filename="pilot-finance-export.json"`)
 	jsonSuccess(w, export)
@@ -207,7 +206,7 @@ func DeleteSelfAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db.LogAudit(user.ID, db.AuditGDPRDelete, getClientIP(r), r.UserAgent())
+	hookLogAudit(user.ID, db.AuditGDPRDelete, getClientIP(r), r.UserAgent())
 
 	if err := hookDeleteUserAndData(user.ID); err != nil {
 		srvError(w, "delete user", err)
@@ -246,7 +245,7 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db.LogAudit(user.ID, db.AuditAdminDeleteUser, getClientIP(r), r.UserAgent())
+	hookLogAudit(user.ID, db.AuditAdminDeleteUser, getClientIP(r), r.UserAgent())
 
 	err = hookDeleteUserAndData(id)
 	if err != nil {

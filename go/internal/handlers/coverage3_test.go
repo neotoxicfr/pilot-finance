@@ -403,7 +403,7 @@ func TestRenamePasskey_DBError(t *testing.T) {
 	}
 }
 
-// passkey.go:182-184 — closure: authenticator found but dbGetUserByIDFn fails → 401
+// passkey.go:182-184 — closure: authenticator found but hookGetUserByID fails → 401
 func TestPasskeyLoginFinish_ClosureUserError(t *testing.T) {
 	cleanup := setupHandlerTest(t)
 	defer cleanup()
@@ -417,16 +417,16 @@ func TestPasskeyLoginFinish_ClosureUserError(t *testing.T) {
 	}
 
 	// dbGetAuthByCredIDFn stays real (finds the authenticator)
-	// dbGetUserByIDFn → fail (covers closure line 182-184)
-	origGetUser := dbGetUserByIDFn
-	defer func() { dbGetUserByIDFn = origGetUser }()
-	dbGetUserByIDFn = func(id int64) (*db.User, error) {
+	// hookGetUserByID → fail (covers closure line 182-184)
+	origGetUser := hookGetUserByID
+	defer func() { hookGetUserByID = origGetUser }()
+	hookGetUserByID = func(id int64) (*db.User, error) {
 		return nil, errTest2
 	}
 
-	origFinish := authFinishLoginFn
-	defer func() { authFinishLoginFn = origFinish }()
-	authFinishLoginFn = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
+	origFinish := hookFinishLogin
+	defer func() { hookFinishLogin = origFinish }()
+	hookFinishLogin = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
 		// Call the closure with the real credID → authenticator found → user lookup fails
 		_, err := h(rawCredID, nil)
 		if err != nil {

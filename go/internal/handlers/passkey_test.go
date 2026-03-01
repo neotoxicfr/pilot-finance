@@ -264,9 +264,9 @@ func TestRenamePasskey_Success(t *testing.T) {
 // --- PasskeyRegistrationStart — error paths ---
 
 func TestPasskeyRegistrationStart_GetAuthsError(t *testing.T) {
-	orig := dbGetAuthsByUserIDFn
-	defer func() { dbGetAuthsByUserIDFn = orig }()
-	dbGetAuthsByUserIDFn = func(id int64) ([]db.Authenticator, error) {
+	orig := hookGetAuthenticatorsByUserID
+	defer func() { hookGetAuthenticatorsByUserID = orig }()
+	hookGetAuthenticatorsByUserID = func(id int64) ([]db.Authenticator, error) {
 		return nil, errors.New("db error")
 	}
 	cleanup := setupHandlerTest(t)
@@ -285,9 +285,9 @@ func TestPasskeyRegistrationStart_BeginRegError(t *testing.T) {
 	if err := auth.InitWebAuthn("localhost", "http://localhost:8080", "Test"); err != nil {
 		t.Fatalf("InitWebAuthn: %v", err)
 	}
-	orig := authBeginRegistrationFn
-	defer func() { authBeginRegistrationFn = orig }()
-	authBeginRegistrationFn = func(u *auth.PasskeyUser) (*protocol.CredentialCreation, string, error) {
+	orig := hookBeginRegistration
+	defer func() { hookBeginRegistration = orig }()
+	hookBeginRegistration = func(u *auth.PasskeyUser) (*protocol.CredentialCreation, string, error) {
 		return nil, "", errors.New("webauthn error")
 	}
 	cleanup := setupHandlerTest(t)
@@ -305,21 +305,21 @@ func TestPasskeyRegistrationStart_BeginRegError(t *testing.T) {
 // --- PasskeyRegistrationFinish — post-Parse error paths ---
 
 func TestPasskeyRegistrationFinish_FinishError(t *testing.T) {
-	origParse := parseCCRFn
-	defer func() { parseCCRFn = origParse }()
-	parseCCRFn = func(r *protocol.CredentialCreationResponse) (*protocol.ParsedCredentialCreationData, error) {
+	origParse := hookParseCCR
+	defer func() { hookParseCCR = origParse }()
+	hookParseCCR = func(r *protocol.CredentialCreationResponse) (*protocol.ParsedCredentialCreationData, error) {
 		return nil, nil // Parse "succeeds" avec nil response
 	}
-	origFinish := authFinishRegistrationFn
-	defer func() { authFinishRegistrationFn = origFinish }()
-	authFinishRegistrationFn = func(u *auth.PasskeyUser, s string, p *protocol.ParsedCredentialCreationData) (*webauthn.Credential, error) {
+	origFinish := hookFinishRegistration
+	defer func() { hookFinishRegistration = origFinish }()
+	hookFinishRegistration = func(u *auth.PasskeyUser, s string, p *protocol.ParsedCredentialCreationData) (*webauthn.Credential, error) {
 		return nil, errors.New("finish error")
 	}
 	cleanup := setupHandlerTest(t)
 	defer cleanup()
 	uid := newUser(t, "pkregfin@example.com", "ValidP@ss1!", "USER")
 
-	// "AA" = base64url valide (1 octet 0x00) — json.Decode réussit, parseCCRFn est appelée
+	// "AA" = base64url valide (1 octet 0x00) — json.Decode réussit, hookParseCCR est appelée
 	body := bytes.NewBufferString(`{"id":"x","rawId":"AA","type":"public-key","response":{"clientDataJSON":"AA","attestationObject":"AA"}}`)
 	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/finish", body), mu(uid, "USER"))
 	req.AddCookie(&http.Cookie{Name: "passkey_challenge", Value: "dummyvalue"})
@@ -331,19 +331,19 @@ func TestPasskeyRegistrationFinish_FinishError(t *testing.T) {
 }
 
 func TestPasskeyRegistrationFinish_CreateAuthError(t *testing.T) {
-	origParse := parseCCRFn
-	defer func() { parseCCRFn = origParse }()
-	parseCCRFn = func(r *protocol.CredentialCreationResponse) (*protocol.ParsedCredentialCreationData, error) {
+	origParse := hookParseCCR
+	defer func() { hookParseCCR = origParse }()
+	hookParseCCR = func(r *protocol.CredentialCreationResponse) (*protocol.ParsedCredentialCreationData, error) {
 		return nil, nil
 	}
-	origFinish := authFinishRegistrationFn
-	defer func() { authFinishRegistrationFn = origFinish }()
-	authFinishRegistrationFn = func(u *auth.PasskeyUser, s string, p *protocol.ParsedCredentialCreationData) (*webauthn.Credential, error) {
+	origFinish := hookFinishRegistration
+	defer func() { hookFinishRegistration = origFinish }()
+	hookFinishRegistration = func(u *auth.PasskeyUser, s string, p *protocol.ParsedCredentialCreationData) (*webauthn.Credential, error) {
 		return &webauthn.Credential{ID: []byte("cred"), PublicKey: []byte("pk")}, nil
 	}
-	origCreate := dbCreateAuthFn
-	defer func() { dbCreateAuthFn = origCreate }()
-	dbCreateAuthFn = func(credentialID, publicKey string, counter int, deviceType string, backedUp, backupEligible bool, transports string, userID int64) error {
+	origCreate := hookCreateAuthenticator
+	defer func() { hookCreateAuthenticator = origCreate }()
+	hookCreateAuthenticator = func(credentialID, publicKey string, counter int, deviceType string, backedUp, backupEligible bool, transports string, userID int64) error {
 		return errors.New("db create error")
 	}
 	cleanup := setupHandlerTest(t)
@@ -361,14 +361,14 @@ func TestPasskeyRegistrationFinish_CreateAuthError(t *testing.T) {
 }
 
 func TestPasskeyRegistrationFinish_Success(t *testing.T) {
-	origParse := parseCCRFn
-	defer func() { parseCCRFn = origParse }()
-	parseCCRFn = func(r *protocol.CredentialCreationResponse) (*protocol.ParsedCredentialCreationData, error) {
+	origParse := hookParseCCR
+	defer func() { hookParseCCR = origParse }()
+	hookParseCCR = func(r *protocol.CredentialCreationResponse) (*protocol.ParsedCredentialCreationData, error) {
 		return nil, nil
 	}
-	origFinish := authFinishRegistrationFn
-	defer func() { authFinishRegistrationFn = origFinish }()
-	authFinishRegistrationFn = func(u *auth.PasskeyUser, s string, p *protocol.ParsedCredentialCreationData) (*webauthn.Credential, error) {
+	origFinish := hookFinishRegistration
+	defer func() { hookFinishRegistration = origFinish }()
+	hookFinishRegistration = func(u *auth.PasskeyUser, s string, p *protocol.ParsedCredentialCreationData) (*webauthn.Credential, error) {
 		return &webauthn.Credential{ID: []byte("cred-ok"), PublicKey: []byte("pk-ok")}, nil
 	}
 	cleanup := setupHandlerTest(t)
@@ -391,9 +391,9 @@ func TestPasskeyLoginStart_BeginLoginError(t *testing.T) {
 	if err := auth.InitWebAuthn("localhost", "http://localhost:8080", "Test"); err != nil {
 		t.Fatalf("InitWebAuthn: %v", err)
 	}
-	orig := authBeginLoginFn
-	defer func() { authBeginLoginFn = orig }()
-	authBeginLoginFn = func() (*protocol.CredentialAssertion, string, error) {
+	orig := hookBeginLogin
+	defer func() { hookBeginLogin = orig }()
+	hookBeginLogin = func() (*protocol.CredentialAssertion, string, error) {
 		return nil, "", errors.New("webauthn error")
 	}
 
@@ -407,9 +407,9 @@ func TestPasskeyLoginStart_BeginLoginError(t *testing.T) {
 // --- PasskeyLoginFinish — error paths + success ---
 
 func TestPasskeyLoginFinish_FinishError(t *testing.T) {
-	orig := authFinishLoginFn
-	defer func() { authFinishLoginFn = orig }()
-	authFinishLoginFn = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
+	orig := hookFinishLogin
+	defer func() { hookFinishLogin = orig }()
+	hookFinishLogin = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
 		return nil, nil, errors.New("auth failed")
 	}
 
@@ -426,9 +426,9 @@ func TestPasskeyLoginFinish_AuthNil(t *testing.T) {
 	cleanup := setupHandlerTest(t)
 	defer cleanup()
 
-	orig := authFinishLoginFn
-	defer func() { authFinishLoginFn = orig }()
-	authFinishLoginFn = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
+	orig := hookFinishLogin
+	defer func() { hookFinishLogin = orig }()
+	hookFinishLogin = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
 		// appelle h() avec credID inexistant → couvre authenticator==nil dans la closure
 		h([]byte("nonexistent-cred-id"), nil) //nolint:errcheck
 		return nil, nil, errors.New("not found")
@@ -448,14 +448,14 @@ func TestPasskeyLoginFinish_GetUserError(t *testing.T) {
 	defer cleanup()
 	uid := newUser(t, "pklguser@example.com", "ValidP@ss1!", "USER")
 
-	origFinish := authFinishLoginFn
-	defer func() { authFinishLoginFn = origFinish }()
-	authFinishLoginFn = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
+	origFinish := hookFinishLogin
+	defer func() { hookFinishLogin = origFinish }()
+	hookFinishLogin = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
 		return &auth.PasskeyUser{ID: uid}, &webauthn.Credential{}, nil
 	}
-	origGetUser := dbGetUserByIDFn
-	defer func() { dbGetUserByIDFn = origGetUser }()
-	dbGetUserByIDFn = func(id int64) (*db.User, error) {
+	origGetUser := hookGetUserByID
+	defer func() { hookGetUserByID = origGetUser }()
+	hookGetUserByID = func(id int64) (*db.User, error) {
 		return nil, errors.New("db error")
 	}
 
@@ -473,14 +473,14 @@ func TestPasskeyLoginFinish_GenerateTokenError(t *testing.T) {
 	defer cleanup()
 	uid := newUser(t, "pklgtoken@example.com", "ValidP@ss1!", "USER")
 
-	origFinish := authFinishLoginFn
-	defer func() { authFinishLoginFn = origFinish }()
-	authFinishLoginFn = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
+	origFinish := hookFinishLogin
+	defer func() { hookFinishLogin = origFinish }()
+	hookFinishLogin = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
 		return &auth.PasskeyUser{ID: uid}, &webauthn.Credential{}, nil
 	}
-	origToken := authGenerateTokenFn
-	defer func() { authGenerateTokenFn = origToken }()
-	authGenerateTokenFn = func(userID int64, role, language, currency string, sessionVersion int) (string, error) {
+	origToken := hookGenerateToken
+	defer func() { hookGenerateToken = origToken }()
+	hookGenerateToken = func(userID int64, role, language, currency string, sessionVersion int) (string, error) {
 		return "", errors.New("token error")
 	}
 
@@ -505,9 +505,9 @@ func TestPasskeyLoginFinish_Success(t *testing.T) {
 		t.Fatalf("CreateAuthenticator: %v", err)
 	}
 
-	origFinish := authFinishLoginFn
-	defer func() { authFinishLoginFn = origFinish }()
-	authFinishLoginFn = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
+	origFinish := hookFinishLogin
+	defer func() { hookFinishLogin = origFinish }()
+	hookFinishLogin = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
 		// Appelle la closure userHandler avec un credID valide → couvre le chemin complet de la closure
 		user, err := h(rawCredID, nil)
 		if err != nil || user == nil {

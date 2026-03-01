@@ -11,25 +11,8 @@ import (
 	"github.com/go-webauthn/webauthn/webauthn"
 
 	"pilot-finance/internal/auth"
-	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
-)
-
-// Hooks injectables pour les tests (couvrent les branches d'erreur des handlers passkey).
-var (
-	dbGetAuthsByUserIDFn = db.GetAuthenticatorsByUserID
-	authBeginRegistrationFn = auth.BeginRegistration
-	parseCCRFn = func(r *protocol.CredentialCreationResponse) (*protocol.ParsedCredentialCreationData, error) {
-		return r.Parse()
-	}
-	authFinishRegistrationFn = auth.FinishRegistration
-	dbCreateAuthFn           = db.CreateAuthenticator
-	authBeginLoginFn         = auth.BeginLogin
-	authFinishLoginFn        = auth.FinishLogin
-	dbGetAuthByCredIDFn      = db.GetAuthenticatorByCredentialID
-	dbGetUserByIDFn          = db.GetUserByID
-	authGenerateTokenFn      = auth.GenerateToken
 )
 
 // PasskeyRegistrationStart démarre l'enregistrement d'une passkey
@@ -41,7 +24,7 @@ func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Récupérer les passkeys existantes
-	authenticators, err := dbGetAuthsByUserIDFn(user.ID)
+	authenticators, err := hookGetAuthenticatorsByUserID(user.ID)
 	if err != nil {
 		serverError(w, "get authenticators", err)
 		return
@@ -71,7 +54,7 @@ func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 		Credentials: credentials,
 	}
 
-	options, sessionData, err := authBeginRegistrationFn(passkeyUser)
+	options, sessionData, err := hookBeginRegistration(passkeyUser)
 	if err != nil {
 		srvError(w, "begin registration", err)
 		return
@@ -104,7 +87,7 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	parsedResponse, err := parseCCRFn(&response)
+	parsedResponse, err := hookParseCCR(&response)
 	if err != nil {
 		clientError(w, ErrValidation, "Réponse invalide", http.StatusBadRequest)
 		return
@@ -115,7 +98,7 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 		Email: user.Email,
 	}
 
-	credential, err := authFinishRegistrationFn(passkeyUser, cookie.Value, parsedResponse)
+	credential, err := hookFinishRegistration(passkeyUser, cookie.Value, parsedResponse)
 	if err != nil {
 		clientError(w, ErrValidation, "Enregistrement échoué", http.StatusBadRequest)
 		return
@@ -123,7 +106,7 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 
 	// Sauvegarder la passkey en BDD (base64 encode)
 	transports, _ := json.Marshal(credential.Transport)
-	err = dbCreateAuthFn(
+	err = hookCreateAuthenticator(
 		base64.StdEncoding.EncodeToString(credential.ID),
 		base64.StdEncoding.EncodeToString(credential.PublicKey),
 		int(credential.Authenticator.SignCount),
@@ -140,14 +123,14 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 
 	clearCookie(w, "passkey_challenge")
 
-	db.LogAudit(user.ID, db.AuditPasskeyAdd, getClientIP(r), r.UserAgent())
+	hookLogAudit(user.ID, db.AuditPasskeyAdd, getClientIP(r), r.UserAgent())
 
 	jsonSuccess(w, map[string]bool{"success": true})
 }
 
 // PasskeyLoginStart démarre l'authentification par passkey
 func PasskeyLoginStart(w http.ResponseWriter, r *http.Request) {
-	options, sessionData, err := authBeginLoginFn()
+	options, sessionData, err := hookBeginLogin()
 	if err != nil {
 		srvError(w, "begin login", err)
 		return
@@ -171,20 +154,20 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 		// rawID est en bytes, on le convertit en base64 pour chercher en BDD
 		credIDBase64 := base64.StdEncoding.EncodeToString(rawID)
 
-		authenticator, err := dbGetAuthByCredIDFn(credIDBase64)
+		authenticator, err := hookGetAuthByCredentialID(credIDBase64)
 		if err != nil || authenticator == nil {
 			return nil, err
 		}
 
-		user, err := dbGetUserByIDFn(authenticator.UserID)
+		user, err := hookGetUserByID(authenticator.UserID)
 		if err != nil || user == nil {
 			return nil, err
 		}
 
-		email, _ := crypto.Decrypt(user.EmailEncrypted)
+		email, _ := hookDecryptStr(user.EmailEncrypted)
 
 		// Récupérer toutes les credentials de l'utilisateur (base64 decode)
-		auths, _ := db.GetAuthenticatorsByUserID(user.ID)
+		auths, _ := hookGetAuthenticatorsByUserID(user.ID)
 		var credentials []webauthn.Credential
 		for _, a := range auths {
 			credID, _ := base64.StdEncoding.DecodeString(a.CredentialID)
@@ -209,7 +192,7 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 		}, nil
 	}
 
-	passkeyUser, credential, err := authFinishLoginFn(cookie.Value, r, userHandler)
+	passkeyUser, credential, err := hookFinishLogin(cookie.Value, r, userHandler)
 	if err != nil {
 		clientError(w, ErrAuthInvalid, "Authentification échouée", http.StatusUnauthorized)
 		return
@@ -219,14 +202,14 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 	hookUpdateAuthCounter(base64.StdEncoding.EncodeToString(credential.ID), int(credential.Authenticator.SignCount)) //nolint:errcheck
 
 	// Récupérer l'utilisateur complet
-	user, err := dbGetUserByIDFn(passkeyUser.ID)
+	user, err := hookGetUserByID(passkeyUser.ID)
 	if err != nil {
 		serverError(w, "get user", err)
 		return
 	}
 
 	// Générer le token JWT
-	token, err := authGenerateTokenFn(user.ID, user.Role, user.Language, user.Currency, user.SessionVersion)
+	token, err := hookGenerateToken(user.ID, user.Role, user.Language, user.Currency, user.SessionVersion)
 	if err != nil {
 		serverError(w, "generate token", err)
 		return
@@ -259,7 +242,7 @@ func DeletePasskey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db.LogAudit(user.ID, db.AuditPasskeyRemove, getClientIP(r), r.UserAgent())
+	hookLogAudit(user.ID, db.AuditPasskeyRemove, getClientIP(r), r.UserAgent())
 
 	w.WriteHeader(http.StatusNoContent)
 }
