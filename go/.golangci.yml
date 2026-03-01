@@ -21,6 +21,7 @@ linters:
         - pilot-finance/internal/templates.RenderPartial
         # Close — defer close is idiomatic Go
         - (io.Closer).Close
+        - (net.Conn).Close
         - (*net/tls.Conn).Close
         - (*net/smtp.Client).Close
         # crypto/rand.Read always succeeds on supported platforms
