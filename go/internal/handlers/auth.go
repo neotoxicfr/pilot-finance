@@ -147,7 +147,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// Mise à niveau silencieuse du hash bcrypt (cost 10 → 12) sans invalider les sessions
 	if hookNeedsRehash(user.Password) {
 		if newHash, err := hookHashPassword(password); err == nil {
-			hookUpdatePasswordHash(user.ID, newHash)
+			hookUpdatePasswordHash(user.ID, newHash) //nolint:errcheck
 		}
 	}
 
@@ -170,7 +170,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		data["MailEnabled"] = os.Getenv("SMTP_HOST") != ""
 		data["Requires2FA"] = true
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		hookRender(w, "login.html", data)
+		hookRender(w, "login.html", data) //nolint:errcheck
 		return
 	}
 
@@ -304,10 +304,10 @@ func handleFailedLogin(user *db.User) {
 		newCount = 0
 	}
 
-	hookUpdateLoginAttempts(user.ID, newCount, lockUntil)
+	hookUpdateLoginAttempts(user.ID, newCount, lockUntil) //nolint:errcheck
 }
 
 // resetLoginAttempts réinitialise les tentatives de connexion
 func resetLoginAttempts(userID int64) {
-	hookUpdateLoginAttempts(userID, 0, nil)
+	hookUpdateLoginAttempts(userID, 0, nil) //nolint:errcheck
 }

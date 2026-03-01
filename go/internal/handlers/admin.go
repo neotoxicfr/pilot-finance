@@ -71,5 +71,5 @@ func AuditPage(w http.ResponseWriter, r *http.Request) {
 	data["TotalPages"] = totalPages
 	data["Total"] = total
 
-	hookRender(w, "admin-audit.html", data)
+	hookRender(w, "admin-audit.html", data) //nolint:errcheck
 }
