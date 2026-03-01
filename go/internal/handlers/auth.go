@@ -7,10 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"pilot-finance/internal/auth"
-	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
-	"pilot-finance/internal/ratelimit"
 )
 
 // htmxRedirect envoie HX-Redirect pour les requêtes HTMX (navigation complète),
@@ -46,7 +43,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	clientIP := getClientIP(r)
 
 	// Rate limiting
-	result := ratelimit.Check(clientIP, "login")
+	result := hookRateLimitCheck(clientIP, "login")
 	if !result.Allowed {
 		waitMin := (result.RetryAfterMs / 60000) + 1
 		clientError(w, ErrRateLimited, "Trop de tentatives. Réessayez dans "+strconv.FormatInt(waitMin, 10)+" min.", http.StatusTooManyRequests)
@@ -78,7 +75,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if !auth.ValidateTOTP(secret, twoFactorCode) {
+		if !hookValidateTOTP(secret, twoFactorCode) {
 			clientError(w, ErrAuthInvalid, "Code 2FA invalide", http.StatusUnauthorized)
 			return
 		}
@@ -95,9 +92,9 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		setSessionCookie(w, "session", token, 86400)
 
 		// Réinitialiser le rate limiter
-		ratelimit.Reset(clientIP, "login")
+		hookRateLimitReset(clientIP, "login")
 
-		db.LogAudit(user.ID, db.AuditLoginSuccess, clientIP, r.UserAgent())
+		hookLogAudit(user.ID, db.AuditLoginSuccess, clientIP, r.UserAgent())
 
 		// Rediriger vers le dashboard
 		htmxRedirect(w, r, "/")
@@ -114,7 +111,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Chercher l'utilisateur par blind index
-	blindIndex := crypto.ComputeBlindIndex(email)
+	blindIndex := hookComputeBlindIndex(email)
 	user, err := hookGetUserByBlindIndex(blindIndex)
 	if err != nil {
 		serverError(w, "get user", err)
@@ -134,8 +131,8 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Vérifier le mot de passe
-	if !crypto.VerifyPassword(password, user.Password) {
-		db.LogAudit(user.ID, db.AuditLoginFail, clientIP, r.UserAgent())
+	if !hookVerifyPassword(password, user.Password) {
+		hookLogAudit(user.ID, db.AuditLoginFail, clientIP, r.UserAgent())
 		handleFailedLogin(user)
 		clientError(w, ErrAuthInvalid, "Identifiants incorrects", http.StatusUnauthorized)
 		return
@@ -147,9 +144,9 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Mise à niveau silencieuse du hash bcrypt (cost 10 → 12) sans invalider les sessions
-	if crypto.NeedsRehash(user.Password) {
+	if hookNeedsRehash(user.Password) {
 		if newHash, err := hookHashPassword(password); err == nil {
-			db.UpdatePasswordHash(user.ID, newHash)
+			hookUpdatePasswordHash(user.ID, newHash)
 		}
 	}
 
@@ -186,9 +183,9 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	setSessionCookie(w, "session", token, 86400) // 24 heures
 
 	// Réinitialiser le rate limiter
-	ratelimit.Reset(clientIP, "login")
+	hookRateLimitReset(clientIP, "login")
 
-	db.LogAudit(user.ID, db.AuditLoginSuccess, clientIP, r.UserAgent())
+	hookLogAudit(user.ID, db.AuditLoginSuccess, clientIP, r.UserAgent())
 
 	// Rediriger vers le dashboard
 	htmxRedirect(w, r, "/")
@@ -204,7 +201,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	clientIP := getClientIP(r)
 
 	// Rate limiting
-	result := ratelimit.Check(clientIP, "register")
+	result := hookRateLimitCheck(clientIP, "register")
 	if !result.Allowed {
 		clientError(w, ErrRateLimited, "Trop de tentatives. Réessayez plus tard.", http.StatusTooManyRequests)
 		return
@@ -230,7 +227,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := crypto.ValidatePassword(password); err != nil {
+	if err := hookValidatePassword(password); err != nil {
 		clientError(w, ErrValidation, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -245,7 +242,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	isFirstUser := userCount == 0
 
 	// Vérifier si l'email existe déjà
-	blindIndex := crypto.ComputeBlindIndex(email)
+	blindIndex := hookComputeBlindIndex(email)
 	existingUser, err := hookGetUserByBlindIndex(blindIndex)
 	if err != nil {
 		serverError(w, "get user", err)
@@ -306,10 +303,10 @@ func handleFailedLogin(user *db.User) {
 		newCount = 0
 	}
 
-	db.UpdateLoginAttempts(user.ID, newCount, lockUntil)
+	hookUpdateLoginAttempts(user.ID, newCount, lockUntil)
 }
 
 // resetLoginAttempts réinitialise les tentatives de connexion
 func resetLoginAttempts(userID int64) {
-	db.UpdateLoginAttempts(userID, 0, nil)
+	hookUpdateLoginAttempts(userID, 0, nil)
 }

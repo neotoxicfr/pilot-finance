@@ -8,7 +8,6 @@ import (
 
 	qrcode "github.com/skip2/go-qrcode"
 
-	"pilot-finance/internal/auth"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
 )
@@ -30,7 +29,7 @@ func MFASetup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generer l'URI pour le QR code
-	otpauthURI := auth.GenerateTOTPURI(secret, user.Email)
+	otpauthURI := hookGenerateTOTPURI(secret, user.Email)
 
 	// Generer le QR code localement (zéro dépendance externe)
 	png, err := hookQREncode(otpauthURI, qrcode.Medium, 200)
@@ -66,7 +65,7 @@ func MFAEnable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verifier le code
-	if !auth.ValidateTOTP(req.Secret, req.Code) {
+	if !hookValidateTOTP(req.Secret, req.Code) {
 		jsonError(w, ErrAuthInvalid, "Code invalide", http.StatusBadRequest)
 		return
 	}
@@ -83,7 +82,7 @@ func MFAEnable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db.LogAudit(user.ID, db.AuditMFAEnable, getClientIP(r), r.UserAgent())
+	hookLogAudit(user.ID, db.AuditMFAEnable, getClientIP(r), r.UserAgent())
 
 	jsonSuccess(w, map[string]bool{"success": true})
 }
@@ -101,7 +100,7 @@ func MFADisable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db.LogAudit(user.ID, db.AuditMFADisable, getClientIP(r), r.UserAgent())
+	hookLogAudit(user.ID, db.AuditMFADisable, getClientIP(r), r.UserAgent())
 
 	// Rediriger vers settings pour recharger la page
 	http.Redirect(w, r, "/settings", http.StatusSeeOther)

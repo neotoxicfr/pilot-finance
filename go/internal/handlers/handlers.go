@@ -2,14 +2,11 @@
 package handlers
 
 import (
-	"context"
 	"io"
 	"log/slog"
 	"net/http"
 	"runtime"
 	"time"
-
-	"pilot-finance/internal/db"
 )
 
 // Version est définie par ldflags au build
@@ -36,9 +33,7 @@ func HealthCheck(w http.ResponseWriter, r *http.Request) {
 
 	// Test de la base de données (timeout 2s)
 	dbStatus := "ok"
-	pingCtx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-	defer cancel()
-	if err := db.DB.PingContext(pingCtx); err != nil {
+	if err := hookPingDB(r.Context()); err != nil {
 		dbStatus = "error"
 	}
 

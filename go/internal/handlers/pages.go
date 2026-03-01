@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 
-	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
@@ -74,7 +73,7 @@ func RegisterSubmit(w http.ResponseWriter, r *http.Request) {
 func Logout(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user != nil {
-		db.LogAudit(user.ID, db.AuditLogout, getClientIP(r), r.UserAgent())
+		hookLogAudit(user.ID, db.AuditLogout, getClientIP(r), r.UserAgent())
 	}
 	clearCookie(w, "session")
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -242,7 +241,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 	data["IsRegisterOpen"] = os.Getenv("ALLOW_REGISTER") == "true"
 	data["Users"] = []interface{}{}
 
-	passkeys, _ := db.GetAuthenticatorsByUserID(user.ID)
+	passkeys, _ := hookGetAuthenticatorsByUserID(user.ID)
 	data["Passkeys"] = passkeys
 
 	if isAdmin {
@@ -291,7 +290,7 @@ func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Hasher le token pour la recherche
-	hashedToken := crypto.HashToken(token)
+	hashedToken := hookHashToken(token)
 
 	// Verifier le token
 	err := hookVerifyEmailByToken(hashedToken)

@@ -7,18 +7,13 @@ import (
 	"os"
 	"strings"
 	"time"
-
-	"pilot-finance/internal/crypto"
-	"pilot-finance/internal/db"
-	"pilot-finance/internal/mail"
-	"pilot-finance/internal/ratelimit"
 )
 
 // ForgotPasswordPage affiche la page de mot de passe oublie
 func ForgotPasswordPage(w http.ResponseWriter, r *http.Request) {
 	data := baseData(r, nil)
 	data["Title"] = "Mot de passe oublie"
-	data["MailEnabled"] = mail.IsEnabled()
+	data["MailEnabled"] = hookMailIsEnabled()
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	hookRender(w, "forgot-password.html", data)
@@ -26,7 +21,7 @@ func ForgotPasswordPage(w http.ResponseWriter, r *http.Request) {
 
 // ForgotPasswordSubmit traite la demande de reinitialisation
 func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
-	if !mail.IsEnabled() {
+	if !hookMailIsEnabled() {
 		clientError(w, ErrDisabled, "Fonction desactivee", http.StatusBadRequest)
 		return
 	}
@@ -34,7 +29,7 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	clientIP := getClientIP(r)
 
 	// Rate limiting
-	result := ratelimit.Check(clientIP, "forgotPassword")
+	result := hookRateLimitCheck(clientIP, "forgotPassword")
 	if !result.Allowed {
 		clientError(w, ErrRateLimited, "Trop de tentatives. Reessayez plus tard.", http.StatusTooManyRequests)
 		return
@@ -47,7 +42,7 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Chercher l'utilisateur
-	blindIndex := crypto.ComputeBlindIndex(email)
+	blindIndex := hookComputeBlindIndex(email)
 	user, err := hookGetUserByBlindIndex(blindIndex)
 	if err != nil || user == nil {
 		// Ne pas reveler si l'email existe ou non
@@ -64,18 +59,18 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	tokenBytes := make([]byte, 32)
 	rand.Read(tokenBytes)
 	token := hex.EncodeToString(tokenBytes)
-	hashedToken := crypto.HashToken(token)
+	hashedToken := hookHashToken(token)
 
 	// Sauvegarder le token avec expiration 1h
 	expiry := time.Now().Add(1 * time.Hour)
-	db.SetResetToken(user.ID, hashedToken, expiry)
+	hookSetResetToken(user.ID, hashedToken, expiry)
 
 	// Envoyer l'email
 	host := os.Getenv("HOST")
 	if host == "" {
 		host = "localhost:3000"
 	}
-	mail.SendPasswordReset(email, token, host)
+	hookSendPasswordReset(email, token, host)
 
 	data := baseData(r, nil)
 	data["Title"] = "Mot de passe oublie"
@@ -94,8 +89,8 @@ func ResetPasswordPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verifier le token
-	hashedToken := crypto.HashToken(token)
-	user, err := db.GetUserByResetToken(hashedToken)
+	hashedToken := hookHashToken(token)
+	user, err := hookGetUserByResetToken(hashedToken)
 	if err != nil || user == nil {
 		data := baseData(r, nil)
 		data["Title"] = "Lien expire"
@@ -133,7 +128,7 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := crypto.ValidatePassword(password); err != nil {
+	if err := hookValidatePassword(password); err != nil {
 		data := baseData(r, nil)
 		data["Title"] = "Nouveau mot de passe"
 		data["Token"] = token
@@ -144,8 +139,8 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verifier le token
-	hashedToken := crypto.HashToken(token)
-	user, err := db.GetUserByResetToken(hashedToken)
+	hashedToken := hookHashToken(token)
+	user, err := hookGetUserByResetToken(hashedToken)
 	if err != nil || user == nil {
 		data := baseData(r, nil)
 		data["Title"] = "Lien expire"
@@ -169,7 +164,7 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Effacer le token
-	db.ClearResetToken(user.ID)
+	hookClearResetToken(user.ID)
 
 	// Rediriger vers login avec message de succes
 	http.Redirect(w, r, "/login?reset=success", http.StatusSeeOther)
