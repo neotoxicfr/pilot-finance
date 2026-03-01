@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"pilot-finance/internal/crypto"
-	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/projection"
 )
@@ -124,14 +122,14 @@ func RecurringAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Dechiffrer les noms de comptes
-	accounts, _ := db.GetAccountsByUserID(user.ID)
+	accounts, _ := hookGetAccountsByUserID(user.ID)
 	decryptAccountNames(accounts)
 	accountMap := buildAccountMap(accounts)
 
 	result := make([]map[string]interface{}, len(recurrings))
 	for i, rec := range recurrings {
 		description := rec.Description
-		if decrypted, err2 := crypto.Decrypt(rec.Description); err2 == nil {
+		if decrypted, err2 := hookDecryptStr(rec.Description); err2 == nil {
 			description = decrypted
 		}
 

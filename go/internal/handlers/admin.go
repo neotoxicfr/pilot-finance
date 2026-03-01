@@ -5,10 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
-	"pilot-finance/internal/templates"
 )
 
 const auditPageSize = 50
@@ -43,9 +41,9 @@ func AuditPage(w http.ResponseWriter, r *http.Request) {
 		if _, ok := emailCache[e.UserID]; ok {
 			continue
 		}
-		u, err := db.GetUserByID(e.UserID)
+		u, err := hookGetUserByID(e.UserID)
 		if err == nil && u != nil {
-			if email, err := crypto.Decrypt(u.EmailEncrypted); err == nil {
+			if email, err := hookDecryptStr(u.EmailEncrypted); err == nil {
 				emailCache[e.UserID] = email
 			}
 		}
@@ -73,5 +71,5 @@ func AuditPage(w http.ResponseWriter, r *http.Request) {
 	data["TotalPages"] = totalPages
 	data["Total"] = total
 
-	templates.Render(w, "admin-audit.html", data)
+	hookRender(w, "admin-audit.html", data)
 }

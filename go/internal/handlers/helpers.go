@@ -4,7 +4,6 @@ import (
 	"log/slog"
 	"net/http"
 
-	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/projection"
@@ -46,7 +45,7 @@ func clearCookie(w http.ResponseWriter, name string) {
 // decryptAccountNames déchiffre les noms de comptes en place
 func decryptAccountNames(accounts []db.Account) {
 	for i := range accounts {
-		if decrypted, err := crypto.Decrypt(accounts[i].Name); err == nil {
+		if decrypted, err := hookDecryptStr(accounts[i].Name); err == nil {
 			accounts[i].Name = decrypted
 		}
 	}
@@ -83,7 +82,7 @@ func buildRecurringData(payouts []projection.YieldPayout, recs []db.RecurringOpe
 	}
 	for _, rec := range recs {
 		description := rec.Description
-		if decrypted, err := crypto.Decrypt(rec.Description); err == nil {
+		if decrypted, err := hookDecryptStr(rec.Description); err == nil {
 			description = decrypted
 		}
 		toAccountName := ""
