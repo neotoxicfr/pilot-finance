@@ -123,23 +123,21 @@ func TestLoad_WrongBlindIndexKeyLength(t *testing.T) {
 	}
 }
 
-func TestLoad_MailEnabled_MissingSMTP(t *testing.T) {
+func TestLoad_SMTPHost_MissingCredentials(t *testing.T) {
 	setupBaseEnv(t)
-	t.Setenv("ENABLE_MAIL", "true")
-	t.Setenv("SMTP_HOST", "")
+	t.Setenv("SMTP_HOST", "smtp.example.com")
 	t.Setenv("SMTP_USER", "")
 	t.Setenv("SMTP_PASS", "")
 	t.Setenv("SMTP_FROM", "")
 
 	_, err := Load()
 	if err == nil {
-		t.Error("want error for ENABLE_MAIL=true with incomplete SMTP config")
+		t.Error("want error for SMTP_HOST with incomplete SMTP config")
 	}
 }
 
-func TestLoad_MailEnabled_FullSMTP(t *testing.T) {
+func TestLoad_SMTP_FullConfig(t *testing.T) {
 	setupBaseEnv(t)
-	t.Setenv("ENABLE_MAIL", "true")
 	t.Setenv("SMTP_HOST", "smtp.example.com")
 	t.Setenv("SMTP_USER", "user@example.com")
 	t.Setenv("SMTP_PASS", "secret")
@@ -149,8 +147,8 @@ func TestLoad_MailEnabled_FullSMTP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load with full SMTP: %v", err)
 	}
-	if !cfg.EnableMail {
-		t.Error("want EnableMail=true")
+	if cfg.SMTPHost != "smtp.example.com" {
+		t.Errorf("SMTPHost: want 'smtp.example.com', got %q", cfg.SMTPHost)
 	}
 }
 

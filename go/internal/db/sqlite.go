@@ -67,21 +67,44 @@ func Init(cfg Config) error {
 	// Migrations automatiques versionnées
 	runMigrations(cfg.Path)
 
-	// VACUUM périodique au démarrage pour compacter la DB
+	// WAL checkpoint au démarrage
 	if _, err := DB.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
 		slog.Warn("WAL checkpoint", "err", err)
 	}
 
-	// Backup automatique quotidien (même volume, pas de mount supplémentaire)
-	backupPath := cfg.Path + ".backup"
+	// Backup rotatif au démarrage (max 3 fichiers, même volume)
+	rotateBackups(cfg.Path)
+
+	// VACUUM + backup périodique toutes les 24h
+	dbPath := cfg.Path
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			if _, err := DB.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+				slog.Warn("WAL checkpoint périodique", "err", err)
+			}
+			rotateBackups(dbPath)
+		}
+	}()
+
+	slog.Info("base de données connectée", "path", cfg.Path)
+	return nil
+}
+
+// rotateBackups crée un backup et garde les 3 derniers (.backup.1 = plus récent)
+func rotateBackups(dbPath string) {
+	// Rotation : .backup.3 supprimé, .backup.2 → .3, .backup.1 → .2, nouveau → .1
+	os.Remove(dbPath + ".backup.3")
+	os.Rename(dbPath+".backup.2", dbPath+".backup.3")
+	os.Rename(dbPath+".backup.1", dbPath+".backup.2")
+
+	backupPath := dbPath + ".backup.1"
 	if _, err := DB.Exec("VACUUM INTO ?", backupPath); err != nil {
 		slog.Warn("backup automatique", "err", err)
 	} else {
 		slog.Info("backup créé", "path", backupPath)
 	}
-
-	slog.Info("base de données connectée", "path", cfg.Path)
-	return nil
 }
 
 // migration représente une migration de schéma nommée et idempotente.
