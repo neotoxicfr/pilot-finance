@@ -71,15 +71,6 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Preparer la liste des comptes avec couleurs pour le graphique
-	accountColors := make([]map[string]interface{}, 0)
-	for _, acc := range accounts {
-		accountColors = append(accountColors, map[string]interface{}{
-			"name":  acc.Name,
-			"color": acc.Color,
-		})
-	}
-
 	var projectionTotal float64
 	if len(data.Projection) > 0 {
 		projectionTotal = data.Projection[len(data.Projection)-1].TotalAvg

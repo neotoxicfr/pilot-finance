@@ -52,13 +52,6 @@ func TestIntegration_RegisterLoginCreateAccount(t *testing.T) {
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("login: got %d, want 303", rr.Code)
 	}
-	for _, c := range rr.Result().Cookies() {
-		if c.Name == "session" {
-			sessionToken = c.Value
-			break
-		}
-	}
-
 	// 3. Create account (with injected user context since we bypass middleware)
 	user := &middleware.User{ID: 1, Role: "ADMIN", Language: "fr", Currency: "EUR", SessionVersion: 1}
 	req := injectUser(post("/accounts", url.Values{

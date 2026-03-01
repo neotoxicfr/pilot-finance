@@ -266,7 +266,7 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Trouver l'index du compte a deplacer
-	var currentIdx int = -1
+	currentIdx := -1
 	for i, acc := range accounts {
 		if acc.ID == id {
 			currentIdx = i
