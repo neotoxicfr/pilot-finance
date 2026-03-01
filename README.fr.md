@@ -9,8 +9,8 @@
 ![CI](https://github.com/neotoxicfr/pilot-finance/actions/workflows/ci.yml/badge.svg)
 ![CodeQL](https://github.com/neotoxicfr/pilot-finance/actions/workflows/codeql.yml/badge.svg)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen?logo=go)
-![Dependabot](https://img.shields.io/badge/dependabot-active-limegreen?logo=dependabot&label=Dependabot)
-![GitHub License](https://img.shields.io/github/license/neotoxicfr/pilot-finance?color=limegreen)
+![Dependabot](https://img.shields.io/badge/dependabot-active-brightgreen?logo=dependabot&label=Dependabot)
+![GitHub License](https://img.shields.io/github/license/neotoxicfr/pilot-finance?color=brightgreen)
 
 :gb: [English version](README.md)
 
