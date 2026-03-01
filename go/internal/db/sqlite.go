@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"pilot-finance/internal/crypto"
@@ -18,6 +19,8 @@ import (
 
 var DB *sql.DB
 var bgDone chan struct{}
+var bgMu sync.Mutex
+var bgWg sync.WaitGroup
 
 // Config contient la configuration de la base de données
 type Config struct {
@@ -78,8 +81,13 @@ func Init(cfg Config) error {
 
 	// VACUUM + backup périodique toutes les 24h
 	dbPath := cfg.Path
+	bgMu.Lock()
 	bgDone = make(chan struct{})
+	done := bgDone
+	bgMu.Unlock()
+	bgWg.Add(1)
 	go func() {
+		defer bgWg.Done()
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()
 		for {
@@ -89,7 +97,7 @@ func Init(cfg Config) error {
 					slog.Warn("WAL checkpoint périodique", "err", err)
 				}
 				rotateBackups(dbPath)
-			case <-bgDone:
+			case <-done:
 				return
 			}
 		}
@@ -425,9 +433,13 @@ func encryptIfPlain(raw string, fn func(string) (string, error)) string {
 
 // Close ferme la connexion à la base de données et arrête la goroutine de maintenance.
 func Close() error {
-	if bgDone != nil {
-		close(bgDone)
-		bgDone = nil
+	bgMu.Lock()
+	ch := bgDone
+	bgDone = nil
+	bgMu.Unlock()
+	if ch != nil {
+		close(ch)
+		bgWg.Wait()
 	}
 	if DB != nil {
 		return DB.Close()
