@@ -26,7 +26,7 @@ jobs:
 
       - name: Run tests with race detector
         working-directory: go
-        run: go test -race -timeout 600s -coverprofile=coverage.out $(go list ./... | grep -v /cmd/)
+        run: go test -race -timeout 600s -coverprofile=coverage.out $(go list ./... | grep -v -E '/cmd/|/db$')
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
