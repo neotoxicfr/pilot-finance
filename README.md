@@ -12,19 +12,19 @@
 ![Dependabot](https://img.shields.io/badge/dependabot-active-limegreen?logo=dependabot&label=Dependabot)
 ![GitHub License](https://img.shields.io/github/license/neotoxicfr/pilot-finance?color=limegreen)
 
-🇫🇷 [Version française](README.fr.md)
+:fr: [Version française](README.fr.md)
 
 **Pilot Finance** is a personal financial cockpit designed for self-hosting. A simple and secure application to track your net worth, yields and recurring operations — with complete privacy.
 
 ---
 
-## ✨ Features
+## Features
 
-* 💰 **Net worth tracking** — Visualize the overall evolution of your assets over time.
-* 📈 **Yield simulation** — Manage compound interest and project gains over multiple years, with automatic payment of non-reinvested interest to a target account.
-* 🔄 **Recurring operations** — Track monthly income and expenses with automatic projection.
-* 🌍 **Multi-language & Multi-currency** — Interface available in French and English. Currency display configurable per user (EUR, USD, GBP, CHF, JPY, CAD, AUD).
-* 🔐 **Security by default** :
+* **Net worth tracking** — Visualize the overall evolution of your assets over time.
+* **Yield simulation** — Manage compound interest and project gains over multiple years, with automatic payment of non-reinvested interest to a target account.
+* **Recurring operations** — Track monthly income and expenses with automatic projection.
+* **Multi-language & Multi-currency** — Interface available in French and English. Currency display configurable per user (EUR, USD, GBP, CHF, JPY, CAD, AUD).
+* **Security by default** :
     * **`@alpinejs/csp`** build — no `unsafe-eval` in CSP; all Alpine components registered server-side
     * Strict **Content Security Policy** with per-request dynamic nonces — no `unsafe-inline` for scripts
     * **`X-Frame-Options: DENY`** + **`Permissions-Policy`** — clickjacking protection and browser API restrictions
@@ -34,14 +34,15 @@
     * **Session versioning** — automatic logout from all devices on password change
     * Multi-level **rate limiting** — global 120 req/min, auth routes 10 req/min
     * Native **Passkeys** (WebAuthn) and **2FA** (TOTP) support
+    * **Audit log** — full traceability of authentication and account events (admin)
     * **Health Check API** — database and memory monitoring endpoint
-* 📧 **Email** (optional) — Account verification on registration and password recovery.
-* 📱 **Responsive** — Smooth experience on all devices. Drag & drop reorder on desktop, tap-to-move arrows on mobile. PWA-ready.
-* ⚡ **Lightweight** — ~40 MB Docker image, ~30 MB RAM, <1s start time. JS loaded per-page (no global bundle). Zero CDN requests.
+* **Email** (optional) — Account verification on registration and password recovery.
+* **Responsive** — Smooth experience on all devices. Drag & drop reorder on desktop, tap-to-move arrows on mobile. PWA-ready.
+* **Lightweight** — ~40 MB Docker image, ~30 MB RAM, <1s start time. JS loaded per-page (no global bundle). Zero CDN requests.
 
 ---
 
-## 🚀 Installation with Docker
+## Installation with Docker
 
 The recommended method is **Docker Compose**.
 
@@ -59,7 +60,7 @@ services:
     container_name: pilot
     restart: unless-stopped
     security_opt:
-      - no-new-privileges=true
+      - no-new-privileges:true
     cap_drop:
       - ALL
     environment:
@@ -93,7 +94,7 @@ The application listens on port **3000** inside the container.
 
 ---
 
-## 🛠️ Environment variables
+## Environment variables
 
 | Variable | Description |
 | :--- | :--- |
@@ -108,38 +109,37 @@ The application listens on port **3000** inside the container.
 
 ---
 
-## 🛡️ Security & Privacy
+## Security & Privacy
 
 * **Zero plaintext storage** — Account names and transaction labels are encrypted with AES-256-GCM. Only your server holds the key.
 * **Zero external dependency** — No CDN requests at runtime. All JS and CSS assets are compiled and served locally.
 * **Strict CSP** — Per-request nonces + `@alpinejs/csp` build (no `unsafe-eval`). No `unsafe-inline` in `script-src`.
-* **Startup verification** — The server refuses to start if encryption keys are missing or too short.
+* **Startup verification** — The server refuses to start if encryption keys are missing or too short. Schema integrity is verified at every startup.
 * **Passkeys** — WebAuthn provides phishing-resistant authentication without passwords.
+* **Structured error codes** — Every error response includes an `X-Error-Code` header for programmatic error handling.
 
 ---
 
-## 🛠️ Stack
+## Stack
 
 | | |
 |---|---|
 | Backend | Go 1.26 + chi router |
 | Frontend | HTMX 2.0 + Alpine.js 3.15 (CSP build) + Tailwind CSS v4 |
-| Database | SQLite (WAL mode) |
+| Database | SQLite (WAL mode) + automatic rotating backups |
 | Charts | Chart.js 4.5 |
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
+| CI/CD | GitHub Actions (tests, CodeQL, GHCR image, auto-release) |
 | Docker image | ~40 MB (alpine:3.23 base) |
 
 ---
 
-
----
-
-## 🤖 Credits
+## Credits
 
 This project was designed with AI assistance for code structure and optimization. The final code is purely applicative and uses no AI algorithms or third-party data processing at runtime. Your cockpit remains 100% local and private.
 
 ---
 
-## 📝 License
+## License
 
 Distributed under the **MIT** license.

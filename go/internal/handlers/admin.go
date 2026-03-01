@@ -17,7 +17,7 @@ const auditPageSize = 50
 func AuditPage(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil || user.Role != "ADMIN" {
-		http.Error(w, "Non autorisé", http.StatusForbidden)
+		clientError(w, ErrForbidden, "Non autorisé", http.StatusForbidden)
 		return
 	}
 
@@ -28,8 +28,7 @@ func AuditPage(w http.ResponseWriter, r *http.Request) {
 
 	entries, err := hookGetAuditLog(page, auditPageSize)
 	if err != nil {
-		slog.Error("AuditPage: GetAuditLog", "err", err)
-		http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+		srvError(w, "AuditPage: GetAuditLog", err)
 		return
 	}
 

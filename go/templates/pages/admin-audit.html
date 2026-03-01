@@ -2,8 +2,8 @@
 <div class="max-w-[1400px] mx-auto px-4 py-8">
 
     <div class="mb-6">
-        <h1 class="text-2xl font-bold text-foreground">Audit Log</h1>
-        <p class="text-sm text-muted-foreground mt-1">{{.Total}} entrées au total</p>
+        <h1 class="text-2xl font-bold text-foreground">{{index .T "audit.title"}}</h1>
+        <p class="text-sm text-muted-foreground mt-1">{{.Total}} {{index .T "audit.total_entries"}}</p>
     </div>
 
     <div class="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
@@ -11,11 +11,11 @@
             <table class="w-full text-sm">
                 <thead class="border-b border-border bg-accent/40">
                     <tr>
-                        <th scope="col" class="px-4 py-3 text-left font-semibold text-foreground">Date</th>
-                        <th scope="col" class="px-4 py-3 text-left font-semibold text-foreground">Utilisateur</th>
-                        <th scope="col" class="px-4 py-3 text-left font-semibold text-foreground">Action</th>
-                        <th scope="col" class="hidden md:table-cell px-4 py-3 text-left font-semibold text-foreground">IP</th>
-                        <th scope="col" class="hidden lg:table-cell px-4 py-3 text-left font-semibold text-foreground">User-Agent</th>
+                        <th scope="col" class="px-4 py-3 text-left font-semibold text-foreground">{{index .T "audit.col_date"}}</th>
+                        <th scope="col" class="px-4 py-3 text-left font-semibold text-foreground">{{index .T "audit.col_user"}}</th>
+                        <th scope="col" class="px-4 py-3 text-left font-semibold text-foreground">{{index .T "audit.col_action"}}</th>
+                        <th scope="col" class="hidden md:table-cell px-4 py-3 text-left font-semibold text-foreground">{{index .T "audit.col_ip"}}</th>
+                        <th scope="col" class="hidden lg:table-cell px-4 py-3 text-left font-semibold text-foreground">{{index .T "audit.col_useragent"}}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-border">
@@ -49,7 +49,7 @@
                     {{else}}
                     <tr>
                         <td colspan="5" class="px-4 py-12 text-center text-muted-foreground">
-                            Aucune entrée dans l'audit log.
+                            {{index $.T "audit.empty"}}
                         </td>
                     </tr>
                     {{end}}
@@ -64,13 +64,13 @@
                 {{if gt .Page 1}}
                 <a href="/admin/audit?page={{sub .Page 1}}"
                    class="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-accent text-foreground transition-colors">
-                    ← Précédent
+                    {{index .T "audit.previous"}}
                 </a>
                 {{end}}
                 {{if lt .Page .TotalPages}}
                 <a href="/admin/audit?page={{add .Page 1}}"
                    class="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-accent text-foreground transition-colors">
-                    Suivant →
+                    {{index .T "audit.next"}}
                 </a>
                 {{end}}
             </div>
@@ -79,7 +79,7 @@
     </div>
 
     <div class="mt-4">
-        <a href="/settings" class="text-sm text-muted-foreground hover:text-foreground transition-colors">← Retour aux paramètres</a>
+        <a href="/settings" class="text-sm text-muted-foreground hover:text-foreground transition-colors">{{index .T "audit.back_to_settings"}}</a>
     </div>
 </div>
 {{end}}

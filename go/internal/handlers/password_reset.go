@@ -28,7 +28,7 @@ func ForgotPasswordPage(w http.ResponseWriter, r *http.Request) {
 // ForgotPasswordSubmit traite la demande de reinitialisation
 func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	if !mail.IsEnabled() {
-		http.Error(w, "Fonction desactivee", http.StatusBadRequest)
+		clientError(w, ErrDisabled, "Fonction desactivee", http.StatusBadRequest)
 		return
 	}
 
@@ -37,13 +37,13 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	// Rate limiting
 	result := ratelimit.Check(clientIP, "forgotPassword")
 	if !result.Allowed {
-		http.Error(w, "Trop de tentatives. Reessayez plus tard.", http.StatusTooManyRequests)
+		clientError(w, ErrRateLimited, "Trop de tentatives. Reessayez plus tard.", http.StatusTooManyRequests)
 		return
 	}
 
 	email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
 	if email == "" {
-		http.Error(w, "Email requis", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Email requis", http.StatusBadRequest)
 		return
 	}
 
@@ -120,7 +120,7 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	confirmPassword := r.FormValue("confirmPassword")
 
 	if token == "" || password == "" {
-		http.Error(w, "Donnees manquantes", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Donnees manquantes", http.StatusBadRequest)
 		return
 	}
 

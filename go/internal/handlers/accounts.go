@@ -22,12 +22,12 @@ var hexColorRegex = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Données invalides", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
 		return
 	}
 
@@ -45,7 +45,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	targetAccountIDStr := r.FormValue("targetAccountId")
 
 	if name == "" {
-		http.Error(w, "Nom requis", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Nom requis", http.StatusBadRequest)
 		return
 	}
 
@@ -53,7 +53,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	encryptedName, err := hookEncryptStr(name)
 	if err != nil {
 		slog.Error("encrypt name", "err", err)
-		http.Error(w, "Erreur chiffrement", http.StatusInternalServerError)
+		clientError(w, ErrEncryption, "Erreur chiffrement", http.StatusInternalServerError)
 		return
 	}
 
@@ -62,7 +62,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		var err error
 		balance, err = strconv.ParseFloat(balanceStr, 64)
 		if err != nil {
-			http.Error(w, "Solde invalide", http.StatusBadRequest)
+			clientError(w, ErrValidation, "Solde invalide", http.StatusBadRequest)
 			return
 		}
 	}
@@ -70,7 +70,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	if color == "" {
 		color = "#3b82f6"
 	} else if !hexColorRegex.MatchString(color) {
-		http.Error(w, "Format couleur invalide (ex: #3b82f6)", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Format couleur invalide (ex: #3b82f6)", http.StatusBadRequest)
 		return
 	}
 
@@ -84,19 +84,19 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	var parseErr error
 	if yieldMinStr != "" {
 		if yieldMin, parseErr = strconv.ParseFloat(yieldMinStr, 64); parseErr != nil {
-			http.Error(w, "Taux minimum invalide", http.StatusBadRequest)
+			clientError(w, ErrValidation, "Taux minimum invalide", http.StatusBadRequest)
 			return
 		}
 	}
 	if yieldMaxStr != "" {
 		if yieldMax, parseErr = strconv.ParseFloat(yieldMaxStr, 64); parseErr != nil {
-			http.Error(w, "Taux maximum invalide", http.StatusBadRequest)
+			clientError(w, ErrValidation, "Taux maximum invalide", http.StatusBadRequest)
 			return
 		}
 	}
 	if reinvestmentRateStr != "" {
 		if reinvestmentRate, parseErr = strconv.Atoi(reinvestmentRateStr); parseErr != nil {
-			http.Error(w, "Taux de réinvestissement invalide", http.StatusBadRequest)
+			clientError(w, ErrValidation, "Taux de réinvestissement invalide", http.StatusBadRequest)
 			return
 		}
 	}
@@ -104,18 +104,18 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	// Validation des taux de rendement
 	if isYieldActive {
 		if yieldMin < 0 || yieldMax < 0 {
-			http.Error(w, "Les taux de rendement ne peuvent pas être négatifs", http.StatusBadRequest)
+			clientError(w, ErrValidation, "Les taux de rendement ne peuvent pas être négatifs", http.StatusBadRequest)
 			return
 		}
 		if yieldType == "RANGE" && yieldMin > yieldMax {
-			http.Error(w, "Le taux minimum doit être inférieur ou égal au taux maximum", http.StatusBadRequest)
+			clientError(w, ErrValidation, "Le taux minimum doit être inférieur ou égal au taux maximum", http.StatusBadRequest)
 			return
 		}
 	}
 
 	// Validation du taux de réinvestissement
 	if reinvestmentRate < 0 || reinvestmentRate > 100 {
-		http.Error(w, "Le taux de réinvestissement doit être compris entre 0 et 100", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Le taux de réinvestissement doit être compris entre 0 et 100", http.StatusBadRequest)
 		return
 	}
 
@@ -124,13 +124,13 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	if targetAccountIDStr != "" && targetAccountIDStr != "0" {
 		targetID, err := strconv.ParseInt(targetAccountIDStr, 10, 64)
 		if err != nil {
-			http.Error(w, "Compte cible invalide", http.StatusBadRequest)
+			clientError(w, ErrValidation, "Compte cible invalide", http.StatusBadRequest)
 			return
 		}
 		// Vérifier que le compte cible appartient à l'utilisateur
 		ok, err := hookAccountBelongsToUser(targetID, user.ID)
 		if err != nil || !ok {
-			http.Error(w, "Compte cible invalide", http.StatusBadRequest)
+			clientError(w, ErrValidation, "Compte cible invalide", http.StatusBadRequest)
 			return
 		}
 		targetAccountID = &targetID
@@ -145,13 +145,12 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	if idStr != "" {
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
-			http.Error(w, "ID invalide", http.StatusBadRequest)
+			clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
 			return
 		}
 		err = hookUpdateAccountWithYield(id, user.ID, encryptedName, balance, color, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
 		if err != nil {
-			slog.Error("update account", "err", err)
-			http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
+			srvError(w, "update account", err)
 			return
 		}
 		db.LogAudit(user.ID, db.AuditAccountUpdate, getClientIP(r), r.UserAgent())
@@ -165,8 +164,7 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 
 		err := hookCreateAccountWithYield(user.ID, encryptedName, balance, color, position, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
 		if err != nil {
-			slog.Error("create account", "err", err)
-			http.Error(w, "Erreur création", http.StatusInternalServerError)
+			srvError(w, "create account", err)
 			return
 		}
 		db.LogAudit(user.ID, db.AuditAccountCreate, getClientIP(r), r.UserAgent())
@@ -180,21 +178,20 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "ID invalide", http.StatusBadRequest)
+		clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
 		return
 	}
 
 	err = hookDeleteAccount(id, user.ID)
 	if err != nil {
-		slog.Error("delete account", "err", err)
-		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
+		srvError(w, "delete account", err)
 		return
 	}
 
@@ -208,33 +205,32 @@ func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 func UpdateBalance(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "ID invalide", http.StatusBadRequest)
+		clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Données invalides", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
 		return
 	}
 
 	balanceStr := r.FormValue("balance")
 	balance, err := strconv.ParseFloat(balanceStr, 64)
 	if err != nil {
-		http.Error(w, "Solde invalide", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Solde invalide", http.StatusBadRequest)
 		return
 	}
 
 	err = hookUpdateAccountBalance(id, user.ID, balance)
 	if err != nil {
-		slog.Error("update balance", "err", err)
-		http.Error(w, "Erreur mise à jour", http.StatusInternalServerError)
+		srvError(w, "update balance", err)
 		return
 	}
 
@@ -245,20 +241,20 @@ func UpdateBalance(w http.ResponseWriter, r *http.Request) {
 func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "ID invalide", http.StatusBadRequest)
+		clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
 		return
 	}
 
 	direction := r.URL.Query().Get("direction")
 	if direction != "up" && direction != "down" {
-		http.Error(w, "Direction invalide", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Direction invalide", http.StatusBadRequest)
 		return
 	}
 
@@ -279,7 +275,7 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if currentIdx == -1 {
-		http.Error(w, "Compte non trouvé", http.StatusNotFound)
+		clientError(w, ErrNotFound, "Compte non trouvé", http.StatusNotFound)
 		return
 	}
 
@@ -301,8 +297,7 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	// Echanger les positions
 	err = hookSwapAccountPositions(accounts[currentIdx].ID, accounts[targetIdx].ID, user.ID)
 	if err != nil {
-		slog.Error("swap positions", "err", err)
-		http.Error(w, "Erreur déplacement", http.StatusInternalServerError)
+		srvError(w, "swap positions", err)
 		return
 	}
 
@@ -314,7 +309,7 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 func ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
@@ -322,13 +317,12 @@ func ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 		IDs []int64 `json:"ids"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.IDs) == 0 {
-		http.Error(w, "Données invalides", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
 		return
 	}
 
 	if err := hookReorderAccounts(user.ID, body.IDs); err != nil {
-		slog.Error("reorder accounts", "err", err)
-		http.Error(w, "Erreur réordonnancement", http.StatusInternalServerError)
+		srvError(w, "reorder accounts", err)
 		return
 	}
 

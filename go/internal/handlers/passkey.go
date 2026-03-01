@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/base64"
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -37,7 +36,7 @@ var (
 func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
@@ -74,42 +73,40 @@ func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 
 	options, sessionData, err := authBeginRegistrationFn(passkeyUser)
 	if err != nil {
-		slog.Error("begin registration", "err", err)
-		http.Error(w, "Erreur WebAuthn", http.StatusInternalServerError)
+		srvError(w, "begin registration", err)
 		return
 	}
 
 	setSessionCookie(w, "passkey_challenge", sessionData, 300) // 5 minutes
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(options)
+	jsonSuccess(w, options)
 }
 
 // PasskeyRegistrationFinish termine l'enregistrement d'une passkey
 func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	// Récupérer la session
 	cookie, err := r.Cookie("passkey_challenge")
 	if err != nil {
-		http.Error(w, "Session expirée", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Session expirée", http.StatusBadRequest)
 		return
 	}
 
 	// Parser la réponse WebAuthn
 	var response protocol.CredentialCreationResponse
 	if err := json.NewDecoder(r.Body).Decode(&response); err != nil {
-		http.Error(w, "Réponse invalide", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Réponse invalide", http.StatusBadRequest)
 		return
 	}
 
 	parsedResponse, err := parseCCRFn(&response)
 	if err != nil {
-		http.Error(w, "Réponse invalide", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Réponse invalide", http.StatusBadRequest)
 		return
 	}
 
@@ -120,7 +117,7 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 
 	credential, err := authFinishRegistrationFn(passkeyUser, cookie.Value, parsedResponse)
 	if err != nil {
-		http.Error(w, "Enregistrement échoué", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Enregistrement échoué", http.StatusBadRequest)
 		return
 	}
 
@@ -137,8 +134,7 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 		user.ID,
 	)
 	if err != nil {
-		slog.Error("save authenticator", "err", err)
-		http.Error(w, "Erreur sauvegarde", http.StatusInternalServerError)
+		srvError(w, "save authenticator", err)
 		return
 	}
 
@@ -146,30 +142,27 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 
 	db.LogAudit(user.ID, db.AuditPasskeyAdd, getClientIP(r), r.UserAgent())
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	jsonSuccess(w, map[string]bool{"success": true})
 }
 
 // PasskeyLoginStart démarre l'authentification par passkey
 func PasskeyLoginStart(w http.ResponseWriter, r *http.Request) {
 	options, sessionData, err := authBeginLoginFn()
 	if err != nil {
-		slog.Error("begin login", "err", err)
-		http.Error(w, "Erreur WebAuthn", http.StatusInternalServerError)
+		srvError(w, "begin login", err)
 		return
 	}
 
 	setSessionCookie(w, "passkey_auth_challenge", sessionData, 300) // 5 minutes
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(options)
+	jsonSuccess(w, options)
 }
 
 // PasskeyLoginFinish termine l'authentification par passkey
 func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("passkey_auth_challenge")
 	if err != nil {
-		http.Error(w, "Session expirée", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Session expirée", http.StatusBadRequest)
 		return
 	}
 
@@ -218,7 +211,7 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 
 	passkeyUser, credential, err := authFinishLoginFn(cookie.Value, r, userHandler)
 	if err != nil {
-		http.Error(w, "Authentification échouée", http.StatusUnauthorized)
+		clientError(w, ErrAuthInvalid, "Authentification échouée", http.StatusUnauthorized)
 		return
 	}
 
@@ -242,29 +235,27 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 	clearCookie(w, "passkey_auth_challenge")
 	setSessionCookie(w, "session", token, 86400) // 24 heures
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	jsonSuccess(w, map[string]bool{"success": true})
 }
 
 // DeletePasskey supprime une passkey
 func DeletePasskey(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "ID invalide", http.StatusBadRequest)
+		clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
 		return
 	}
 
 	err = hookDeleteAuthenticator(id, user.ID)
 	if err != nil {
-		slog.Error("delete authenticator", "err", err)
-		http.Error(w, "Erreur suppression", http.StatusInternalServerError)
+		srvError(w, "delete authenticator", err)
 		return
 	}
 
@@ -277,14 +268,14 @@ func DeletePasskey(w http.ResponseWriter, r *http.Request) {
 func RenamePasskey(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "ID invalide", http.StatusBadRequest)
+		clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
 		return
 	}
 
@@ -292,17 +283,15 @@ func RenamePasskey(w http.ResponseWriter, r *http.Request) {
 		Name string `json:"name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Données invalides", http.StatusBadRequest)
+		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
 		return
 	}
 
 	err = hookRenameAuthenticator(id, user.ID, req.Name)
 	if err != nil {
-		slog.Error("rename authenticator", "err", err)
-		http.Error(w, "Erreur renommage", http.StatusInternalServerError)
+		srvError(w, "rename authenticator", err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	jsonSuccess(w, map[string]bool{"success": true})
 }
