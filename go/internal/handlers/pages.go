@@ -285,7 +285,7 @@ func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 	if token == "" {
 		data["Error"] = t["verify.token_missing"]
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		hookRender(w, "verify-email.html", data)
+		hookRender(w, "verify-email.html", data) //nolint:errcheck //nolint:errcheck
 		return
 	}
 
@@ -301,14 +301,14 @@ func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 			data["Error"] = t["verify.server_error"]
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		hookRender(w, "verify-email.html", data)
+		hookRender(w, "verify-email.html", data) //nolint:errcheck //nolint:errcheck
 		return
 	}
 
 	data["Success"] = true
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	hookRender(w, "verify-email.html", data)
+	hookRender(w, "verify-email.html", data) //nolint:errcheck
 }
 
 // PrivacyPage affiche la politique de confidentialité

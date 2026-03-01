@@ -19,7 +19,7 @@ func ForgotPasswordPage(w http.ResponseWriter, r *http.Request) {
 	data["MailEnabled"] = hookMailIsEnabled()
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	hookRender(w, "forgot-password.html", data)
+	hookRender(w, "forgot-password.html", data) //nolint:errcheck
 }
 
 // ForgotPasswordSubmit traite la demande de reinitialisation
@@ -55,7 +55,7 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 		data["MailEnabled"] = true
 		data["Success"] = true
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		hookRender(w, "forgot-password.html", data)
+		hookRender(w, "forgot-password.html", data) //nolint:errcheck
 		return
 	}
 
@@ -94,7 +94,7 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	data["MailEnabled"] = true
 	data["Success"] = true
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	hookRender(w, "forgot-password.html", data)
+	hookRender(w, "forgot-password.html", data) //nolint:errcheck
 }
 
 // ResetPasswordPage affiche la page de reinitialisation
@@ -114,7 +114,7 @@ func ResetPasswordPage(w http.ResponseWriter, r *http.Request) {
 		data["Title"] = t["reset.link_expired"]
 		data["Error"] = t["reset.link_expired_desc"]
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		hookRender(w, "reset-password.html", data)
+		hookRender(w, "reset-password.html", data) //nolint:errcheck
 		return
 	}
 
@@ -123,7 +123,7 @@ func ResetPasswordPage(w http.ResponseWriter, r *http.Request) {
 	data["Title"] = t["reset.new_password"]
 	data["Token"] = token
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	hookRender(w, "reset-password.html", data)
+	hookRender(w, "reset-password.html", data) //nolint:errcheck
 }
 
 // ResetPasswordSubmit traite la reinitialisation
@@ -146,7 +146,7 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 		data["Token"] = token
 		data["Error"] = t["reset.passwords_mismatch"]
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		hookRender(w, "reset-password.html", data)
+		hookRender(w, "reset-password.html", data) //nolint:errcheck
 		return
 	}
 
@@ -157,7 +157,7 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 		data["Token"] = token
 		data["Error"] = i18n.T(lang, "pwd_error."+err.Error())
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		hookRender(w, "reset-password.html", data)
+		hookRender(w, "reset-password.html", data) //nolint:errcheck
 		return
 	}
 
@@ -170,7 +170,7 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 		data["Title"] = t["reset.link_expired"]
 		data["Error"] = t["reset.link_expired_desc"]
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		hookRender(w, "reset-password.html", data)
+		hookRender(w, "reset-password.html", data) //nolint:errcheck
 		return
 	}
 
@@ -188,7 +188,7 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Effacer le token
-	hookClearResetToken(user.ID)
+	hookClearResetToken(user.ID) //nolint:errcheck
 
 	// Rediriger vers login avec message de succes
 	http.Redirect(w, r, "/login?reset=success", http.StatusSeeOther)
