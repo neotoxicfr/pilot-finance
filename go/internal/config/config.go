@@ -22,9 +22,8 @@ type Config struct {
 
 	// Fonctionnalités
 	AllowRegister bool
-	EnableMail    bool
 
-	// SMTP (optionnel)
+	// SMTP (optionnel — activé automatiquement si SMTP_HOST est défini)
 	SMTPHost string
 	SMTPPort string
 	SMTPUser string
@@ -42,7 +41,6 @@ func Load() (*Config, error) {
 		EncryptionKey: os.Getenv("ENCRYPTION_KEY"),
 		BlindIndexKey: os.Getenv("BLIND_INDEX_KEY"),
 		AllowRegister: getEnv("ALLOW_REGISTER", "false") == "true",
-		EnableMail:    getEnv("ENABLE_MAIL", "false") == "true",
 		SMTPHost:      os.Getenv("SMTP_HOST"),
 		SMTPPort:      getEnv("SMTP_PORT", "587"),
 		SMTPUser:      os.Getenv("SMTP_USER"),
@@ -70,10 +68,10 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("BLIND_INDEX_KEY doit faire 64 caractères hex (32 bytes)")
 	}
 
-	// Validation SMTP si mail activé
-	if cfg.EnableMail {
-		if cfg.SMTPHost == "" || cfg.SMTPUser == "" || cfg.SMTPPass == "" || cfg.SMTPFrom == "" {
-			return nil, fmt.Errorf("ENABLE_MAIL=true mais configuration SMTP incomplète")
+	// Validation SMTP si configuré
+	if cfg.SMTPHost != "" {
+		if cfg.SMTPUser == "" || cfg.SMTPPass == "" || cfg.SMTPFrom == "" {
+			return nil, fmt.Errorf("SMTP_HOST défini mais configuration SMTP incomplète (USER/PASS/FROM)")
 		}
 	}
 
