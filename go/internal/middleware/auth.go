@@ -123,6 +123,7 @@ func RequireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user := GetUser(r)
 		if user == nil || user.Role != "ADMIN" {
+			w.Header().Set("X-Error-Code", "FORBIDDEN")
 			http.Error(w, "Accès refusé", http.StatusForbidden)
 			return
 		}

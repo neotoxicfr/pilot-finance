@@ -366,6 +366,41 @@ func runMigrations(dbPath string) {
 			slog.Info("migration appliquée", "name", m.Name)
 		}
 	}
+
+	// Auto-test : vérifier que toutes les migrations attendues sont bien appliquées
+	verifyMigrations(migrations)
+}
+
+// verifyMigrations vérifie que toutes les migrations attendues sont présentes dans schema_migrations.
+func verifyMigrations(expected []migration) {
+	rows, err := DB.Query(`SELECT name FROM schema_migrations`)
+	if err != nil {
+		slog.Error("vérification migrations: impossible de lire schema_migrations", "err", err)
+		return
+	}
+	defer rows.Close()
+
+	applied := make(map[string]bool)
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			continue
+		}
+		applied[name] = true
+	}
+
+	var missing []string
+	for _, m := range expected {
+		if !applied[m.Name] {
+			missing = append(missing, m.Name)
+		}
+	}
+
+	if len(missing) > 0 {
+		slog.Error("SCHEMA INCOHÉRENT: migrations manquantes", "missing", missing, "applied", len(applied), "expected", len(expected))
+	} else {
+		slog.Info("schéma DB vérifié", "migrations", len(applied))
+	}
 }
 
 // encryptIfPlain chiffre une valeur si elle n'est pas déjà chiffrée (pas de ":").

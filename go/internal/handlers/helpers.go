@@ -11,9 +11,10 @@ import (
 )
 
 // serverError logue l'erreur interne et renvoie une 500 générique au client.
+// Inclut le header X-Error-Code pour le suivi structuré.
 func serverError(w http.ResponseWriter, context string, err error) {
 	slog.Error(context, "err", err)
-	http.Error(w, "Erreur serveur", http.StatusInternalServerError)
+	clientError(w, ErrInternal, "Erreur serveur", http.StatusInternalServerError)
 }
 
 // setSessionCookie pose un cookie de session avec les flags de sécurité appropriés
