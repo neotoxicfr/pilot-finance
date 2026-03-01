@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"log/slog"
 	"time"
 )
@@ -102,4 +103,45 @@ func CountAuditLog() (int, error) {
 	var count int
 	err := DB.QueryRow(`SELECT COUNT(*) FROM audit_log`).Scan(&count)
 	return count, err
+}
+
+// PurgeAuditLog supprime les entrées d'audit plus anciennes que retentionDays jours.
+// Retourne le nombre d'entrées supprimées.
+func PurgeAuditLog(retentionDays int) (int64, error) {
+	cutoff := time.Now().AddDate(0, 0, -retentionDays).Unix()
+	result, err := DB.Exec(`DELETE FROM audit_log WHERE created_at < ?`, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+// StartAuditRotation lance une goroutine qui purge les entrées d'audit
+// plus anciennes que 90 jours, toutes les 24h.
+func StartAuditRotation(ctx context.Context) {
+	const retentionDays = 90
+
+	// Purge initiale au démarrage
+	if deleted, err := PurgeAuditLog(retentionDays); err != nil {
+		slog.Warn("audit rotation initiale échouée", "err", err)
+	} else if deleted > 0 {
+		slog.Info("audit rotation initiale", "deleted", deleted)
+	}
+
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if deleted, err := PurgeAuditLog(retentionDays); err != nil {
+					slog.Warn("audit rotation échouée", "err", err)
+				} else if deleted > 0 {
+					slog.Info("audit rotation", "deleted", deleted)
+				}
+			}
+		}
+	}()
 }

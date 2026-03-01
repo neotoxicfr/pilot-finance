@@ -225,6 +225,9 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// Rotation automatique du journal d'audit (purge > 90 jours, toutes les 24h)
+	db.StartAuditRotation(ctx)
+
 	go func() {
 		slog.Info("serveur démarré", "addr", "http://localhost"+addr)
 		if err := server.ListenAndServe(); err != http.ErrServerClosed {
