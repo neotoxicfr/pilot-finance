@@ -3,6 +3,8 @@ package handlers
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"net/http"
 	"runtime"
 	"time"
@@ -57,4 +59,19 @@ func HealthCheck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonSuccess(w, response)
+}
+
+// CSPReport reçoit les rapports de violation CSP et les log
+func CSPReport(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(io.LimitReader(r.Body, 10240))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	if len(body) > 0 {
+		slog.Warn("csp-violation", "report", string(body), "ip", r.RemoteAddr, "ua", r.UserAgent())
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

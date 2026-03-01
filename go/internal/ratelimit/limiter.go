@@ -48,6 +48,7 @@ type attempt struct {
 	blockedAt int64
 }
 
+// Limiter gère le rate limiting par clé avec blocage temporaire après dépassement
 type Limiter struct {
 	mu       sync.RWMutex
 	attempts map[string]*attempt

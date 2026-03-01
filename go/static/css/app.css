@@ -194,6 +194,22 @@ select:focus {
 .dark .kpi-card-blue    { background: linear-gradient(135deg, var(--background) 0%, rgba(59,130,246,.10) 100%); }
 .dark .kpi-card-slate   { background: linear-gradient(135deg, var(--background) 0%, rgba(100,116,139,.12) 100%); }
 
+/* Skeleton loaders */
+@keyframes skeleton-pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.15; }
+}
+.skeleton {
+    background: var(--muted-foreground);
+    border-radius: 8px;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+.skeleton-text { height: 0.75rem; width: 60%; }
+.skeleton-title { height: 1.25rem; width: 40%; }
+.skeleton-kpi { height: 2.25rem; width: 55%; }
+.skeleton-chart { height: 100%; width: 100%; border-radius: 12px; }
+.skeleton-row { height: 3.5rem; width: 100%; }
+
 /* HTMX Loading States */
 @keyframes htmx-pulse {
     0%, 100% { opacity: 1; }
