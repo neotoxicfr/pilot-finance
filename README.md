@@ -6,7 +6,9 @@
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/neotoxicfr/pilot-finance?filename=go%2Fgo.mod&logo=go&logoColor=white&labelColor=deepskyblue&color=deepskyblue)
 ![HTMX](https://img.shields.io/badge/HTMX-3D72D7?logo=htmx&logoColor=white)
 ![Docker Build](https://github.com/neotoxicfr/pilot-finance/actions/workflows/docker-publish.yml/badge.svg)
+![CI](https://github.com/neotoxicfr/pilot-finance/actions/workflows/ci.yml/badge.svg)
 ![CodeQL](https://github.com/neotoxicfr/pilot-finance/actions/workflows/codeql.yml/badge.svg)
+![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen?logo=go)
 ![Dependabot](https://img.shields.io/badge/dependabot-active-limegreen?logo=dependabot&label=Dependabot)
 ![GitHub License](https://img.shields.io/github/license/neotoxicfr/pilot-finance?color=limegreen)
 

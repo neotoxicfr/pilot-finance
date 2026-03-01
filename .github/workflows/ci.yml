@@ -28,6 +28,16 @@ jobs:
         working-directory: go
         run: go test -race -timeout 600s -coverprofile=coverage.out $(go list ./... | grep -v -E '/cmd/|/db$')
 
+      - name: Enforce coverage threshold
+        working-directory: go
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
+          echo "Coverage: ${COVERAGE}%"
+          if [ "$(echo "$COVERAGE < 100.0" | bc -l)" -eq 1 ]; then
+            echo "::error::Coverage ${COVERAGE}% is below 100% threshold"
+            exit 1
+          fi
+
       - name: Upload coverage
         uses: actions/upload-artifact@v4
         with:
