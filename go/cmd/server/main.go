@@ -74,7 +74,11 @@ func main() {
 		slog.Error("base de données", "err", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			slog.Error("fermeture base de données", "err", err)
+		}
+	}()
 	slog.Info("base de données connectée")
 
 	// Initialiser les templates
@@ -252,7 +256,7 @@ func maxBodySize(next http.Handler) http.Handler {
 // staticETags calcule les ETag au démarrage pour chaque fichier statique
 var staticETags = func() map[string]string {
 	tags := make(map[string]string)
-	fs.WalkDir(os.DirFS("static"), ".", func(path string, d fs.DirEntry, err error) error {
+	if err := fs.WalkDir(os.DirFS("static"), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
 		}
@@ -261,7 +265,9 @@ var staticETags = func() map[string]string {
 			tags["/"+path] = fmt.Sprintf(`"%x"`, hash)
 		}
 		return nil
-	})
+	}); err != nil {
+		slog.Warn("static ETag calculation", "err", err)
+	}
 	return tags
 }()
 

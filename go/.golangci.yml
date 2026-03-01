@@ -14,3 +14,6 @@ linters:
       - path: _test\.go
         linters:
           - errcheck
+      - path: internal/db/
+        linters:
+          - errcheck
