@@ -11,7 +11,6 @@ import (
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/ratelimit"
-	"pilot-finance/internal/templates"
 )
 
 // htmxRedirect envoie HX-Redirect pour les requêtes HTMX (navigation complète),
@@ -149,7 +148,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Mise à niveau silencieuse du hash bcrypt (cost 10 → 12) sans invalider les sessions
 	if crypto.NeedsRehash(user.Password) {
-		if newHash, err := crypto.HashPassword(password); err == nil {
+		if newHash, err := hookHashPassword(password); err == nil {
 			db.UpdatePasswordHash(user.ID, newHash)
 		}
 	}
@@ -173,7 +172,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		data["MailEnabled"] = os.Getenv("SMTP_HOST") != ""
 		data["Requires2FA"] = true
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		templates.Render(w, "login.html", data)
+		hookRender(w, "login.html", data)
 		return
 	}
 

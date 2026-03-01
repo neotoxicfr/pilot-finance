@@ -10,7 +10,6 @@ import (
 	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/projection"
-	"pilot-finance/internal/templates"
 )
 
 // localeMap mappe la langue vers la locale BCP-47 pour JS Intl
@@ -225,7 +224,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Récupérer l'utilisateur complet pour MFAEnabled
-	dbUser, _ := db.GetUserByID(user.ID)
+	dbUser, _ := hookGetUserByID(user.ID)
 	mfaEnabled := false
 	if dbUser != nil {
 		mfaEnabled = dbUser.MFAEnabled
@@ -254,7 +253,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 		}
 		var usersWithEmail []map[string]interface{}
 		for _, u := range users {
-			uEmail, err := crypto.Decrypt(u.EmailEncrypted)
+			uEmail, err := hookDecryptStr(u.EmailEncrypted)
 			if err != nil {
 				slog.Warn("admin: decrypt email", "userID", u.ID, "err", err)
 				continue
@@ -287,7 +286,7 @@ func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 	if token == "" {
 		data["Error"] = "Jeton manquant."
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		templates.Render(w, "verify-email.html", data)
+		hookRender(w, "verify-email.html", data)
 		return
 	}
 
@@ -303,14 +302,14 @@ func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 			data["Error"] = "Erreur serveur."
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		templates.Render(w, "verify-email.html", data)
+		hookRender(w, "verify-email.html", data)
 		return
 	}
 
 	data["Success"] = true
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	templates.Render(w, "verify-email.html", data)
+	hookRender(w, "verify-email.html", data)
 }
 
 // PrivacyPage affiche la politique de confidentialité

@@ -45,7 +45,7 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Récupérer l'utilisateur complet pour vérifier le mot de passe
-	dbUser, err := db.GetUserByID(user.ID)
+	dbUser, err := hookGetUserByID(user.ID)
 	if err != nil || dbUser == nil {
 		clientError(w, ErrNotFound, "Utilisateur non trouvé", http.StatusNotFound)
 		return
@@ -129,12 +129,12 @@ func ExportData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbUser, err := db.GetUserByID(user.ID)
+	dbUser, err := hookGetUserByID(user.ID)
 	if err != nil || dbUser == nil {
 		clientError(w, ErrNotFound, "Utilisateur non trouvé", http.StatusNotFound)
 		return
 	}
-	email, _ := crypto.Decrypt(dbUser.EmailEncrypted)
+	email, _ := hookDecryptStr(dbUser.EmailEncrypted)
 
 	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
@@ -149,12 +149,12 @@ func ExportData(w http.ResponseWriter, r *http.Request) {
 
 	// Déchiffrer les noms
 	for i := range accounts {
-		if dec, err := crypto.Decrypt(accounts[i].Name); err == nil {
+		if dec, err := hookDecryptStr(accounts[i].Name); err == nil {
 			accounts[i].Name = dec
 		}
 	}
 	for i := range recurrings {
-		if dec, err := crypto.Decrypt(recurrings[i].Description); err == nil {
+		if dec, err := hookDecryptStr(recurrings[i].Description); err == nil {
 			recurrings[i].Description = dec
 		}
 	}
@@ -235,7 +235,7 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Ne pas permettre de supprimer un admin
-	targetUser, err := db.GetUserByID(id)
+	targetUser, err := hookGetUserByID(id)
 	if err != nil || targetUser == nil {
 		clientError(w, ErrNotFound, "Utilisateur non trouvé", http.StatusNotFound)
 		return

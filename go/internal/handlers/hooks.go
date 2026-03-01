@@ -44,6 +44,7 @@ var (
 	hookGetAuditLog              = db.GetAuditLog
 	hookCountAuditLog            = db.CountAuditLog
 	hookRender                   = func(w io.Writer, name string, data interface{}) error { return templates.Render(w, name, data) }
+	hookRenderPartial            = templates.RenderPartial
 	hookQREncode                 = qrcode.Encode
 	hookReorderAccounts          = db.ReorderAccounts
 	hookDeleteAuthenticator      = db.DeleteAuthenticator

@@ -13,7 +13,6 @@ import (
 	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/projection"
-	"pilot-finance/internal/templates"
 )
 
 var hexColorRegex = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
@@ -376,12 +375,12 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 
 	// Rendre la liste des comptes
 	if len(accounts) == 0 {
-		templates.RenderPartial(w, "accounts.html", "accounts-empty", map[string]interface{}{
+		hookRenderPartial(w, "accounts.html", "accounts-empty", map[string]interface{}{
 			"T": i18n.Map(lang),
 		})
 	}
 	for _, acc := range accounts {
-		templates.RenderPartial(w, "accounts.html", "account-row", map[string]interface{}{
+		hookRenderPartial(w, "accounts.html", "account-row", map[string]interface{}{
 			"Account":  acc,
 			"Currency": currency,
 		})
@@ -389,7 +388,7 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 
 	// OOB: Rendre le summary card
 	w.Write([]byte(`<div id="summary-card" hx-swap-oob="innerHTML">`))
-	templates.RenderPartial(w, "accounts.html", "summary-card", map[string]interface{}{
+	hookRenderPartial(w, "accounts.html", "summary-card", map[string]interface{}{
 		"T":               i18n.Map(lang),
 		"MonthlyIncome":   monthlyIncome,
 		"MonthlyExpenses": monthlyExpenses,
@@ -402,7 +401,7 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 
 	// OOB: Rendre le tableau des recurrents
 	w.Write([]byte(`<div id="recurring-list" hx-swap-oob="innerHTML">`))
-	templates.RenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{
+	hookRenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{
 		"Recurrings": recurringData,
 		"Currency":   currency,
 		"T":          i18n.Map(lang),

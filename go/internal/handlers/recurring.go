@@ -10,7 +10,6 @@ import (
 	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/projection"
-	"pilot-finance/internal/templates"
 )
 
 // CreateRecurring cree ou met a jour une operation recurrente
@@ -223,7 +222,7 @@ func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
 	recurringData := buildRecurringData(yieldPayouts, recurrings, accountMap, interestPrefix)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	templates.RenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{
+	hookRenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{
 		"Recurrings": recurringData,
 		"Currency":   currency,
 		"T":          i18n.Map(lang),
