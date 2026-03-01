@@ -1494,6 +1494,33 @@ func TestResetPasswordSubmit_HashError(t *testing.T) {
 	}
 }
 
+// --- ResetPasswordSubmit : db.UpdatePassword error → 500 ---
+
+func TestResetPasswordSubmit_UpdatePasswordError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "resetupd@example.com", "ValidP@ss1!", "USER")
+
+	rawToken := "eeff00112233445566778899aabbccdd00112233445566778899aabbccddee"
+	hashedToken := crypto.HashToken(rawToken)
+	db.SetResetToken(uid, hashedToken, time.Now().Add(time.Hour))
+
+	orig := hookUpdatePassword
+	hookUpdatePassword = func(int64, string) error { return errTest }
+	t.Cleanup(func() { hookUpdatePassword = orig })
+
+	req := post("/reset-password", url.Values{
+		"token":           {rawToken},
+		"password":        {"NewValidP@ssw0rd!"},
+		"confirmPassword": {"NewValidP@ssw0rd!"},
+	})
+	rr := httptest.NewRecorder()
+	ResetPasswordSubmit(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500 (update password error), got %d", rr.Code)
+	}
+}
+
 // --- ExportData: avec passkey → couvre le loop du slice passkeys ---
 
 func TestExportData_WithPasskey(t *testing.T) {
