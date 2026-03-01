@@ -371,25 +371,25 @@ document.addEventListener('alpine:init', () => {
                     </h2>
                     <div class="flex flex-col sm:flex-row gap-3">
                         <a href="/settings/export"
-                           class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-background hover:bg-accent text-sm font-medium text-foreground transition-all w-full sm:w-auto">
+                           class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-background hover:bg-accent text-sm font-medium text-foreground transition-all flex-1">
                             {{template "icon-save" dict "Size" 16}}
                             {{index .T "settings.export_data"}}
                         </a>
                         <button x-show="!selfDeleteConfirm" @click="selfDeleteConfirm = true"
-                                class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-medium text-red-500 transition-all w-full sm:w-auto">
+                                class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-medium text-red-500 transition-all flex-1">
                             {{template "icon-trash" dict "Size" 16}}
                             {{index .T "settings.delete_account"}}
                         </button>
                         <template x-if="selfDeleteConfirm">
-                            <div class="flex gap-2">
+                            <div class="flex gap-2 flex-1">
                                 <button hx-delete="/settings/account"
                                         hx-target="body"
-                                        class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-sm font-bold text-white transition-all">
+                                        class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-sm font-bold text-white transition-all">
                                     {{template "icon-trash" dict "Size" 16}}
                                     {{index .T "settings.delete_account_confirm"}}
                                 </button>
                                 <button @click="selfDeleteConfirm = false"
-                                        class="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all">
+                                        class="flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all">
                                     {{index .T "common.cancel"}}
                                 </button>
                             </div>

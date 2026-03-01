@@ -381,7 +381,10 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 		})
 	}
 	for _, acc := range accounts {
-		templates.RenderPartial(w, "accounts.html", "account-row", acc)
+		templates.RenderPartial(w, "accounts.html", "account-row", map[string]interface{}{
+			"Account":  acc,
+			"Currency": currency,
+		})
 	}
 
 	// OOB: Rendre le summary card

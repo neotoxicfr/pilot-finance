@@ -40,9 +40,12 @@
                             <input type="text" name="name" placeholder="{{index .T "accounts.name_placeholder"}}" required
                                    x-model="accountName"
                                    class="bg-accent border border-border rounded-xl p-3 text-sm w-full outline-hidden focus:border-blue-500 text-foreground">
-                            <input type="text" inputmode="decimal" name="balance" placeholder="{{index .T "accounts.balance_placeholder"}}"
-                                   x-model="accountBalance"
-                                   class="bg-accent border border-border rounded-xl p-3 text-sm w-full font-mono outline-hidden focus:border-blue-500 text-foreground">
+                            <div class="relative">
+                                <input type="text" inputmode="decimal" name="balance" placeholder="{{index .T "accounts.balance_placeholder"}}"
+                                       x-model="accountBalance"
+                                       class="bg-accent border border-border rounded-xl p-3 pr-12 text-sm w-full font-mono outline-hidden focus:border-blue-500 text-foreground">
+                                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">{{.Currency}}</span>
+                            </div>
                         </div>
                         <div>
                             <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.color_label"}}</label>
@@ -165,7 +168,7 @@
             <!-- Accounts List -->
             <div class="space-y-3" id="accounts-list">
                 {{range .Accounts}}
-                {{template "account-row" .}}
+                {{template "account-row" dict "Account" . "Currency" $.Currency}}
                 {{else}}
                 {{template "accounts-empty" .}}
                 {{end}}
@@ -367,48 +370,48 @@ document.addEventListener('alpine:init', () => {
 <div class="dashboard-card group border rounded-2xl p-4 flex items-center gap-4 transition-colors"
      x-data="accountRow"
      :class="del ? 'border-red-500/40 bg-red-500/5' : 'hover:border-blue-500/30'"
-     :style="del ? '' : 'background: linear-gradient(135deg, var(--background) 0%, {{.Color}}15 100%)'"
-     data-account-id="{{.ID}}">
+     :style="del ? '' : 'background: linear-gradient(135deg, var(--background) 0%, {{.Account.Color}}15 100%)'"
+     data-account-id="{{.Account.ID}}">
     <div class="drag-handle cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground touch-none flex-shrink-0 hidden md:flex items-center">
         {{template "icon-grip" dict "Size" 20}}
     </div>
     <div class="flex flex-col gap-0 flex-shrink-0 md:hidden">
-        <button hx-post="/accounts/{{.ID}}/move?direction=up"
+        <button hx-post="/accounts/{{.Account.ID}}/move?direction=up"
                 hx-target="#accounts-list" hx-swap="innerHTML"
                 aria-label="Move up"
                 class="p-1 text-muted-foreground active:text-foreground active:bg-accent rounded-lg transition-colors">
             {{template "icon-chevron-up" dict "Size" 16}}
         </button>
-        <button hx-post="/accounts/{{.ID}}/move?direction=down"
+        <button hx-post="/accounts/{{.Account.ID}}/move?direction=down"
                 hx-target="#accounts-list" hx-swap="innerHTML"
                 aria-label="Move down"
                 class="p-1 text-muted-foreground active:text-foreground active:bg-accent rounded-lg transition-colors">
             {{template "icon-chevron-down" dict "Size" 16}}
         </button>
     </div>
-    <div class="w-1.5 self-stretch rounded-full flex-shrink-0" style="background-color: {{.Color}}"></div>
+    <div class="w-1.5 self-stretch rounded-full flex-shrink-0" style="background-color: {{.Account.Color}}"></div>
     <div class="flex-1 min-w-0">
-        <h3 class="font-bold text-foreground text-base truncate">{{.Name}}</h3>
-        {{if .IsYieldActive}}
+        <h3 class="font-bold text-foreground text-base truncate">{{.Account.Name}}</h3>
+        {{if .Account.IsYieldActive}}
         <div class="flex items-center gap-1.5 text-xs text-emerald-500 mt-0.5">
             {{template "icon-trending-up" dict "Size" 14}}
             <span class="font-medium">
-                {{if eq .YieldType "FIXED"}}{{.YieldMin}}%{{else}}{{.YieldMin}}-{{.YieldMax}}%{{end}}
+                {{if eq .Account.YieldType "FIXED"}}{{.Account.YieldMin}}%{{else}}{{.Account.YieldMin}}-{{.Account.YieldMax}}%{{end}}
             </span>
         </div>
         {{end}}
     </div>
     <div class="flex items-center gap-3">
-        <form hx-post="/accounts/{{.ID}}/balance"
+        <form hx-post="/accounts/{{.Account.ID}}/balance"
               hx-target="#accounts-list"
               hx-swap="innerHTML"
               data-toast=""
               class="flex items-baseline gap-1">
             <input type="text" inputmode="decimal" name="balance"
-                   value="{{formatBalance .Balance}}"
+                   value="{{formatBalance .Account.Balance}}"
                    @input="dirty = true"
                    class="bg-transparent w-28 text-right outline-hidden font-mono text-xl font-bold text-foreground focus:text-blue-500 focus:bg-accent rounded-lg px-1 transition-colors">
-            <span class="text-sm text-muted-foreground font-medium" x-data x-text="window.PILOT_CURRENCY||'EUR'"></span>
+            <span class="text-sm text-muted-foreground font-medium">{{.Currency}}</span>
             <button aria-label="Save" class="text-blue-500 ml-1 p-2 rounded-lg transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
                     :class="dirty ? 'opacity-100' : 'max-sm:opacity-0 max-sm:pointer-events-none'">
                 {{template "icon-save" dict "Size" 18}}
@@ -416,7 +419,7 @@ document.addEventListener('alpine:init', () => {
         </form>
         <div class="flex-shrink-0 w-9">
             <div x-show="!del" class="flex flex-col gap-1">
-                <button @click="openAccountForm({{. | json}})" aria-label="Edit"
+                <button @click="openAccountForm({{.Account | json}})" aria-label="Edit"
                         class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
                     {{template "icon-pencil" dict "Size" 18}}
                 </button>
@@ -426,7 +429,7 @@ document.addEventListener('alpine:init', () => {
                 </button>
             </div>
             <div x-show="del" class="flex flex-col gap-1">
-                <button hx-delete="/accounts/{{.ID}}" hx-target="#accounts-list" hx-swap="innerHTML"
+                <button hx-delete="/accounts/{{.Account.ID}}" hx-target="#accounts-list" hx-swap="innerHTML"
                         aria-label="Confirm delete"
                         class="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                     {{template "icon-check" dict "Size" 18}}
