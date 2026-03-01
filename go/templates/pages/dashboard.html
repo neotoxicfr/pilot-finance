@@ -67,12 +67,13 @@
                         <input type="range" min="1" max="30"
                                x-model="years"
                                @input="debouncedUpdate()"
+                               aria-label="{{index .T "dashboard.projection_label"}}"
                                class="w-full h-1.5 bg-slate-300 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600">
                     </div>
                 </div>
             </div>
             <div class="flex-1 min-h-[250px] md:min-h-[350px] w-full">
-                <canvas id="projectionCanvas"></canvas>
+                <canvas id="projectionCanvas" role="img" aria-label="{{index .T "dashboard.trajectory"}}"></canvas>
             </div>
         </div>
 
@@ -83,7 +84,7 @@
             </h3>
             <div class="flex-1 md:min-h-0 flex items-center justify-center">
                 <div class="relative w-full max-w-xs md:max-w-none md:max-h-full [container-type:inline-size]" style="aspect-ratio: 1;">
-                    <canvas id="pieCanvas"></canvas>
+                    <canvas id="pieCanvas" role="img" aria-label="{{index .T "dashboard.distribution"}}"></canvas>
                     <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                         <div class="font-bold font-mono text-foreground [font-size:clamp(1.25rem,6cqi,1.75rem)]" x-text="formatMoneyCompact(totalBalance)"></div>
                         <div class="text-muted-foreground uppercase font-bold tracking-wider [font-size:clamp(0.65rem,2.5cqi,0.75rem)]">{{index .T "dashboard.total"}}</div>

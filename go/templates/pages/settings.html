@@ -306,6 +306,7 @@ document.addEventListener('alpine:init', () => {
                         <div class="flex gap-1">
                             <button @click="openRename($el.dataset.id, $el.dataset.name)"
                                     data-id="{{.ID}}" data-name="{{.Name}}"
+                                    aria-label="{{index $.T "common.edit"}}"
                                     class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-background rounded-lg transition-colors">
                                 {{template "icon-pencil" dict "Size" 14}}
                             </button>
@@ -313,6 +314,7 @@ document.addEventListener('alpine:init', () => {
                                     hx-confirm="{{index $.T "settings.passkey_delete_confirm"}}"
                                     hx-swap="none"
                                     @htmx:after-request="event.detail.successful && reload()"
+                                    aria-label="{{index $.T "common.delete"}}"
                                     class="p-2 text-muted-foreground hover:text-red-500 hover:bg-background rounded-lg transition-colors">
                                 {{template "icon-trash" dict "Size" 14}}
                             </button>
@@ -323,11 +325,11 @@ document.addEventListener('alpine:init', () => {
                 {{end}}
 
                 <!-- Modal renommage passkey -->
-                <dialog id="passkey-rename-dialog" class="p-0 border-none bg-transparent overflow-visible w-full h-full max-w-none max-h-none"
+                <dialog id="passkey-rename-dialog" aria-labelledby="passkey-rename-title" class="p-0 border-none bg-transparent overflow-visible w-full h-full max-w-none max-h-none"
                         @click="$event.target === $el && $el.close()"
                         @close="renameId = null">
                     <div class="modal-panel rounded-2xl p-6 w-full max-w-sm mx-auto mt-20 shadow-2xl" @click.stop>
-                        <h3 class="text-lg font-bold text-foreground mb-4">{{index .T "settings.passkey_rename_title"}}</h3>
+                        <h3 id="passkey-rename-title" class="text-lg font-bold text-foreground mb-4">{{index .T "settings.passkey_rename_title"}}</h3>
                         <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.passkey_name_prompt"}}</label>
                         <input type="text" x-model="renameName"
                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors mb-4"
@@ -425,9 +427,9 @@ document.addEventListener('alpine:init', () => {
                 <table class="w-full text-left text-sm">
                     <thead class="bg-accent/50 text-muted-foreground uppercase font-bold text-xs">
                         <tr>
-                            <th class="px-4 py-3">{{index .T "settings.admin_user_col"}}</th>
-                            <th class="hidden sm:table-cell px-4 py-3">{{index .T "settings.admin_role_col"}}</th>
-                            <th class="px-4 py-3 text-right">{{index .T "settings.admin_action_col"}}</th>
+                            <th scope="col" class="px-4 py-3">{{index .T "settings.admin_user_col"}}</th>
+                            <th scope="col" class="hidden sm:table-cell px-4 py-3">{{index .T "settings.admin_role_col"}}</th>
+                            <th scope="col" class="px-4 py-3 text-right">{{index .T "settings.admin_action_col"}}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-border">
@@ -455,6 +457,7 @@ document.addEventListener('alpine:init', () => {
                                         hx-confirm="{{index $.T "settings.admin_delete_confirm"}}"
                                         hx-target="closest tr"
                                         hx-swap="outerHTML"
+                                        aria-label="{{index $.T "common.delete"}}"
                                         class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all">
                                     {{template "icon-trash" dict "Size" 16}}
                                 </button>
