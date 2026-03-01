@@ -21,15 +21,15 @@
             </div>
 
             <!-- Account Form Modal -->
-            <dialog id="account-dialog"
+            <dialog id="account-dialog" aria-labelledby="account-dialog-title"
                     @close="editingAccount = null"
                     @click="$event.target.tagName === 'DIALOG' && $event.target.close()">
                 <div class="modal-panel relative border border-border rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5">
-                    <button @click="closeAccountDialog()"
+                    <button @click="closeAccountDialog()" aria-label="{{index .T "common.close"}}"
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 20}}
                     </button>
-                    <h3 class="text-base font-bold text-blue-500 mb-5" x-text="editingAccount ? '{{index .T "accounts.edit_form"}}' : '{{index .T "accounts.new_form"}}'"></h3>
+                    <h3 id="account-dialog-title" class="text-base font-bold text-blue-500 mb-5" x-text="editingAccount ? '{{index .T "accounts.edit_form"}}' : '{{index .T "accounts.new_form"}}'"></h3>
                     <form hx-post="/accounts"
                           hx-target="#accounts-list"
                           hx-swap="innerHTML"
@@ -49,6 +49,7 @@
                             <div class="flex flex-wrap gap-2 mb-3">
                                 <template x-for="c in ['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#10b981','#14b8a6','#06b6d4','#0ea5e9','#3b82f6','#6366f1','#8b5cf6','#a855f7','#d946ef','#ec4899','#f43f5e','#64748b']">
                                     <button type="button" @click="selectedColor = c"
+                                            :aria-label="c" :aria-pressed="selectedColor === c ? 'true' : 'false'"
                                             :class="selectedColor === c ? 'ring-2 ring-foreground scale-110' : 'opacity-60 hover:opacity-100'"
                                             class="w-8 h-8 rounded-full transition-transform"
                                             :style="'background-color:' + c"></button>
@@ -60,6 +61,7 @@
                                        x-model="selectedColor"
                                        class="bg-transparent text-sm w-full outline-hidden font-mono text-foreground uppercase">
                                 <input type="color" x-model="selectedColor"
+                                       aria-label="{{index .T "accounts.color_label"}}"
                                        class="w-6 h-6 rounded-full cursor-pointer">
                             </div>
                         </div>
@@ -111,6 +113,7 @@
                                         {{index .T "accounts.reinvestment"}}: <span x-text="reinvestmentRate + '%'" class="text-emerald-500"></span>
                                     </label>
                                     <input type="range" min="0" max="100" step="5" name="reinvestmentRate" x-model="reinvestmentRate"
+                                           aria-label="{{index .T "accounts.reinvestment"}}"
                                            class="w-full h-2 bg-accent rounded-lg appearance-none cursor-pointer accent-emerald-500">
                                     <div class="flex justify-between text-[10px] text-muted-foreground mt-1">
                                         <span>{{index .T "accounts.reinvestment_0"}}</span>
@@ -182,15 +185,15 @@
             </div>
 
             <!-- Recurring Form Modal -->
-            <dialog id="recurring-dialog"
+            <dialog id="recurring-dialog" aria-labelledby="recurring-dialog-title"
                     @close="editingRecurring = null"
                     @click="$event.target.tagName === 'DIALOG' && $event.target.close()">
                 <div class="modal-panel relative border border-border rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5">
-                    <button @click="closeRecurringDialog()"
+                    <button @click="closeRecurringDialog()" aria-label="{{index .T "common.close"}}"
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 20}}
                     </button>
-                    <h3 class="text-base font-bold text-blue-500 mb-5" x-text="editingRecurring ? '{{index .T "recurring.edit_form"}}' : '{{index .T "recurring.new_form"}}'"></h3>
+                    <h3 id="recurring-dialog-title" class="text-base font-bold text-blue-500 mb-5" x-text="editingRecurring ? '{{index .T "recurring.edit_form"}}' : '{{index .T "recurring.new_form"}}'"></h3>
                     <form hx-post="/recurring"
                           hx-target="#recurring-list"
                           hx-swap="innerHTML"
@@ -198,13 +201,16 @@
                           class="space-y-4">
                             <input type="hidden" name="id" x-model="recurringEditId">
                             <div class="flex gap-3">
-                                <input type="text" name="description" placeholder="{{index .T "recurring.label_placeholder"}}" required
+                                <label for="recurring-desc" class="sr-only">{{index .T "recurring.label_placeholder"}}</label>
+                                <input id="recurring-desc" type="text" name="description" placeholder="{{index .T "recurring.label_placeholder"}}" required
                                        x-model="recurringDescription"
                                        class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-blue-500">
-                                <input type="number" step="0.01" name="amount" placeholder="{{$.Currency}}" required
+                                <label for="recurring-amount" class="sr-only">{{index .T "recurring.amount_label"}}</label>
+                                <input id="recurring-amount" type="number" step="0.01" name="amount" placeholder="{{$.Currency}}" required
                                        x-model="recurringAmount"
                                        class="w-24 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden font-mono focus:border-blue-500">
-                                <input type="number" min="1" max="31" name="dayOfMonth" placeholder="{{index .T "recurring.day_placeholder"}}" required
+                                <label for="recurring-day" class="sr-only">{{index .T "recurring.day_placeholder"}}</label>
+                                <input id="recurring-day" type="number" min="1" max="31" name="dayOfMonth" placeholder="{{index .T "recurring.day_placeholder"}}" required
                                        x-model="recurringDay"
                                        class="w-14 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden text-center focus:border-blue-500">
                             </div>
@@ -403,28 +409,29 @@ document.addEventListener('alpine:init', () => {
                    @input="dirty = true"
                    class="bg-transparent w-28 text-right outline-hidden font-mono text-xl font-bold text-foreground focus:text-blue-500 focus:bg-accent rounded-lg px-1 transition-colors">
             <span class="text-sm text-muted-foreground font-medium" x-data x-text="window.PILOT_CURRENCY||'EUR'"></span>
-            <button class="text-blue-500 ml-1 p-2 rounded-lg transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+            <button aria-label="{{index $.T "common.save"}}" class="text-blue-500 ml-1 p-2 rounded-lg transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
                     :class="dirty ? 'opacity-100' : 'max-sm:opacity-0 max-sm:pointer-events-none'">
                 {{template "icon-save" dict "Size" 18}}
             </button>
         </form>
         <div class="flex-shrink-0 w-9">
             <div x-show="!del" class="flex flex-col gap-1">
-                <button @click="openAccountForm({{. | json}})"
+                <button @click="openAccountForm({{. | json}})" aria-label="{{index $.T "common.edit"}}"
                         class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
                     {{template "icon-pencil" dict "Size" 18}}
                 </button>
-                <button @click.prevent="del = true"
+                <button @click.prevent="del = true" aria-label="{{index $.T "common.delete"}}"
                         class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                     {{template "icon-trash" dict "Size" 18}}
                 </button>
             </div>
             <div x-show="del" class="flex flex-col gap-1">
                 <button hx-delete="/accounts/{{.ID}}" hx-target="#accounts-list" hx-swap="innerHTML"
+                        aria-label="{{index $.T "common.confirm_delete"}}"
                         class="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                     {{template "icon-check" dict "Size" 18}}
                 </button>
-                <button @click.prevent="del = false"
+                <button @click.prevent="del = false" aria-label="{{index $.T "common.cancel_delete"}}"
                         class="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
                     {{template "icon-x" dict "Size" 18}}
                 </button>
@@ -487,21 +494,22 @@ document.addEventListener('alpine:init', () => {
             {{if not .ToAccountID}}{{if gt .Amount 0.0}}+{{end}}{{end}}{{formatMoney .Amount $.Currency}}
         </div>
         <div class="flex items-center gap-0.5 shrink-0" x-show="!del">
-            <button @click="openRecurringForm({{. | json}})"
+            <button @click="openRecurringForm({{. | json}})" aria-label="{{index $.T "common.edit"}}"
                     class="p-1.5 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors">
                 {{template "icon-pencil" dict "Size" 15}}
             </button>
-            <button @click.prevent="del = true"
+            <button @click.prevent="del = true" aria-label="{{index $.T "common.delete"}}"
                     class="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                 {{template "icon-trash" dict "Size" 15}}
             </button>
         </div>
         <div class="flex items-center gap-0.5 shrink-0" x-show="del">
             <button hx-delete="/recurring/{{.ID}}" hx-target="#recurring-list" hx-swap="innerHTML"
+                    aria-label="{{index $.T "common.confirm_delete"}}"
                     class="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                 {{template "icon-check" dict "Size" 15}}
             </button>
-            <button @click.prevent="del = false"
+            <button @click.prevent="del = false" aria-label="{{index $.T "common.cancel_delete"}}"
                     class="p-1.5 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
                 {{template "icon-x" dict "Size" 15}}
             </button>

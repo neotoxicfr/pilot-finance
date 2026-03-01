@@ -115,12 +115,12 @@
                     {{template "brand-logo" dict "Size" 28}}
                 </a>
                 <div class="flex items-center gap-1">
-                    <a href="/" class="flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-lg transition-all
+                    <a href="/" {{if eq .CurrentPath "/"}}aria-current="page"{{end}} class="flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-lg transition-all
                        {{if eq .CurrentPath "/"}}bg-accent text-foreground{{else}}text-foreground/70 hover:text-foreground hover:bg-accent{{end}}">
                         {{template "icon-dashboard" dict "Size" 20}}
                         <span class="hidden lg:inline">Dashboard</span>
                     </a>
-                    <a href="/accounts" class="flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-lg transition-all
+                    <a href="/accounts" {{if or (eq .CurrentPath "/accounts") (eq .CurrentPath "/recurring")}}aria-current="page"{{end}} class="flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-lg transition-all
                        {{if or (eq .CurrentPath "/accounts") (eq .CurrentPath "/recurring")}}bg-accent text-foreground{{else}}text-foreground/70 hover:text-foreground hover:bg-accent{{end}}">
                         {{template "icon-wallet" dict "Size" 20}}
                         <span class="hidden lg:inline">{{index .T "nav.accounts"}}</span>
@@ -152,6 +152,7 @@
     {{template "htmx-config" .}}
     <!-- Toast -->
     <div x-data="toastData" @pilot:toast.window="show($event.detail.message)"
+         role="status" aria-live="polite" aria-atomic="true"
          class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] pointer-events-none">
         <template x-if="visible">
             <div class="pointer-events-auto bg-background border border-border shadow-xl rounded-xl px-4 py-3 flex items-center gap-2.5 text-sm font-medium text-foreground whitespace-nowrap"
