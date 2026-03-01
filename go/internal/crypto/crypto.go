@@ -242,7 +242,7 @@ func ValidatePassword(password string) error {
 			hasLower = true
 		case c >= '0' && c <= '9':
 			hasDigit = true
-		case !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')):
+		default:
 			hasSpecial = true
 		}
 	}
