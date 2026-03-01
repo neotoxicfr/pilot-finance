@@ -17,14 +17,15 @@ import (
 func MFASetup(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		jsonError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
 	// Generer un nouveau secret
 	secret, err := hookGenerateTOTPSecret()
 	if err != nil {
-		serverError(w, "generate TOTP secret", err)
+		slog.Error("generate TOTP secret", "err", err)
+		jsonError(w, ErrInternal, "Erreur serveur", http.StatusInternalServerError)
 		return
 	}
 
@@ -35,13 +36,12 @@ func MFASetup(w http.ResponseWriter, r *http.Request) {
 	png, err := hookQREncode(otpauthURI, qrcode.Medium, 200)
 	if err != nil {
 		slog.Error("generate QR code", "err", err)
-		http.Error(w, "Erreur generation QR", http.StatusInternalServerError)
+		jsonError(w, ErrInternal, "Erreur generation QR", http.StatusInternalServerError)
 		return
 	}
 	qrDataURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	jsonSuccess(w, map[string]string{
 		"secret":   secret,
 		"imageUrl": qrDataURI,
 	})
@@ -51,7 +51,7 @@ func MFASetup(w http.ResponseWriter, r *http.Request) {
 func MFAEnable(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		jsonError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 
@@ -61,43 +61,38 @@ func MFAEnable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"error": "Données invalides"})
+		jsonError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
 		return
 	}
 
 	// Verifier le code
 	if !auth.ValidateTOTP(req.Secret, req.Code) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"error": "Code invalide"})
+		jsonError(w, ErrAuthInvalid, "Code invalide", http.StatusBadRequest)
 		return
 	}
 
 	// Chiffrer et sauvegarder le secret
 	encryptedSecret, err := hookEncryptStr(req.Secret)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"error": "Erreur serveur"})
+		jsonError(w, ErrEncryption, "Erreur serveur", http.StatusInternalServerError)
 		return
 	}
 
 	if err := hookEnableMFA(user.ID, encryptedSecret); err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"error": "Erreur sauvegarde"})
+		jsonError(w, ErrInternal, "Erreur sauvegarde", http.StatusInternalServerError)
 		return
 	}
 
 	db.LogAudit(user.ID, db.AuditMFAEnable, getClientIP(r), r.UserAgent())
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+	jsonSuccess(w, map[string]bool{"success": true})
 }
 
 // MFADisable desactive le 2FA
 func MFADisable(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
 		return
 	}
 

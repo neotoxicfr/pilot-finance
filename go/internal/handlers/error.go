@@ -12,6 +12,7 @@ func NotFound(w http.ResponseWriter, r *http.Request) {
 	data := baseData(r, user)
 	data["Title"] = "404"
 	data["Code"] = "404"
+	w.Header().Set("X-Error-Code", ErrNotFound)
 	w.WriteHeader(http.StatusNotFound)
 	hookRender(w, "error.html", data) //nolint:errcheck
 }
@@ -22,6 +23,7 @@ func MethodNotAllowed(w http.ResponseWriter, r *http.Request) {
 	data := baseData(r, user)
 	data["Title"] = "405"
 	data["Code"] = "405"
+	w.Header().Set("X-Error-Code", ErrForbidden)
 	w.WriteHeader(http.StatusMethodNotAllowed)
 	hookRender(w, "error.html", data) //nolint:errcheck
 }
