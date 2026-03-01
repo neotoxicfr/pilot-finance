@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"math"
 	"strings"
 )
 
@@ -190,7 +191,7 @@ func formatWithSpaces(n int64) string {
 func formatFloat(f float64) string {
 	// Separer partie entiere et decimale
 	intPart := int64(f)
-	decPart := int((f - float64(intPart)) * 100)
+	decPart := int(math.Round((f - float64(intPart)) * 100))
 	if decPart < 0 {
 		decPart = -decPart
 	}
