@@ -192,7 +192,6 @@ Your data is stored in `./data/pilot.db`. Back up this file regularly. The appli
 | **Testing** | E2E browser tests — Chromium, Firefox, WebKit, Mobile (Playwright) | Done |
 | **Testing** | Accessibility audit (axe-core) integrated in E2E suite | Done |
 | **CI/CD** | E2E tests in GitHub Actions with multi-browser matrix | Done |
-| **CI/CD** | Auto-deploy webhook on push to develop | Done |
 | **CI/CD** | Lighthouse performance audit in CI (threshold 80%) | Done |
 | **CI/CD** | Automatic changelog with release-please | Done |
 | **Testing** | k6 load tests (smoke + stress) | Done |

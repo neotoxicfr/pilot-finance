@@ -192,7 +192,6 @@ Vos données sont stockées dans `./data/pilot.db`. Sauvegardez ce fichier régu
 | **Testing** | Tests E2E navigateur — Chromium, Firefox, WebKit, Mobile (Playwright) | Fait |
 | **Testing** | Audit d'accessibilité (axe-core) intégré aux tests E2E | Fait |
 | **CI/CD** | Tests E2E dans GitHub Actions avec matrice multi-navigateurs | Fait |
-| **CI/CD** | Webhook de déploiement auto sur push vers develop | Fait |
 | **CI/CD** | Audit de performance Lighthouse en CI (seuil 80%) | Fait |
 | **CI/CD** | Changelog automatique avec release-please | Fait |
 | **Testing** | Tests de charge k6 (smoke + stress) | Fait |
