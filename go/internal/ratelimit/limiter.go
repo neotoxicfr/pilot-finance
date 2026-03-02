@@ -20,6 +20,11 @@ var Configs = map[string]Config{
 		WindowMs:    60000,  // 1 minute
 		BlockMs:     300000, // 5 minutes
 	},
+	"loginAccount": {
+		MaxAttempts: 10,
+		WindowMs:    600000,  // 10 minutes
+		BlockMs:     900000,  // 15 minutes
+	},
 	"register": {
 		MaxAttempts: 3,
 		WindowMs:    3600000, // 1 heure

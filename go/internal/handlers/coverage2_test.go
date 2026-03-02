@@ -380,6 +380,35 @@ func TestHandleLogin_RateLimited(t *testing.T) {
 	t.Error("expected rate limit 429 after repeated failures, never got it")
 }
 
+// auth.go — per-account rate limit (loginAccount) → 429
+func TestHandleLogin_AccountRateLimited(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	ratelimit.StopAll()
+
+	newUser(t, "acctrl@example.com", "ValidP@ss1!", "USER")
+
+	// Mock hookRateLimitCheck to block on loginAccount but allow login IP
+	orig := hookRateLimitCheck
+	hookRateLimitCheck = func(identifier, action string) ratelimit.Result {
+		if action == "loginAccount" {
+			return ratelimit.Result{Allowed: false, RetryAfterMs: 900000, Remaining: 0}
+		}
+		return orig(identifier, action)
+	}
+	t.Cleanup(func() { hookRateLimitCheck = orig })
+
+	req := post("/login", url.Values{
+		"email":    {"acctrl@example.com"},
+		"password": {"ValidP@ss1!"},
+	})
+	rr := httptest.NewRecorder()
+	HandleLogin(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("expected 429, got %d", rr.Code)
+	}
+}
+
 // auth.go:120 — hookGetUserByBlindIndex error → 500
 func TestHandleLogin_GetUserByBlindIndexError(t *testing.T) {
 	cleanup := setupHandlerTest(t)

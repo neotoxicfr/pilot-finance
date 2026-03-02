@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/smtp"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -247,27 +246,27 @@ func TestSend_NotEnabled(t *testing.T) {
 }
 
 func TestSend_PlainPath(t *testing.T) {
-	// Start a minimal fake SMTP server on a random TCP port (for smtp.SendMail).
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	defer ln.Close()
+	// Plain path now uses sendSTARTTLS; mock smtpDial + clientStartTLS.
+	origDial := smtpDial
+	origTLS := clientStartTLS
+	defer func() { smtpDial = origDial; clientStartTLS = origTLS }()
 
+	srv, cli := net.Pipe()
+	smtpDial = func(_ string) (*smtp.Client, error) {
+		c, err := smtp.NewClient(cli, "localhost")
+		return c, err
+	}
+	clientStartTLS = func(_ *smtp.Client, _ *tls.Config) error {
+		return nil // no-op: TLS already "upgraded"
+	}
 	go func() {
-		conn, err := ln.Accept()
-		if err != nil {
-			return
-		}
-		minimalSMTPFlow(conn)
+		defer srv.Close()
+		minimalSMTPFlow(srv)
 	}()
 
-	host, portStr, _ := net.SplitHostPort(ln.Addr().String())
-	port, _ := strconv.Atoi(portStr)
-
 	config = &Config{
-		Host: host,
-		Port: port,
+		Host: "localhost",
+		Port: 587,
 		From: "from@example.com",
 	}
 	defer func() { config = nil }()
@@ -568,6 +567,312 @@ func TestSendTLS_DefaultDialTLS(t *testing.T) {
 	err := sendTLS("127.0.0.1:19999", nil, "from@example.com", "to@example.com", []byte("msg"))
 	if err == nil {
 		t.Error("want connection error from real tls.Dial on non-existent port")
+	}
+}
+
+// --- sendSTARTTLS ---
+
+func TestSendSTARTTLS_DialError(t *testing.T) {
+	origDial := smtpDial
+	defer func() { smtpDial = origDial }()
+
+	smtpDial = func(_ string) (*smtp.Client, error) {
+		return nil, errors.New("dial failed")
+	}
+
+	err := sendSTARTTLS("localhost:587", nil, "from@example.com", "to@example.com", []byte("msg"))
+	if err == nil || err.Error() != "dial failed" {
+		t.Errorf("want 'dial failed', got %v", err)
+	}
+}
+
+func TestSendSTARTTLS_StartTLSError(t *testing.T) {
+	origDial := smtpDial
+	origTLS := clientStartTLS
+	defer func() { smtpDial = origDial; clientStartTLS = origTLS }()
+
+	srv, cli := net.Pipe()
+	smtpDial = func(_ string) (*smtp.Client, error) {
+		return smtp.NewClient(cli, "localhost")
+	}
+	clientStartTLS = func(_ *smtp.Client, _ *tls.Config) error {
+		return errors.New("TLS not supported")
+	}
+	go func() {
+		defer srv.Close()
+		s := newSMTPLines(srv)
+		s.send("220 localhost ESMTP")
+		s.recv() // EHLO
+		s.send("250 localhost")
+		io.Copy(io.Discard, srv) //nolint:errcheck
+	}()
+
+	err := sendSTARTTLS("localhost:587", nil, "from@example.com", "to@example.com", []byte("msg"))
+	if err == nil || !strings.Contains(err.Error(), "STARTTLS requis") {
+		t.Errorf("want STARTTLS error, got %v", err)
+	}
+}
+
+func TestSendSTARTTLS_AuthError(t *testing.T) {
+	origDial := smtpDial
+	origTLS := clientStartTLS
+	defer func() { smtpDial = origDial; clientStartTLS = origTLS }()
+
+	srv, cli := net.Pipe()
+	smtpDial = func(_ string) (*smtp.Client, error) {
+		return smtp.NewClient(cli, "localhost")
+	}
+	clientStartTLS = func(_ *smtp.Client, _ *tls.Config) error { return nil }
+	go func() {
+		defer srv.Close()
+		s := newSMTPLines(srv)
+		s.send("220 localhost ESMTP")
+		s.recv() // EHLO
+		s.send("250-localhost")
+		s.send("250 AUTH PLAIN")
+		s.recv() // AUTH PLAIN
+		s.send("535 Authentication failed")
+		s.recv()                 // "*" abort
+		s.send("501 Aborted")   // unblock abort
+		s.recv()                 // QUIT
+		s.send("221 Bye")       // unblock Quit
+		io.Copy(io.Discard, srv) //nolint:errcheck
+	}()
+
+	auth := smtp.PlainAuth("", "user", "pass", "localhost")
+	err := sendSTARTTLS("localhost:587", auth, "from@example.com", "to@example.com", []byte("msg"))
+	if err == nil {
+		t.Error("want auth error, got nil")
+	}
+}
+
+func TestSendSTARTTLS_MailError(t *testing.T) {
+	origDial := smtpDial
+	origTLS := clientStartTLS
+	defer func() { smtpDial = origDial; clientStartTLS = origTLS }()
+
+	srv, cli := net.Pipe()
+	smtpDial = func(_ string) (*smtp.Client, error) {
+		return smtp.NewClient(cli, "localhost")
+	}
+	clientStartTLS = func(_ *smtp.Client, _ *tls.Config) error { return nil }
+	go func() {
+		defer srv.Close()
+		s := newSMTPLines(srv)
+		s.send("220 localhost ESMTP")
+		s.recv() // EHLO
+		s.send("250 localhost")
+		s.recv() // MAIL FROM
+		s.send("550 Rejected")
+		io.Copy(io.Discard, srv) //nolint:errcheck
+	}()
+
+	err := sendSTARTTLS("localhost:587", nil, "from@example.com", "to@example.com", []byte("msg"))
+	if err == nil {
+		t.Error("want MAIL FROM error, got nil")
+	}
+}
+
+func TestSendSTARTTLS_RcptError(t *testing.T) {
+	origDial := smtpDial
+	origTLS := clientStartTLS
+	defer func() { smtpDial = origDial; clientStartTLS = origTLS }()
+
+	srv, cli := net.Pipe()
+	smtpDial = func(_ string) (*smtp.Client, error) {
+		return smtp.NewClient(cli, "localhost")
+	}
+	clientStartTLS = func(_ *smtp.Client, _ *tls.Config) error { return nil }
+	go func() {
+		defer srv.Close()
+		s := newSMTPLines(srv)
+		s.send("220 localhost ESMTP")
+		s.recv() // EHLO
+		s.send("250 localhost")
+		s.recv() // MAIL FROM
+		s.send("250 OK")
+		s.recv() // RCPT TO
+		s.send("550 No such user")
+		io.Copy(io.Discard, srv) //nolint:errcheck
+	}()
+
+	err := sendSTARTTLS("localhost:587", nil, "from@example.com", "to@example.com", []byte("msg"))
+	if err == nil {
+		t.Error("want RCPT TO error, got nil")
+	}
+}
+
+func TestSendSTARTTLS_DataCommandError(t *testing.T) {
+	origDial := smtpDial
+	origTLS := clientStartTLS
+	defer func() { smtpDial = origDial; clientStartTLS = origTLS }()
+
+	srv, cli := net.Pipe()
+	smtpDial = func(_ string) (*smtp.Client, error) {
+		return smtp.NewClient(cli, "localhost")
+	}
+	clientStartTLS = func(_ *smtp.Client, _ *tls.Config) error { return nil }
+	go func() {
+		defer srv.Close()
+		s := newSMTPLines(srv)
+		s.send("220 localhost ESMTP")
+		s.recv() // EHLO
+		s.send("250 localhost")
+		s.recv() // MAIL FROM
+		s.send("250 OK")
+		s.recv() // RCPT TO
+		s.send("250 OK")
+		s.recv() // DATA
+		s.send("550 DATA rejected")
+		io.Copy(io.Discard, srv) //nolint:errcheck
+	}()
+
+	err := sendSTARTTLS("localhost:587", nil, "from@example.com", "to@example.com", []byte("msg"))
+	if err == nil {
+		t.Error("want DATA command error, got nil")
+	}
+}
+
+func TestSendSTARTTLS_WriteError(t *testing.T) {
+	origDial := smtpDial
+	origTLS := clientStartTLS
+	origW := smtpDataWrite
+	defer func() { smtpDial = origDial; clientStartTLS = origTLS; smtpDataWrite = origW }()
+
+	srv, cli := net.Pipe()
+	smtpDial = func(_ string) (*smtp.Client, error) {
+		return smtp.NewClient(cli, "localhost")
+	}
+	clientStartTLS = func(_ *smtp.Client, _ *tls.Config) error { return nil }
+	smtpDataWrite = func(_ io.Writer, _ []byte) (int, error) {
+		return 0, fmt.Errorf("write failed")
+	}
+	go func() {
+		defer srv.Close()
+		s := newSMTPLines(srv)
+		s.send("220 localhost ESMTP")
+		s.recv() // EHLO
+		s.send("250 localhost")
+		s.recv() // MAIL FROM
+		s.send("250 OK")
+		s.recv() // RCPT TO
+		s.send("250 OK")
+		s.recv() // DATA
+		s.send("354 Start input")
+		io.Copy(io.Discard, srv) //nolint:errcheck
+	}()
+
+	err := sendSTARTTLS("localhost:587", nil, "from@example.com", "to@example.com", []byte("msg"))
+	if err == nil || err.Error() != "write failed" {
+		t.Errorf("want 'write failed', got %v", err)
+	}
+}
+
+func TestSendSTARTTLS_Success(t *testing.T) {
+	origDial := smtpDial
+	origTLS := clientStartTLS
+	defer func() { smtpDial = origDial; clientStartTLS = origTLS }()
+
+	srv, cli := net.Pipe()
+	smtpDial = func(_ string) (*smtp.Client, error) {
+		return smtp.NewClient(cli, "localhost")
+	}
+	clientStartTLS = func(_ *smtp.Client, _ *tls.Config) error { return nil }
+	go func() {
+		defer srv.Close()
+		minimalSMTPFlow(srv)
+	}()
+
+	msg := []byte("Subject: test\r\n\r\nHello!")
+	err := sendSTARTTLS("localhost:587", nil, "from@example.com", "to@example.com", msg)
+	if err != nil {
+		t.Errorf("sendSTARTTLS success: %v", err)
+	}
+}
+
+func TestSendSTARTTLS_WithAuth_Success(t *testing.T) {
+	origDial := smtpDial
+	origTLS := clientStartTLS
+	defer func() { smtpDial = origDial; clientStartTLS = origTLS }()
+
+	srv, cli := net.Pipe()
+	smtpDial = func(_ string) (*smtp.Client, error) {
+		return smtp.NewClient(cli, "localhost")
+	}
+	clientStartTLS = func(_ *smtp.Client, _ *tls.Config) error { return nil }
+	go func() {
+		defer srv.Close()
+		s := newSMTPLines(srv)
+		s.send("220 localhost ESMTP")
+		s.recv() // EHLO
+		s.send("250-localhost")
+		s.send("250 AUTH PLAIN")
+		s.recv() // AUTH PLAIN ...
+		s.send("235 Authentication successful")
+		s.recv() // MAIL FROM
+		s.send("250 OK")
+		s.recv() // RCPT TO
+		s.send("250 OK")
+		s.recv() // DATA
+		s.send("354 Start input")
+		for {
+			line, err := s.r.ReadString('\n')
+			if err != nil {
+				return
+			}
+			if strings.TrimRight(line, "\r\n") == "." {
+				break
+			}
+		}
+		s.send("250 OK")
+		io.Copy(io.Discard, srv) //nolint:errcheck
+	}()
+
+	auth := smtp.PlainAuth("", "user", "pass", "localhost")
+	err := sendSTARTTLS("localhost:587", auth, "from@example.com", "to@example.com", []byte("msg"))
+	if err != nil {
+		t.Errorf("sendSTARTTLS with auth: %v", err)
+	}
+}
+
+// TestSendSTARTTLS_DefaultSmtpDial couvre smtp.go — corps de smtpDial par défaut.
+func TestSendSTARTTLS_DefaultSmtpDial(t *testing.T) {
+	origTLS := clientStartTLS
+	defer func() { clientStartTLS = origTLS }()
+	clientStartTLS = func(_ *smtp.Client, _ *tls.Config) error { return nil }
+
+	err := sendSTARTTLS("127.0.0.1:19998", nil, "from@example.com", "to@example.com", []byte("msg"))
+	if err == nil {
+		t.Error("want connection error from real smtp.Dial on non-existent port")
+	}
+}
+
+// TestSendSTARTTLS_DefaultClientStartTLS couvre smtp.go — corps de clientStartTLS par défaut.
+func TestSendSTARTTLS_DefaultClientStartTLS(t *testing.T) {
+	origDial := smtpDial
+	defer func() { smtpDial = origDial }()
+
+	srv, cli := net.Pipe()
+	smtpDial = func(_ string) (*smtp.Client, error) {
+		return smtp.NewClient(cli, "localhost")
+	}
+	go func() {
+		defer srv.Close()
+		s := newSMTPLines(srv)
+		s.send("220 localhost ESMTP")
+		s.recv() // EHLO
+		s.send("250-localhost")
+		s.send("250 STARTTLS")
+		s.recv() // STARTTLS command
+		s.send("220 Ready to start TLS")
+		// Close immediately — TLS handshake will fail with EOF
+	}()
+
+	// Uses the default clientStartTLS → client.StartTLS which fails because
+	// server closes after faking 220 (no real TLS handshake)
+	err := sendSTARTTLS("localhost:587", nil, "from@example.com", "to@example.com", []byte("msg"))
+	if err == nil {
+		t.Error("want STARTTLS error from real client.StartTLS on plain connection")
 	}
 }
 

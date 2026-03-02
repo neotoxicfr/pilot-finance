@@ -319,11 +319,13 @@ func securityHeaders(next http.Handler) http.Handler {
 		nonce := middleware.GenerateNonce()
 		r = r.WithContext(middleware.WithNonce(r.Context(), nonce))
 
+		// Reporting-Endpoints (moderne, remplace report-uri deprecated)
+		w.Header().Set("Reporting-Endpoints", `csp-endpoint="/api/csp-report"`)
+
 		w.Header().Set("Content-Security-Policy",
 			"default-src 'none'; "+
 				"script-src 'self' 'nonce-"+nonce+"' 'strict-dynamic'; "+
 				"style-src 'self' 'unsafe-inline'; "+ // unsafe-inline requis par Tailwind CSS v4 (styles inline générés)
-
 				"img-src 'self' blob: data:; "+
 				"font-src 'self'; "+
 				"connect-src 'self'; "+
@@ -332,7 +334,8 @@ func securityHeaders(next http.Handler) http.Handler {
 				"frame-ancestors 'none'; "+
 				"base-uri 'self'; "+
 				"form-action 'self'; "+
-				"report-uri /api/csp-report")
+				"report-uri /api/csp-report; "+
+				"report-to csp-endpoint")
 
 		next.ServeHTTP(w, r)
 	})
