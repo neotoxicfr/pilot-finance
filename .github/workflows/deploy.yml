@@ -14,8 +14,8 @@ jobs:
   deploy:
     name: Deploy to server
     runs-on: ubuntu-latest
-    needs: []
-    # Only deploy if CI passes (use branch protection rules)
+    # Skip if SSH secrets are not configured
+    if: ${{ secrets.DEPLOY_HOST != '' }}
 
     steps:
       - name: Deploy via SSH
