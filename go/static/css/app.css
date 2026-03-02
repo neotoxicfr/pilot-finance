@@ -137,7 +137,7 @@ nav a[aria-current="page"]::after {
 .dashboard-card {
     border-color: var(--border) !important;
     box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 1px 2px rgba(0,0,0,.03);
-    transition: box-shadow .25s ease, border-color .25s ease, transform .25s ease;
+    transition: box-shadow .25s ease, border-color .25s ease;
 }
 .dark .dashboard-card {
     box-shadow: 0 1px 3px rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.2);
@@ -146,11 +146,9 @@ nav a[aria-current="page"]::after {
 @media (hover: hover) {
     .dashboard-card:hover {
         box-shadow: 0 4px 16px rgba(0,0,0,.08), 0 2px 6px rgba(0,0,0,.04);
-        transform: translateY(-1px);
     }
     .dark .dashboard-card:hover {
         box-shadow: 0 4px 24px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.3);
-        transform: translateY(-1px);
     }
     .dashboard-card.kpi-card-emerald:hover {
         box-shadow: 0 4px 24px rgba(16,185,129,.12), 0 2px 6px rgba(0,0,0,.04);
@@ -250,6 +248,17 @@ input::-webkit-inner-spin-button {
 }
 input[type=number] {
     -moz-appearance: textfield;
+}
+
+/* Select fields — custom arrow, native picker preserved on mobile */
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTRhM2I4IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0ibTQgNiA0IDQgNC00Ii8+PC9zdmc+");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1rem;
+    padding-right: 2.5rem;
 }
 
 /* Focus visible — keyboard accessibility */
