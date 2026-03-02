@@ -9,8 +9,8 @@
 ![CI](https://github.com/neotoxicfr/pilot-finance/actions/workflows/ci.yml/badge.svg)
 ![CodeQL](https://github.com/neotoxicfr/pilot-finance/actions/workflows/codeql.yml/badge.svg)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen?logo=go)
-![Dependabot](https://img.shields.io/badge/dependabot-active-limegreen?logo=dependabot&label=Dependabot)
-![GitHub License](https://img.shields.io/github/license/neotoxicfr/pilot-finance?color=limegreen)
+![Dependabot](https://img.shields.io/badge/dependabot-active-brightgreen?logo=dependabot&label=Dependabot)
+![GitHub License](https://img.shields.io/github/license/neotoxicfr/pilot-finance?color=brightgreen)
 
 :gb: [English version](README.md)
 
@@ -131,6 +131,20 @@ L'application écoute sur le port **3000** à l'intérieur du conteneur.
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
 | CI/CD | GitHub Actions (tests, CodeQL, image GHCR, auto-release) |
 | Image Docker | ~40 Mo (base alpine:3.23) |
+
+---
+
+## Feuille de route
+
+| Catégorie | Élément | Statut |
+|---|---|---|
+| **UI/UX** | Refonte visuelle — animations, micro-interactions, effet wow | Prévu |
+| **Sécurité** | Rate limiting par compte (protection brute-force distribué) | Fait |
+| **Sécurité** | Verrouillage temporaire du compte après N échecs de connexion | Fait |
+| **Sécurité** | Directive CSP `report-to` vers `/api/csp-report` en production | Fait |
+| **Sécurité** | Forcer TLS sur les connexions SMTP sortantes | Fait |
+| **Monitoring** | Endpoint Prometheus `/metrics` (latence, erreurs, stats DB) | Prévu |
+| **Testing** | Tests E2E navigateur (Playwright) | Prévu |
 
 ---
 

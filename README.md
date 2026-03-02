@@ -9,8 +9,8 @@
 ![CI](https://github.com/neotoxicfr/pilot-finance/actions/workflows/ci.yml/badge.svg)
 ![CodeQL](https://github.com/neotoxicfr/pilot-finance/actions/workflows/codeql.yml/badge.svg)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen?logo=go)
-![Dependabot](https://img.shields.io/badge/dependabot-active-limegreen?logo=dependabot&label=Dependabot)
-![GitHub License](https://img.shields.io/github/license/neotoxicfr/pilot-finance?color=limegreen)
+![Dependabot](https://img.shields.io/badge/dependabot-active-brightgreen?logo=dependabot&label=Dependabot)
+![GitHub License](https://img.shields.io/github/license/neotoxicfr/pilot-finance?color=brightgreen)
 
 :fr: [Version française](README.fr.md)
 
@@ -131,6 +131,20 @@ The application listens on port **3000** inside the container.
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
 | CI/CD | GitHub Actions (tests, CodeQL, GHCR image, auto-release) |
 | Docker image | ~40 MB (alpine:3.23 base) |
+
+---
+
+## Roadmap
+
+| Category | Item | Status |
+|---|---|---|
+| **UI/UX** | Visual overhaul — animations, micro-interactions, wow factor | Planned |
+| **Security** | Per-account rate limiting (protect against distributed brute-force) | Done |
+| **Security** | Temporary account lock-out after N failed login attempts | Done |
+| **Security** | CSP `report-to` directive pointing to `/api/csp-report` in production | Done |
+| **Security** | Force TLS on outbound SMTP connections | Done |
+| **Monitoring** | Prometheus `/metrics` endpoint (request latency, error rates, DB stats) | Planned |
+| **Testing** | E2E browser tests (Playwright) | Planned |
 
 ---
 
