@@ -138,12 +138,12 @@ The application listens on port **3000** inside the container.
 
 | Category | Item | Status |
 |---|---|---|
-| **UI/UX** | Visual overhaul — animations, micro-interactions, wow factor | Planned |
-| **Security** | Per-account rate limiting (protect against distributed brute-force) | Planned |
-| **Security** | Temporary account lock-out after N failed login attempts | Planned |
-| **Security** | CSP `report-to` directive pointing to `/api/csp-report` in production | Planned |
-| **Security** | Force TLS on outbound SMTP connections | Planned |
-| **Monitoring** | Prometheus `/metrics` endpoint (request latency, error rates, DB stats) | Planned |
+| **UI/UX** | Visual overhaul — animations, micro-interactions, wow factor | Done |
+| **Security** | Per-account rate limiting (protect against distributed brute-force) | Done |
+| **Security** | Temporary account lock-out after N failed login attempts | Done |
+| **Security** | CSP `report-to` directive pointing to `/api/csp-report` in production | Done |
+| **Security** | Force TLS on outbound SMTP connections | Done |
+| **Monitoring** | Prometheus `/metrics` endpoint (request latency, error rates, DB stats) | Done |
 | **Testing** | E2E browser tests (Playwright) | Planned |
 
 ---

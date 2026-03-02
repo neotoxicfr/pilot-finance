@@ -52,19 +52,25 @@ func AuditPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	data := baseData(r, user)
+	t := data["T"].(map[string]string)
+
 	type auditRow struct {
 		db.AuditEntry
-		Email string
+		Email       string
+		ActionLabel string
 	}
 	rows := make([]auditRow, len(entries))
 	for i, e := range entries {
-		rows[i] = auditRow{AuditEntry: e, Email: emailCache[e.UserID]}
+		label := t["audit.action."+e.Action]
+		if label == "" {
+			label = e.Action
+		}
+		rows[i] = auditRow{AuditEntry: e, Email: emailCache[e.UserID], ActionLabel: label}
 	}
 
 	totalPages := (total + auditPageSize - 1) / auditPageSize
 
-	data := baseData(r, user)
-	t := data["T"].(map[string]string)
 	data["Title"] = t["page.title_audit_log"]
 	data["Entries"] = rows
 	data["Page"] = page

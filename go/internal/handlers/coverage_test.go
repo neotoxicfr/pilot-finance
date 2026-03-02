@@ -364,9 +364,10 @@ func TestAuditPage_WithEntries(t *testing.T) {
 	defer cleanup()
 	uid := newUser(t, "auditwithen@example.com", "ValidP@ss1!", "ADMIN")
 
-	// Créer quelques entrées d'audit
+	// Créer quelques entrées d'audit (dont une action inconnue pour couvrir le fallback)
 	db.LogAudit(uid, db.AuditLoginSuccess, "127.0.0.1", "test-agent")
 	db.LogAudit(uid, db.AuditPasswordChange, "127.0.0.1", "test-agent")
+	db.LogAudit(uid, "UNKNOWN_ACTION", "127.0.0.1", "test-agent")
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/admin/audit", nil), mu(uid, "ADMIN"))
 	rr := httptest.NewRecorder()

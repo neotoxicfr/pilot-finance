@@ -134,16 +134,16 @@ L'application écoute sur le port **3000** à l'intérieur du conteneur.
 
 ---
 
-## Roadmap
+## Feuille de route
 
 | Catégorie | Élément | Statut |
 |---|---|---|
-| **UI/UX** | Refonte visuelle — animations, micro-interactions, wow factor | Prévu |
-| **Sécurité** | Rate limiting par compte (protection contre le brute-force distribué) | Prévu |
-| **Sécurité** | Verrouillage temporaire du compte après N échecs de connexion | Prévu |
-| **Sécurité** | Directive CSP `report-to` pointant vers `/api/csp-report` en production | Prévu |
-| **Sécurité** | Forcer TLS sur les connexions SMTP sortantes | Prévu |
-| **Monitoring** | Endpoint Prometheus `/metrics` (latence requêtes, taux d'erreur, stats DB) | Prévu |
+| **UI/UX** | Refonte visuelle — animations, micro-interactions, effet wow | Fait |
+| **Sécurité** | Rate limiting par compte (protection brute-force distribué) | Fait |
+| **Sécurité** | Verrouillage temporaire du compte après N échecs de connexion | Fait |
+| **Sécurité** | Directive CSP `report-to` vers `/api/csp-report` en production | Fait |
+| **Sécurité** | Forcer TLS sur les connexions SMTP sortantes | Fait |
+| **Monitoring** | Endpoint Prometheus `/metrics` (latence, erreurs, stats DB) | Fait |
 | **Testing** | Tests E2E navigateur (Playwright) | Prévu |
 
 ---

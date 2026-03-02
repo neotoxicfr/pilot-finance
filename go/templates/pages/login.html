@@ -43,13 +43,13 @@ function loginPage() {
 }
 document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginPage); });
 </script>
-<div class="h-dvh overflow-y-auto bg-background flex flex-col items-center p-4">
+<div class="h-dvh overflow-y-auto login-bg flex flex-col items-center p-4">
   <div class="my-auto w-full max-w-sm">
-    <div class="dashboard-card bg-background border rounded-2xl p-8 w-full transition-all"
+    <div class="login-card border border-border rounded-2xl p-8 w-full transition-all"
          x-data="loginPage"
          data-requires2fa="{{if .Requires2FA}}true{{else}}false{{end}}">
         <div class="flex flex-col items-center mb-8">
-            <div class="bg-background border border-border p-4 rounded-full mb-4 flex items-center justify-center">
+            <div class="bg-blue-500/10 dark:bg-blue-500/15 p-4 rounded-2xl mb-4 flex items-center justify-center">
                 {{template "brand-logo" dict "Size" 42 "WithText" false}}
             </div>
             <h1 class="text-2xl font-bold text-foreground mb-1 text-center">Pilot Finance</h1>
@@ -108,7 +108,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
                             {{template "icon-mail" dict "Size" 18}}
                         </div>
                         <input id="login-email" name="email" type="email" required
-                               class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-hidden focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
+                               class="w-full bg-accent border border-border rounded-xl py-3 pl-10 pr-4 text-sm text-foreground outline-hidden focus:border-blue-500 transition-all placeholder:text-muted-foreground/50"
                                placeholder="{{index .T "login.email_placeholder"}}">
                     </div>
                     <div>
@@ -123,7 +123,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
                                 {{template "icon-lock" dict "Size" 18}}
                             </div>
                             <input id="login-password" name="password" type="password" required x-model="password"
-                                   class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-hidden focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
+                                   class="w-full bg-accent border border-border rounded-xl py-3 pl-10 pr-4 text-sm text-foreground outline-hidden focus:border-blue-500 transition-all placeholder:text-muted-foreground/50"
                                    placeholder="{{index .T "login.password_placeholder"}}">
                         </div>
                     </div>
@@ -136,7 +136,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
                                     {{template "icon-check" dict "Size" 18}}
                                 </div>
                                 <input id="login-confirm" name="confirmPassword" type="password" required x-model="confirm"
-                                       class="w-full bg-background border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-foreground outline-hidden focus:border-blue-500 transition-colors placeholder:text-muted-foreground/50"
+                                       class="w-full bg-accent border border-border rounded-xl py-3 pl-10 pr-4 text-sm text-foreground outline-hidden focus:border-blue-500 transition-all placeholder:text-muted-foreground/50"
                                        placeholder="{{index .T "login.confirm_placeholder"}}">
                             </div>
                             {{template "password-feedback" .}}
@@ -162,7 +162,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
 
             <button type="submit"
                     :disabled="submitDisabled"
-                    class="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all mt-2 flex items-center justify-center gap-2">
+                    class="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl mt-2 flex items-center justify-center gap-2">
                 <span x-show="loading">{{index .T "login.loading"}}</span>
                 <span x-show="!loading && requires2FA">{{index .T "login.verify_btn"}}</span>
                 <span x-show="!loading && !requires2FA && isRegister">{{index .T "login.create_account_btn"}}</span>
