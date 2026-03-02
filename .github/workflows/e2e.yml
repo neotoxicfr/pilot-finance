@@ -40,9 +40,20 @@ jobs:
         working-directory: e2e
         run: npx playwright install --with-deps chromium firefox webkit
 
+      - name: Generate test keys
+        id: keys
+        run: |
+          echo "auth=$(openssl rand -hex 32)" >> $GITHUB_OUTPUT
+          echo "enc=$(openssl rand -hex 32)" >> $GITHUB_OUTPUT
+          echo "blind=$(openssl rand -hex 32)" >> $GITHUB_OUTPUT
+
       - name: Start server
         run: |
-          cd go && DISABLE_RATE_LIMIT=true ../server &
+          cd go && DISABLE_RATE_LIMIT=true \
+            AUTH_SECRET=${{ steps.keys.outputs.auth }} \
+            ENCRYPTION_KEY=${{ steps.keys.outputs.enc }} \
+            BLIND_INDEX_KEY=${{ steps.keys.outputs.blind }} \
+            ../server &
           sleep 3
           curl -sf http://localhost:3000/api/health || exit 1
 
