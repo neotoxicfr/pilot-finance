@@ -538,46 +538,46 @@ document.addEventListener('alpine:init', () => {
 <div class="dashboard-card bg-background border rounded-2xl overflow-hidden">
     <div class="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-border">
         <!-- Monthly -->
-        <div class="p-5 sm:p-6">
-            <div class="flex items-center gap-2 mb-4">
+        <div class="p-5 sm:p-7">
+            <div class="flex items-center gap-2 mb-5">
                 <span class="bg-blue-500/10 text-blue-500 px-2.5 py-0.5 rounded-lg text-xs font-bold uppercase tracking-wider">{{index $.T "summary.monthly"}}</span>
             </div>
-            <div class="flex flex-wrap gap-x-8 gap-y-4">
+            <div class="grid grid-cols-3 gap-4">
                 <div class="min-w-0">
-                    <div class="text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.income"}}</div>
-                    <div class="text-lg sm:text-xl font-mono font-bold text-emerald-500 whitespace-nowrap">+{{formatMoney .MonthlyIncome $.Currency}}</div>
-                    {{if gt .MonthlyYield 0.0}}<div class="text-xs text-emerald-400/80 mt-1 font-medium whitespace-nowrap">{{index $.T "summary.yield_auto"}} +{{formatMoney .MonthlyYield $.Currency}}</div>{{end}}
+                    <div class="text-xs text-muted-foreground uppercase font-bold mb-1.5">{{index $.T "summary.income"}}</div>
+                    <div class="text-lg sm:text-2xl font-mono font-bold text-emerald-500 whitespace-nowrap">+{{formatMoney .MonthlyIncome $.Currency}}</div>
+                    {{if gt .MonthlyYield 0.0}}<div class="text-xs text-emerald-400/80 mt-1.5 font-medium whitespace-nowrap">{{index $.T "summary.yield_auto"}} +{{formatMoney .MonthlyYield $.Currency}}</div>{{end}}
                 </div>
                 <div class="min-w-0">
-                    <div class="text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.expenses"}}</div>
-                    <div class="text-lg sm:text-xl font-mono font-bold text-foreground whitespace-nowrap">-{{formatMoney .MonthlyExpenses $.Currency}}</div>
+                    <div class="text-xs text-muted-foreground uppercase font-bold mb-1.5">{{index $.T "summary.expenses"}}</div>
+                    <div class="text-lg sm:text-2xl font-mono font-bold text-foreground whitespace-nowrap">-{{formatMoney .MonthlyExpenses $.Currency}}</div>
                 </div>
                 <div class="min-w-0">
-                    <div class="text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.balance"}}</div>
-                    <div class="text-lg sm:text-xl font-mono font-bold whitespace-nowrap {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
+                    <div class="text-xs text-muted-foreground uppercase font-bold mb-1.5">{{index $.T "summary.balance"}}</div>
+                    <div class="text-lg sm:text-2xl font-mono font-bold whitespace-nowrap {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
                         {{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney .MonthlyNet $.Currency}}
                     </div>
                 </div>
             </div>
         </div>
         <!-- Yearly -->
-        <div class="p-5 sm:p-6 bg-accent/20">
-            <div class="flex items-center gap-2 mb-4">
+        <div class="p-5 sm:p-7 bg-accent/20">
+            <div class="flex items-center gap-2 mb-5">
                 <span class="bg-purple-500/10 text-purple-500 px-2.5 py-0.5 rounded-lg text-xs font-bold uppercase tracking-wider">{{index $.T "summary.yearly"}}</span>
             </div>
-            <div class="flex flex-wrap gap-x-8 gap-y-4 opacity-90">
+            <div class="grid grid-cols-3 gap-4 opacity-90">
                 <div class="min-w-0">
-                    <div class="text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.income"}}</div>
-                    <div class="text-lg sm:text-xl font-mono font-bold text-emerald-500 whitespace-nowrap">+{{formatMoney (add (mult .MonthlyIncome 12) .AnnualYield) $.Currency}}</div>
-                    {{if gt (add .MonthlyYield .AnnualYield) 0.0}}<div class="text-xs text-emerald-400/80 mt-1 font-medium whitespace-nowrap">{{index $.T "summary.yield_auto"}} +{{formatMoney (add (mult .MonthlyYield 12) .AnnualYield) $.Currency}}</div>{{end}}
+                    <div class="text-xs text-muted-foreground uppercase font-bold mb-1.5">{{index $.T "summary.income"}}</div>
+                    <div class="text-lg sm:text-2xl font-mono font-bold text-emerald-500 whitespace-nowrap">+{{formatMoney (add (mult .MonthlyIncome 12) .AnnualYield) $.Currency}}</div>
+                    {{if gt (add .MonthlyYield .AnnualYield) 0.0}}<div class="text-xs text-emerald-400/80 mt-1.5 font-medium whitespace-nowrap">{{index $.T "summary.yield_auto"}} +{{formatMoney (add (mult .MonthlyYield 12) .AnnualYield) $.Currency}}</div>{{end}}
                 </div>
                 <div class="min-w-0">
-                    <div class="text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.expenses"}}</div>
-                    <div class="text-lg sm:text-xl font-mono font-bold text-foreground whitespace-nowrap">-{{formatMoney (mult .MonthlyExpenses 12) $.Currency}}</div>
+                    <div class="text-xs text-muted-foreground uppercase font-bold mb-1.5">{{index $.T "summary.expenses"}}</div>
+                    <div class="text-lg sm:text-2xl font-mono font-bold text-foreground whitespace-nowrap">-{{formatMoney (mult .MonthlyExpenses 12) $.Currency}}</div>
                 </div>
                 <div class="min-w-0">
-                    <div class="text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.balance"}}</div>
-                    <div class="text-lg sm:text-xl font-mono font-bold whitespace-nowrap {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
+                    <div class="text-xs text-muted-foreground uppercase font-bold mb-1.5">{{index $.T "summary.balance"}}</div>
+                    <div class="text-lg sm:text-2xl font-mono font-bold whitespace-nowrap {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
                         {{if gt (add (mult .MonthlyNet 12) .AnnualYield) 0.0}}+{{end}}{{formatMoney (add (mult .MonthlyNet 12) .AnnualYield) $.Currency}}
                     </div>
                 </div>
