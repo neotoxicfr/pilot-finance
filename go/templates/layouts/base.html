@@ -111,16 +111,16 @@
     <nav class="border-b border-border bg-background/50 backdrop-blur-md sticky top-0 z-50">
         <div class="max-w-[1400px] mx-auto px-2 sm:px-4 h-16 flex items-center justify-between">
             <div class="flex items-center gap-3 sm:gap-8">
-                <a href="/" class="hover:opacity-80 transition-opacity flex-shrink-0">
+                <a href="/" class="hover:opacity-80 transition-opacity flex-shrink-0" aria-label="Pilot Finance">
                     {{template "brand-logo" dict "Size" 28}}
                 </a>
                 <div class="flex items-center gap-1">
-                    <a href="/" {{if eq .CurrentPath "/"}}aria-current="page"{{end}} class="flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-lg transition-all
+                    <a href="/" aria-label="{{index .T "nav.dashboard"}}" {{if eq .CurrentPath "/"}}aria-current="page"{{end}} class="flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-lg transition-all
                        {{if eq .CurrentPath "/"}}bg-accent text-foreground{{else}}text-foreground/70 hover:text-foreground hover:bg-accent{{end}}">
                         {{template "icon-dashboard" dict "Size" 20}}
                         <span class="hidden lg:inline">{{index .T "nav.dashboard"}}</span>
                     </a>
-                    <a href="/accounts" {{if or (eq .CurrentPath "/accounts") (eq .CurrentPath "/recurring")}}aria-current="page"{{end}} class="flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-lg transition-all
+                    <a href="/accounts" aria-label="{{index .T "nav.accounts"}}" {{if or (eq .CurrentPath "/accounts") (eq .CurrentPath "/recurring")}}aria-current="page"{{end}} class="flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-lg transition-all
                        {{if or (eq .CurrentPath "/accounts") (eq .CurrentPath "/recurring")}}bg-accent text-foreground{{else}}text-foreground/70 hover:text-foreground hover:bg-accent{{end}}">
                         {{template "icon-wallet" dict "Size" 20}}
                         <span class="hidden lg:inline">{{index .T "nav.accounts"}}</span>
