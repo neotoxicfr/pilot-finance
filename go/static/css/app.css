@@ -427,7 +427,7 @@ dialog > .modal-panel {
 
 /* Full-viewport page layout (audit log) */
 .page-viewport {
-    height: calc(100dvh - 4rem);
+    max-height: calc(100dvh - 4rem);
     display: flex;
     flex-direction: column;
 }
