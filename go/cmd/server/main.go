@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/md5"
+	"database/sql"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -24,6 +25,7 @@ import (
 	"pilot-finance/internal/handlers"
 	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/mail"
+	"pilot-finance/internal/metrics"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/ratelimit"
 	"pilot-finance/internal/templates"
@@ -113,6 +115,10 @@ func main() {
 		}
 	}
 
+	// Initialiser les métriques Prometheus
+	metrics.Init(func() *sql.DB { return db.DB })
+	slog.Info("métriques Prometheus initialisées")
+
 	// Créer le routeur
 	r := chi.NewRouter()
 
@@ -123,6 +129,7 @@ func main() {
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Compress(5))
+	r.Use(metrics.Middleware)
 	r.Use(securityHeaders)
 	r.Use(maxBodySize)
 	r.Use(httprate.LimitByRealIP(120, time.Minute)) // 120 req/min global (2/s, suffisant pour usage actif)
@@ -134,8 +141,9 @@ func main() {
 	fileServer := http.FileServer(http.Dir("static"))
 	r.Handle("/static/*", http.StripPrefix("/static/", cacheStatic(fileServer)))
 
-	// Health check + CSP report (pas de rate limit strict)
+	// Health check, metrics, CSP report (pas de rate limit strict)
 	r.Get("/api/health", handlers.HealthCheck)
+	r.Get("/metrics", metrics.Handler().ServeHTTP)
 	r.Post("/api/csp-report", handlers.CSPReport)
 
 	// Routes auth avec rate limit (10 req/min anti-bruteforce, humain = ~1 essai/6s)
