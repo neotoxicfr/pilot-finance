@@ -190,6 +190,25 @@ func TestOrFunc_NonEmptyFirst(t *testing.T) {
 	}
 }
 
+func TestOrFunc_Variadic(t *testing.T) {
+	// All falsy except last
+	if got := orFunc(nil, "", 0, "last"); got != "last" {
+		t.Errorf("want 'last', got %v", got)
+	}
+	// Truthy in the middle
+	if got := orFunc(nil, "mid", "end"); got != "mid" {
+		t.Errorf("want 'mid', got %v", got)
+	}
+	// No args
+	if got := orFunc(); got != nil {
+		t.Errorf("want nil, got %v", got)
+	}
+	// All falsy → returns last
+	if got := orFunc(false, 0, ""); got != "" {
+		t.Errorf("want empty string (last), got %v", got)
+	}
+}
+
 // --- Init, Render, RenderPartial ---
 
 func TestInit_ValidDir(t *testing.T) {

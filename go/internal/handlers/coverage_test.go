@@ -376,6 +376,19 @@ func TestAuditPage_WithEntries(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Errorf("want 200, got %d (body: %s)", rr.Code, rr.Body.String())
 	}
+	body := rr.Body.String()
+	// Vérifier que les 3 entrées sont rendues (3 lignes <tr> dans tbody)
+	trCount := strings.Count(body, "hover:bg-accent/20")
+	if trCount != 3 {
+		t.Errorf("want 3 audit rows, got %d", trCount)
+	}
+	// Vérifier que les labels d'action sont présents
+	if !strings.Contains(body, "Connexion") {
+		t.Errorf("missing LOGIN_SUCCESS label in HTML body")
+	}
+	if !strings.Contains(body, "UNKNOWN_ACTION") {
+		t.Errorf("missing UNKNOWN_ACTION fallback in HTML body")
+	}
 }
 
 func TestAuditPage_NilUser_Forbidden(t *testing.T) {
