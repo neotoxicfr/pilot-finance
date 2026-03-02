@@ -216,6 +216,26 @@ func TestLimiter_GoroutineStop(t *testing.T) {
 	ratelimit.StopAll()                  // nettoyage final
 }
 
+func TestCheck_Disabled_AlwaysAllowed(t *testing.T) {
+	ratelimit.StopAll()
+	ratelimit.Disabled = true
+	defer func() { ratelimit.Disabled = false }()
+
+	ip := "10.0.0.250"
+	// Even after many attempts, should always be allowed
+	for i := 0; i < 20; i++ {
+		r := ratelimit.Check(ip, "login")
+		if !r.Allowed {
+			t.Fatalf("attempt %d should be allowed when Disabled=true", i+1)
+		}
+		if r.Remaining != 999 {
+			t.Errorf("Remaining: want 999, got %d", r.Remaining)
+		}
+	}
+
+	ratelimit.StopAll()
+}
+
 func TestStopAll_ResetsState(t *testing.T) {
 	ip := "10.0.0.104"
 	cfg := ratelimit.Configs["login"]

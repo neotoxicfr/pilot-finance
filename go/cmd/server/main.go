@@ -115,6 +115,13 @@ func main() {
 		}
 	}
 
+	// Désactiver le rate limiting applicatif si demandé (tests E2E)
+	disableRL := os.Getenv("DISABLE_RATE_LIMIT") == "true"
+	if disableRL {
+		ratelimit.Disabled = true
+		slog.Warn("rate limiting désactivé (DISABLE_RATE_LIMIT=true)")
+	}
+
 	// Initialiser les métriques Prometheus
 	metrics.Init(func() *sql.DB { return db.DB })
 	slog.Info("métriques Prometheus initialisées")
@@ -132,7 +139,9 @@ func main() {
 	r.Use(metrics.Middleware)
 	r.Use(securityHeaders)
 	r.Use(maxBodySize)
-	r.Use(httprate.LimitByRealIP(120, time.Minute)) // 120 req/min global (2/s, suffisant pour usage actif)
+	if !disableRL {
+		r.Use(httprate.LimitByRealIP(120, time.Minute)) // 120 req/min global
+	}
 
 	r.NotFound(handlers.NotFound)
 	r.MethodNotAllowed(handlers.MethodNotAllowed)
@@ -148,7 +157,9 @@ func main() {
 
 	// Routes auth avec rate limit (10 req/min anti-bruteforce, humain = ~1 essai/6s)
 	r.Group(func(r chi.Router) {
-		r.Use(httprate.LimitByRealIP(10, time.Minute))
+		if !disableRL {
+			r.Use(httprate.LimitByRealIP(10, time.Minute))
+		}
 
 		r.Get("/login", handlers.LoginPage)
 		r.Post("/login", handlers.LoginSubmit)
@@ -188,7 +199,11 @@ func main() {
 		r.Get("/settings", handlers.SettingsPage)
 		r.Post("/settings/password", handlers.ChangePassword)
 		r.Post("/settings/preferences", handlers.UpdatePreferences)
-		r.With(httprate.LimitByRealIP(10, time.Minute)).Get("/settings/export", handlers.ExportData)
+		exportRoute := r.With()
+		if !disableRL {
+			exportRoute = r.With(httprate.LimitByRealIP(10, time.Minute))
+		}
+		exportRoute.Get("/settings/export", handlers.ExportData)
 		r.Delete("/settings/account", handlers.DeleteSelfAccount)
 
 		// Routes MFA
