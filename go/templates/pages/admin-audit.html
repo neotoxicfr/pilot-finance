@@ -1,7 +1,7 @@
 {{define "content"}}
-<div class="max-w-[1400px] mx-auto px-4 sm:px-8 lg:px-10 py-6 sm:py-8 flex flex-col h-[calc(100dvh-4rem)]">
+<div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 lg:py-5 page-viewport">
 
-    <div class="mb-6 flex items-center justify-between gap-4 shrink-0">
+    <div class="mb-3 sm:mb-4 flex items-center justify-between gap-4 shrink-0">
         <div>
             <h1 class="text-2xl font-bold text-foreground">{{index .T "audit.title"}}</h1>
             <p class="text-sm text-muted-foreground mt-1">{{.Total}} {{index .T "audit.total_entries"}}</p>
@@ -13,24 +13,24 @@
     </div>
 
     <div class="bg-card border border-border rounded-2xl overflow-hidden shadow-sm flex flex-col flex-1 min-h-0">
-        <div class="overflow-auto overscroll-contain flex-1">
+        <div class="overflow-auto overscroll-contain flex-1 min-h-0">
             <table class="w-full text-sm">
                 <thead class="border-b border-border bg-accent/40 sticky top-0 z-10">
                     <tr>
-                        <th scope="col" class="px-5 py-3.5 text-left font-semibold text-foreground whitespace-nowrap">{{index .T "audit.col_date"}}</th>
-                        <th scope="col" class="px-5 py-3.5 text-left font-semibold text-foreground whitespace-nowrap">{{index .T "audit.col_action"}}</th>
-                        <th scope="col" class="hidden sm:table-cell px-5 py-3.5 text-left font-semibold text-foreground whitespace-nowrap">{{index .T "audit.col_user"}}</th>
-                        <th scope="col" class="hidden md:table-cell px-5 py-3.5 text-left font-semibold text-foreground whitespace-nowrap">{{index .T "audit.col_ip"}}</th>
-                        <th scope="col" class="hidden lg:table-cell px-5 py-3.5 text-left font-semibold text-foreground whitespace-nowrap">{{index .T "audit.col_useragent"}}</th>
+                        <th scope="col" class="px-4 py-3 text-left font-semibold text-foreground whitespace-nowrap">{{index .T "audit.col_date"}}</th>
+                        <th scope="col" class="px-4 py-3 text-left font-semibold text-foreground whitespace-nowrap">{{index .T "audit.col_action"}}</th>
+                        <th scope="col" class="hidden sm:table-cell px-4 py-3 text-left font-semibold text-foreground whitespace-nowrap">{{index .T "audit.col_user"}}</th>
+                        <th scope="col" class="hidden md:table-cell px-4 py-3 text-left font-semibold text-foreground whitespace-nowrap">{{index .T "audit.col_ip"}}</th>
+                        <th scope="col" class="hidden lg:table-cell px-4 py-3 text-left font-semibold text-foreground whitespace-nowrap">{{index .T "audit.col_useragent"}}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-border">
                     {{range .Entries}}
                     <tr class="hover:bg-accent/20 transition-colors">
-                        <td class="px-5 py-3.5 text-muted-foreground whitespace-nowrap font-mono text-xs">
+                        <td class="px-4 py-3 text-muted-foreground whitespace-nowrap font-mono text-xs">
                             {{.CreatedAt.Format "2006-01-02 15:04"}}
                         </td>
-                        <td class="px-5 py-3.5 whitespace-nowrap">
+                        <td class="px-4 py-3 whitespace-nowrap">
                             <span class="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide
                                 {{if or (eq .Action "LOGIN_SUCCESS") (eq .Action "PASSKEY_ADD") (eq .Action "MFA_ENABLE") (eq .Action "ACCOUNT_CREATE")}}
                                     bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20
@@ -42,13 +42,13 @@
                                 {{.ActionLabel}}
                             </span>
                         </td>
-                        <td class="hidden sm:table-cell px-5 py-3.5 text-foreground whitespace-nowrap text-xs">
+                        <td class="hidden sm:table-cell px-4 py-3 text-foreground whitespace-nowrap text-xs">
                             {{.Email}}
                         </td>
-                        <td class="hidden md:table-cell px-5 py-3.5 text-muted-foreground font-mono text-xs whitespace-nowrap">
+                        <td class="hidden md:table-cell px-4 py-3 text-muted-foreground font-mono text-xs whitespace-nowrap">
                             {{.IP}}
                         </td>
-                        <td class="hidden lg:table-cell px-5 py-3.5 text-muted-foreground text-xs max-w-[260px] truncate">
+                        <td class="hidden lg:table-cell px-4 py-3 text-muted-foreground text-xs max-w-[260px] truncate">
                             {{.UserAgent}}
                         </td>
                     </tr>
@@ -64,7 +64,7 @@
         </div>
 
         {{if gt .TotalPages 1}}
-        <div class="border-t border-border px-5 py-3.5 flex items-center justify-between gap-4 text-sm shrink-0">
+        <div class="border-t border-border px-4 py-3 flex items-center justify-between gap-4 text-sm shrink-0">
             <span class="text-muted-foreground">Page {{.Page}} / {{.TotalPages}}</span>
             <div class="flex gap-2">
                 {{if gt .Page 1}}
