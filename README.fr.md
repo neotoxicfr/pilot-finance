@@ -7,6 +7,7 @@
 ![HTMX](https://img.shields.io/badge/HTMX-3D72D7?logo=htmx&logoColor=white)
 ![Docker Build](https://github.com/neotoxicfr/pilot-finance/actions/workflows/docker-publish.yml/badge.svg)
 ![CI](https://github.com/neotoxicfr/pilot-finance/actions/workflows/ci.yml/badge.svg)
+![E2E](https://github.com/neotoxicfr/pilot-finance/actions/workflows/e2e.yml/badge.svg)
 ![CodeQL](https://github.com/neotoxicfr/pilot-finance/actions/workflows/codeql.yml/badge.svg)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen?logo=go)
 ![Dependabot](https://img.shields.io/badge/dependabot-active-brightgreen?logo=dependabot&label=Dependabot)
@@ -92,6 +93,47 @@ docker compose up -d
 
 L'application écoute sur le port **3000** à l'intérieur du conteneur.
 
+### Démarrage rapide (étape par étape)
+
+1. **Générer les clés de chiffrement** (exécuter chaque commande une fois, sauvegarder le résultat) :
+   ```bash
+   openssl rand -hex 32  # → ENCRYPTION_KEY
+   openssl rand -hex 32  # → BLIND_INDEX_KEY
+   openssl rand -hex 32  # → AUTH_SECRET
+   ```
+
+2. **Créer le dossier du projet** :
+   ```bash
+   mkdir -p ~/pilot-finance/data
+   cd ~/pilot-finance
+   ```
+
+3. **Créer `docker-compose.yml`** avec le modèle ci-dessus, en remplaçant les clés et le domaine.
+
+4. **Démarrer l'application** :
+   ```bash
+   docker compose up -d
+   ```
+
+5. **Configurer votre reverse proxy** pour rediriger le trafic de votre domaine vers `http://localhost:3000`.
+
+6. **Ouvrir votre domaine** dans un navigateur, créer votre compte, puis passer `ALLOW_REGISTER=false` et redémarrer :
+   ```bash
+   docker compose down
+   docker compose up -d
+   ```
+
+### Mise à jour
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+### Sauvegarde
+
+Vos données sont stockées dans `./data/pilot.db`. Sauvegardez ce fichier régulièrement. L'application crée des sauvegardes rotatives automatiques au démarrage.
+
 ---
 
 ## Variables d'environnement
@@ -129,7 +171,8 @@ L'application écoute sur le port **3000** à l'intérieur du conteneur.
 | Base de données | SQLite (mode WAL) + backups rotatifs automatiques |
 | Graphiques | Chart.js 4.5 |
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
-| CI/CD | GitHub Actions (tests, CodeQL, image GHCR, auto-release) |
+| CI/CD | GitHub Actions (tests, E2E, CodeQL, Trivy, image GHCR, auto-release) |
+| E2E | Playwright (Chromium, Firefox, WebKit, Mobile Chrome) |
 | Image Docker | ~40 Mo (base alpine:3.23) |
 
 ---
@@ -138,13 +181,17 @@ L'application écoute sur le port **3000** à l'intérieur du conteneur.
 
 | Catégorie | Élément | Statut |
 |---|---|---|
-| **UI/UX** | Refonte visuelle — animations, micro-interactions, effet wow | Fait |
+| **UI/UX** | Refonte visuelle — glassmorphism, dark mode, micro-interactions | Fait |
 | **Sécurité** | Rate limiting par compte (protection brute-force distribué) | Fait |
 | **Sécurité** | Verrouillage temporaire du compte après N échecs de connexion | Fait |
 | **Sécurité** | Directive CSP `report-to` vers `/api/csp-report` en production | Fait |
 | **Sécurité** | Forcer TLS sur les connexions SMTP sortantes | Fait |
+| **Sécurité** | Scan de vulnérabilités Docker (Trivy) en CI | Fait |
 | **Monitoring** | Endpoint Prometheus `/metrics` (latence, erreurs, stats DB) | Fait |
-| **Testing** | Tests E2E navigateur (Playwright) | Prévu |
+| **Testing** | Tests E2E navigateur — Chromium, Firefox, WebKit, Mobile (Playwright) | Fait |
+| **Testing** | Audit d'accessibilité (axe-core) intégré aux tests E2E | Fait |
+| **CI/CD** | Tests E2E dans GitHub Actions avec matrice multi-navigateurs | Fait |
+| **CI/CD** | Webhook de déploiement auto sur push vers develop | Fait |
 
 ---
 

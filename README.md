@@ -7,6 +7,7 @@
 ![HTMX](https://img.shields.io/badge/HTMX-3D72D7?logo=htmx&logoColor=white)
 ![Docker Build](https://github.com/neotoxicfr/pilot-finance/actions/workflows/docker-publish.yml/badge.svg)
 ![CI](https://github.com/neotoxicfr/pilot-finance/actions/workflows/ci.yml/badge.svg)
+![E2E](https://github.com/neotoxicfr/pilot-finance/actions/workflows/e2e.yml/badge.svg)
 ![CodeQL](https://github.com/neotoxicfr/pilot-finance/actions/workflows/codeql.yml/badge.svg)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen?logo=go)
 ![Dependabot](https://img.shields.io/badge/dependabot-active-brightgreen?logo=dependabot&label=Dependabot)
@@ -92,6 +93,47 @@ docker compose up -d
 
 The application listens on port **3000** inside the container.
 
+### Quick start (step by step)
+
+1. **Generate your encryption keys** (run each command once, save the output):
+   ```bash
+   openssl rand -hex 32  # → ENCRYPTION_KEY
+   openssl rand -hex 32  # → BLIND_INDEX_KEY
+   openssl rand -hex 32  # → AUTH_SECRET
+   ```
+
+2. **Create the project folder**:
+   ```bash
+   mkdir -p ~/pilot-finance/data
+   cd ~/pilot-finance
+   ```
+
+3. **Create `docker-compose.yml`** with the template above, replacing the keys and domain.
+
+4. **Start the application**:
+   ```bash
+   docker compose up -d
+   ```
+
+5. **Configure your reverse proxy** to forward traffic from your domain to `http://localhost:3000`.
+
+6. **Open your domain** in a browser, register your account, then set `ALLOW_REGISTER=false` and restart:
+   ```bash
+   docker compose down
+   docker compose up -d
+   ```
+
+### Updating
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+### Backup
+
+Your data is stored in `./data/pilot.db`. Back up this file regularly. The application creates automatic rotating backups at startup.
+
 ---
 
 ## Environment variables
@@ -129,7 +171,8 @@ The application listens on port **3000** inside the container.
 | Database | SQLite (WAL mode) + automatic rotating backups |
 | Charts | Chart.js 4.5 |
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
-| CI/CD | GitHub Actions (tests, CodeQL, GHCR image, auto-release) |
+| CI/CD | GitHub Actions (tests, E2E, CodeQL, Trivy, GHCR image, auto-release) |
+| E2E | Playwright (Chromium, Firefox, WebKit, Mobile Chrome) |
 | Docker image | ~40 MB (alpine:3.23 base) |
 
 ---
@@ -138,13 +181,17 @@ The application listens on port **3000** inside the container.
 
 | Category | Item | Status |
 |---|---|---|
-| **UI/UX** | Visual overhaul — animations, micro-interactions, wow factor | Done |
+| **UI/UX** | Visual overhaul — glassmorphism, dark mode, micro-interactions | Done |
 | **Security** | Per-account rate limiting (protect against distributed brute-force) | Done |
 | **Security** | Temporary account lock-out after N failed login attempts | Done |
 | **Security** | CSP `report-to` directive pointing to `/api/csp-report` in production | Done |
 | **Security** | Force TLS on outbound SMTP connections | Done |
+| **Security** | Docker image vulnerability scan (Trivy) in CI | Done |
 | **Monitoring** | Prometheus `/metrics` endpoint (request latency, error rates, DB stats) | Done |
-| **Testing** | E2E browser tests (Playwright) | Planned |
+| **Testing** | E2E browser tests — Chromium, Firefox, WebKit, Mobile (Playwright) | Done |
+| **Testing** | Accessibility audit (axe-core) integrated in E2E suite | Done |
+| **CI/CD** | E2E tests in GitHub Actions with multi-browser matrix | Done |
+| **CI/CD** | Auto-deploy webhook on push to develop | Done |
 
 ---
 
