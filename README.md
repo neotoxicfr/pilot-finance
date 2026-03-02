@@ -8,6 +8,7 @@
 ![Docker Build](https://github.com/neotoxicfr/pilot-finance/actions/workflows/docker-publish.yml/badge.svg)
 ![CI](https://github.com/neotoxicfr/pilot-finance/actions/workflows/ci.yml/badge.svg)
 ![E2E](https://github.com/neotoxicfr/pilot-finance/actions/workflows/e2e.yml/badge.svg)
+![Lighthouse](https://github.com/neotoxicfr/pilot-finance/actions/workflows/lighthouse.yml/badge.svg)
 ![CodeQL](https://github.com/neotoxicfr/pilot-finance/actions/workflows/codeql.yml/badge.svg)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen?logo=go)
 ![Dependabot](https://img.shields.io/badge/dependabot-active-brightgreen?logo=dependabot&label=Dependabot)
@@ -192,6 +193,10 @@ Your data is stored in `./data/pilot.db`. Back up this file regularly. The appli
 | **Testing** | Accessibility audit (axe-core) integrated in E2E suite | Done |
 | **CI/CD** | E2E tests in GitHub Actions with multi-browser matrix | Done |
 | **CI/CD** | Auto-deploy webhook on push to develop | Done |
+| **CI/CD** | Lighthouse performance audit in CI (threshold 80%) | Done |
+| **CI/CD** | Automatic changelog with release-please | Done |
+| **Testing** | k6 load tests (smoke + stress) | Done |
+| **Docs** | Contributing guide with commit convention | Done |
 
 ---
 
