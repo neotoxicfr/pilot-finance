@@ -22,6 +22,16 @@ var smtpDataWrite = func(w io.Writer, msg []byte) (int, error) {
 	return w.Write(msg)
 }
 
+// smtpDial est une variable de fonction pour faciliter les tests STARTTLS.
+var smtpDial = func(addr string) (*smtp.Client, error) {
+	return smtp.Dial(addr)
+}
+
+// clientStartTLS est une variable de fonction pour faciliter les tests STARTTLS.
+var clientStartTLS = func(c *smtp.Client, cfg *tls.Config) error {
+	return c.StartTLS(cfg)
+}
+
 // Config contient la configuration SMTP
 type Config struct {
 	Host     string
@@ -87,7 +97,8 @@ func Send(to, subject, body string) error {
 		return sendTLS(addr, auth, config.From, to, msg)
 	}
 
-	return smtp.SendMail(addr, auth, config.From, []string{to}, msg)
+	// Port 587 : STARTTLS obligatoire (pas de fallback en clair)
+	return sendSTARTTLS(addr, auth, config.From, to, msg)
 }
 
 func sendTLS(addr string, auth smtp.Auth, from, to string, msg []byte) error {
@@ -131,6 +142,44 @@ func sendTLS(addr string, auth smtp.Auth, from, to string, msg []byte) error {
 		return err
 	}
 
+	return w.Close()
+}
+
+// sendSTARTTLS envoie un email via STARTTLS (port 587).
+// Échoue si le serveur ne supporte pas STARTTLS — pas de fallback en clair.
+func sendSTARTTLS(addr string, auth smtp.Auth, from, to string, msg []byte) error {
+	client, err := smtpDial(addr)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	hostname := strings.Split(addr, ":")[0]
+	tlsConfig := &tls.Config{ServerName: hostname}
+	if err := clientStartTLS(client, tlsConfig); err != nil {
+		return fmt.Errorf("STARTTLS requis mais non supporté: %w", err)
+	}
+
+	if auth != nil {
+		if err := client.Auth(auth); err != nil {
+			return err
+		}
+	}
+
+	if err := client.Mail(from); err != nil {
+		return err
+	}
+	if err := client.Rcpt(to); err != nil {
+		return err
+	}
+
+	w, err := client.Data()
+	if err != nil {
+		return err
+	}
+	if _, err := smtpDataWrite(w, msg); err != nil {
+		return err
+	}
 	return w.Close()
 }
 

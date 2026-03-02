@@ -45,7 +45,7 @@ func LogAudit(userID int64, action, ip, userAgent string) {
 // GetAuditLogByUserID retourne toutes les entrées d'audit d'un utilisateur (export GDPR).
 func GetAuditLogByUserID(userID int64) ([]AuditEntry, error) {
 	rows, err := DB.Query(`
-		SELECT id, user_id, action, ip, user_agent, created_at
+		SELECT id, user_id, action, COALESCE(ip, ''), COALESCE(user_agent, ''), created_at
 		FROM audit_log WHERE user_id = ?
 		ORDER BY created_at DESC
 	`, userID)
@@ -75,7 +75,7 @@ func GetAuditLog(page, limit int) ([]AuditEntry, error) {
 	offset := (page - 1) * limit
 
 	rows, err := DB.Query(`
-		SELECT id, user_id, action, ip, user_agent, created_at
+		SELECT id, user_id, action, COALESCE(ip, ''), COALESCE(user_agent, ''), created_at
 		FROM audit_log
 		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?

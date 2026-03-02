@@ -96,8 +96,9 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 		setSessionCookie(w, "session", token, 86400)
 
-		// Réinitialiser le rate limiter
+		// Réinitialiser les rate limiters (IP + compte)
 		hookRateLimitReset(clientIP, "login")
+		hookRateLimitReset(strconv.FormatInt(user.ID, 10), "loginAccount")
 
 		hookLogAudit(user.ID, db.AuditLoginSuccess, clientIP, r.UserAgent())
 
@@ -125,6 +126,15 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	if user == nil {
 		clientError(w, ErrAuthInvalid, "Identifiants incorrects", http.StatusUnauthorized)
+		return
+	}
+
+	// Rate limiting par compte (protection brute-force distribué multi-IP)
+	accountKey := strconv.FormatInt(user.ID, 10)
+	acctResult := hookRateLimitCheck(accountKey, "loginAccount")
+	if !acctResult.Allowed {
+		waitMin := (acctResult.RetryAfterMs / 60000) + 1
+		clientError(w, ErrRateLimited, "Trop de tentatives sur ce compte. Réessayez dans "+strconv.FormatInt(waitMin, 10)+" min.", http.StatusTooManyRequests)
 		return
 	}
 
@@ -187,8 +197,9 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	setSessionCookie(w, "session", token, 86400) // 24 heures
 
-	// Réinitialiser le rate limiter
+	// Réinitialiser les rate limiters (IP + compte)
 	hookRateLimitReset(clientIP, "login")
+	hookRateLimitReset(strconv.FormatInt(user.ID, 10), "loginAccount")
 
 	hookLogAudit(user.ID, db.AuditLoginSuccess, clientIP, r.UserAgent())
 
