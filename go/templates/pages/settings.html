@@ -98,7 +98,20 @@ function pwdData() {
 }
 
 function dangerData() {
-    return { selfDeleteConfirm: false };
+    return {
+        selfDeleteConfirm: false,
+        exportData() {
+            fetch('/settings/export')
+                .then(function(r) { return r.blob(); })
+                .then(function(b) {
+                    var a = document.createElement('a');
+                    a.href = URL.createObjectURL(b);
+                    a.download = 'pilot-finance-export.json';
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                });
+        }
+    };
 }
 
 document.addEventListener('alpine:init', () => {
@@ -371,11 +384,10 @@ document.addEventListener('alpine:init', () => {
                         {{index .T "settings.danger_zone"}}
                     </h2>
                     <div class="flex flex-col sm:flex-row gap-3">
-                        <a href="/settings/export"
-                           class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-background hover:bg-accent text-sm font-medium text-foreground transition-all flex-1">
+                        <button @click="exportData()" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-background hover:bg-accent text-sm font-medium text-foreground transition-all flex-1">
                             {{template "icon-save" dict "Size" 16}}
                             {{index .T "settings.export_data"}}
-                        </a>
+                        </button>
                         <button x-show="!selfDeleteConfirm" @click="selfDeleteConfirm = true"
                                 class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-medium text-red-500 transition-all flex-1">
                             {{template "icon-trash" dict "Size" 16}}
