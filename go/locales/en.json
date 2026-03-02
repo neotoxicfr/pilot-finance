@@ -201,7 +201,7 @@
   "audit.action.PASSKEY_ADD": "Passkey added",
   "audit.action.PASSKEY_REMOVE": "Passkey removed",
   "audit.action.PASSWORD_CHANGE": "Password changed",
-  "audit.back_to_settings": "← Back to settings",
+  "audit.back_to_settings": "Back to settings",
   "audit.col_action": "Action",
   "audit.col_date": "Date",
   "audit.col_ip": "IP",
