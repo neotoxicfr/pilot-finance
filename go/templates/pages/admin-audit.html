@@ -1,7 +1,7 @@
 {{define "content"}}
-<div class="max-w-[1400px] mx-auto px-4 py-8">
+<div class="max-w-[1400px] mx-auto px-4 py-6 flex flex-col h-[calc(100dvh-4rem)]">
 
-    <div class="mb-6 flex items-center justify-between gap-4">
+    <div class="mb-4 flex items-center justify-between gap-4 shrink-0">
         <div>
             <h1 class="text-2xl font-bold text-foreground">{{index .T "audit.title"}}</h1>
             <p class="text-sm text-muted-foreground mt-1">{{.Total}} {{index .T "audit.total_entries"}}</p>
@@ -12,7 +12,7 @@
         </a>
     </div>
 
-    <div class="bg-card border border-border rounded-2xl overflow-hidden shadow-sm flex flex-col max-h-[calc(100vh-10rem)]">
+    <div class="bg-card border border-border rounded-2xl overflow-hidden shadow-sm flex flex-col flex-1 min-h-0">
         <div class="overflow-auto overscroll-contain flex-1">
             <table class="w-full text-sm">
                 <thead class="border-b border-border bg-accent/40 sticky top-0 z-10">
