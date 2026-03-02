@@ -6,7 +6,37 @@
         <p class="text-sm text-muted-foreground mt-1">{{.Total}} {{index .T "audit.total_entries"}}</p>
     </div>
 
-    <div class="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+    {{/* — Mobile: cards — */}}
+    <div class="md:hidden space-y-3">
+        {{range .Entries}}
+        <div class="bg-card border border-border rounded-xl p-4 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+                <span class="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide
+                    {{if or (eq .Action "LOGIN_SUCCESS") (eq .Action "PASSKEY_ADD") (eq .Action "MFA_ENABLE") (eq .Action "ACCOUNT_CREATE")}}
+                        bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20
+                    {{else if or (eq .Action "LOGIN_FAIL") (eq .Action "GDPR_DELETE") (eq .Action "ACCOUNT_DELETE") (eq .Action "PASSKEY_REMOVE") (eq .Action "MFA_DISABLE")}}
+                        bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20
+                    {{else}}
+                        bg-accent text-muted-foreground border border-border
+                    {{end}}">
+                    {{.ActionLabel}}
+                </span>
+                <span class="text-xs text-muted-foreground font-mono">{{.CreatedAt.Format "01/02 15:04"}}</span>
+            </div>
+            <div class="flex items-center justify-between gap-2 text-xs">
+                <span class="text-foreground truncate">{{.Email}}</span>
+                <span class="text-muted-foreground font-mono shrink-0">{{.IP}}</span>
+            </div>
+        </div>
+        {{else}}
+        <div class="bg-card border border-border rounded-xl p-8 text-center text-muted-foreground">
+            {{index $.T "audit.empty"}}
+        </div>
+        {{end}}
+    </div>
+
+    {{/* — Desktop: table — */}}
+    <div class="hidden md:block bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="border-b border-border bg-accent/40">
@@ -14,7 +44,7 @@
                         <th scope="col" class="px-4 py-3 text-left font-semibold text-foreground">{{index .T "audit.col_date"}}</th>
                         <th scope="col" class="px-4 py-3 text-left font-semibold text-foreground">{{index .T "audit.col_user"}}</th>
                         <th scope="col" class="px-4 py-3 text-left font-semibold text-foreground">{{index .T "audit.col_action"}}</th>
-                        <th scope="col" class="hidden md:table-cell px-4 py-3 text-left font-semibold text-foreground">{{index .T "audit.col_ip"}}</th>
+                        <th scope="col" class="px-4 py-3 text-left font-semibold text-foreground">{{index .T "audit.col_ip"}}</th>
                         <th scope="col" class="hidden lg:table-cell px-4 py-3 text-left font-semibold text-foreground">{{index .T "audit.col_useragent"}}</th>
                     </tr>
                 </thead>
@@ -39,7 +69,7 @@
                                 {{.ActionLabel}}
                             </span>
                         </td>
-                        <td class="hidden md:table-cell px-4 py-3 text-muted-foreground font-mono text-xs whitespace-nowrap">
+                        <td class="px-4 py-3 text-muted-foreground font-mono text-xs whitespace-nowrap">
                             {{.IP}}
                         </td>
                         <td class="hidden lg:table-cell px-4 py-3 text-muted-foreground text-xs max-w-[260px] truncate">
@@ -56,27 +86,27 @@
                 </tbody>
             </table>
         </div>
-
-        {{if gt .TotalPages 1}}
-        <div class="border-t border-border px-4 py-3 flex items-center justify-between gap-4 text-sm">
-            <span class="text-muted-foreground">Page {{.Page}} / {{.TotalPages}}</span>
-            <div class="flex gap-2">
-                {{if gt .Page 1}}
-                <a href="/admin/audit?page={{sub .Page 1}}"
-                   class="px-4 py-2 rounded-xl border border-border bg-background hover:bg-accent text-foreground text-sm font-medium transition-colors">
-                    {{index .T "audit.previous"}}
-                </a>
-                {{end}}
-                {{if lt .Page .TotalPages}}
-                <a href="/admin/audit?page={{add .Page 1}}"
-                   class="px-4 py-2 rounded-xl border border-border bg-background hover:bg-accent text-foreground text-sm font-medium transition-colors">
-                    {{index .T "audit.next"}}
-                </a>
-                {{end}}
-            </div>
-        </div>
-        {{end}}
     </div>
+
+    {{if gt .TotalPages 1}}
+    <div class="mt-3 px-1 flex items-center justify-between gap-4 text-sm">
+        <span class="text-muted-foreground">Page {{.Page}} / {{.TotalPages}}</span>
+        <div class="flex gap-2">
+            {{if gt .Page 1}}
+            <a href="/admin/audit?page={{sub .Page 1}}"
+               class="px-4 py-2 rounded-xl border border-border bg-card hover:bg-accent text-foreground text-sm font-medium transition-colors">
+                {{index .T "audit.previous"}}
+            </a>
+            {{end}}
+            {{if lt .Page .TotalPages}}
+            <a href="/admin/audit?page={{add .Page 1}}"
+               class="px-4 py-2 rounded-xl border border-border bg-card hover:bg-accent text-foreground text-sm font-medium transition-colors">
+                {{index .T "audit.next"}}
+            </a>
+            {{end}}
+        </div>
+    </div>
+    {{end}}
 
     <div class="mt-4">
         <a href="/settings" class="text-sm text-muted-foreground hover:text-foreground font-medium transition-colors">
