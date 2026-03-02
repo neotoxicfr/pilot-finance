@@ -219,12 +219,17 @@ func dict(values ...interface{}) map[string]interface{} {
 	return d
 }
 
-// orFunc retourne la premiere valeur non-nulle
-func orFunc(a, b interface{}) interface{} {
-	if a == nil || a == "" || a == 0 || a == false {
-		return b
+// orFunc retourne la premiere valeur non-nulle (variadic)
+func orFunc(values ...interface{}) interface{} {
+	for _, v := range values {
+		if v != nil && v != "" && v != 0 && v != false {
+			return v
+		}
 	}
-	return a
+	if len(values) > 0 {
+		return values[len(values)-1]
+	}
+	return nil
 }
 
 // toJSON convertit une valeur en JSON (SetEscapeHTML explicite pour clarifier l'intention)
