@@ -19,6 +19,10 @@ func ValidateOrigin(host string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch r.Method {
 			case http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch:
+				// HOST non configuré (dev local) → pas de validation CSRF
+				if host == "" {
+					break
+				}
 				if origin := r.Header.Get("Origin"); origin != "" {
 					if !strings.HasPrefix(origin, expected) {
 						http.Error(w, "Requête cross-origin refusée", http.StatusForbidden)
@@ -29,7 +33,7 @@ func ValidateOrigin(host string) func(http.Handler) http.Handler {
 						http.Error(w, "Requête cross-origin refusée", http.StatusForbidden)
 						return
 					}
-				} else if host != "" {
+				} else {
 					// Les deux absents et HOST configuré : pas de contexte navigateur → rejeter
 					http.Error(w, "Requête refusée", http.StatusForbidden)
 					return

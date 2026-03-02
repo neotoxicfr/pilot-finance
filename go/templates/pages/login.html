@@ -38,7 +38,8 @@ function loginPage() {
         },
         setError(msg) { this.loading = false; this.error = msg; },
         loginWithPasskey() { window.loginWithPasskey(); },
-        toggleRegister() { this.isRegister = !this.isRegister; this.error = ''; }
+        toggleRegister() { this.isRegister = !this.isRegister; this.error = ''; },
+        configRequest(event) { if (this.isRegister) { event.detail.path = '/register'; } }
     };
 }
 document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginPage); });
@@ -95,6 +96,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
         <form hx-post="/login"
               hx-target="body"
               hx-swap="outerHTML"
+              @htmx:config-request="configRequest($event)"
               @htmx:before-request="loading = true; error = ''"
               @htmx:after-request="loading = false"
               @htmx:response-error="setError($event.detail.xhr.responseText)"
