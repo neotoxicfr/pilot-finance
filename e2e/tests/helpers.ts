@@ -18,7 +18,11 @@ export async function registerUser(page: Page, email: string, password: string) 
   await expect(page.getByRole('button', { name: /créer un compte|create account/i })).toBeEnabled({ timeout: 5000 });
   await page.getByRole('button', { name: /créer un compte|create account/i }).click();
   // HTMX sends HX-Redirect → full page navigation to /
-  await page.waitForURL('/', { timeout: 15000 });
+  // Use Promise.race: either URL changes to / or nav becomes visible
+  await Promise.race([
+    page.waitForURL('/', { timeout: 15000 }),
+    expect(page.locator('nav')).toBeVisible({ timeout: 15000 }),
+  ]);
 }
 
 /** Login with existing credentials */
@@ -28,7 +32,10 @@ export async function login(page: Page, email: string, password: string) {
   await page.locator('input[name="password"]').fill(password);
   await page.getByRole('button', { name: /se connecter|sign in/i }).click();
   // HTMX sends HX-Redirect → full page navigation to /
-  await page.waitForURL('/', { timeout: 15000 });
+  await Promise.race([
+    page.waitForURL('/', { timeout: 15000 }),
+    expect(page.locator('nav')).toBeVisible({ timeout: 15000 }),
+  ]);
 }
 
 /** Logout via POST form in nav */

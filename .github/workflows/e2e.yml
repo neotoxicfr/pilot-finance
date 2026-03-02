@@ -50,6 +50,7 @@ jobs:
       - name: Start server
         run: |
           cd go && DISABLE_RATE_LIMIT=true \
+            ALLOW_REGISTER=true \
             AUTH_SECRET=${{ steps.keys.outputs.auth }} \
             ENCRYPTION_KEY=${{ steps.keys.outputs.enc }} \
             BLIND_INDEX_KEY=${{ steps.keys.outputs.blind }} \
