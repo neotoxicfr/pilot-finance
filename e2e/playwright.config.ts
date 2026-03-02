@@ -39,14 +39,15 @@ export default defineConfig({
       },
       dependencies: ['setup'],
     },
-    {
+    // WebKit skipped in CI (flaky cookie/storageState on Linux)
+    ...(!process.env.CI ? [{
       name: 'webkit',
       use: {
         ...devices['Desktop Safari'],
         storageState: 'e2e/.auth/user.json',
       },
       dependencies: ['setup'],
-    },
+    }] : []),
 
     // — Mobile viewport —
     {
