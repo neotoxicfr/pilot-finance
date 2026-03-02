@@ -3,26 +3,24 @@
     <div class="text-center max-w-md mx-auto space-y-6">
 
         <!-- Code erreur -->
-        <div class="relative">
-            <div class="text-[8rem] md:text-[10rem] font-black leading-none select-none
-                        {{if eq .Code "404"}}text-blue-500/10 dark:text-blue-400/10
-                        {{else if eq .Code "500"}}text-red-500/10 dark:text-red-400/10
-                        {{else}}text-muted-foreground/10{{end}}">
-                {{.Code}}
+        <div class="flex flex-col items-center gap-4">
+            <div class="p-4 rounded-2xl
+                        {{if eq .Code "404"}}bg-blue-500/10 text-blue-500
+                        {{else if eq .Code "500"}}bg-red-500/10 text-red-500
+                        {{else}}bg-muted text-muted-foreground{{end}}">
+                {{if eq .Code "404"}}
+                    {{template "icon-search" dict "Size" 36}}
+                {{else if eq .Code "500"}}
+                    {{template "icon-alert-triangle" dict "Size" 36}}
+                {{else}}
+                    {{template "icon-alert-triangle" dict "Size" 36}}
+                {{end}}
             </div>
-            <div class="absolute inset-0 flex items-center justify-center">
-                <div class="p-5 rounded-2xl
-                            {{if eq .Code "404"}}bg-blue-500/10 text-blue-500
-                            {{else if eq .Code "500"}}bg-red-500/10 text-red-500
-                            {{else}}bg-muted text-muted-foreground{{end}}">
-                    {{if eq .Code "404"}}
-                        {{template "icon-search" dict "Size" 40}}
-                    {{else if eq .Code "500"}}
-                        {{template "icon-alert-triangle" dict "Size" 40}}
-                    {{else}}
-                        {{template "icon-alert-triangle" dict "Size" 40}}
-                    {{end}}
-                </div>
+            <div class="text-6xl md:text-7xl font-black leading-none select-none
+                        {{if eq .Code "404"}}text-blue-500/15
+                        {{else if eq .Code "500"}}text-red-500/15
+                        {{else}}text-muted-foreground/15{{end}}">
+                {{.Code}}
             </div>
         </div>
 
