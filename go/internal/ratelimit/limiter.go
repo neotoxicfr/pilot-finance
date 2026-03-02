@@ -63,6 +63,9 @@ type Limiter struct {
 var (
 	limiters = make(map[string]*Limiter)
 	mu       sync.Mutex
+
+	// Disabled désactive globalement le rate limiting (tests E2E).
+	Disabled bool
 )
 
 // limiterCleanupInterval est la durée entre deux nettoyages ; injectable dans les tests.
@@ -123,6 +126,10 @@ type Result struct {
 
 // Check vérifie si une requête est autorisée
 func Check(identifier, action string) Result {
+	if Disabled {
+		return Result{Allowed: true, Remaining: 999}
+	}
+
 	cfg, ok := Configs[action]
 	if !ok {
 		// Action inconnue, autoriser par défaut
