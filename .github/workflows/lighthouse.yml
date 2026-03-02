@@ -51,6 +51,7 @@ jobs:
             http://localhost:3000/login
           runs: 3
           uploadArtifacts: true
+          configJson: '{"ci":{"collect":{"settings":{"chromeFlags":["--headless=new","--no-sandbox"]}}}}'
 
       - name: Check scores
         run: |
