@@ -268,30 +268,36 @@ select:focus {
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
-/* KPI card gradients — refined with accent border */
+/* KPI card gradients — refined with accent border + subtle colored shadow */
 .kpi-card-emerald {
     background: linear-gradient(135deg, var(--background) 0%, rgba(16,185,129,.04) 100%);
     border-left: 3px solid rgba(16,185,129,.5) !important;
+    box-shadow: 0 2px 8px rgba(16,185,129,.08), 0 1px 2px rgba(0,0,0,.03);
 }
 .kpi-card-blue {
     background: linear-gradient(135deg, var(--background) 0%, rgba(59,130,246,.04) 100%);
     border-left: 3px solid rgba(59,130,246,.5) !important;
+    box-shadow: 0 2px 8px rgba(59,130,246,.08), 0 1px 2px rgba(0,0,0,.03);
 }
 .kpi-card-slate {
     background: linear-gradient(135deg, var(--background) 0%, rgba(100,116,139,.04) 100%);
     border-left: 3px solid rgba(100,116,139,.4) !important;
+    box-shadow: 0 2px 8px rgba(100,116,139,.08), 0 1px 2px rgba(0,0,0,.03);
 }
 .dark .kpi-card-emerald {
     background: linear-gradient(135deg, var(--card) 0%, rgba(16,185,129,.08) 100%);
     border-left-color: rgba(16,185,129,.6) !important;
+    box-shadow: 0 2px 10px rgba(16,185,129,.12), 0 1px 2px rgba(0,0,0,.2);
 }
 .dark .kpi-card-blue {
     background: linear-gradient(135deg, var(--card) 0%, rgba(59,130,246,.08) 100%);
     border-left-color: rgba(59,130,246,.6) !important;
+    box-shadow: 0 2px 10px rgba(59,130,246,.12), 0 1px 2px rgba(0,0,0,.2);
 }
 .dark .kpi-card-slate {
     background: linear-gradient(135deg, var(--card) 0%, rgba(100,116,139,.08) 100%);
     border-left-color: rgba(100,116,139,.5) !important;
+    box-shadow: 0 2px 10px rgba(100,116,139,.12), 0 1px 2px rgba(0,0,0,.2);
 }
 
 /* Login page background */
