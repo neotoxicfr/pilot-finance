@@ -25,7 +25,7 @@
             if (stored === 'dark') html.classList.add('dark');
             else if (stored === 'light') html.classList.add('light');
             else if (prefersDark) html.classList.add('dark');
-            document.getElementById('theme-color')?.setAttribute('content', dark ? '#0f172a' : '#ffffff');
+            document.getElementById('theme-color')?.setAttribute('content', dark ? '#0b1120' : '#ffffff');
         })();
 
         // Toast
@@ -70,7 +70,7 @@
                         html.classList.add('dark');
                     }
                     const dark = html.classList.contains('dark');
-                    document.getElementById('theme-color')?.setAttribute('content', dark ? '#0f172a' : '#ffffff');
+                    document.getElementById('theme-color')?.setAttribute('content', dark ? '#0b1120' : '#ffffff');
                 },
                 toggleTheme() {
                     if (this.theme === 'system') this.theme = 'light';

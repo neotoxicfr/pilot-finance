@@ -136,7 +136,7 @@ document.addEventListener('alpine:init', () => {
                     <div>
                         <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.language_label"}}</label>
                         <select name="language"
-                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
+                                class="w-full bg-accent border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                             <option value="fr" {{if eq .Lang "fr"}}selected{{end}}>Fran&#231;ais</option>
                             <option value="en" {{if eq .Lang "en"}}selected{{end}}>English</option>
                         </select>
@@ -144,7 +144,7 @@ document.addEventListener('alpine:init', () => {
                     <div>
                         <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.currency_label"}}</label>
                         <select name="currency"
-                                class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
+                                class="w-full bg-accent border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                             <option value="EUR" {{if eq .Currency "EUR"}}selected{{end}}>EUR &mdash; Euro (&euro;)</option>
                             <option value="USD" {{if eq .Currency "USD"}}selected{{end}}>USD &mdash; Dollar ($)</option>
                             <option value="GBP" {{if eq .Currency "GBP"}}selected{{end}}>GBP &mdash; Pound (&pound;)</option>
@@ -155,7 +155,7 @@ document.addEventListener('alpine:init', () => {
                         </select>
                     </div>
                     <button type="submit"
-                            class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all">
+                            class="w-full btn-primary text-white font-bold py-3 rounded-xl transition-all">
                         {{index .T "settings.save_preferences"}}
                     </button>
                 </form>
@@ -185,17 +185,17 @@ document.addEventListener('alpine:init', () => {
                     <div>
                         <label for="currentPassword" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.current_password"}}</label>
                         <input id="currentPassword" name="currentPassword" type="password" required
-                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
+                               class="w-full bg-accent border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                     </div>
                     <div>
                         <label for="newPassword" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.new_password"}}</label>
                         <input id="newPassword" name="newPassword" type="password" required minlength="12" x-model="password"
-                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
+                               class="w-full bg-accent border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                     </div>
                     <div>
                         <label for="confirmPassword" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.confirm_password"}}</label>
                         <input id="confirmPassword" name="confirmPassword" type="password" required x-model="confirm"
-                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
+                               class="w-full bg-accent border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors">
                     </div>
 
                     {{template "password-feedback" .}}
@@ -205,7 +205,7 @@ document.addEventListener('alpine:init', () => {
                     </template>
 
                     <button type="submit" :disabled="submitDisabled"
-                            class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                            class="w-full btn-primary text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                         <span x-show="pwdLoading">{{index .T "settings.password_saving"}}</span>
                         <span x-show="!pwdLoading">{{index .T "settings.password_change_btn"}}</span>
                     </button>
@@ -244,7 +244,7 @@ document.addEventListener('alpine:init', () => {
                         <p class="text-sm text-muted-foreground">{{index .T "settings.mfa_description"}}</p>
                         <button @click="setupMfa()"
                                 :disabled="mfaLoading"
-                                class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl transition-all text-sm">
+                                class="w-full btn-primary text-white font-bold py-3 rounded-xl transition-all text-sm">
                             <span x-show="mfaLoading">{{index .T "settings.mfa_loading"}}</span>
                             <span x-show="!mfaLoading">{{index .T "settings.mfa_setup_btn"}}</span>
                         </button>
@@ -333,7 +333,7 @@ document.addEventListener('alpine:init', () => {
                         <h3 id="passkey-rename-title" class="text-lg font-bold text-foreground mb-4">{{index .T "settings.passkey_rename_title"}}</h3>
                         <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.passkey_name_prompt"}}</label>
                         <input type="text" x-model="renameName"
-                               class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors mb-4"
+                               class="w-full bg-accent border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors mb-4"
                                @keydown.enter="submitRename()">
                         <div class="flex gap-2">
                             <button @click="closeRenameDialog()"
@@ -341,7 +341,7 @@ document.addEventListener('alpine:init', () => {
                                 {{index .T "common.cancel"}}
                             </button>
                             <button @click="submitRename()"
-                                    class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl transition-all text-sm">
+                                    class="flex-1 btn-primary text-white font-bold py-2.5 rounded-xl transition-all text-sm">
                                 {{index .T "settings.passkey_rename_btn"}}
                             </button>
                         </div>

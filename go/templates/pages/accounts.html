@@ -15,7 +15,7 @@
                     {{template "icon-wallet" dict "Size" 18}} {{index .T "accounts.title"}}
                 </h2>
                 <button @click="openAccountForm(null)"
-                        class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-xl flex items-center gap-1 transition-all font-bold">
+                        class="text-xs btn-primary text-white px-3 py-2 rounded-xl flex items-center gap-1 font-bold">
                     {{template "icon-plus" dict "Size" 16}} {{index .T "accounts.add"}}
                 </button>
             </div>
@@ -158,7 +158,7 @@
                             </div>
                         </div>
 
-                        <button class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl text-sm font-bold transition-all">
+                        <button class="w-full btn-primary text-white py-3 rounded-xl text-sm font-bold transition-all">
                             {{index .T "accounts.submit"}}
                         </button>
                     </form>
@@ -182,7 +182,7 @@
                     {{template "icon-refresh" dict "Size" 18}} {{index .T "recurring.title"}}
                 </h2>
                 <button @click="openRecurringForm(null)"
-                        class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-xl flex items-center gap-1 transition-all font-bold">
+                        class="text-xs btn-primary text-white px-3 py-2 rounded-xl flex items-center gap-1 transition-all font-bold">
                     {{template "icon-plus" dict "Size" 16}} {{index .T "recurring.add"}}
                 </button>
             </div>
@@ -246,7 +246,7 @@
                                     {{end}}
                                 </select>
                             </div>
-                            <button class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl text-sm font-bold transition-all">
+                            <button class="w-full btn-primary text-white py-3 rounded-xl text-sm font-bold transition-all">
                                 {{index .T "recurring.submit"}}
                             </button>
                     </form>
