@@ -1,9 +1,15 @@
 {{define "content"}}
 <div class="max-w-[1400px] mx-auto px-4 py-8">
 
-    <div class="mb-6">
-        <h1 class="text-2xl font-bold text-foreground">{{index .T "audit.title"}}</h1>
-        <p class="text-sm text-muted-foreground mt-1">{{.Total}} {{index .T "audit.total_entries"}}</p>
+    <div class="mb-6 flex items-start justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-foreground">{{index .T "audit.title"}}</h1>
+            <p class="text-sm text-muted-foreground mt-1">{{.Total}} {{index .T "audit.total_entries"}}</p>
+        </div>
+        <a href="/settings" class="shrink-0 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground font-medium transition-colors px-3 py-2 rounded-xl border border-border hover:bg-accent">
+            {{template "icon-arrow-left" dict "Size" 16}}
+            <span class="hidden sm:inline">{{index .T "audit.back_to_settings"}}</span>
+        </a>
     </div>
 
     <div class="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
@@ -78,10 +84,5 @@
         {{end}}
     </div>
 
-    <div class="mt-4">
-        <a href="/settings" class="text-sm text-muted-foreground hover:text-foreground font-medium transition-colors">
-            ← {{index .T "audit.back_to_settings"}}
-        </a>
-    </div>
 </div>
 {{end}}
