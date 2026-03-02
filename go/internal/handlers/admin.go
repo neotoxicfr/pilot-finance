@@ -29,6 +29,7 @@ func AuditPage(w http.ResponseWriter, r *http.Request) {
 		serverError(w, "AuditPage: GetAuditLog", err)
 		return
 	}
+	slog.Info("AuditPage", "entries", len(entries), "page", page)
 
 	total, err := hookCountAuditLog()
 	if err != nil {
