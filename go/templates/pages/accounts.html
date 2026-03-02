@@ -1,5 +1,5 @@
 {{define "content"}}
-<div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8 text-foreground"
+<div class="w-full flex-1 p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto space-y-6 sm:space-y-8 text-foreground"
      x-data="accountsPage">
 
     <!-- Summary Cards -->
@@ -209,9 +209,12 @@
                                        x-model="recurringDescription"
                                        class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-blue-500">
                                 <label for="recurring-amount" class="sr-only">{{index .T "recurring.amount_label"}}</label>
-                                <input id="recurring-amount" type="number" step="0.01" name="amount" placeholder="{{$.Currency}}" required
-                                       x-model="recurringAmount"
-                                       class="w-24 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden font-mono focus:border-blue-500">
+                                <div class="relative w-28">
+                                    <input id="recurring-amount" type="number" step="0.01" name="amount" placeholder="{{index .T "recurring.amount_label"}}" required
+                                           x-model="recurringAmount"
+                                           class="w-full bg-accent border border-border text-foreground rounded-xl p-2.5 pr-12 text-sm outline-hidden font-mono focus:border-blue-500">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">{{.Currency}}</span>
+                                </div>
                                 <label for="recurring-day" class="sr-only">{{index .T "recurring.day_placeholder"}}</label>
                                 <input id="recurring-day" type="number" min="1" max="31" name="dayOfMonth" placeholder="{{index .T "recurring.day_placeholder"}}" required
                                        x-model="recurringDay"
@@ -332,7 +335,7 @@ function accountsPage() {
                 forceFallback: true,
                 fallbackTolerance: 4,
                 ghostClass: 'opacity-30',
-                chosenClass: 'scale-[1.02]',
+                dragClass: 'opacity-0',
                 onEnd(evt) {
                     if (evt.oldIndex === evt.newIndex) return;
                     const ids = [...el.querySelectorAll('[data-account-id]')]
@@ -415,33 +418,31 @@ document.addEventListener('alpine:init', () => {
                    @input="dirty = true"
                    class="bg-transparent w-20 sm:w-24 text-right outline-hidden font-mono text-base sm:text-lg font-bold text-foreground focus:text-blue-500 focus:bg-accent rounded-lg px-1 transition-colors">
             <span class="text-xs text-muted-foreground font-medium whitespace-nowrap">{{.Currency}}</span>
-            <button aria-label="{{index .T "common.save"}}" class="text-blue-500 p-1.5 rounded-lg transition-all sm:opacity-0 sm:group-hover:opacity-100"
+            <button aria-label="{{index .T "common.save"}}" class="text-blue-500 p-1.5 rounded-lg transition-all"
                     :class="dirty ? 'opacity-100' : 'opacity-0 pointer-events-none'">
                 {{template "icon-save" dict "Size" 16}}
             </button>
         </form>
-        <div class="flex-shrink-0">
-            <div x-show="!del" class="flex flex-col gap-0.5">
-                <button @click="openAccountForm({{.Account | json}})" aria-label="{{index .T "common.edit"}}"
-                        class="p-1.5 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
-                    {{template "icon-pencil" dict "Size" 14}}
-                </button>
-                <button @click.prevent="del = true" aria-label="{{index .T "common.delete"}}"
-                        class="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
-                    {{template "icon-trash" dict "Size" 14}}
-                </button>
-            </div>
-            <div x-show="del" class="flex flex-col gap-0.5">
-                <button hx-delete="/accounts/{{.Account.ID}}" hx-target="#accounts-list" hx-swap="innerHTML"
-                        aria-label="{{index .T "common.confirm_delete"}}"
-                        class="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
-                    {{template "icon-check" dict "Size" 14}}
-                </button>
-                <button @click.prevent="del = false" aria-label="{{index .T "common.cancel"}}"
-                        class="p-1.5 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
-                    {{template "icon-x" dict "Size" 14}}
-                </button>
-            </div>
+        <div class="flex items-center gap-0.5 shrink-0" x-show="!del">
+            <button @click="openAccountForm({{.Account | json}})" aria-label="{{index .T "common.edit"}}"
+                    class="p-1.5 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
+                {{template "icon-pencil" dict "Size" 14}}
+            </button>
+            <button @click.prevent="del = true" aria-label="{{index .T "common.delete"}}"
+                    class="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                {{template "icon-trash" dict "Size" 14}}
+            </button>
+        </div>
+        <div class="flex items-center gap-0.5 shrink-0" x-show="del">
+            <button hx-delete="/accounts/{{.Account.ID}}" hx-target="#accounts-list" hx-swap="innerHTML"
+                    aria-label="{{index .T "common.confirm_delete"}}"
+                    class="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                {{template "icon-check" dict "Size" 14}}
+            </button>
+            <button @click.prevent="del = false" aria-label="{{index .T "common.cancel"}}"
+                    class="p-1.5 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
+                {{template "icon-x" dict "Size" 14}}
+            </button>
         </div>
     </div>
 </div>
@@ -543,16 +544,16 @@ document.addEventListener('alpine:init', () => {
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
             <div class="min-w-0">
                 <div class="text-xs sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.income"}}</div>
-                <div class="text-lg sm:text-2xl font-mono font-bold text-emerald-500">+{{formatMoney .MonthlyIncome $.Currency}}</div>
-                {{if gt .MonthlyYield 0.0}}<div class="text-xs text-emerald-400/80 mt-0.5 font-medium">{{index $.T "summary.yield_auto"}} +{{formatMoney .MonthlyYield $.Currency}}</div>{{end}}
+                <div class="text-lg sm:text-2xl font-mono font-bold text-emerald-500 whitespace-nowrap">+{{formatMoney .MonthlyIncome $.Currency}}</div>
+                {{if gt .MonthlyYield 0.0}}<div class="text-xs text-emerald-400/80 mt-0.5 font-medium whitespace-nowrap">{{index $.T "summary.yield_auto"}} +{{formatMoney .MonthlyYield $.Currency}}</div>{{end}}
             </div>
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
                 <div class="text-xs sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.expenses"}}</div>
-                <div class="text-lg sm:text-2xl font-mono font-bold text-foreground">-{{formatMoney .MonthlyExpenses $.Currency}}</div>
+                <div class="text-lg sm:text-2xl font-mono font-bold text-foreground whitespace-nowrap">-{{formatMoney .MonthlyExpenses $.Currency}}</div>
             </div>
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
                 <div class="text-xs sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.balance"}}</div>
-                <div class="text-lg sm:text-2xl font-mono font-bold {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
+                <div class="text-lg sm:text-2xl font-mono font-bold whitespace-nowrap {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
                     {{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney .MonthlyNet $.Currency}}
                 </div>
             </div>
@@ -566,16 +567,16 @@ document.addEventListener('alpine:init', () => {
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 opacity-90">
             <div class="min-w-0">
                 <div class="text-xs sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.income"}}</div>
-                <div class="text-base sm:text-xl font-mono font-bold text-emerald-500">+{{formatMoney (add (mult .MonthlyIncome 12) .AnnualYield) $.Currency}}</div>
-                {{if gt (add .MonthlyYield .AnnualYield) 0.0}}<div class="text-xs text-emerald-400/80 mt-0.5 font-medium">{{index $.T "summary.yield_auto"}} +{{formatMoney (add (mult .MonthlyYield 12) .AnnualYield) $.Currency}}</div>{{end}}
+                <div class="text-base sm:text-xl font-mono font-bold text-emerald-500 whitespace-nowrap">+{{formatMoney (add (mult .MonthlyIncome 12) .AnnualYield) $.Currency}}</div>
+                {{if gt (add .MonthlyYield .AnnualYield) 0.0}}<div class="text-xs text-emerald-400/80 mt-0.5 font-medium whitespace-nowrap">{{index $.T "summary.yield_auto"}} +{{formatMoney (add (mult .MonthlyYield 12) .AnnualYield) $.Currency}}</div>{{end}}
             </div>
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
                 <div class="text-xs sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.expenses"}}</div>
-                <div class="text-base sm:text-xl font-mono font-bold text-foreground">-{{formatMoney (mult .MonthlyExpenses 12) $.Currency}}</div>
+                <div class="text-base sm:text-xl font-mono font-bold text-foreground whitespace-nowrap">-{{formatMoney (mult .MonthlyExpenses 12) $.Currency}}</div>
             </div>
             <div class="min-w-0 border-t border-border sm:border-0 pt-2 sm:pt-0">
                 <div class="text-xs sm:text-xs text-muted-foreground uppercase font-bold mb-1">{{index $.T "summary.balance"}}</div>
-                <div class="text-base sm:text-xl font-mono font-bold {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
+                <div class="text-base sm:text-xl font-mono font-bold whitespace-nowrap {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
                     {{if gt (add (mult .MonthlyNet 12) .AnnualYield) 0.0}}+{{end}}{{formatMoney (add (mult .MonthlyNet 12) .AnnualYield) $.Currency}}
                 </div>
             </div>
