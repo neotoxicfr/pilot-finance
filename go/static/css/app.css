@@ -425,6 +425,12 @@ dialog > .modal-panel {
 #recurring-list > div > *:nth-child(5) { animation-delay: 100ms; }
 #recurring-list > div > *:nth-child(n+6) { animation-delay: 125ms; }
 
+/* Full-viewport page layout (audit log) */
+.page-viewport {
+    max-height: calc(100dvh - 4rem);
+    display: flex;
+    flex-direction: column;
+}
 
 /* Table rows — subtle hover */
 tbody tr {

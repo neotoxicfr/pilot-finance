@@ -46,8 +46,9 @@ func main() {
 
 	// Propager la version au package handlers (health check)
 	handlers.Version = Version
+	handlers.AssetVersion = computeAssetVersion()
 
-	slog.Info("Pilot Finance démarrage", "version", Version)
+	slog.Info("Pilot Finance démarrage", "version", Version, "assets", handlers.AssetVersion)
 
 	// Charger la configuration
 	cfg, err := config.Load()
@@ -296,6 +297,20 @@ var staticETags = func() map[string]string {
 	}
 	return tags
 }()
+
+// computeAssetVersion calcule un hash court des fichiers CSS/JS pour le cache-busting.
+// Change à chaque rebuild Docker quand les assets changent.
+func computeAssetVersion() string {
+	h := md5.New()
+	for _, name := range []string{"static/css/app.css", "static/css/tailwind.css"} {
+		data, err := os.ReadFile(name)
+		if err != nil {
+			continue
+		}
+		h.Write(data)
+	}
+	return fmt.Sprintf("%x", h.Sum(nil))[:8]
+}
 
 // cacheStatic ajoute des headers de cache et ETag pour les fichiers statiques
 func cacheStatic(next http.Handler) http.Handler {
