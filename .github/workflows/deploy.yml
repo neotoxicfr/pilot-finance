@@ -14,11 +14,21 @@ jobs:
   deploy:
     name: Deploy to server
     runs-on: ubuntu-latest
-    # Skip if SSH secrets are not configured
-    if: ${{ secrets.DEPLOY_HOST != '' }}
+    environment: production
 
     steps:
+      - name: Check secrets
+        id: check
+        run: |
+          if [ -z "${{ secrets.DEPLOY_HOST }}" ]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "::warning::DEPLOY_HOST secret not configured — skipping deploy"
+          else
+            echo "configured=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Deploy via SSH
+        if: steps.check.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.DEPLOY_HOST }}
