@@ -8,6 +8,7 @@
 ![Docker Build](https://github.com/neotoxicfr/pilot-finance/actions/workflows/docker-publish.yml/badge.svg)
 ![CI](https://github.com/neotoxicfr/pilot-finance/actions/workflows/ci.yml/badge.svg)
 ![E2E](https://github.com/neotoxicfr/pilot-finance/actions/workflows/e2e.yml/badge.svg)
+![Lighthouse](https://github.com/neotoxicfr/pilot-finance/actions/workflows/lighthouse.yml/badge.svg)
 ![CodeQL](https://github.com/neotoxicfr/pilot-finance/actions/workflows/codeql.yml/badge.svg)
 ![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen?logo=go)
 ![Dependabot](https://img.shields.io/badge/dependabot-active-brightgreen?logo=dependabot&label=Dependabot)
@@ -192,6 +193,10 @@ Vos données sont stockées dans `./data/pilot.db`. Sauvegardez ce fichier régu
 | **Testing** | Audit d'accessibilité (axe-core) intégré aux tests E2E | Fait |
 | **CI/CD** | Tests E2E dans GitHub Actions avec matrice multi-navigateurs | Fait |
 | **CI/CD** | Webhook de déploiement auto sur push vers develop | Fait |
+| **CI/CD** | Audit de performance Lighthouse en CI (seuil 80%) | Fait |
+| **CI/CD** | Changelog automatique avec release-please | Fait |
+| **Testing** | Tests de charge k6 (smoke + stress) | Fait |
+| **Docs** | Guide de contribution avec convention de commit | Fait |
 
 ---
 
