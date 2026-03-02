@@ -201,6 +201,7 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	data["Title"] = "Comptes"
 	data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
 	data["Accounts"] = accounts
+	data["AccountLastIdx"] = len(accounts) - 1
 	data["Recurrings"] = recurringData
 	data["MonthlyIncome"] = monthlyIncome
 	data["MonthlyExpenses"] = monthlyExpenses

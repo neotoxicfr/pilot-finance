@@ -379,11 +379,14 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 			"T": i18n.Map(lang),
 		})
 	}
-	for _, acc := range accounts {
+	lastIdx := len(accounts) - 1
+	for i, acc := range accounts {
 		hookRenderPartial(w, "accounts.html", "account-row", map[string]interface{}{ //nolint:errcheck
 			"Account":  acc,
 			"Currency": currency,
 			"T":        i18n.Map(lang),
+			"IsFirst":  i == 0,
+			"IsLast":   i == lastIdx,
 		})
 	}
 
