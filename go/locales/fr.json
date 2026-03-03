@@ -245,5 +245,13 @@
   "pwd_error.uppercase": "Une majuscule requise",
   "pwd_error.lowercase": "Une minuscule requise",
   "pwd_error.digit": "Un chiffre requis",
-  "pwd_error.special": "Un caractère spécial requis"
+  "pwd_error.special": "Un caractère spécial requis",
+  "email.reset_subject": "Reinitialisation de votre mot de passe - Pilot Finance",
+  "email.reset_title": "Reinitialisation du mot de passe",
+  "email.reset_intro": "Vous avez demande a reinitialiser votre mot de passe Pilot Finance.",
+  "email.reset_action": "Cliquez sur le bouton ci-dessous pour choisir un nouveau mot de passe :",
+  "email.reset_btn": "Reinitialiser mon mot de passe",
+  "email.reset_expiry": "Ce lien expire dans 1 heure.",
+  "email.reset_ignore": "Si vous n'avez pas demande cette reinitialisation, ignorez cet email.",
+  "email.reset_footer": "Pilot Finance - Votre cockpit financier personnel"
 }

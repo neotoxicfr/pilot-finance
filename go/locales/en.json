@@ -245,5 +245,13 @@
   "pwd_error.uppercase": "One uppercase letter required",
   "pwd_error.lowercase": "One lowercase letter required",
   "pwd_error.digit": "One digit required",
-  "pwd_error.special": "One special character required"
+  "pwd_error.special": "One special character required",
+  "email.reset_subject": "Password Reset - Pilot Finance",
+  "email.reset_title": "Password Reset",
+  "email.reset_intro": "You have requested to reset your Pilot Finance password.",
+  "email.reset_action": "Click the button below to choose a new password:",
+  "email.reset_btn": "Reset my password",
+  "email.reset_expiry": "This link expires in 1 hour.",
+  "email.reset_ignore": "If you did not request this reset, please ignore this email.",
+  "email.reset_footer": "Pilot Finance - Your personal financial cockpit"
 }

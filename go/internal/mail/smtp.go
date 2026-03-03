@@ -11,6 +11,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"pilot-finance/internal/i18n"
 )
 
 // dialTLS et smtpDataWrite sont des variables de fonction pour faciliter les tests.
@@ -252,26 +254,14 @@ type resetEmailContent struct {
 }
 
 func resetEmailTexts(lang string) resetEmailContent {
-	if lang == "en" {
-		return resetEmailContent{
-			subject: "Password Reset - Pilot Finance",
-			title:   "Password Reset",
-			intro:   "You have requested to reset your Pilot Finance password.",
-			action:  "Click the button below to choose a new password:",
-			btn:     "Reset my password",
-			expiry:  "This link expires in 1 hour.",
-			ignore:  "If you did not request this reset, please ignore this email.",
-			footer:  "Pilot Finance - Your personal financial cockpit",
-		}
-	}
 	return resetEmailContent{
-		subject: "Reinitialisation de votre mot de passe - Pilot Finance",
-		title:   "Reinitialisation du mot de passe",
-		intro:   "Vous avez demande a reinitialiser votre mot de passe Pilot Finance.",
-		action:  "Cliquez sur le bouton ci-dessous pour choisir un nouveau mot de passe :",
-		btn:     "Reinitialiser mon mot de passe",
-		expiry:  "Ce lien expire dans 1 heure.",
-		ignore:  "Si vous n'avez pas demande cette reinitialisation, ignorez cet email.",
-		footer:  "Pilot Finance - Votre cockpit financier personnel",
+		subject: i18n.T(lang, "email.reset_subject"),
+		title:   i18n.T(lang, "email.reset_title"),
+		intro:   i18n.T(lang, "email.reset_intro"),
+		action:  i18n.T(lang, "email.reset_action"),
+		btn:     i18n.T(lang, "email.reset_btn"),
+		expiry:  i18n.T(lang, "email.reset_expiry"),
+		ignore:  i18n.T(lang, "email.reset_ignore"),
+		footer:  i18n.T(lang, "email.reset_footer"),
 	}
 }
