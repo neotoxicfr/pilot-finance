@@ -427,13 +427,3 @@ dialog > .modal-panel {
 tbody tr {
     transition: background-color 0.15s ease;
 }
-
-/* Badges — consistent style */
-.badge {
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    padding: 0.15rem 0.5rem;
-    border-radius: 0.375rem;
-    line-height: 1.4;
-}
