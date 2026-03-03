@@ -166,7 +166,12 @@ go/internal/middleware/            → Auth JWT, nonce, CSRF, request ID
 go/internal/crypto/               → AES-256-GCM, HMAC blind index, bcrypt
 go/internal/projection/           → Financial projections (3 scenarios)
 go/internal/i18n/                 → fr.json + en.json translations
+go/internal/mail/                 → SMTP TLS/STARTTLS, i18n email templates
 go/internal/metrics/              → Prometheus counters and histograms
+go/internal/auth/                 → JWT generation, session versioning
+go/internal/config/               → Environment configuration loading
+go/internal/ratelimit/            → Multi-level rate limiting (IP, user, global)
+go/internal/templates/            → Template loading and caching
 go/templates/                     → Go HTML templates (layouts, pages, components)
 e2e/                              → Playwright E2E tests
 loadtest/                         → k6 load test scripts

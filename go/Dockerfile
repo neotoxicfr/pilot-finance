@@ -1,5 +1,5 @@
-# Pilot Finance v2.2 - Go + HTMX
-# Image finale: ~20MB
+# Pilot Finance - Go + HTMX
+# Image finale: ~46MB
 
 # ============ CSS BUILD STAGE ============
 FROM node:25-alpine AS css
