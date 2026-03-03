@@ -73,7 +73,7 @@ k6 run loadtest/stress.js
 
 ## Commit Convention
 
-This project uses [Conventional Commits](https://www.conventionalcommits.org/) for automatic changelog generation via [release-please](https://github.com/googleapis/release-please).
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) for clear commit history and release notes.
 
 ### Format
 
@@ -151,7 +151,7 @@ BREAKING CHANGE: /api/health now returns JSON instead of plain text
 
 1. **Branch from `develop`** — never commit directly to `main`
 2. **Write tests** — maintain 100% coverage
-3. **Follow commit convention** — enables automatic changelog
+3. **Follow commit convention** — keeps history clean
 4. **CI must pass** — Go tests, lint, E2E, Lighthouse
 5. **Keep PRs focused** — one feature or fix per PR
 
