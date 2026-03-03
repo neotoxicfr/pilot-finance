@@ -181,6 +181,8 @@
   "summary.income": "Income",
   "summary.monthly": "Monthly",
   "summary.yearly": "Yearly (Proj.)",
+  "summary.per_month": "/mo",
+  "summary.per_year": "/yr",
   "summary.yield_auto": "incl. yield",
   "verify.back": "Back to login",
   "verify.failed": "Verification failed",
