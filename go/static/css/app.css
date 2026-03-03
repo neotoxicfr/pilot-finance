@@ -62,8 +62,6 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     transition: background-color 0.3s ease, color 0.3s ease;
-    min-height: 100vh;
-    min-height: -webkit-fill-available;
     padding-bottom: env(safe-area-inset-bottom);
     overscroll-behavior: none;
 }
