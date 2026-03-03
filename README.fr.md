@@ -150,6 +150,8 @@ Vos données sont stockées dans `./data/pilot.db`. Sauvegardez ce fichier régu
 | **TZ** | Fuseau horaire du conteneur (ex: `Europe/Paris`) pour la précision des dates. |
 | **SMTP_HOST / PORT / USER / PASS / FROM** | Optionnel. Active les fonctionnalités email (vérification, réinitialisation). |
 
+> **Docker Secrets** : Les variables sensibles supportent le suffixe `_FILE` (ex : `AUTH_SECRET_FILE=/run/secrets/auth_secret`). L'app lit le fichier et utilise son contenu. Supportées : `AUTH_SECRET`, `ENCRYPTION_KEY`, `BLIND_INDEX_KEY`, `SMTP_PASS`, `DATABASE_URL`.
+
 ---
 
 ## Sécurité et Confidentialité
