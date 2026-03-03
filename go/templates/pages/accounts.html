@@ -54,7 +54,7 @@
                                     <button type="button" @click="selectedColor = c"
                                             :aria-label="c" :aria-pressed="selectedColor === c ? 'true' : 'false'"
                                             :class="selectedColor === c ? 'ring-2 ring-foreground scale-110' : 'opacity-60 hover:opacity-100'"
-                                            class="w-8 h-8 rounded-full transition-transform"
+                                            class="w-8 h-8 rounded-full transition-all duration-150"
                                             :style="'background-color:' + c"></button>
                                 </template>
                             </div>
@@ -382,16 +382,16 @@ document.addEventListener('alpine:init', () => {
         <button {{if not .IsFirst}}hx-post="/accounts/{{.Account.ID}}/move?direction=up"
                 hx-target="#accounts-list" hx-swap="innerHTML"{{end}}
                 aria-label="{{index .T "accounts.move_up"}}"
-                class="p-0.5 rounded transition-colors {{if .IsFirst}}text-muted-foreground opacity-30 cursor-default{{else}}text-muted-foreground active:text-foreground active:bg-accent{{end}}"
+                class="p-1 rounded transition-colors {{if .IsFirst}}text-muted-foreground opacity-30 cursor-default{{else}}text-muted-foreground active:text-foreground active:bg-accent{{end}}"
                 {{if .IsFirst}}disabled{{end}}>
-            {{template "icon-chevron-up" dict "Size" 14}}
+            {{template "icon-chevron-up" dict "Size" 16}}
         </button>
         <button {{if not .IsLast}}hx-post="/accounts/{{.Account.ID}}/move?direction=down"
                 hx-target="#accounts-list" hx-swap="innerHTML"{{end}}
                 aria-label="{{index .T "accounts.move_down"}}"
-                class="p-0.5 rounded transition-colors {{if .IsLast}}text-muted-foreground opacity-30 cursor-default{{else}}text-muted-foreground active:text-foreground active:bg-accent{{end}}"
+                class="p-1 rounded transition-colors {{if .IsLast}}text-muted-foreground opacity-30 cursor-default{{else}}text-muted-foreground active:text-foreground active:bg-accent{{end}}"
                 {{if .IsLast}}disabled{{end}}>
-            {{template "icon-chevron-down" dict "Size" 14}}
+            {{template "icon-chevron-down" dict "Size" 16}}
         </button>
     </div>
     <div class="w-1 self-stretch rounded-full flex-shrink-0" style="background-color: {{.Account.Color}}"></div>
@@ -453,7 +453,7 @@ document.addEventListener('alpine:init', () => {
 <div class="divide-y divide-border">
     {{range .Recurrings}}
     {{if .IsYieldPayout}}
-    <div class="flex items-center gap-3 px-4 py-3 bg-emerald-500/5 hover:bg-emerald-500/8 transition-colors">
+    <div class="flex items-center gap-3 px-4 py-3 bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors">
         <div class="w-1 self-stretch rounded-full bg-emerald-500 shrink-0"></div>
         <div class="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">
             {{template "icon-trending-up" dict "Size" 14}}
