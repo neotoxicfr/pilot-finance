@@ -7,7 +7,7 @@ Thank you for considering contributing to Pilot Finance! This guide will help yo
 ### Prerequisites
 
 - **Go 1.26+**
-- **Node.js 22+** (for Tailwind CSS compilation and E2E tests)
+- **Node.js 25+** (for Tailwind CSS compilation and E2E tests)
 - **SQLite** (bundled via `modernc.org/sqlite`, no system install needed)
 
 ### Clone and Build
