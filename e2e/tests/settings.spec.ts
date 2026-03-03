@@ -45,7 +45,7 @@ test.describe('Settings', () => {
   test('danger zone has export and delete buttons', async ({ page }) => {
     await expect(page.getByText(/zone dangereuse|danger/i)).toBeVisible();
     // Export link
-    await expect(page.getByRole('link', { name: /export|télécharger/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /export|télécharger|download/i })).toBeVisible();
     // Delete button
     await expect(page.getByRole('button', { name: /supprimer|delete/i })).toBeVisible();
   });

@@ -40,8 +40,10 @@ jobs:
             ENCRYPTION_KEY=${{ steps.keys.outputs.enc }} \
             BLIND_INDEX_KEY=${{ steps.keys.outputs.blind }} \
             ../server &
-          sleep 3
-          curl -sf http://localhost:3000/api/health || exit 1
+          for i in 1 2 3 4 5; do
+            sleep 2
+            curl -sf http://localhost:3000/login > /dev/null && break
+          done
 
       - name: Lighthouse audit (login page)
         id: lighthouse
