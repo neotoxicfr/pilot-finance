@@ -150,6 +150,8 @@ Your data is stored in `./data/pilot.db`. Back up this file regularly. The appli
 | **TZ** | Container timezone (e.g. `Europe/Paris`) for accurate operation dates. |
 | **SMTP_HOST / PORT / USER / PASS / FROM** | Optional. Enable email features (verification, password reset). |
 
+> **Docker Secrets**: Sensitive variables support the `_FILE` suffix (e.g. `AUTH_SECRET_FILE=/run/secrets/auth_secret`). The app reads the file and uses its content. Supported: `AUTH_SECRET`, `ENCRYPTION_KEY`, `BLIND_INDEX_KEY`, `SMTP_PASS`, `DATABASE_URL`.
+
 ---
 
 ## Security & Privacy
