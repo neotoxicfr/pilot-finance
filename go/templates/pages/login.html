@@ -1,5 +1,5 @@
-{{define "htmlClass"}}login-bg overflow-hidden{{end}}
-{{define "bodyClass"}}login-bg overflow-hidden{{end}}
+{{define "htmlClass"}}login-bg h-full overflow-hidden{{end}}
+{{define "bodyClass"}}login-bg h-dvh overflow-hidden{{end}}
 {{define "content"}}
 <script nonce="{{.Nonce}}">
 function loginPage() {
@@ -44,8 +44,8 @@ function loginPage() {
 }
 document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginPage); });
 </script>
-<div class="min-h-dvh flex flex-col items-center p-4">
-  <div class="my-auto w-full max-w-sm">
+<div class="h-full flex flex-col items-center justify-center p-4">
+  <div class="w-full max-w-sm">
     <div class="login-card border border-border rounded-2xl p-8 w-full transition-all"
          x-data="loginPage"
          data-requires2fa="{{if .Requires2FA}}true{{else}}false{{end}}">
