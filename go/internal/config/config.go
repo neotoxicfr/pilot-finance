@@ -4,8 +4,41 @@ package config
 import (
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"os"
+	"strings"
 )
+
+// readFileFunc est un hook pour lire les fichiers de secrets (testabilité).
+var readFileFunc = os.ReadFile
+
+// ResolveEnv retourne la valeur pour key, en privilégiant KEY_FILE (lecture fichier) sur KEY (env).
+// Si KEY_FILE est défini, le fichier est lu et trimé. En cas d'erreur ou fichier vide,
+// retombe sur os.Getenv(KEY) avec un warning dans les logs.
+func ResolveEnv(key string) string {
+	if filePath := os.Getenv(key + "_FILE"); filePath != "" {
+		data, err := readFileFunc(filePath)
+		if err != nil {
+			slog.Warn("impossible de lire le fichier secret", "key", key+"_FILE", "path", filePath, "err", err)
+		} else {
+			val := strings.TrimSpace(string(data))
+			if val == "" {
+				slog.Warn("fichier secret vide", "key", key+"_FILE", "path", filePath)
+			} else {
+				slog.Info("secret chargé depuis fichier", "key", key+"_FILE")
+				return val
+			}
+		}
+	}
+	return os.Getenv(key)
+}
+
+func resolveEnvWithDefault(key, defaultValue string) string {
+	if val := ResolveEnv(key); val != "" {
+		return val
+	}
+	return defaultValue
+}
 
 // Config contient toute la configuration de l'application
 type Config struct {
@@ -37,15 +70,15 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		Host:          getEnv("HOST", "localhost"),
 		Port:          getEnv("PORT", "3000"),
-		DatabaseURL:   getEnv("DATABASE_URL", "file:./data/pilot.db"),
-		AuthSecret:    os.Getenv("AUTH_SECRET"),
-		EncryptionKey: os.Getenv("ENCRYPTION_KEY"),
-		BlindIndexKey: os.Getenv("BLIND_INDEX_KEY"),
+		DatabaseURL:   resolveEnvWithDefault("DATABASE_URL", "file:./data/pilot.db"),
+		AuthSecret:    ResolveEnv("AUTH_SECRET"),
+		EncryptionKey: ResolveEnv("ENCRYPTION_KEY"),
+		BlindIndexKey: ResolveEnv("BLIND_INDEX_KEY"),
 		AllowRegister: getEnv("ALLOW_REGISTER", "false") == "true",
 		SMTPHost:      os.Getenv("SMTP_HOST"),
 		SMTPPort:      getEnv("SMTP_PORT", "587"),
 		SMTPUser:      os.Getenv("SMTP_USER"),
-		SMTPPass:      os.Getenv("SMTP_PASS"),
+		SMTPPass:      ResolveEnv("SMTP_PASS"),
 		SMTPFrom:      os.Getenv("SMTP_FROM"),
 	}
 

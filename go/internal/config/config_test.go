@@ -1,6 +1,9 @@
 package config
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -149,6 +152,219 @@ func TestLoad_SMTP_FullConfig(t *testing.T) {
 	}
 	if cfg.SMTPHost != "smtp.example.com" {
 		t.Errorf("SMTPHost: want 'smtp.example.com', got %q", cfg.SMTPHost)
+	}
+}
+
+// --- ResolveEnv ---
+
+func TestResolveEnv_PlainEnvVar(t *testing.T) {
+	t.Setenv("TEST_KEY", "plainvalue")
+	got := ResolveEnv("TEST_KEY")
+	if got != "plainvalue" {
+		t.Errorf("want 'plainvalue', got %q", got)
+	}
+}
+
+func TestResolveEnv_FileOverridesEnv(t *testing.T) {
+	t.Setenv("TEST_KEY", "envvalue")
+	dir := t.TempDir()
+	path := filepath.Join(dir, "secret")
+	os.WriteFile(path, []byte("filevalue\n"), 0600)
+	t.Setenv("TEST_KEY_FILE", path)
+	got := ResolveEnv("TEST_KEY")
+	if got != "filevalue" {
+		t.Errorf("want 'filevalue', got %q", got)
+	}
+}
+
+func TestResolveEnv_FileTrimmed(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "secret")
+	os.WriteFile(path, []byte("  trimmed  \n"), 0600)
+	t.Setenv("TEST_KEY_FILE", path)
+	t.Setenv("TEST_KEY", "")
+	got := ResolveEnv("TEST_KEY")
+	if got != "trimmed" {
+		t.Errorf("want 'trimmed', got %q", got)
+	}
+}
+
+func TestResolveEnv_FileMissing_FallsBackToEnv(t *testing.T) {
+	t.Setenv("TEST_KEY", "fallback")
+	t.Setenv("TEST_KEY_FILE", "/nonexistent/path/secret.txt")
+	got := ResolveEnv("TEST_KEY")
+	if got != "fallback" {
+		t.Errorf("want 'fallback', got %q", got)
+	}
+}
+
+func TestResolveEnv_FileEmpty_FallsBackToEnv(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "secret")
+	os.WriteFile(path, []byte(""), 0600)
+	t.Setenv("TEST_KEY_FILE", path)
+	t.Setenv("TEST_KEY", "envfallback")
+	got := ResolveEnv("TEST_KEY")
+	if got != "envfallback" {
+		t.Errorf("want 'envfallback', got %q", got)
+	}
+}
+
+func TestResolveEnv_FileWhitespaceOnly_FallsBackToEnv(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "secret")
+	os.WriteFile(path, []byte("   \n"), 0600)
+	t.Setenv("TEST_KEY_FILE", path)
+	t.Setenv("TEST_KEY", "envfallback")
+	got := ResolveEnv("TEST_KEY")
+	if got != "envfallback" {
+		t.Errorf("want 'envfallback', got %q", got)
+	}
+}
+
+func TestResolveEnv_NoFileNoEnv(t *testing.T) {
+	t.Setenv("TEST_KEY", "")
+	got := ResolveEnv("TEST_KEY")
+	if got != "" {
+		t.Errorf("want empty, got %q", got)
+	}
+}
+
+func TestResolveEnv_ReadFileError_FallsBack(t *testing.T) {
+	orig := readFileFunc
+	defer func() { readFileFunc = orig }()
+	readFileFunc = func(_ string) ([]byte, error) {
+		return nil, fmt.Errorf("permission denied")
+	}
+	t.Setenv("TEST_KEY", "fallback")
+	t.Setenv("TEST_KEY_FILE", "/some/path")
+	got := ResolveEnv("TEST_KEY")
+	if got != "fallback" {
+		t.Errorf("want 'fallback', got %q", got)
+	}
+}
+
+// --- resolveEnvWithDefault ---
+
+func TestResolveEnvWithDefault_FileValue(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "secret")
+	os.WriteFile(path, []byte("filevalue"), 0600)
+	t.Setenv("TEST_DEF_FILE", path)
+	t.Setenv("TEST_DEF", "")
+	got := resolveEnvWithDefault("TEST_DEF", "default")
+	if got != "filevalue" {
+		t.Errorf("want 'filevalue', got %q", got)
+	}
+}
+
+func TestResolveEnvWithDefault_EnvValue(t *testing.T) {
+	t.Setenv("TEST_DEF", "envval")
+	got := resolveEnvWithDefault("TEST_DEF", "default")
+	if got != "envval" {
+		t.Errorf("want 'envval', got %q", got)
+	}
+}
+
+func TestResolveEnvWithDefault_FallsBackToDefault(t *testing.T) {
+	t.Setenv("TEST_DEF", "")
+	got := resolveEnvWithDefault("TEST_DEF", "mydefault")
+	if got != "mydefault" {
+		t.Errorf("want 'mydefault', got %q", got)
+	}
+}
+
+// --- Load with _FILE ---
+
+func TestLoad_AuthSecretFromFile(t *testing.T) {
+	setupBaseEnv(t)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "auth_secret")
+	secret := "this-is-a-file-based-secret-minimum-32chars!!"
+	os.WriteFile(path, []byte(secret+"\n"), 0600)
+	t.Setenv("AUTH_SECRET_FILE", path)
+	t.Setenv("AUTH_SECRET", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.AuthSecret != secret {
+		t.Errorf("AuthSecret: want from file, got %q", cfg.AuthSecret)
+	}
+}
+
+func TestLoad_DatabaseURLFromFile(t *testing.T) {
+	setupBaseEnv(t)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "db_url")
+	os.WriteFile(path, []byte("file:/secrets/pilot.db\n"), 0600)
+	t.Setenv("DATABASE_URL_FILE", path)
+	t.Setenv("DATABASE_URL", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.DatabaseURL != "file:/secrets/pilot.db" {
+		t.Errorf("DatabaseURL: want 'file:/secrets/pilot.db', got %q", cfg.DatabaseURL)
+	}
+}
+
+func TestLoad_SMTPPassFromFile(t *testing.T) {
+	setupBaseEnv(t)
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("SMTP_USER", "user@example.com")
+	t.Setenv("SMTP_FROM", "noreply@example.com")
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "smtp_pass")
+	os.WriteFile(path, []byte("file-smtp-secret"), 0600)
+	t.Setenv("SMTP_PASS_FILE", path)
+	t.Setenv("SMTP_PASS", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.SMTPPass != "file-smtp-secret" {
+		t.Errorf("SMTPPass: want 'file-smtp-secret', got %q", cfg.SMTPPass)
+	}
+}
+
+func TestLoad_EncryptionKeyFromFile(t *testing.T) {
+	setupBaseEnv(t)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "enc_key")
+	key := "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+	os.WriteFile(path, []byte(key+"\n"), 0600)
+	t.Setenv("ENCRYPTION_KEY_FILE", path)
+	t.Setenv("ENCRYPTION_KEY", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.EncryptionKey != key {
+		t.Errorf("EncryptionKey: want from file, got %q", cfg.EncryptionKey)
+	}
+}
+
+func TestLoad_BlindIndexKeyFromFile(t *testing.T) {
+	setupBaseEnv(t)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "blind_key")
+	key := "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+	os.WriteFile(path, []byte(key+"\n"), 0600)
+	t.Setenv("BLIND_INDEX_KEY_FILE", path)
+	t.Setenv("BLIND_INDEX_KEY", "")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.BlindIndexKey != key {
+		t.Errorf("BlindIndexKey: want from file, got %q", cfg.BlindIndexKey)
 	}
 }
 

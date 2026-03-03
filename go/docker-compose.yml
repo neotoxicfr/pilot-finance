@@ -29,6 +29,19 @@ services:
       # Configuration domaine
       - HOST=${HOST:-localhost}
       - ALLOW_REGISTER=${ALLOW_REGISTER:-false}
+      # --- Docker Secrets (alternative plus sécurisée) ---
+      # Décommenter les lignes _FILE et commenter les variables ci-dessus :
+      # - AUTH_SECRET_FILE=/run/secrets/auth_secret
+      # - ENCRYPTION_KEY_FILE=/run/secrets/encryption_key
+      # - BLIND_INDEX_KEY_FILE=/run/secrets/blind_index_key
+      # - DATABASE_URL_FILE=/run/secrets/database_url
+      # - SMTP_PASS_FILE=/run/secrets/smtp_pass
+    # secrets:
+    #   - auth_secret
+    #   - encryption_key
+    #   - blind_index_key
+    #   - database_url
+    #   - smtp_pass
     volumes:
       - ./data:/data
     ports:
@@ -39,3 +52,16 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
+
+# --- Docker Secrets (décommenter pour activer) ---
+# secrets:
+#   auth_secret:
+#     file: ./secrets/auth_secret.txt
+#   encryption_key:
+#     file: ./secrets/encryption_key.txt
+#   blind_index_key:
+#     file: ./secrets/blind_index_key.txt
+#   database_url:
+#     file: ./secrets/database_url.txt
+#   smtp_pass:
+#     file: ./secrets/smtp_pass.txt

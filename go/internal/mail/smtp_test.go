@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/smtp"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -74,6 +75,25 @@ func minimalSMTPFlow(srv net.Conn) {
 }
 
 // --- Init ---
+
+func TestInit_SMTPPassFromFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "smtp_pass")
+	os.WriteFile(path, []byte("file-password\n"), 0600)
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("SMTP_USER", "user@example.com")
+	t.Setenv("SMTP_FROM", "from@example.com")
+	t.Setenv("SMTP_PASS_FILE", path)
+	t.Setenv("SMTP_PASS", "")
+	defer func() { config = nil }()
+
+	if err := Init(); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	if config.Password != "file-password" {
+		t.Errorf("Password: want 'file-password', got %q", config.Password)
+	}
+}
 
 func TestInit_NoSMTPHost(t *testing.T) {
 	os.Unsetenv("SMTP_HOST")
