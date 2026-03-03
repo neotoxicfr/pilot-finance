@@ -66,6 +66,11 @@ body {
     overscroll-behavior: none;
 }
 
+/* Auth pages — no safe-area padding (card is centered, not edge-to-edge) */
+body.login-bg {
+    padding-bottom: 0;
+}
+
 /* Scrollbars */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
