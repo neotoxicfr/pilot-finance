@@ -336,6 +336,12 @@ function accountsPage() {
                 fallbackOnBody: true,
                 fallbackTolerance: 4,
                 ghostClass: 'opacity-30',
+                onStart(evt) {
+                    var fb = el.nextElementSibling;
+                    while (fb && !fb.classList.contains('sortable-fallback')) fb = fb.nextElementSibling;
+                    if (!fb) fb = document.querySelector('.sortable-fallback');
+                    if (fb) fb.style.width = evt.item.offsetWidth + 'px';
+                },
                 onEnd(evt) {
                     if (evt.oldIndex === evt.newIndex) return;
                     const ids = [...el.querySelectorAll('[data-account-id]')]
