@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	cfgpkg "pilot-finance/internal/config"
 	"pilot-finance/internal/i18n"
 )
 
@@ -63,7 +64,7 @@ func Init() error {
 		Host:     host,
 		Port:     port,
 		Username: os.Getenv("SMTP_USER"),
-		Password: os.Getenv("SMTP_PASS"),
+		Password: cfgpkg.ResolveEnv("SMTP_PASS"),
 		From:     os.Getenv("SMTP_FROM"),
 		Secure:   os.Getenv("SMTP_SECURE") == "true",
 	}
