@@ -29,7 +29,7 @@
 * **Security by default** :
     * **`@alpinejs/csp`** build — no `unsafe-eval` in CSP; all Alpine components registered server-side
     * Strict **Content Security Policy** with per-request dynamic nonces — no `unsafe-inline` for scripts
-    * **`X-Frame-Options: DENY`** + **`Permissions-Policy`** — clickjacking protection and browser API restrictions
+    * **`X-Frame-Options: SAMEORIGIN`** + **`Permissions-Policy`** — clickjacking protection and browser API restrictions
     * **CSRF protection** — Origin/Referer header validation on all mutating requests
     * **AES-256-GCM** encryption of all sensitive data (emails, account names, transaction labels)
     * **bcrypt** password hashing — cost 12, 12-character minimum, 5-criteria complexity validation, automatic cost upgrade on login
@@ -40,7 +40,7 @@
     * **Health Check API** — database and memory monitoring endpoint
 * **Email** (optional) — Account verification on registration and password recovery.
 * **Responsive** — Smooth experience on all devices. Drag & drop reorder on desktop, tap-to-move arrows on mobile. PWA-ready.
-* **Lightweight** — ~40 MB Docker image, ~30 MB RAM, <1s start time. JS loaded per-page (no global bundle). Zero CDN requests.
+* **Lightweight** — ~46 MB Docker image, ~30 MB RAM, <1s start time. JS loaded per-page (no global bundle). Zero CDN requests.
 
 ---
 
@@ -174,7 +174,7 @@ Your data is stored in `./data/pilot.db`. Back up this file regularly. The appli
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
 | CI/CD | GitHub Actions (tests, E2E, CodeQL, Trivy, GHCR image, auto-release) |
 | E2E | Playwright (Chromium, Firefox, WebKit, Mobile Chrome) |
-| Docker image | ~40 MB (alpine:3.23 base) |
+| Docker image | ~46 MB (alpine:3.23 base) |
 
 ---
 

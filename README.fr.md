@@ -29,7 +29,7 @@
 * **Sécurité par défaut** :
     * Build **`@alpinejs/csp`** — pas d'`unsafe-eval` dans la CSP ; tous les composants Alpine enregistrés côté serveur
     * **Content Security Policy** stricte avec nonces dynamiques par requête — pas d'`unsafe-inline` pour les scripts
-    * **`X-Frame-Options: DENY`** + **`Permissions-Policy`** — protection clickjacking et restriction des API navigateur
+    * **`X-Frame-Options: SAMEORIGIN`** + **`Permissions-Policy`** — protection clickjacking et restriction des API navigateur
     * **Protection CSRF** — validation des headers Origin/Referer sur toutes les requêtes mutantes
     * Chiffrement **AES-256-GCM** de toutes les données sensibles (emails, noms de comptes, libellés de transactions)
     * Hashing des mots de passe **bcrypt** — coût 12, minimum 12 caractères, complexité 5 critères, upgrade automatique du coût au login
@@ -40,7 +40,7 @@
     * **API Health Check** — endpoint de monitoring de la base de données et de la mémoire
 * **Email** (optionnel) — Vérification du compte à l'inscription et récupération de mot de passe.
 * **Responsive** — Expérience fluide sur tous les supports. Glisser-déposer sur desktop, boutons de déplacement sur mobile. Compatible PWA.
-* **Léger** — Image Docker ~40 Mo, ~30 Mo de RAM, démarrage <1s. JS chargé par page (pas de bundle global). Zéro requête CDN.
+* **Léger** — Image Docker ~46 Mo, ~30 Mo de RAM, démarrage <1s. JS chargé par page (pas de bundle global). Zéro requête CDN.
 
 ---
 
@@ -174,7 +174,7 @@ Vos données sont stockées dans `./data/pilot.db`. Sauvegardez ce fichier régu
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
 | CI/CD | GitHub Actions (tests, E2E, CodeQL, Trivy, image GHCR, auto-release) |
 | E2E | Playwright (Chromium, Firefox, WebKit, Mobile Chrome) |
-| Image Docker | ~40 Mo (base alpine:3.23) |
+| Image Docker | ~46 Mo (base alpine:3.23) |
 
 ---
 
