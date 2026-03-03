@@ -11,7 +11,14 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"pilot-finance/internal/i18n"
 )
+
+func TestMain(m *testing.M) {
+	_ = i18n.Load("../../locales")
+	os.Exit(m.Run())
+}
 
 // --- helpers ---
 
