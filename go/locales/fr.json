@@ -181,6 +181,8 @@
   "summary.income": "Entrées",
   "summary.monthly": "Mensuel",
   "summary.yearly": "Annuel (Proj.)",
+  "summary.per_month": "/mois",
+  "summary.per_year": "/an",
   "summary.yield_auto": "dont rendements",
   "verify.back": "Retour à la connexion",
   "verify.failed": "Échec de validation",
