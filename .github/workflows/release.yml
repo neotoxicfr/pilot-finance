@@ -19,6 +19,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
       - run: go test -race -timeout 600s $(go list ./... | grep -v -E '/cmd/|/db$')
 
   release:
