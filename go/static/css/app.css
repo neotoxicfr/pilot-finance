@@ -67,9 +67,10 @@ body {
     overscroll-behavior: none;
 }
 
-/* Auth pages — no safe-area padding (card is centered, not edge-to-edge) */
+/* Auth pages — no safe-area padding, body fills viewport for background */
 body.login-bg {
     padding: 0;
+    min-height: 100%;
 }
 
 /* Auth content wrapper — fixed to viewport, centered with safe areas */
@@ -327,10 +328,12 @@ select:focus {
 .login-bg {
     background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 50%, #f0fdfa 100%);
 }
+.dark.login-bg,
 .dark .login-bg {
     background: linear-gradient(135deg, #0b1120 0%, #0f172a 40%, #0c1a2e 100%);
 }
 @media (prefers-color-scheme: dark) {
+    :root:not(.light).login-bg,
     :root:not(.light) .login-bg {
         background: linear-gradient(135deg, #0b1120 0%, #0f172a 40%, #0c1a2e 100%);
     }
