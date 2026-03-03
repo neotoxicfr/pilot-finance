@@ -50,6 +50,7 @@ html {
     min-height: 100%;
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior: none;
+    touch-action: manipulation;
 }
 
 html.dark {
@@ -68,7 +69,22 @@ body {
 
 /* Auth pages — no safe-area padding (card is centered, not edge-to-edge) */
 body.login-bg {
-    padding-bottom: 0;
+    padding: 0;
+}
+
+/* Auth content wrapper — fixed to viewport, centered with safe areas */
+.auth-container {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
 }
 
 /* Scrollbars */
