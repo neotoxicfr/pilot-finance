@@ -86,6 +86,15 @@ body.login-bg {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
     padding-left: max(1rem, env(safe-area-inset-left));
     padding-right: max(1rem, env(safe-area-inset-right));
+    background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 50%, #f0fdfa 100%);
+}
+.dark .auth-container {
+    background: linear-gradient(135deg, #0b1120 0%, #0f172a 40%, #0c1a2e 100%);
+}
+@media (prefers-color-scheme: dark) {
+    :root:not(.light) .auth-container {
+        background: linear-gradient(135deg, #0b1120 0%, #0f172a 40%, #0c1a2e 100%);
+    }
 }
 
 /* Scrollbars */
