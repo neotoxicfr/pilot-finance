@@ -53,7 +53,7 @@ jobs:
             http://localhost:3000/login
           runs: 3
           uploadArtifacts: true
-          configJson: '{"ci":{"collect":{"settings":{"chromeFlags":["--headless=new","--no-sandbox","--disable-gpu"]}}}}'
+          configPath: .lighthouserc.json
 
       - name: Check scores
         run: |
