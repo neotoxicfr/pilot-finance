@@ -31,7 +31,7 @@
     * **Content Security Policy** stricte avec nonces dynamiques par requête — pas d'`unsafe-inline` pour les scripts
     * **`X-Frame-Options: SAMEORIGIN`** + **`Permissions-Policy`** — protection clickjacking et restriction des API navigateur
     * **Protection CSRF** — validation des headers Origin/Referer sur toutes les requêtes mutantes
-    * Chiffrement **AES-256-GCM** de toutes les données sensibles (emails, noms de comptes, libellés de transactions)
+    * Chiffrement **AES-256-GCM** de toutes les données sensibles (emails, soldes, montants, taux, IPs, user agents)
     * Hashing des mots de passe **bcrypt** — coût 12, minimum 12 caractères, complexité 5 critères, upgrade automatique du coût au login
     * **Session versioning** — déconnexion automatique de tous les appareils en cas de changement de mot de passe
     * **Rate limiting** multi-niveaux — 120 req/min global, 10 req/min sur les routes d'authentification
@@ -156,7 +156,7 @@ Vos données sont stockées dans `./data/pilot.db`. Sauvegardez ce fichier régu
 
 ## Sécurité et Confidentialité
 
-* **Zéro stockage en clair** — Les noms de comptes et libellés de transactions sont chiffrés avec AES-256-GCM. Seul votre serveur détient la clé.
+* **Zéro stockage en clair** — Toutes les données sensibles (emails, soldes, montants, taux, IPs, user agents) sont chiffrées avec AES-256-GCM. Seul votre serveur détient la clé.
 * **Zéro dépendance externe** — Aucune requête CDN à l'exécution. Tous les assets JS et CSS sont compilés et servis localement.
 * **CSP stricte** — Nonces dynamiques par requête + build `@alpinejs/csp` (pas d'`unsafe-eval`). Pas d'`unsafe-inline` dans `script-src`.
 * **Vérification au démarrage** — Le serveur refuse de démarrer si les clés de chiffrement sont absentes ou trop courtes. L'intégrité du schéma est vérifiée à chaque démarrage.
