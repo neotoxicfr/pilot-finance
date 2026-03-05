@@ -1,0 +1,9 @@
+{
+  "ci": {
+    "collect": {
+      "settings": {
+        "chromeFlags": ["--headless=new", "--no-sandbox", "--disable-gpu"]
+      }
+    }
+  }
+}
