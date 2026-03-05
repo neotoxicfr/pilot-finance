@@ -387,6 +387,46 @@ func runMigrations(dbPath string) {
 			}
 			return nil
 		}},
+		{Name: "012_fix_audit_ua_encryption", Run: func(d *sql.DB) error {
+			// Migration 011 utilisait l'ancien encryptIfPlain qui considérait les user agents
+			// contenant ":" comme déjà chiffrés. Cette migration re-passe avec la détection corrigée.
+			rows, err := d.Query(`SELECT id, COALESCE(ip, ''), COALESCE(user_agent, '') FROM audit_log`)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+
+			type auditRow struct {
+				id        int64
+				ip        string
+				userAgent string
+			}
+			var toUpdate []auditRow
+			for rows.Next() {
+				var r auditRow
+				if err := rows.Scan(&r.id, &r.ip, &r.userAgent); err != nil {
+					return err
+				}
+				toUpdate = append(toUpdate, r)
+			}
+			rows.Close()
+
+			for _, r := range toUpdate {
+				ipEnc := encryptIfPlain(r.ip, func(s string) (string, error) {
+					return crypto.Encrypt(s)
+				})
+				uaEnc := encryptIfPlain(r.userAgent, func(s string) (string, error) {
+					return crypto.Encrypt(s)
+				})
+				if ipEnc != r.ip || uaEnc != r.userAgent {
+					if _, err := d.Exec(`UPDATE audit_log SET ip=?, user_agent=? WHERE id=?`,
+						ipEnc, uaEnc, r.id); err != nil {
+						return fmt.Errorf("update audit id=%d: %w", r.id, err)
+					}
+				}
+			}
+			return nil
+		}},
 	}
 
 	for _, m := range migrations {
@@ -454,10 +494,28 @@ func verifyMigrations(expected []migration) {
 	}
 }
 
-// encryptIfPlain chiffre une valeur si elle n'est pas déjà chiffrée (pas de ":").
+// isEncrypted vérifie si une valeur est au format chiffré AES-256-GCM (IV_HEX:TAG_HEX:CIPHERTEXT_HEX).
+// Exactement 3 parties hexadécimales, IV de 24 chars hex (12 bytes), TAG de 32 chars hex (16 bytes).
+func isEncrypted(s string) bool {
+	parts := strings.Split(s, ":")
+	if len(parts) != 3 {
+		return false
+	}
+	// IV = 12 bytes = 24 hex chars
+	if len(parts[0]) != 24 {
+		return false
+	}
+	// TAG = 16 bytes = 32 hex chars
+	if len(parts[1]) != 32 {
+		return false
+	}
+	return true
+}
+
+// encryptIfPlain chiffre une valeur si elle n'est pas déjà au format AES-256-GCM.
 // fn reçoit la valeur brute et retourne la valeur chiffrée.
 func encryptIfPlain(raw string, fn func(string) (string, error)) string {
-	if strings.Contains(raw, ":") {
+	if isEncrypted(raw) {
 		return raw // déjà chiffré
 	}
 	enc, err := fn(raw)

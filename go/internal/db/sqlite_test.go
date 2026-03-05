@@ -8,9 +8,10 @@ import (
 	"pilot-finance/internal/crypto"
 )
 
-// TestEncryptIfPlainAlreadyEncrypted covers the strings.Contains(raw, ":") true branch.
+// TestEncryptIfPlainAlreadyEncrypted covers the isEncrypted(raw) true branch.
 func TestEncryptIfPlainAlreadyEncrypted(t *testing.T) {
-	raw := "iv:tag:cipher"
+	// Valid AES-256-GCM format: 24-char hex IV : 32-char hex TAG : hex ciphertext
+	raw := "0123456789abcdef01234567:0123456789abcdef0123456789abcdef:aabbccdd"
 	result := encryptIfPlain(raw, func(s string) (string, error) {
 		return "should-not-be-called", nil
 	})
@@ -36,6 +37,42 @@ func TestEncryptIfPlainFnError(t *testing.T) {
 	})
 	if result != "bad" {
 		t.Errorf("fn error: want original 'bad', got %q", result)
+	}
+}
+
+// TestIsEncrypted covers the isEncrypted helper function.
+func TestIsEncrypted(t *testing.T) {
+	tests := []struct {
+		name string
+		input string
+		want bool
+	}{
+		{"valid encrypted", "0123456789abcdef01234567:0123456789abcdef0123456789abcdef:aabb", true},
+		{"plain IP", "192.168.1.1", false},
+		{"user agent with colon", "Mozilla/5.0 (X11; rv:128.0)", false},
+		{"empty string", "", false},
+		{"two parts", "abc:def", false},
+		{"four parts", "a:b:c:d", false},
+		{"wrong IV length", "0123:0123456789abcdef0123456789abcdef:aabb", false},
+		{"wrong TAG length", "0123456789abcdef01234567:0123:aabb", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isEncrypted(tt.input); got != tt.want {
+				t.Errorf("isEncrypted(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestEncryptIfPlainUserAgentWithColon ensures user agents containing ":" are encrypted.
+func TestEncryptIfPlainUserAgentWithColon(t *testing.T) {
+	ua := "Mozilla/5.0 (X11; rv:128.0) Gecko/20100101 Firefox/128.0"
+	result := encryptIfPlain(ua, func(s string) (string, error) {
+		return "encrypted-ua", nil
+	})
+	if result != "encrypted-ua" {
+		t.Errorf("UA with colon should be encrypted, got %q", result)
 	}
 }
 
