@@ -112,6 +112,54 @@ func TestPurgeAuditLog_NoOldEntries(t *testing.T) {
 	}
 }
 
+func TestLogAudit_EncryptsIPAndUserAgent(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+	userID := createTestUser(t)
+
+	LogAudit(userID, AuditLoginSuccess, "192.168.1.42", "Mozilla/5.0 (X11; Linux)")
+
+	// Vérifier que les valeurs en BDD sont chiffrées (contiennent ":")
+	var rawIP, rawUA string
+	DB.QueryRow(`SELECT COALESCE(ip, ''), COALESCE(user_agent, '') FROM audit_log WHERE user_id = ?`, userID).Scan(&rawIP, &rawUA)
+	if rawIP == "192.168.1.42" {
+		t.Error("IP should be encrypted in DB, got plaintext")
+	}
+	if rawUA == "Mozilla/5.0 (X11; Linux)" {
+		t.Error("UserAgent should be encrypted in DB, got plaintext")
+	}
+
+	// Vérifier que GetAuditLog déchiffre correctement
+	entries, err := GetAuditLog(1, 50)
+	if err != nil {
+		t.Fatalf("GetAuditLog: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("want at least 1 entry")
+	}
+	if entries[0].IP != "192.168.1.42" {
+		t.Errorf("IP: want '192.168.1.42', got %q", entries[0].IP)
+	}
+	if entries[0].UserAgent != "Mozilla/5.0 (X11; Linux)" {
+		t.Errorf("UserAgent: want 'Mozilla/5.0 (X11; Linux)', got %q", entries[0].UserAgent)
+	}
+
+	// Vérifier que GetAuditLogByUserID déchiffre aussi
+	byUser, err := GetAuditLogByUserID(userID)
+	if err != nil {
+		t.Fatalf("GetAuditLogByUserID: %v", err)
+	}
+	if len(byUser) == 0 {
+		t.Fatal("want at least 1 entry by user")
+	}
+	if byUser[0].IP != "192.168.1.42" {
+		t.Errorf("ByUser IP: want '192.168.1.42', got %q", byUser[0].IP)
+	}
+	if byUser[0].UserAgent != "Mozilla/5.0 (X11; Linux)" {
+		t.Errorf("ByUser UserAgent: want 'Mozilla/5.0 (X11; Linux)', got %q", byUser[0].UserAgent)
+	}
+}
+
 func TestStartAuditRotation_StopsOnCancel(t *testing.T) {
 	cleanup := setupTestDB(t)
 	defer cleanup()

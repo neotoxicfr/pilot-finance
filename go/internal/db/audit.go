@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"time"
+
+	"pilot-finance/internal/crypto"
 )
 
 // Constantes d'action pour l'audit log
@@ -35,14 +37,26 @@ type AuditEntry struct {
 }
 
 // LogAudit enregistre une action dans le journal d'audit (fire-and-forget).
+// IP et UserAgent sont chiffrés AES-256-GCM avant stockage.
 func LogAudit(userID int64, action, ip, userAgent string) {
+	ipEnc, err := crypto.Encrypt(ip)
+	if err != nil {
+		slog.Warn("audit log: encrypt ip failed", "err", err)
+		ipEnc = ip
+	}
+	uaEnc, err := crypto.Encrypt(userAgent)
+	if err != nil {
+		slog.Warn("audit log: encrypt user_agent failed", "err", err)
+		uaEnc = userAgent
+	}
 	if _, err := DB.Exec(`INSERT INTO audit_log (user_id, action, ip, user_agent, created_at) VALUES (?, ?, ?, ?, ?)`,
-		userID, action, ip, userAgent, time.Now().Unix()); err != nil {
+		userID, action, ipEnc, uaEnc, time.Now().Unix()); err != nil {
 		slog.Warn("audit log insert failed", "action", action, "userID", userID, "err", err)
 	}
 }
 
 // GetAuditLogByUserID retourne toutes les entrées d'audit d'un utilisateur (export GDPR).
+// IP et UserAgent sont déchiffrés automatiquement.
 func GetAuditLogByUserID(userID int64) ([]AuditEntry, error) {
 	rows, err := DB.Query(`
 		SELECT id, user_id, action, COALESCE(ip, ''), COALESCE(user_agent, ''), created_at
@@ -61,6 +75,8 @@ func GetAuditLogByUserID(userID int64) ([]AuditEntry, error) {
 		if err := rows.Scan(&e.ID, &e.UserID, &e.Action, &e.IP, &e.UserAgent, &ts); err != nil {
 			return nil, err
 		}
+		e.IP, _ = crypto.Decrypt(e.IP)
+		e.UserAgent, _ = crypto.Decrypt(e.UserAgent)
 		e.CreatedAt = time.Unix(ts, 0)
 		entries = append(entries, e)
 	}
@@ -68,6 +84,7 @@ func GetAuditLogByUserID(userID int64) ([]AuditEntry, error) {
 }
 
 // GetAuditLog retourne les entrées d'audit paginées, les plus récentes en premier.
+// IP et UserAgent sont déchiffrés automatiquement.
 func GetAuditLog(page, limit int) ([]AuditEntry, error) {
 	if page < 1 {
 		page = 1
@@ -92,6 +109,8 @@ func GetAuditLog(page, limit int) ([]AuditEntry, error) {
 		if err := rows.Scan(&e.ID, &e.UserID, &e.Action, &e.IP, &e.UserAgent, &createdAt); err != nil {
 			return nil, err
 		}
+		e.IP, _ = crypto.Decrypt(e.IP)
+		e.UserAgent, _ = crypto.Decrypt(e.UserAgent)
 		e.CreatedAt = time.Unix(createdAt, 0)
 		entries = append(entries, e)
 	}

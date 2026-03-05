@@ -351,6 +351,42 @@ func runMigrations(dbPath string) {
 			}
 			return nil
 		}},
+		{Name: "011_encrypt_audit_ip_ua", Run: func(d *sql.DB) error {
+			rows, err := d.Query(`SELECT id, COALESCE(ip, ''), COALESCE(user_agent, '') FROM audit_log`)
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+
+			type auditRow struct {
+				id        int64
+				ip        string
+				userAgent string
+			}
+			var toUpdate []auditRow
+			for rows.Next() {
+				var r auditRow
+				if err := rows.Scan(&r.id, &r.ip, &r.userAgent); err != nil {
+					return err
+				}
+				toUpdate = append(toUpdate, r)
+			}
+			rows.Close()
+
+			for _, r := range toUpdate {
+				ipEnc := encryptIfPlain(r.ip, func(s string) (string, error) {
+					return crypto.Encrypt(s)
+				})
+				uaEnc := encryptIfPlain(r.userAgent, func(s string) (string, error) {
+					return crypto.Encrypt(s)
+				})
+				if _, err := d.Exec(`UPDATE audit_log SET ip=?, user_agent=? WHERE id=?`,
+					ipEnc, uaEnc, r.id); err != nil {
+					return fmt.Errorf("update audit id=%d: %w", r.id, err)
+				}
+			}
+			return nil
+		}},
 	}
 
 	for _, m := range migrations {
