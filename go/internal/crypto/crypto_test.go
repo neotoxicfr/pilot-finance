@@ -388,6 +388,104 @@ func TestDecryptIntBadValue(t *testing.T) {
 	}
 }
 
+// --- EncryptCents / DecryptCents ---
+
+func TestEncryptDecryptCents(t *testing.T) {
+	mustInit(t)
+
+	values := []int64{0, 1, 100, 123456, -50000, 999999999}
+	for _, v := range values {
+		enc, err := EncryptCents(v)
+		if err != nil {
+			t.Errorf("EncryptCents(%d): %v", v, err)
+			continue
+		}
+		got, err := DecryptCents(enc)
+		if err != nil {
+			t.Errorf("DecryptCents failed for %d: %v", v, err)
+			continue
+		}
+		if got != v {
+			t.Errorf("round-trip cents: want %d, got %d", v, got)
+		}
+	}
+}
+
+func TestDecryptCents_LegacyFloatFormat(t *testing.T) {
+	mustInit(t)
+	// Legacy format: stored as float string "1234.56" → should convert to 123456 cents
+	enc, err := Encrypt("1234.56")
+	if err != nil {
+		t.Fatalf("Encrypt: %v", err)
+	}
+	got, err := DecryptCents(enc)
+	if err != nil {
+		t.Fatalf("DecryptCents legacy: %v", err)
+	}
+	if got != 123456 {
+		t.Errorf("legacy float: want 123456, got %d", got)
+	}
+}
+
+func TestDecryptCents_LegacyFloatPlaintext(t *testing.T) {
+	mustInit(t)
+	// Plaintext float (no colon separator) → Decrypt returns as-is, then parsed as float
+	got, err := DecryptCents("99.99")
+	if err != nil {
+		t.Fatalf("DecryptCents plaintext float: %v", err)
+	}
+	if got != 9999 {
+		t.Errorf("plaintext float: want 9999, got %d", got)
+	}
+}
+
+func TestDecryptCents_PlaintextInt(t *testing.T) {
+	mustInit(t)
+	// Plaintext int string (no period, no colon) → parsed as int64
+	got, err := DecryptCents("42")
+	if err != nil {
+		t.Fatalf("DecryptCents plaintext int: %v", err)
+	}
+	if got != 42 {
+		t.Errorf("plaintext int: want 42, got %d", got)
+	}
+}
+
+func TestDecryptCents_DecryptError(t *testing.T) {
+	mustInit(t)
+	// Bad hex → Decrypt returns ErrDecryption
+	_, err := DecryptCents("gg:aabbccddeeff001122334455aabbccdd:aabb")
+	if err == nil {
+		t.Error("bad encrypted cents should return error")
+	}
+}
+
+func TestDecryptCents_LegacyBadFloat(t *testing.T) {
+	mustInit(t)
+	// Encrypt a string containing "." but not a valid float → ParseFloat error
+	enc, err := Encrypt("not.a.float")
+	if err != nil {
+		t.Fatalf("Encrypt: %v", err)
+	}
+	_, err = DecryptCents(enc)
+	if err == nil {
+		t.Error("bad legacy float should return error")
+	}
+}
+
+func TestDecryptCents_BadIntString(t *testing.T) {
+	mustInit(t)
+	// Encrypt a non-numeric string without "." → ParseInt error
+	enc, err := Encrypt("notanumber")
+	if err != nil {
+		t.Fatalf("Encrypt: %v", err)
+	}
+	_, err = DecryptCents(enc)
+	if err == nil {
+		t.Error("bad int string should return error")
+	}
+}
+
 func TestValidatePassword(t *testing.T) {
 	// "Aa1!" repeated 18 times = exactly 72 bytes
 	max72 := ""
@@ -517,6 +615,30 @@ func TestDecrypt_NewCipherError(t *testing.T) {
 	_, err = Decrypt(encrypted)
 	if err == nil {
 		t.Error("Decrypt: want error with nil cipher block, got nil")
+	}
+}
+
+func TestInit_AESNewCipherError(t *testing.T) {
+	ResetForTest()
+
+	orig := aesNewCipherFn
+	aesNewCipherFn = func(key []byte) (cipher.Block, error) {
+		return nil, errors.New("forced AES cipher error")
+	}
+
+	err := Init(testEncryptionKey, testBlindIndexKey)
+	if err == nil {
+		t.Error("Init: want error when AES cipher creation fails, got nil")
+	}
+	if !strings.Contains(err.Error(), "AES cipher init") {
+		t.Errorf("Init: want 'AES cipher init' error, got: %v", err)
+	}
+
+	// Restore hook and re-init so subsequent tests (including fuzz) work correctly
+	aesNewCipherFn = orig
+	ResetForTest()
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatalf("re-Init after AES error test: %v", err)
 	}
 }
 

@@ -472,6 +472,86 @@ func TestInit_ReadBaseFileError(t *testing.T) {
 	}
 }
 
+// --- toFloat64: int and default cases ---
+
+func TestToFloat64_Int(t *testing.T) {
+	// The int case should return float64(n) without dividing by 100
+	got := toFloat64(42)
+	if got != 42.0 {
+		t.Errorf("toFloat64(int 42): want 42.0, got %v", got)
+	}
+}
+
+func TestToFloat64_Int_Negative(t *testing.T) {
+	got := toFloat64(-10)
+	if got != -10.0 {
+		t.Errorf("toFloat64(int -10): want -10.0, got %v", got)
+	}
+}
+
+func TestToFloat64_Default(t *testing.T) {
+	// Unsupported type (string) should return 0
+	got := toFloat64("not a number")
+	if got != 0 {
+		t.Errorf("toFloat64(string): want 0, got %v", got)
+	}
+}
+
+func TestToFloat64_DefaultNil(t *testing.T) {
+	got := toFloat64(nil)
+	if got != 0 {
+		t.Errorf("toFloat64(nil): want 0, got %v", got)
+	}
+}
+
+func TestToFloat64_DefaultBool(t *testing.T) {
+	got := toFloat64(true)
+	if got != 0 {
+		t.Errorf("toFloat64(bool): want 0, got %v", got)
+	}
+}
+
+func TestToFloat64_Int64(t *testing.T) {
+	// int64 is treated as centimes: divided by 100
+	got := toFloat64(int64(12345))
+	if got != 123.45 {
+		t.Errorf("toFloat64(int64 12345): want 123.45, got %v", got)
+	}
+}
+
+// --- formatFloat: edge cases ---
+
+func TestFormatFloat_NegativeZero(t *testing.T) {
+	// math.Signbit(-0.0) is true, but abs is 0 → should produce "-0,00"
+	got := formatFloat(math.Copysign(0, -1))
+	if got != "-0,00" {
+		t.Errorf("formatFloat(-0.0): want '-0,00', got %q", got)
+	}
+}
+
+func TestFormatFloat_RoundingOverflow(t *testing.T) {
+	// Test the rounding overflow path: when decPart rounds up to 100
+	// 99.999 → absVal=99.999, intPart=99, decPart=round(0.999*100)=100 → intPart becomes 100
+	got := formatFloat(99.999)
+	if got != "100,00" {
+		t.Errorf("formatFloat(99.999): want '100,00', got %q", got)
+	}
+}
+
+func TestFormatFloat_PositiveDecimal(t *testing.T) {
+	got := formatFloat(1234.56)
+	if got != "1 234,56" {
+		t.Errorf("formatFloat(1234.56): want '1 234,56', got %q", got)
+	}
+}
+
+func TestFormatFloat_Zero(t *testing.T) {
+	got := formatFloat(0.0)
+	if got != "0,00" {
+		t.Errorf("formatFloat(0.0): want '0,00', got %q", got)
+	}
+}
+
 func TestInit_ReadPageFileError(t *testing.T) {
 	dir := makeMinimalTemplateDir(t)
 	os.WriteFile(filepath.Join(dir, "layouts", "base.html"), []byte(`ok`), 0644) //nolint:errcheck
