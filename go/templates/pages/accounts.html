@@ -286,7 +286,7 @@ function accountsPage() {
             this.editingAccount = account;
             this.accountEditId = account ? String(account.id) : '';
             this.accountName = account ? account.name : '';
-            this.accountBalance = account ? String(account.balance) : '';
+            this.accountBalance = account ? String(account.balance / 100) : '';
             this.selectedColor = account?.color || '#3b82f6';
             this.isYieldActive = account?.is_yield_active || false;
             this.yieldType = account?.yield_type || 'FIXED';
@@ -311,7 +311,7 @@ function accountsPage() {
             this.editingRecurring = recurring;
             this.recurringEditId = recurring ? String(recurring.ID) : '';
             this.recurringDescription = recurring ? recurring.Description : '';
-            this.recurringAmount = recurring ? String(Math.abs(recurring.Amount)) : '';
+            this.recurringAmount = recurring ? String(Math.abs(recurring.Amount) / 100) : '';
             this.recurringDay = recurring ? String(recurring.DayOfMonth) : '';
             this.accountId = recurring?.AccountID ? String(recurring.AccountID) : '';
             this.toAccountId = recurring?.ToAccountID ? String(recurring.ToAccountID) : '';
