@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -803,6 +804,51 @@ func TestRenderRecurringTable_AccountsError(t *testing.T) {
 	DeleteRecurring(rr, req)
 	if rr.Code == http.StatusInternalServerError {
 		t.Errorf("renderRecurringTable accounts error should be non-fatal, got 500")
+	}
+}
+
+// renderRecurringTable: monthly yield payout branch (not YEARLY)
+func TestRenderRecurringTable_MonthlyYield(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "rrt_monthly_yield@example.com", "ValidP@ss1!", "USER")
+
+	// Create target account (for yield payouts)
+	encTarget, _ := crypto.Encrypt("Target Account")
+	if err := db.CreateAccountWithYield(uid, encTarget, 0, "#ef4444", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY"); err != nil {
+		t.Fatalf("CreateAccountWithYield target: %v", err)
+	}
+	accs, _ := db.GetAccountsByUserID(uid)
+	targetID := accs[0].ID
+
+	// Create yield account with active MONTHLY yield pointing to target
+	encYield, _ := crypto.Encrypt("Yield Account")
+	if err := db.CreateAccountWithYield(uid, encYield, 100000, "#3b82f6", 1, true, "FIXED", 5.0, 5.0, 0, &targetID, "MONTHLY"); err != nil {
+		t.Fatalf("CreateAccountWithYield yield: %v", err)
+	}
+	accs, _ = db.GetAccountsByUserID(uid)
+	yieldAccID := accs[1].ID
+
+	// Create a recurring so we can delete it and trigger renderRecurringTable
+	encRec, _ := crypto.Encrypt("Loyer")
+	_ = db.CreateRecurring(uid, yieldAccID, nil, encRec, -50000, 1)
+	recs, _ := db.GetRecurringByUserID(uid)
+	if len(recs) == 0 {
+		t.Fatal("need at least one recurring")
+	}
+
+	req := injectUser(
+		withParam(httptest.NewRequest(http.MethodDelete, "/recurring/"+intStr(recs[0].ID), nil), "id", intStr(recs[0].ID)),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	DeleteRecurring(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rr.Code)
+	}
+	// Response should contain summary-card OOB
+	if !strings.Contains(rr.Body.String(), "summary-card") {
+		t.Error("response should contain OOB summary-card")
 	}
 }
 
