@@ -14,6 +14,8 @@ export async function registerUser(page: Page, email: string, password: string) 
   await page.locator('input[name="email"]').fill(email);
   await page.locator('input[name="password"]').fill(password);
   await page.locator('input[name="confirmPassword"]').fill(password);
+  // Check consent checkbox (required for registration)
+  await page.locator('input[name="consent"]').check();
   // Wait for strength validation to enable the submit button
   await expect(page.getByRole('button', { name: /créer un compte|create account/i })).toBeEnabled({ timeout: 5000 });
   await page.getByRole('button', { name: /créer un compte|create account/i }).click();

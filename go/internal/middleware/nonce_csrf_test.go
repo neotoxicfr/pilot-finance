@@ -174,3 +174,54 @@ func TestValidateOrigin_PATCH_CorrectOrigin(t *testing.T) {
 		t.Errorf("PATCH with correct origin should pass, got %d", rr.Code)
 	}
 }
+
+func TestValidateOrigin_POST_NoHost_EmptyRequestHost_FallsBackToLocalhost(t *testing.T) {
+	// When HOST is empty and request Host header is also empty,
+	// effectiveHost falls back to "localhost". Origin must match.
+	mw := middleware.ValidateOrigin("")
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.Host = ""
+	req.Header.Set("Origin", "https://localhost")
+	rr := httptest.NewRecorder()
+	mw(passThroughHandler).ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("Origin matching localhost fallback should pass, got %d", rr.Code)
+	}
+}
+
+func TestValidateOrigin_POST_NoHost_EmptyRequestHost_HTTPLocalhost(t *testing.T) {
+	// Dev mode (empty HOST), empty request Host → localhost fallback, HTTP origin
+	mw := middleware.ValidateOrigin("")
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.Host = ""
+	req.Header.Set("Origin", "http://localhost")
+	rr := httptest.NewRecorder()
+	mw(passThroughHandler).ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("HTTP origin matching localhost fallback should pass in dev mode, got %d", rr.Code)
+	}
+}
+
+func TestValidateOrigin_PUT_CorrectOrigin(t *testing.T) {
+	// Cover the PUT method branch
+	mw := middleware.ValidateOrigin("example.com")
+	req := httptest.NewRequest(http.MethodPut, "/", nil)
+	req.Header.Set("Origin", "https://example.com")
+	rr := httptest.NewRecorder()
+	mw(passThroughHandler).ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("PUT with correct origin should pass, got %d", rr.Code)
+	}
+}
+
+func TestValidateOrigin_POST_ProductionRejectsHTTP(t *testing.T) {
+	// In production (HOST configured), HTTP origins should be rejected
+	mw := middleware.ValidateOrigin("example.com")
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.Header.Set("Origin", "http://example.com")
+	rr := httptest.NewRecorder()
+	mw(passThroughHandler).ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("production should reject HTTP origin, got %d", rr.Code)
+	}
+}

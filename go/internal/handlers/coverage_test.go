@@ -1563,3 +1563,181 @@ func TestExportData_WithPasskey(t *testing.T) {
 	}
 }
 
+// --- parseCents: empty string returns 0 ---
+
+func TestParseCents_EmptyString(t *testing.T) {
+	got, err := parseCents("")
+	if err != nil {
+		t.Fatalf("parseCents empty: %v", err)
+	}
+	if got != 0 {
+		t.Errorf("parseCents empty: want 0, got %d", got)
+	}
+}
+
+func TestParseCents_ValidFloat(t *testing.T) {
+	got, err := parseCents("1234.56")
+	if err != nil {
+		t.Fatalf("parseCents float: %v", err)
+	}
+	if got != 123456 {
+		t.Errorf("parseCents float: want 123456, got %d", got)
+	}
+}
+
+func TestParseCents_InvalidString(t *testing.T) {
+	_, err := parseCents("notanumber")
+	if err == nil {
+		t.Error("parseCents invalid: want error")
+	}
+}
+
+// --- detectLanguage ---
+
+func TestDetectLanguage_EmptyHeader(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	// No Accept-Language header → defaults to "en"
+	if lang := detectLanguage(req); lang != "en" {
+		t.Errorf("empty Accept-Language: want 'en', got %q", lang)
+	}
+}
+
+func TestDetectLanguage_FrenchPreferred(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Accept-Language", "fr-FR,fr;q=0.9,en-US;q=0.8")
+	if lang := detectLanguage(req); lang != "fr" {
+		t.Errorf("French Accept-Language: want 'fr', got %q", lang)
+	}
+}
+
+func TestDetectLanguage_EnglishPreferred(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	if lang := detectLanguage(req); lang != "en" {
+		t.Errorf("English Accept-Language: want 'en', got %q", lang)
+	}
+}
+
+func TestDetectLanguage_OtherLanguage(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Accept-Language", "de-DE,de;q=0.9")
+	if lang := detectLanguage(req); lang != "en" {
+		t.Errorf("German Accept-Language: want 'en', got %q", lang)
+	}
+}
+
+// --- MFADisable: missing password → 400 ---
+
+func TestMFADisable_MissingPassword(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "mfadisnopass@example.com", "ValidP@ss1!", "USER")
+
+	req := injectUser(post("/api/mfa/disable", url.Values{}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	MFADisable(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (missing password), got %d", rr.Code)
+	}
+}
+
+// --- MFADisable: wrong password → 403 ---
+
+func TestMFADisable_WrongPassword(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "mfadiswrongpw@example.com", "ValidP@ss1!", "USER")
+
+	req := injectUser(post("/api/mfa/disable", url.Values{
+		"current_password": {"WrongPassword1!"},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	MFADisable(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("want 403 (wrong password), got %d", rr.Code)
+	}
+}
+
+// --- MFADisable: ParseForm error → 400 ---
+
+func TestMFADisable_ParseFormError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "mfadisparseerr@example.com", "ValidP@ss1!", "USER")
+
+	// multipart/form-data with empty boundary forces ParseForm to fail
+	req := injectUser(
+		postBody("/api/mfa/disable", []byte("bad-form-data"), "multipart/form-data; boundary="),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	MFADisable(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (ParseForm error), got %d", rr.Code)
+	}
+}
+
+// --- CreateAccount: name too long → 400 ---
+
+func TestCreateAccount_NameTooLong(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "longname@example.com", "ValidP@ss1!", "USER")
+
+	longName := strings.Repeat("a", 101) // 101 characters > 100 limit
+	req := injectUser(post("/accounts", url.Values{
+		"name":    {longName},
+		"balance": {"0"},
+		"color":   {"#3b82f6"},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	CreateAccount(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (name too long), got %d", rr.Code)
+	}
+}
+
+// --- getClientIP: RemoteAddr empty → final fallback ---
+
+func TestGetClientIP_EmptyRemoteAddr(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = ""
+	// No headers set → should return empty string from final fallback
+	ip := getClientIP(req)
+	if ip != "" {
+		t.Errorf("want empty string for empty RemoteAddr, got %q", ip)
+	}
+}
+
+func TestGetClientIP_IPv6BracketedNoPort(t *testing.T) {
+	// Bracketed IPv6 without port after bracket → should NOT strip
+	// Contains "]" and last ":" is NOT after "]", so port stripping is skipped
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "[::1]"
+	ip := getClientIP(req)
+	// "[::1]" is not "", not "127.0.0.1", not "::1" → returns as-is
+	if ip != "[::1]" {
+		t.Errorf("want '[::1]' for bracketed IPv6 no port, got %q", ip)
+	}
+}
+
+// --- MFADisable: user not found in DB → 404 ---
+
+func TestMFADisable_UserNotFound(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+
+	orig := hookGetUserByID
+	hookGetUserByID = func(int64) (*db.User, error) { return nil, nil }
+	t.Cleanup(func() { hookGetUserByID = orig })
+
+	req := injectUser(post("/api/mfa/disable", url.Values{
+		"current_password": {"AnyPassword1!"},
+	}), mu(99999, "USER"))
+	rr := httptest.NewRecorder()
+	MFADisable(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("want 404 (user not found), got %d", rr.Code)
+	}
+}
+

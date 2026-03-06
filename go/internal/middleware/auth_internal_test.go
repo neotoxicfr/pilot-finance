@@ -83,3 +83,63 @@ func TestOptionalAuth_DBError_NoUserInContext(t *testing.T) {
 		t.Error("user should be nil on DB error in OptionalAuth")
 	}
 }
+
+// TestRequireAuth_SessionCacheHit covers the cache hit path in RequireAuth.
+// On the second request with the same token, the session data should come from
+// the in-memory cache rather than calling getUserAuthData again.
+func TestRequireAuth_SessionCacheHit(t *testing.T) {
+	restore := setupInternalAuth(t)
+	defer restore()
+
+	// Track how many times getUserAuthData is called
+	callCount := 0
+	getUserAuthData = func(userID int64) (int, string, error) {
+		callCount++
+		return 1, "encrypted-email", nil
+	}
+
+	token, err := auth.GenerateToken(42, "user", "fr", "EUR", 1)
+	if err != nil {
+		t.Fatalf("GenerateToken: %v", err)
+	}
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		u := GetUser(r)
+		if u == nil {
+			t.Error("user should be set in context")
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// First request: cache miss → getUserAuthData called
+	req1 := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	req1.AddCookie(&http.Cookie{Name: "session", Value: token})
+	rr1 := httptest.NewRecorder()
+
+	// Clear the cache to ensure a clean start
+	InvalidateSessionCache(42)
+
+	RequireAuth(handler).ServeHTTP(rr1, req1)
+	if rr1.Code != http.StatusOK {
+		t.Fatalf("first request: want 200, got %d", rr1.Code)
+	}
+	if callCount != 1 {
+		t.Fatalf("first request: want 1 DB call, got %d", callCount)
+	}
+
+	// Second request: cache hit → getUserAuthData should NOT be called again
+	req2 := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	req2.AddCookie(&http.Cookie{Name: "session", Value: token})
+	rr2 := httptest.NewRecorder()
+
+	RequireAuth(handler).ServeHTTP(rr2, req2)
+	if rr2.Code != http.StatusOK {
+		t.Fatalf("second request: want 200, got %d", rr2.Code)
+	}
+	if callCount != 1 {
+		t.Errorf("second request: want 1 total DB call (cache hit), got %d", callCount)
+	}
+
+	// Clean up
+	InvalidateSessionCache(42)
+}

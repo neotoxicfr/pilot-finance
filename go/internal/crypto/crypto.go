@@ -48,8 +48,9 @@ func ResetForTest() {
 
 // Hooks injectables pour les tests (permettent de couvrir les branches d'erreur impossibles en prod).
 var (
-	cipherNewGCMFn  = cipher.NewGCM
-	cryptoRandRead  = rand.Read
+	aesNewCipherFn   = aes.NewCipher
+	cipherNewGCMFn   = cipher.NewGCM
+	cryptoRandRead   = rand.Read
 	bcryptGenerateFn = bcrypt.GenerateFromPassword
 )
 
@@ -72,7 +73,7 @@ func Init(encKeyHex, blindKeyHex string) error {
 		}
 
 		// Pre-compute AES cipher block to avoid recreating per Encrypt/Decrypt call
-		cipherBlock, err = aes.NewCipher(encryptionKey)
+		cipherBlock, err = aesNewCipherFn(encryptionKey)
 		if err != nil {
 			initErr = fmt.Errorf("AES cipher init: %w", err)
 			return
