@@ -62,8 +62,7 @@ function prefsData() {
 }
 
 function pwdData() {
-    return {
-        ...pwdMixin(),
+    return pwdMixin({
         pwdSuccess: false,
         pwdError: '',
         pwdLoading: false,
@@ -78,7 +77,7 @@ function pwdData() {
                 this.confirm = '';
             }
         }
-    };
+    });
 }
 
 function dangerData() {
