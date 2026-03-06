@@ -204,7 +204,7 @@ func DeleteRecurring(w http.ResponseWriter, r *http.Request) {
 	renderRecurringTable(w, user)
 }
 
-// renderRecurringTable rend le tableau des operations recurrentes en HTML
+// renderRecurringTable rend le tableau des operations recurrentes en HTML avec OOB summary
 func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
 	lang, currency := userLocale(user)
 
@@ -224,6 +224,28 @@ func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
 	yieldPayouts := projection.CalculateYieldPayouts(accounts, accountMap)
 	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
 
+	// Calculer les totaux pour le summary card
+	var monthlyIncome, monthlyExpenses, monthlyYield, annualYield float64
+	for _, payout := range yieldPayouts {
+		if payout.PayoutFrequency == "YEARLY" {
+			annualYield += payout.Amount
+		} else {
+			monthlyIncome += payout.Amount
+			monthlyYield += payout.Amount
+		}
+	}
+	for _, rec := range recurrings {
+		if rec.ToAccountID != nil {
+			continue
+		}
+		recAmt := float64(rec.Amount) / 100.0
+		if recAmt > 0 {
+			monthlyIncome += recAmt
+		} else {
+			monthlyExpenses += -recAmt
+		}
+	}
+
 	recurringData := buildRecurringData(yieldPayouts, recurrings, accountMap, interestPrefix)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -232,4 +254,17 @@ func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
 		"Currency":   currency,
 		"T":          i18n.Map(lang),
 	})
+
+	// OOB: Rendre le summary card
+	w.Write([]byte(`<div id="summary-card" hx-swap-oob="innerHTML">`)) //nolint:errcheck
+	hookRenderPartial(w, "accounts.html", "summary-card", map[string]interface{}{ //nolint:errcheck
+		"T":               i18n.Map(lang),
+		"MonthlyIncome":   monthlyIncome,
+		"MonthlyExpenses": monthlyExpenses,
+		"MonthlyNet":      monthlyIncome - monthlyExpenses,
+		"MonthlyYield":    monthlyYield,
+		"AnnualYield":     annualYield,
+		"Currency":        currency,
+	})
+	w.Write([]byte(`</div>`)) //nolint:errcheck
 }
