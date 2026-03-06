@@ -3,8 +3,10 @@ name: Lighthouse CI
 on:
   push:
     branches: [develop]
+    paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
   pull_request:
     branches: [main, develop]
+    paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
 
 jobs:
   lighthouse:
