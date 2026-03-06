@@ -3,8 +3,10 @@ name: E2E Tests
 on:
   push:
     branches: [develop]
+    paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
   pull_request:
     branches: [main, develop]
+    paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
 
 jobs:
   e2e:
