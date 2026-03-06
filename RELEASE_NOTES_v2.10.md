@@ -1,31 +1,5 @@
 # 🔬 Pilot Finance v2.10.0 — Quality Pass, Centimes Migration & Live Updates
 
-Major release — **50 files changed**, **1 843 additions**, **721 deletions**.
-
----
-
-Release majeure — **50 fichiers modifies**, **1 843 ajouts**, **721 suppressions**.
-
-## 🔒 Security / Securite
-
-- **CSRF always active** — No longer skipped when `HOST` env is unset; falls back to request `Host` header
-- **Metrics endpoint protected** — `/metrics` now requires authentication + admin role
-- **MFA disable re-auth** — Disabling 2FA requires entering current password
-- **Session cache** — `sync.Map`-based cache (30s TTL) reduces DB queries on authenticated requests
-- **Client IP hardening** — Prefers `RemoteAddr` over spoofable `X-Forwarded-For` / `X-Real-IP`
-- **Password Unicode** — Character count uses rune length instead of byte length
-- **Audit anonymization** — User deletion anonymizes audit logs instead of deleting them
-
----
-
-- **CSRF toujours actif** — Plus ignore quand `HOST` n'est pas defini ; fallback sur le header `Host` de la requete
-- **Endpoint metrics protege** — `/metrics` requiert desormais authentification + role admin
-- **Re-auth pour desactiver MFA** — Desactiver la 2FA exige le mot de passe actuel
-- **Cache de session** — Cache `sync.Map` (TTL 30s) reduit les requetes DB sur les requetes authentifiees
-- **Durcissement IP client** — Prefere `RemoteAddr` aux headers `X-Forwarded-For` / `X-Real-IP` falsifiables
-- **Mot de passe Unicode** — Le comptage de caracteres utilise la longueur en runes au lieu des octets
-- **Anonymisation audit** — La suppression d'un utilisateur anonymise les logs d'audit au lieu de les supprimer
-
 ## 💰 Centimes Migration
 
 - **int64 centimes** — All monetary values (`Balance`, `Amount`) migrated from `float64` to `int64` centimes for perfect precision
@@ -34,9 +8,29 @@ Release majeure — **50 fichiers modifies**, **1 843 ajouts**, **721 suppressio
 
 ---
 
-- **Centimes int64** — Toutes les valeurs monetaires (`Balance`, `Amount`) migrees de `float64` vers `int64` centimes pour une precision parfaite
-- **Migration sans interruption** — Aucune migration de base de donnees necessaire ; `DecryptCents` detecte automatiquement l'ancien format float et convertit a la lecture
-- **Type-switching templates** — Toutes les fonctions monetaires (`formatMoney`, `formatBalance`, etc.) acceptent `int64` (centimes) et `float64` (direct)
+- **Centimes int64** — Toutes les valeurs monétaires (`Balance`, `Amount`) migrées de `float64` vers `int64` centimes pour une précision parfaite
+- **Migration sans interruption** — Aucune migration de base de données nécessaire ; `DecryptCents` détecte automatiquement l'ancien format float et convertit à la lecture
+- **Type-switching templates** — Toutes les fonctions monétaires (`formatMoney`, `formatBalance`, etc.) acceptent `int64` (centimes) et `float64` (direct)
+
+## 🔒 Security / Sécurité
+
+- **CSRF always active** — No longer skipped when `HOST` env is unset; falls back to request `Host` header
+- **Metrics endpoint protected** — `/metrics` now requires authentication + admin role
+- **MFA disable re-auth** — Disabling 2FA requires entering current password
+- **Session cache** — 30s TTL cache reduces DB queries on authenticated requests
+- **Client IP hardening** — Prefers `RemoteAddr` over spoofable `X-Forwarded-For` / `X-Real-IP`
+- **Password Unicode** — Character count uses rune length instead of byte length
+- **Audit anonymization** — User deletion anonymizes audit logs instead of deleting them
+
+---
+
+- **CSRF toujours actif** — Plus ignoré quand `HOST` n'est pas défini ; fallback sur le header `Host` de la requête
+- **Endpoint metrics protégé** — `/metrics` requiert désormais authentification + rôle admin
+- **Re-auth pour désactiver MFA** — Désactiver la 2FA exige le mot de passe actuel
+- **Cache de session** — Cache avec TTL 30s réduit les requêtes DB sur les requêtes authentifiées
+- **Durcissement IP client** — Préfère `RemoteAddr` aux headers `X-Forwarded-For` / `X-Real-IP` falsifiables
+- **Mot de passe Unicode** — Le comptage de caractères utilise la longueur en runes au lieu des octets
+- **Anonymisation audit** — La suppression d'un utilisateur anonymise les logs d'audit au lieu de les supprimer
 
 ## 🎨 UI/UX
 
@@ -50,13 +44,13 @@ Release majeure — **50 fichiers modifies**, **1 843 ajouts**, **721 suppressio
 
 ---
 
-- **Summary card en direct** — La carte revenus/depenses/solde se met a jour instantanement a chaque modification de compte ou d'operation recurrente (HTMX OOB swap)
-- **Correction formulaires d'edition** — Les formulaires de modification de compte et d'operation affichent correctement les euros au lieu des centimes bruts
-- **Contraste boutons** — Boutons principaux mis en conformite WCAG AA sur fond blanc
-- **Mouvement reduit** — `prefers-reduced-motion` desactive toutes les transitions CSS
-- **Toasts passkey** — Les `alert()` bloquants remplaces par des notifications toast non-bloquantes
-- **Checkbox de consentement** — Le formulaire d'inscription inclut une case de consentement avec lien vers la politique de confidentialite
-- **Detection de langue** — Le header `Accept-Language` definit automatiquement la langue a l'inscription
+- **Summary card en direct** — La carte revenus/dépenses/solde se met à jour instantanément à chaque modification de compte ou d'opération récurrente (HTMX OOB swap)
+- **Correction formulaires d'édition** — Les formulaires de modification de compte et d'opération affichent correctement les euros au lieu des centimes bruts
+- **Contraste boutons** — Boutons principaux mis en conformité WCAG AA sur fond blanc
+- **Mouvement réduit** — `prefers-reduced-motion` désactive toutes les transitions CSS
+- **Toasts passkey** — Les `alert()` bloquants remplacés par des notifications toast non-bloquantes
+- **Checkbox de consentement** — Le formulaire d'inscription inclut une case de consentement avec lien vers la politique de confidentialité
+- **Détection de langue** — Le header `Accept-Language` définit automatiquement la langue à l'inscription
 
 ## ⚡ Performance
 
@@ -67,24 +61,22 @@ Release majeure — **50 fichiers modifies**, **1 843 ajouts**, **721 suppressio
 
 ---
 
-- **Crypto init unique** — Bloc chiffrement AES pre-calcule une seule fois au demarrage
-- **DB init unique** — Empeche la double-initialisation et les fuites de goroutines
+- **Crypto init unique** — Bloc chiffrement AES pré-calculé une seule fois au démarrage
+- **DB init unique** — Empêche la double-initialisation et les fuites de goroutines
 - **Pool de connexions** — `MaxOpenConns=10`, `MaxIdleConns=10`, `ConnMaxLifetime=1h`
-- **Dechiffrement audit parallele** — Dechiffrement en masse des logs d'audit parallelise (8 goroutines)
+- **Déchiffrement audit parallèle** — Déchiffrement en masse des logs d'audit parallélisé (8 goroutines)
 
 ## ⚖️ Legal / Juridique
 
 - **Privacy policy rewritten** — Updated for simulation/projection tool context (not banking)
 - **Cookie section** — New section describing session cookie usage
-- **Contact section** — Added contact information for data inquiries
-- **Legal notices** — Updated date and simulation tool framing
+- **Legal notices** — Updated date, contact information and simulation tool framing
 
 ---
 
-- **Politique de confidentialite reecrite** — Mise a jour pour le contexte d'outil de simulation/projection (pas bancaire)
-- **Section cookies** — Nouvelle section decrivant l'utilisation des cookies de session
-- **Section contact** — Ajout des informations de contact pour les demandes de donnees
-- **Mentions legales** — Date et cadrage outil de simulation mis a jour
+- **Politique de confidentialité réécrite** — Mise à jour pour le contexte d'outil de simulation/projection (pas bancaire)
+- **Section cookies** — Nouvelle section décrivant l'utilisation des cookies de session
+- **Mentions légales** — Date, informations de contact et cadrage outil de simulation mis à jour
 
 ## ⚙️ CI/CD
 
@@ -92,25 +84,15 @@ Release majeure — **50 fichiers modifies**, **1 843 ajouts**, **721 suppressio
 - **Dependabot** — Configured for Go modules and GitHub Actions with grouped updates
 - **Lighthouse fix** — Disabled simulated throttling, increased timeouts for CI stability
 - **E2E fix** — `pwdMixin` spread operator replaced with `Object.defineProperties` for proper getter transfer
-
----
-
-- **Scan Trivy** — Scan de vulnerabilites de l'image conteneur ajoute au pipeline
-- **Dependabot** — Configure pour les modules Go et GitHub Actions avec mises a jour groupees
-- **Correctif Lighthouse** — Throttling simule desactive, timeouts augmentes pour la stabilite CI
-- **Correctif E2E** — Operateur spread de `pwdMixin` remplace par `Object.defineProperties` pour un transfert correct des getters
-
-## 🧪 Tests / Qualite
-
 - **100% coverage maintained** — All 13 packages pass with 0 failures
-- **New test suites** — `templates_test.go` (type-switching), `auth_internal_test.go` (session cache)
-- **ResetForTest** — Added to `db` and `crypto` packages for clean test state with `sync.Once`
 
 ---
 
-- **100% de couverture maintenue** — Les 13 packages passent avec 0 echecs
-- **Nouvelles suites de tests** — `templates_test.go` (type-switching), `auth_internal_test.go` (cache session)
-- **ResetForTest** — Ajoute aux packages `db` et `crypto` pour un etat de test propre avec `sync.Once`
+- **Scan Trivy** — Scan de vulnérabilités de l'image conteneur ajouté au pipeline
+- **Dependabot** — Configuré pour les modules Go et GitHub Actions avec mises à jour groupées
+- **Correctif Lighthouse** — Throttling simulé désactivé, timeouts augmentés pour la stabilité CI
+- **Correctif E2E** — Opérateur spread de `pwdMixin` remplacé par `Object.defineProperties` pour un transfert correct des getters
+- **100% de couverture maintenue** — Les 13 packages passent avec 0 échecs
 
 ## 📝 Documentation
 
@@ -119,8 +101,8 @@ Release majeure — **50 fichiers modifies**, **1 843 ajouts**, **721 suppressio
 
 ---
 
-- **README reecrit** — Roadmap completee supprimee (14 items), fonctionnalites reorganisees en sections Core/Security/Quality/Design
-- **SECURITY.md** — Version supportee mise a jour vers v2.10.x
+- **README réécrit** — Roadmap complétée supprimée (14 items), fonctionnalités réorganisées en sections Core/Sécurité/Qualité/Design
+- **SECURITY.md** — Version supportée mise à jour vers v2.10.x
 
 ## 🔗 Docker image / Image Docker
 
