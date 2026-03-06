@@ -74,6 +74,8 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user != nil {
 		hookLogAudit(user.ID, db.AuditLogout, getClientIP(r), r.UserAgent())
+		// Clear session cache entry on logout
+		middleware.InvalidateSessionCache(user.ID)
 	}
 	clearCookie(w, "session")
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -188,10 +190,11 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 		if rec.ToAccountID != nil {
 			continue // Virement interne : ne compte pas dans entrées/sorties
 		}
-		if rec.Amount > 0 {
-			monthlyIncome += rec.Amount
+		recAmt := float64(rec.Amount) / 100.0
+		if recAmt > 0 {
+			monthlyIncome += recAmt
 		} else {
-			monthlyExpenses += -rec.Amount
+			monthlyExpenses += -recAmt
 		}
 	}
 

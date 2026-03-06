@@ -82,7 +82,9 @@ func TestHtmxRedirect_HTMX(t *testing.T) {
 // --- getClientIP ---
 
 func TestGetClientIP_XForwardedFor(t *testing.T) {
+	// When RemoteAddr is localhost, getClientIP falls back to X-Forwarded-For
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "127.0.0.1:1234"
 	req.Header.Set("X-Forwarded-For", "1.2.3.4, 5.6.7.8")
 	if ip := getClientIP(req); ip != "1.2.3.4" {
 		t.Errorf("want 1.2.3.4, got %q", ip)
@@ -90,7 +92,9 @@ func TestGetClientIP_XForwardedFor(t *testing.T) {
 }
 
 func TestGetClientIP_XRealIP(t *testing.T) {
+	// When RemoteAddr is localhost, getClientIP falls back to X-Real-IP
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "127.0.0.1:1234"
 	req.Header.Set("X-Real-IP", "9.10.11.12")
 	if ip := getClientIP(req); ip != "9.10.11.12" {
 		t.Errorf("want 9.10.11.12, got %q", ip)
@@ -101,6 +105,17 @@ func TestGetClientIP_RemoteAddr(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	if ip := getClientIP(req); ip == "" {
 		t.Error("want non-empty RemoteAddr fallback")
+	}
+}
+
+func TestGetClientIP_PrefersRemoteAddr(t *testing.T) {
+	// getClientIP prefers RemoteAddr over headers when it's not localhost
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "10.0.0.1:5555"
+	req.Header.Set("X-Forwarded-For", "1.2.3.4")
+	req.Header.Set("X-Real-IP", "9.10.11.12")
+	if ip := getClientIP(req); ip != "10.0.0.1" {
+		t.Errorf("want 10.0.0.1 (RemoteAddr), got %q", ip)
 	}
 }
 
@@ -982,7 +997,10 @@ func TestMFADisable_Success(t *testing.T) {
 	defer cleanup()
 	uid := newUser(t, "mfadis@example.com", "ValidP@ss1!", "USER")
 
-	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/mfa/disable", nil), mu(uid, "USER"))
+	// MFADisable now requires password re-verification
+	req := injectUser(post("/api/mfa/disable", url.Values{
+		"current_password": {"ValidP@ss1!"},
+	}), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
 	MFADisable(rr, req)
 

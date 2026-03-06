@@ -1215,7 +1215,10 @@ func TestMFADisable_DBError(t *testing.T) {
 	hookDisableMFA = func(int64) error { return errTest }
 	t.Cleanup(func() { hookDisableMFA = orig })
 
-	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/mfa/disable", nil), mu(uid, "USER"))
+	// MFADisable now requires password re-verification
+	req := injectUser(post("/api/mfa/disable", url.Values{
+		"current_password": {"ValidP@ss1!"},
+	}), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
 	MFADisable(rr, req)
 	if rr.Code != http.StatusInternalServerError {

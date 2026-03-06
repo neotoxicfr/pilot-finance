@@ -84,7 +84,7 @@ func TestCreateAccount_UpdateError(t *testing.T) {
 	accID := createAcc(t, uid)
 
 	orig := hookUpdateAccountWithYield
-	hookUpdateAccountWithYield = func(id, userID int64, name string, balance float64, color string, isYieldActive bool, yieldType string, yieldMin, yieldMax float64, reinvestmentRate int, targetAccountID *int64, payoutFrequency string) error {
+	hookUpdateAccountWithYield = func(id, userID int64, name string, balance int64, color string, isYieldActive bool, yieldType string, yieldMin, yieldMax float64, reinvestmentRate int, targetAccountID *int64, payoutFrequency string) error {
 		return errTest2
 	}
 	t.Cleanup(func() { hookUpdateAccountWithYield = orig })
@@ -109,7 +109,7 @@ func TestCreateAccount_CreateError(t *testing.T) {
 	uid := newUser(t, "cre_err@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookCreateAccountWithYield
-	hookCreateAccountWithYield = func(userID int64, name string, balance float64, color string, position int, isYieldActive bool, yieldType string, yieldMin, yieldMax float64, reinvestmentRate int, targetAccountID *int64, payoutFrequency string) error {
+	hookCreateAccountWithYield = func(userID int64, name string, balance int64, color string, position int, isYieldActive bool, yieldType string, yieldMin, yieldMax float64, reinvestmentRate int, targetAccountID *int64, payoutFrequency string) error {
 		return errTest2
 	}
 	t.Cleanup(func() { hookCreateAccountWithYield = orig })
@@ -174,7 +174,7 @@ func TestUpdateBalance_DBError(t *testing.T) {
 	accID := createAcc(t, uid)
 
 	orig := hookUpdateAccountBalance
-	hookUpdateAccountBalance = func(id, userID int64, balance float64) error { return errTest2 }
+	hookUpdateAccountBalance = func(id, userID int64, balance int64) error { return errTest2 }
 	t.Cleanup(func() { hookUpdateAccountBalance = orig })
 
 	req := injectUser(

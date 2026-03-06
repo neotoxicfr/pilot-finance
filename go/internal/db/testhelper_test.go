@@ -15,6 +15,8 @@ const (
 // Retourne une fonction de nettoyage à appeler avec defer.
 func setupTestDB(t *testing.T) func() {
 	t.Helper()
+	crypto.ResetForTest()
+	ResetForTest()
 	if err := crypto.Init(testEncKey, testBlindKey); err != nil {
 		t.Fatalf("crypto.Init: %v", err)
 	}

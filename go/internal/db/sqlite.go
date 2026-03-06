@@ -21,14 +21,32 @@ var DB *sql.DB
 var bgDone chan struct{}
 var bgMu sync.Mutex
 var bgWg sync.WaitGroup
+var dbInitOnce sync.Once
+var dbInitErr error
 
 // Config contient la configuration de la base de données
 type Config struct {
 	Path string
 }
 
-// Init initialise la connexion à la base de données
+// ResetForTest resets the db package state so Init can be called again.
+// ONLY for use in tests.
+func ResetForTest() {
+	dbInitOnce = sync.Once{}
+	dbInitErr = nil
+}
+
+// Init initialise la connexion à la base de données.
+// Protected by sync.Once to prevent double-init and goroutine leaks.
 func Init(cfg Config) error {
+	dbInitOnce.Do(func() {
+		dbInitErr = initDB(cfg)
+	})
+	return dbInitErr
+}
+
+// initDB performs the actual database initialization (called via sync.Once).
+func initDB(cfg Config) error {
 	// S'assurer que le dossier existe
 	dir := filepath.Dir(cfg.Path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -59,8 +77,8 @@ func Init(cfg Config) error {
 	}
 
 	// Pool de connexions
-	DB.SetMaxOpenConns(4) // WAL mode : 1 writer + N readers concurrents
-	DB.SetMaxIdleConns(1)
+	DB.SetMaxOpenConns(10)
+	DB.SetMaxIdleConns(10)
 	DB.SetConnMaxLifetime(time.Hour)
 
 	// Test de connexion
@@ -520,6 +538,7 @@ func encryptIfPlain(raw string, fn func(string) (string, error)) string {
 	}
 	enc, err := fn(raw)
 	if err != nil {
+		slog.Warn("encryptIfPlain: encryption failed, keeping plaintext", "err", err, "len", len(raw))
 		return raw
 	}
 	return enc
@@ -634,7 +653,7 @@ type rawAccount struct {
 func decryptAccountRow(dst *Account, raw rawAccount) error {
 	*dst = raw.acc
 	var err error
-	if dst.Balance, err = crypto.DecryptFloat(raw.balanceRaw); err != nil {
+	if dst.Balance, err = crypto.DecryptCents(raw.balanceRaw); err != nil {
 		return fmt.Errorf("decrypt balance id=%d: %w", dst.ID, err)
 	}
 	if dst.YieldMin, err = crypto.DecryptFloat(raw.yieldMinRaw); err != nil {
@@ -772,7 +791,7 @@ func GetRecurringByUserID(userID int64) ([]RecurringOperation, error) {
 		g.Go(func() error {
 			ops[i] = raws[i].op
 			var err error
-			ops[i].Amount, err = crypto.DecryptFloat(raws[i].amountRaw)
+			ops[i].Amount, err = crypto.DecryptCents(raws[i].amountRaw)
 			return err
 		})
 	}

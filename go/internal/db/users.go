@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -104,6 +105,7 @@ func UpdateUserPreferences(userID int64, language, currency string) error {
 }
 
 // DeleteUserAndData supprime un utilisateur et toutes ses données en cascade (GDPR).
+// Audit logs are anonymized (not deleted) to preserve the audit trail.
 func DeleteUserAndData(userID int64) error {
 	tx, err := DB.Begin()
 	if err != nil {
@@ -111,11 +113,18 @@ func DeleteUserAndData(userID int64) error {
 	}
 	defer tx.Rollback()
 
+	// Anonymize audit logs: replace user-identifying fields but keep the audit trail
+	if _, err := tx.Exec(
+		`UPDATE audit_log SET ip = 'deleted-user', user_agent = 'deleted-user' WHERE user_id = ?`,
+		userID,
+	); err != nil {
+		return err
+	}
+
 	for _, q := range []string{
 		`DELETE FROM recurring_operations WHERE user_id = ?`,
 		`DELETE FROM accounts WHERE user_id = ?`,
 		`DELETE FROM authenticators WHERE user_id = ?`,
-		`DELETE FROM audit_log WHERE user_id = ?`,
 		`DELETE FROM users WHERE id = ?`,
 	} {
 		if _, err := tx.Exec(q, userID); err != nil {
@@ -136,7 +145,10 @@ func VerifyEmailByToken(hashedToken string) error {
 		return err
 	}
 
-	rows, _ := result.RowsAffected()
+	rows, err2 := result.RowsAffected()
+	if err2 != nil {
+		return fmt.Errorf("RowsAffected: %w", err2)
+	}
 	if rows == 0 {
 		return ErrTokenInvalid
 	}

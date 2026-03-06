@@ -32,7 +32,7 @@ type DashboardData struct {
 func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years int, lang string) DashboardData {
 	var totalBalance float64
 	for _, acc := range accounts {
-		totalBalance += acc.Balance
+		totalBalance += float64(acc.Balance) / 100.0
 	}
 
 	accountByID := make(map[int64]*db.Account)
@@ -56,7 +56,7 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 	for i := range accounts {
 		acc := &accounts[i]
 		for s := range scens {
-			scens[s].balances[acc.ID] = acc.Balance
+			scens[s].balances[acc.ID] = float64(acc.Balance) / 100.0
 		}
 	}
 
@@ -113,7 +113,7 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 		// 1. Opérations récurrentes : identiques pour les trois scénarios
 		for _, rec := range recurrings {
 			if rec.ToAccountID != nil {
-				amt := math.Abs(rec.Amount)
+				amt := math.Abs(float64(rec.Amount) / 100.0)
 				for s := range scens {
 					if _, ok := scens[s].balances[rec.AccountID]; ok {
 						scens[s].balances[rec.AccountID] -= amt
@@ -123,9 +123,10 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 					}
 				}
 			} else {
+				recAmt := float64(rec.Amount) / 100.0
 				for s := range scens {
 					if _, ok := scens[s].balances[rec.AccountID]; ok {
-						scens[s].balances[rec.AccountID] += rec.Amount
+						scens[s].balances[rec.AccountID] += recAmt
 					}
 				}
 			}
@@ -207,7 +208,7 @@ func CalculateYieldPayouts(accounts []db.Account, accountNames map[int64]string)
 			if acc.YieldType == "RANGE" {
 				rate = (acc.YieldMin + acc.YieldMax) / 2
 			}
-			annualGain := acc.Balance * (rate / 100)
+			annualGain := (float64(acc.Balance) / 100.0) * (rate / 100)
 			nonReinvested := 1 - float64(acc.ReinvestmentRate)/100
 
 			freq := acc.PayoutFrequency
@@ -249,7 +250,7 @@ func CalculateMonthlyYieldPayout(accounts []db.Account) float64 {
 			if acc.YieldType == "RANGE" {
 				rate = (acc.YieldMin + acc.YieldMax) / 2
 			}
-			annualGain := acc.Balance * (rate / 100)
+			annualGain := (float64(acc.Balance) / 100.0) * (rate / 100)
 			monthlyGain := annualGain / 12
 			payout := monthlyGain * (1 - float64(acc.ReinvestmentRate)/100)
 			monthlyPayout += payout
@@ -267,7 +268,7 @@ func CalculateAnnualYieldPayout(accounts []db.Account) float64 {
 			if acc.YieldType == "RANGE" {
 				rate = (acc.YieldMin + acc.YieldMax) / 2
 			}
-			annualGain := acc.Balance * (rate / 100)
+			annualGain := (float64(acc.Balance) / 100.0) * (rate / 100)
 			payout := annualGain * (1 - float64(acc.ReinvestmentRate)/100)
 			annualPayout += payout
 		}
@@ -297,14 +298,15 @@ func CalculateMonthlySummary(recurrings []db.RecurringOperation, accounts []db.A
 	}
 
 	for _, rec := range recurrings {
+		recAmt := float64(rec.Amount) / 100.0
 		if rec.ToAccountID != nil {
 			if yieldAccounts[*rec.ToAccountID] {
-				summary.Transfers += math.Abs(rec.Amount)
+				summary.Transfers += math.Abs(recAmt)
 			}
-		} else if rec.Amount > 0 {
-			summary.Income += rec.Amount
+		} else if recAmt > 0 {
+			summary.Income += recAmt
 		} else {
-			summary.Expenses += math.Abs(rec.Amount)
+			summary.Expenses += math.Abs(recAmt)
 		}
 	}
 

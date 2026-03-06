@@ -1,5 +1,20 @@
 // Pilot Finance — Chart.js initialization (projection + pie)
 // Loaded only on dashboard page
+//
+// NOTE on Chart.js bundle size (chart.umd.min.js ≈ 203 KB):
+// This project uses the full UMD build loaded via <script> tag (no bundler).
+// Tree-shaking requires ESM imports + a bundler (webpack/vite/rollup).
+// Chart types used: line (projection) and doughnut (pie/allocation).
+// Plugins used: Filler (area fills), Tooltip, Legend (hidden).
+// Switching to a bundler solely for Chart.js would be overengineering for
+// this project. If a bundler is introduced later, replace with:
+//   import { Chart, LineController, DoughnutController, LineElement,
+//            ArcElement, PointElement, CategoryScale, LinearScale,
+//            Filler, Tooltip, Legend } from 'chart.js';
+//   Chart.register(LineController, DoughnutController, LineElement,
+//            ArcElement, PointElement, CategoryScale, LinearScale,
+//            Filler, Tooltip, Legend);
+// This would reduce the Chart.js payload to ~80 KB.
 
 const fmt = v => new Intl.NumberFormat(window.PILOT_LOCALE||'fr-FR', { style: 'currency', currency: window.PILOT_CURRENCY||'EUR', maximumFractionDigits: 0 }).format(v);
 const fmtAxis = v => { const c = window.PILOT_CURRENCY||'EUR'; return v >= 1e6 ? (v/1e6).toFixed(1).replace('.0','')+'M '+c : v >= 1e3 ? Math.round(v/1e3)+'k '+c : v+' '+c; };

@@ -37,7 +37,7 @@ type Account struct {
 	ID               int64      `json:"id"`
 	UserID           int64      `json:"user_id"`
 	Name             string     `json:"name"`              // Chiffré en BDD
-	Balance          float64    `json:"balance"`
+	Balance          int64      `json:"balance"`           // centimes
 	Color            string     `json:"color"`
 	Position         int        `json:"position"`
 	UpdatedAt        time.Time  `json:"updated_at"`
@@ -58,7 +58,7 @@ type RecurringOperation struct {
 	UserID      int64      `json:"userId"`
 	AccountID   int64      `json:"accountId"`
 	ToAccountID *int64     `json:"toAccountId"`
-	Amount      float64    `json:"amount"`
+	Amount      int64      `json:"amount"`            // centimes
 	Description string     `json:"description"` // Chiffré en BDD
 	DayOfMonth  int        `json:"dayOfMonth"`
 	LastRunDate *time.Time `json:"lastRunDate"`

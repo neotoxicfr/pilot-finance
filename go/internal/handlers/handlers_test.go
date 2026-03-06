@@ -49,6 +49,8 @@ func setupHandlerTest(t *testing.T) func() {
 	root := goRoot()
 
 	ratelimit.StopAll() // reset global in-memory state between tests
+	crypto.ResetForTest()
+	db.ResetForTest()
 
 	if err := crypto.Init(hTestEncKey, hTestBlindKey); err != nil {
 		t.Fatalf("crypto.Init: %v", err)

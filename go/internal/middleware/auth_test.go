@@ -20,6 +20,8 @@ const (
 
 func setupMW(t *testing.T) func() {
 	t.Helper()
+	crypto.ResetForTest()
+	db.ResetForTest()
 	if err := crypto.Init(mwEncKey, mwBlindKey); err != nil {
 		t.Fatalf("crypto.Init: %v", err)
 	}

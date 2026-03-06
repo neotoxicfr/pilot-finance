@@ -4,6 +4,7 @@
 <script nonce="{{.Nonce}}">
 function loginPage() {
     return {
+        ...pwdMixin(),
         isRegister: false,
         requires2FA: false,
         loading: false,
@@ -11,26 +12,10 @@ function loginPage() {
         success: '',
         password: '',
         confirm: '',
-        get hasLength()  { return this.password.length >= 12; },
-        get hasUpper()   { return /[A-Z]/.test(this.password); },
-        get hasLower()   { return /[a-z]/.test(this.password); },
-        get hasDigit()   { return /[0-9]/.test(this.password); },
-        get hasSpecial() { return /[!@#$%^&*(),.?:{}|]/.test(this.password); },
-        get pwdStrength() {
-            return (this.hasLength ? 1 : 0) + (this.hasUpper ? 1 : 0)
-                 + (this.hasLower ? 1 : 0) + (this.hasDigit ? 1 : 0)
-                 + (this.hasSpecial ? 1 : 0);
-        },
-        get pwdsMatch() { return this.password === this.confirm; },
-        get strengthColor() {
-            if (this.pwdStrength === 5) return 'bg-emerald-500';
-            if (this.pwdStrength >= 4) return 'bg-yellow-500';
-            if (this.pwdStrength >= 3) return 'bg-orange-500';
-            return 'bg-red-500';
-        },
+        consent: false,
         get submitDisabled() {
             if (this.loading) return true;
-            if (this.isRegister) return this.pwdStrength < 5 || !this.pwdsMatch;
+            if (this.isRegister) return this.pwdStrength < 5 || !this.pwdsMatch || !this.consent;
             return false;
         },
         init() {
@@ -142,6 +127,11 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
                                        placeholder="{{index .T "login.confirm_placeholder"}}">
                             </div>
                             {{template "password-feedback" .}}
+                            <label class="flex items-start gap-2.5 text-xs text-muted-foreground cursor-pointer select-none mt-1">
+                                <input type="checkbox" name="consent" required x-model="consent"
+                                       class="mt-0.5 w-4 h-4 rounded border-border accent-blue-600 flex-shrink-0">
+                                <span>{{index .T "consent_register"}}</span>
+                            </label>
                         </div>
                     </template>
                 </div>
