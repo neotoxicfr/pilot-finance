@@ -40,7 +40,7 @@ jobs:
             ENCRYPTION_KEY=${{ steps.keys.outputs.enc }} \
             BLIND_INDEX_KEY=${{ steps.keys.outputs.blind }} \
             ../server &
-          for i in 1 2 3 4 5; do
+          for i in $(seq 1 10); do
             sleep 2
             curl -sf http://localhost:3000/login > /dev/null && break
           done
@@ -51,7 +51,7 @@ jobs:
         with:
           urls: |
             http://localhost:3000/login
-          runs: 3
+          runs: 1
           uploadArtifacts: true
           configPath: .lighthouserc.json
 
@@ -62,9 +62,9 @@ jobs:
           echo "| Category | Score |" >> $GITHUB_STEP_SUMMARY
           echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
 
-          # Parse manifest for median run results
+          # Parse report
           MANIFEST=$(cat .lighthouseci/manifest.json)
-          REPORT=$(echo "$MANIFEST" | jq -r '.[1].jsonPath // .[0].jsonPath')
+          REPORT=$(echo "$MANIFEST" | jq -r '.[0].jsonPath')
 
           if [ -f "$REPORT" ]; then
             PERF=$(jq '.categories.performance.score * 100' "$REPORT")

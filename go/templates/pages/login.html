@@ -3,8 +3,7 @@
 {{define "content"}}
 <script nonce="{{.Nonce}}">
 function loginPage() {
-    return {
-        ...pwdMixin(),
+    return pwdMixin({
         isRegister: false,
         requires2FA: false,
         loading: false,
@@ -25,7 +24,7 @@ function loginPage() {
         loginWithPasskey() { window.loginWithPasskey(); },
         toggleRegister() { this.isRegister = !this.isRegister; this.error = ''; },
         configRequest(event) { if (this.isRegister) { event.detail.path = '/register'; } }
-    };
+    });
 }
 document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginPage); });
 </script>
