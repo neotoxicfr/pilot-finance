@@ -2,7 +2,16 @@
   "ci": {
     "collect": {
       "settings": {
-        "chromeFlags": ["--headless=new", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
+        "chromeFlags": [
+          "--headless=new",
+          "--no-sandbox",
+          "--disable-gpu",
+          "--disable-dev-shm-usage",
+          "--disable-software-rasterizer"
+        ],
+        "maxWaitForFcp": 60000,
+        "maxWaitForLoad": 60000,
+        "throttlingMethod": "provided"
       }
     }
   }
