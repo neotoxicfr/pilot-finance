@@ -4,6 +4,16 @@ on:
   workflow_dispatch:
   push:
     branches: [ develop ]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.github/workflows/**'
+      - '!.github/workflows/docker-publish.yml'
+      - '.github/dependabot.yml'
+      - 'e2e/**'
+      - '.lighthouserc.json'
+      - 'Makefile'
+      - '.gitignore'
     tags: [ 'v*.*.*' ]
 
 env:
