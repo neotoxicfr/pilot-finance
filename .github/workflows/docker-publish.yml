@@ -5,7 +5,6 @@ on:
   push:
     branches: [ develop ]
     tags: [ 'v*.*.*' ]
-    paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
 
 env:
   REGISTRY: ghcr.io
