@@ -115,13 +115,41 @@ func TestValidateOrigin_POST_NoOriginNoReferer_WithHost_Rejects(t *testing.T) {
 	}
 }
 
-func TestValidateOrigin_POST_NoOriginNoReferer_NoHost_Passes(t *testing.T) {
-	mw := middleware.ValidateOrigin("") // dev mode: empty host
+func TestValidateOrigin_POST_NoOriginNoReferer_NoHost_Rejects(t *testing.T) {
+	// CSRF is always active: even with empty configured host, requests without
+	// Origin/Referer are rejected (uses request Host or "localhost" as fallback).
+	mw := middleware.ValidateOrigin("")
 	req := httptest.NewRequest(http.MethodPost, "/", nil)
 	rr := httptest.NewRecorder()
 	mw(passThroughHandler).ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("POST without Origin/Referer should be rejected, got %d", rr.Code)
+	}
+}
+
+func TestValidateOrigin_POST_NoHost_MatchesRequestHost(t *testing.T) {
+	// When HOST env is empty, CSRF uses the request Host header for validation
+	mw := middleware.ValidateOrigin("")
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.Host = "myapp.local"
+	req.Header.Set("Origin", "https://myapp.local")
+	rr := httptest.NewRecorder()
+	mw(passThroughHandler).ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK {
-		t.Errorf("empty host (dev mode) should pass all, got %d", rr.Code)
+		t.Errorf("Origin matching request Host should pass, got %d", rr.Code)
+	}
+}
+
+func TestValidateOrigin_POST_NoHost_DevAllowsHTTP(t *testing.T) {
+	// In dev mode (empty HOST), both HTTP and HTTPS origins are accepted
+	mw := middleware.ValidateOrigin("")
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.Host = "localhost:8080"
+	req.Header.Set("Origin", "http://localhost:8080")
+	rr := httptest.NewRecorder()
+	mw(passThroughHandler).ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("HTTP origin should pass in dev mode, got %d", rr.Code)
 	}
 }
 

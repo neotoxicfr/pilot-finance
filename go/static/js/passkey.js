@@ -1,5 +1,37 @@
 // Passkey/WebAuthn JavaScript Handler
 
+// Toast notification helper — shows a temporary message using a fixed-position element.
+// Does not rely on Alpine.js so it works even before Alpine is initialised.
+function showPasskeyToast(message, isError) {
+    var container = document.getElementById('passkey-toast');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'passkey-toast';
+        container.setAttribute('role', 'alert');
+        container.setAttribute('aria-live', 'assertive');
+        container.style.cssText = 'position:fixed;top:1.5rem;right:1.5rem;z-index:9999;display:flex;flex-direction:column;gap:0.5rem;pointer-events:none;';
+        document.body.appendChild(container);
+    }
+    var toast = document.createElement('div');
+    toast.textContent = message;
+    var bg = isError
+        ? 'background:rgba(239,68,68,0.95);color:#fff;'
+        : 'background:var(--background,#fff);color:var(--foreground,#0f172a);border:1px solid var(--border,#e2e8f0);';
+    toast.style.cssText = bg + 'pointer-events:auto;padding:0.75rem 1.25rem;border-radius:0.75rem;font-size:0.875rem;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,0.15);opacity:0;transform:translateY(-8px);transition:opacity 0.2s,transform 0.2s;max-width:22rem;';
+    container.appendChild(toast);
+    // Trigger entrance animation
+    requestAnimationFrame(function() {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+    });
+    // Auto-dismiss after 4 seconds
+    setTimeout(function() {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-8px)';
+        setTimeout(function() { toast.remove(); }, 200);
+    }, 4000);
+}
+
 // Utilitaires base64url
 function base64urlToBuffer(base64url) {
     const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
@@ -98,11 +130,11 @@ async function loginWithPasskey() {
     } catch (err) {
         console.error('Passkey error:', err);
         if (err.name === 'NotAllowedError') {
-            alert('Authentification annulee ou refusee');
+            showPasskeyToast('Authentification annulee ou refusee', true);
         } else if (err.name === 'SecurityError') {
-            alert('Erreur de securite: verifiez que vous etes sur HTTPS');
+            showPasskeyToast('Erreur de securite: verifiez que vous etes sur HTTPS', true);
         } else {
-            alert('Erreur: ' + err.message);
+            showPasskeyToast('Erreur: ' + err.message, true);
         }
     }
 }
@@ -187,11 +219,11 @@ async function registerPasskey() {
     } catch (err) {
         console.error('Passkey registration error:', err);
         if (err.name === 'NotAllowedError') {
-            alert('Enregistrement annule ou refuse');
+            showPasskeyToast('Enregistrement annule ou refuse', true);
         } else if (err.name === 'InvalidStateError') {
-            alert('Cette Passkey est deja enregistree');
+            showPasskeyToast('Cette Passkey est deja enregistree', true);
         } else {
-            alert('Erreur: ' + err.message);
+            showPasskeyToast('Erreur: ' + err.message, true);
         }
     }
 }

@@ -87,11 +87,35 @@ func MFAEnable(w http.ResponseWriter, r *http.Request) {
 	jsonSuccess(w, map[string]bool{"success": true})
 }
 
-// MFADisable desactive le 2FA
+// MFADisable desactive le 2FA after verifying the user's current password
 func MFADisable(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
 		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
+		return
+	}
+
+	// Require password re-verification before disabling MFA
+	currentPassword := r.FormValue("current_password")
+	if currentPassword == "" {
+		clientError(w, ErrValidation, "Mot de passe requis pour désactiver le 2FA", http.StatusBadRequest)
+		return
+	}
+
+	// Retrieve the stored password hash to verify
+	dbUser, err := hookGetUserByID(user.ID)
+	if err != nil || dbUser == nil {
+		clientError(w, ErrNotFound, "Utilisateur non trouvé", http.StatusNotFound)
+		return
+	}
+
+	if !hookVerifyPassword(currentPassword, dbUser.Password) {
+		clientError(w, ErrAuthInvalid, "Mot de passe incorrect", http.StatusForbidden)
 		return
 	}
 

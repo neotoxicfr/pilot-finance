@@ -628,7 +628,7 @@ func TestCreateRecurring_UpdateDBError(t *testing.T) {
 	recID := createRec(t, uid, accID)
 
 	orig := hookUpdateRecurring
-	hookUpdateRecurring = func(id, userID int64, description string, amount float64, dayOfMonth int, toAccountID *int64) error {
+	hookUpdateRecurring = func(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
 		return errTest2
 	}
 	defer func() { hookUpdateRecurring = orig }()
@@ -656,7 +656,7 @@ func TestCreateRecurring_CreateDBError(t *testing.T) {
 	accID := createAcc(t, uid)
 
 	orig := hookCreateRecurring
-	hookCreateRecurring = func(userID, accountID int64, toAccountID *int64, description string, amount float64, dayOfMonth int) error {
+	hookCreateRecurring = func(userID, accountID int64, toAccountID *int64, description string, amount int64, dayOfMonth int) error {
 		return errTest2
 	}
 	defer func() { hookCreateRecurring = orig }()
@@ -735,7 +735,7 @@ func TestUpdateRecurring_DBError(t *testing.T) {
 	recID := createRec(t, uid, accID)
 
 	orig := hookUpdateRecurring
-	hookUpdateRecurring = func(id, userID int64, description string, amount float64, dayOfMonth int, toAccountID *int64) error {
+	hookUpdateRecurring = func(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
 		return errTest2
 	}
 	defer func() { hookUpdateRecurring = orig }()

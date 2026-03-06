@@ -11,8 +11,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
+	"math"
 	"strconv"
 	"strings"
+	"sync"
+	"unicode/utf8"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -25,9 +29,22 @@ const (
 var (
 	encryptionKey  []byte
 	blindIndexKey  []byte
+	cipherBlock    cipher.Block // pre-computed AES cipher block
+	initOnce       sync.Once
+	initErr        error
 	ErrInvalidKey  = errors.New("clé invalide: 32 bytes requis")
 	ErrDecryption  = errors.New("échec déchiffrement")
 )
+
+// ResetForTest resets the crypto package state so Init can be called again.
+// ONLY for use in tests.
+func ResetForTest() {
+	initOnce = sync.Once{}
+	initErr = nil
+	encryptionKey = nil
+	blindIndexKey = nil
+	cipherBlock = nil
+}
 
 // Hooks injectables pour les tests (permettent de couvrir les branches d'erreur impossibles en prod).
 var (
@@ -36,32 +53,38 @@ var (
 	bcryptGenerateFn = bcrypt.GenerateFromPassword
 )
 
-// Init initialise les clés de chiffrement
+// Init initialise les clés de chiffrement et pré-calcule le cipher block AES.
+// Protégé par sync.Once : les appels suivants sont no-op et retournent le résultat initial.
 func Init(encKeyHex, blindKeyHex string) error {
-	var err error
+	initOnce.Do(func() {
+		var err error
 
-	encryptionKey, err = hex.DecodeString(encKeyHex)
-	if err != nil || len(encryptionKey) != 32 {
-		return fmt.Errorf("ENCRYPTION_KEY: %w", ErrInvalidKey)
-	}
+		encryptionKey, err = hex.DecodeString(encKeyHex)
+		if err != nil || len(encryptionKey) != 32 {
+			initErr = fmt.Errorf("ENCRYPTION_KEY: %w", ErrInvalidKey)
+			return
+		}
 
-	blindIndexKey, err = hex.DecodeString(blindKeyHex)
-	if err != nil || len(blindIndexKey) != 32 {
-		return fmt.Errorf("BLIND_INDEX_KEY: %w", ErrInvalidKey)
-	}
+		blindIndexKey, err = hex.DecodeString(blindKeyHex)
+		if err != nil || len(blindIndexKey) != 32 {
+			initErr = fmt.Errorf("BLIND_INDEX_KEY: %w", ErrInvalidKey)
+			return
+		}
 
-	return nil
+		// Pre-compute AES cipher block to avoid recreating per Encrypt/Decrypt call
+		cipherBlock, err = aes.NewCipher(encryptionKey)
+		if err != nil {
+			initErr = fmt.Errorf("AES cipher init: %w", err)
+			return
+		}
+	})
+	return initErr
 }
 
 // Encrypt chiffre un texte avec AES-256-GCM
 // Format de sortie: IV_HEX:AUTH_TAG_HEX:CIPHERTEXT_HEX (compatible Node.js)
 func Encrypt(plaintext string) (string, error) {
-	block, err := aes.NewCipher(encryptionKey)
-	if err != nil {
-		return "", err
-	}
-
-	gcm, err := cipherNewGCMFn(block)
+	gcm, err := cipherNewGCMFn(cipherBlock)
 	if err != nil {
 		return "", err
 	}
@@ -92,11 +115,13 @@ func Encrypt(plaintext string) (string, error) {
 func Decrypt(encrypted string) (string, error) {
 	// Si pas de séparateur, retourner tel quel (données non chiffrées)
 	if !strings.Contains(encrypted, ":") {
+		slog.Warn("crypto.Decrypt: value appears unencrypted, returning as plaintext", "len", len(encrypted))
 		return encrypted, nil
 	}
 
 	parts := strings.Split(encrypted, ":")
 	if len(parts) != 3 {
+		slog.Warn("crypto.Decrypt: malformed ciphertext (expected 3 parts), returning as plaintext", "parts", len(parts))
 		return encrypted, nil
 	}
 
@@ -115,17 +140,15 @@ func Decrypt(encrypted string) (string, error) {
 		return "", ErrDecryption
 	}
 
-	block, err := aes.NewCipher(encryptionKey)
-	if err != nil {
-		return "", err
-	}
-
 	// Créer GCM avec la taille de nonce appropriée (12 ou 16 bytes)
+	if cipherBlock == nil {
+		return "", ErrDecryption
+	}
 	var gcm cipher.AEAD
 	if len(iv) == 12 {
-		gcm, err = cipher.NewGCM(block)
+		gcm, err = cipher.NewGCM(cipherBlock)
 	} else {
-		gcm, err = cipher.NewGCMWithNonceSize(block, len(iv))
+		gcm, err = cipher.NewGCMWithNonceSize(cipherBlock, len(iv))
 	}
 	if err != nil {
 		return "", err
@@ -193,6 +216,29 @@ func DecryptFloat(s string) (float64, error) {
 	return strconv.ParseFloat(plain, 64)
 }
 
+// EncryptCents chiffre un montant en centimes.
+func EncryptCents(cents int64) (string, error) {
+	return Encrypt(strconv.FormatInt(cents, 10))
+}
+
+// DecryptCents déchiffre une valeur vers des centimes (int64).
+// Gère le format legacy (float string "1234.56") et le nouveau format (cents string "123456").
+func DecryptCents(s string) (int64, error) {
+	plain, err := Decrypt(s)
+	if err != nil {
+		return 0, err
+	}
+	if strings.Contains(plain, ".") {
+		// Legacy: stored as float string
+		f, err := strconv.ParseFloat(plain, 64)
+		if err != nil {
+			return 0, err
+		}
+		return int64(math.Round(f * 100)), nil
+	}
+	return strconv.ParseInt(plain, 10, 64)
+}
+
 // EncryptInt chiffre un int après conversion en string.
 func EncryptInt(i int) (string, error) {
 	return Encrypt(strconv.Itoa(i))
@@ -221,7 +267,7 @@ var (
 // ValidatePassword vérifie que le mot de passe respecte les critères.
 // Returns nil si valide, sinon une erreur codée (ErrPwd*) à traduire via i18n.
 func ValidatePassword(password string) error {
-	if len(password) < 12 {
+	if utf8.RuneCountInString(password) < 12 {
 		return ErrPwdMinLength
 	}
 	// bcrypt tronque silencieusement au-delà de 72 octets

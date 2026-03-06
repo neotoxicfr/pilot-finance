@@ -7,7 +7,7 @@ func TestCreateAndGetAccount(t *testing.T) {
 	defer cleanup()
 	userID := createTestUser(t)
 
-	err := CreateAccountWithYield(userID, "Savings", 5000.50, "#4CAF50", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
+	err := CreateAccountWithYield(userID, "Savings", 500050, "#4CAF50", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
 	if err != nil {
 		t.Fatalf("CreateAccountWithYield: %v", err)
 	}
@@ -19,8 +19,8 @@ func TestCreateAndGetAccount(t *testing.T) {
 	if len(accounts) != 1 {
 		t.Fatalf("want 1 account, got %d", len(accounts))
 	}
-	if accounts[0].Balance != 5000.50 {
-		t.Errorf("balance: want 5000.50, got %v", accounts[0].Balance)
+	if accounts[0].Balance != 500050 {
+		t.Errorf("balance: want 500050, got %v", accounts[0].Balance)
 	}
 	if accounts[0].Name != "Savings" {
 		t.Errorf("name: want Savings, got %q", accounts[0].Name)
@@ -35,7 +35,7 @@ func TestCreateYieldAccount(t *testing.T) {
 	defer cleanup()
 	userID := createTestUser(t)
 
-	err := CreateAccountWithYield(userID, "PEA", 10000, "#FF5722", 0, true, "RANGE", 3.5, 7.0, 50, nil, "MONTHLY")
+	err := CreateAccountWithYield(userID, "PEA", 1000000, "#FF5722", 0, true, "RANGE", 3.5, 7.0, 50, nil, "MONTHLY")
 	if err != nil {
 		t.Fatalf("CreateAccountWithYield: %v", err)
 	}
@@ -64,18 +64,18 @@ func TestUpdateAccountWithYield(t *testing.T) {
 	defer cleanup()
 	userID := createTestUser(t)
 
-	CreateAccountWithYield(userID, "Old", 1000, "#000", 0, true, "FIXED", 3.0, 3.0, 100, nil, "MONTHLY")
+	CreateAccountWithYield(userID, "Old", 100000, "#000", 0, true, "FIXED", 3.0, 3.0, 100, nil, "MONTHLY")
 	accounts, _ := GetAccountsByUserID(userID)
 	id := accounts[0].ID
 
-	err := UpdateAccountWithYield(id, userID, "New", 2000, "#fff", false, "FIXED", 0, 0, 0, nil, "MONTHLY")
+	err := UpdateAccountWithYield(id, userID, "New", 200000, "#fff", false, "FIXED", 0, 0, 0, nil, "MONTHLY")
 	if err != nil {
 		t.Fatalf("UpdateAccountWithYield: %v", err)
 	}
 
 	accounts, _ = GetAccountsByUserID(userID)
-	if accounts[0].Balance != 2000 {
-		t.Errorf("balance: want 2000, got %v", accounts[0].Balance)
+	if accounts[0].Balance != 200000 {
+		t.Errorf("balance: want 200000, got %v", accounts[0].Balance)
 	}
 	if accounts[0].Name != "New" {
 		t.Errorf("name: want New, got %q", accounts[0].Name)
@@ -90,17 +90,17 @@ func TestUpdateAccountBalance(t *testing.T) {
 	defer cleanup()
 	userID := createTestUser(t)
 
-	CreateAccountWithYield(userID, "Acc", 100, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
+	CreateAccountWithYield(userID, "Acc", 10000, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
 	accounts, _ := GetAccountsByUserID(userID)
 	id := accounts[0].ID
 
-	if err := UpdateAccountBalance(id, userID, 9999.99); err != nil {
+	if err := UpdateAccountBalance(id, userID, 999999); err != nil {
 		t.Fatalf("UpdateAccountBalance: %v", err)
 	}
 
 	accounts, _ = GetAccountsByUserID(userID)
-	if accounts[0].Balance != 9999.99 {
-		t.Errorf("balance: want 9999.99, got %v", accounts[0].Balance)
+	if accounts[0].Balance != 999999 {
+		t.Errorf("balance: want 999999, got %v", accounts[0].Balance)
 	}
 }
 
@@ -109,12 +109,12 @@ func TestDeleteAccount(t *testing.T) {
 	defer cleanup()
 	userID := createTestUser(t)
 
-	CreateAccountWithYield(userID, "ToDelete", 500, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
+	CreateAccountWithYield(userID, "ToDelete", 50000, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
 	accounts, _ := GetAccountsByUserID(userID)
 	id := accounts[0].ID
 
 	// Associated recurring should be cascade-deleted
-	CreateRecurring(userID, id, nil, "Salary", 3000, 1)
+	CreateRecurring(userID, id, nil, "Salary", 300000, 1)
 
 	if err := DeleteAccount(id, userID); err != nil {
 		t.Fatalf("DeleteAccount: %v", err)
@@ -136,11 +136,11 @@ func TestCreateAndGetRecurring(t *testing.T) {
 	defer cleanup()
 	userID := createTestUser(t)
 
-	CreateAccountWithYield(userID, "Acc", 1000, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
+	CreateAccountWithYield(userID, "Acc", 100000, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
 	accounts, _ := GetAccountsByUserID(userID)
 	accID := accounts[0].ID
 
-	if err := CreateRecurring(userID, accID, nil, "Rent", -1200, 5); err != nil {
+	if err := CreateRecurring(userID, accID, nil, "Rent", -120000, 5); err != nil {
 		t.Fatalf("CreateRecurring: %v", err)
 	}
 
@@ -151,8 +151,8 @@ func TestCreateAndGetRecurring(t *testing.T) {
 	if len(recs) != 1 {
 		t.Fatalf("want 1 recurring, got %d", len(recs))
 	}
-	if recs[0].Amount != -1200 {
-		t.Errorf("amount: want -1200, got %v", recs[0].Amount)
+	if recs[0].Amount != -120000 {
+		t.Errorf("amount: want -120000, got %v", recs[0].Amount)
 	}
 	if recs[0].Description != "Rent" {
 		t.Errorf("description: want Rent, got %q", recs[0].Description)
@@ -167,21 +167,21 @@ func TestUpdateRecurring(t *testing.T) {
 	defer cleanup()
 	userID := createTestUser(t)
 
-	CreateAccountWithYield(userID, "Acc", 1000, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
+	CreateAccountWithYield(userID, "Acc", 100000, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
 	accounts, _ := GetAccountsByUserID(userID)
 	accID := accounts[0].ID
 
-	CreateRecurring(userID, accID, nil, "Old", 100, 1)
+	CreateRecurring(userID, accID, nil, "Old", 10000, 1)
 	recs, _ := GetRecurringByUserID(userID)
 	recID := recs[0].ID
 
-	if err := UpdateRecurring(recID, userID, "New", 200, 15, nil); err != nil {
+	if err := UpdateRecurring(recID, userID, "New", 20000, 15, nil); err != nil {
 		t.Fatalf("UpdateRecurring: %v", err)
 	}
 
 	recs, _ = GetRecurringByUserID(userID)
-	if recs[0].Amount != 200 {
-		t.Errorf("amount: want 200, got %v", recs[0].Amount)
+	if recs[0].Amount != 20000 {
+		t.Errorf("amount: want 20000, got %v", recs[0].Amount)
 	}
 	if recs[0].Description != "New" {
 		t.Errorf("description: want New, got %q", recs[0].Description)
@@ -196,13 +196,13 @@ func TestTransferRecurring(t *testing.T) {
 	defer cleanup()
 	userID := createTestUser(t)
 
-	CreateAccountWithYield(userID, "From", 5000, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
-	CreateAccountWithYield(userID, "To", 1000, "#fff", 1, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
+	CreateAccountWithYield(userID, "From", 500000, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
+	CreateAccountWithYield(userID, "To", 100000, "#fff", 1, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
 	accounts, _ := GetAccountsByUserID(userID)
 	fromID := accounts[0].ID
 	toID := accounts[1].ID
 
-	if err := CreateRecurring(userID, fromID, &toID, "Transfer", 500, 10); err != nil {
+	if err := CreateRecurring(userID, fromID, &toID, "Transfer", 50000, 10); err != nil {
 		t.Fatalf("CreateRecurring transfer: %v", err)
 	}
 
@@ -223,9 +223,9 @@ func TestDeleteUserAndData(t *testing.T) {
 	defer cleanup()
 	userID := createTestUser(t)
 
-	CreateAccountWithYield(userID, "Acc", 1000, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
+	CreateAccountWithYield(userID, "Acc", 100000, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
 	accounts, _ := GetAccountsByUserID(userID)
-	CreateRecurring(userID, accounts[0].ID, nil, "Sal", 2000, 1)
+	CreateRecurring(userID, accounts[0].ID, nil, "Sal", 200000, 1)
 	LogAudit(userID, "TEST", "127.0.0.1", "go-test")
 
 	if err := DeleteUserAndData(userID); err != nil {
@@ -248,8 +248,8 @@ func TestReorderAccounts(t *testing.T) {
 	defer cleanup()
 	userID := createTestUser(t)
 
-	CreateAccountWithYield(userID, "A", 100, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
-	CreateAccountWithYield(userID, "B", 200, "#fff", 1, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
+	CreateAccountWithYield(userID, "A", 10000, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
+	CreateAccountWithYield(userID, "B", 20000, "#fff", 1, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
 
 	accounts, _ := GetAccountsByUserID(userID)
 	id0, id1 := accounts[0].ID, accounts[1].ID

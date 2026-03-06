@@ -45,7 +45,7 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	amount, err := strconv.ParseFloat(amountStr, 64)
+	amount, err := parseCents(amountStr)
 	if err != nil {
 		clientError(w, ErrValidation, "Montant invalide", http.StatusBadRequest)
 		return
@@ -145,7 +145,7 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	amount, err := strconv.ParseFloat(amountStr, 64)
+	amount, err := parseCents(amountStr)
 	if err != nil {
 		clientError(w, ErrValidation, "Montant invalide", http.StatusBadRequest)
 		return

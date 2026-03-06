@@ -22,8 +22,24 @@ func htmxRedirect(w http.ResponseWriter, r *http.Request, url string) {
 	http.Redirect(w, r, url, http.StatusSeeOther)
 }
 
-// getClientIP extrait l'IP du client
+// getClientIP extrait l'IP du client.
+// Note: X-Forwarded-For and X-Real-IP are spoofable by clients unless a trusted
+// reverse proxy strips/overwrites them. chi's RealIP middleware (applied globally)
+// already processes these headers, so r.RemoteAddr is used as the primary source.
+// The X-Forwarded-For / X-Real-IP fallbacks are kept for environments behind a
+// trusted proxy that sets these headers.
 func getClientIP(r *http.Request) string {
+	// Prefer RemoteAddr as primary (set by chi RealIP middleware when behind trusted proxy)
+	remoteAddr := r.RemoteAddr
+	// Strip port if present (e.g. "1.2.3.4:12345" -> "1.2.3.4")
+	if idx := strings.LastIndex(remoteAddr, ":"); idx != -1 {
+		if !strings.Contains(remoteAddr, "]") || strings.LastIndex(remoteAddr, ":") > strings.LastIndex(remoteAddr, "]") {
+			remoteAddr = remoteAddr[:idx]
+		}
+	}
+	if remoteAddr != "" && remoteAddr != "127.0.0.1" && remoteAddr != "::1" {
+		return remoteAddr
+	}
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 		parts := strings.Split(xff, ",")
 		return strings.TrimSpace(parts[0])
@@ -31,7 +47,7 @@ func getClientIP(r *http.Request) string {
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
 		return xri
 	}
-	return r.RemoteAddr
+	return remoteAddr
 }
 
 // HandleLogin gère la soumission du formulaire de connexion
@@ -243,8 +259,11 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Detect user language from Accept-Language header
+	detectedLang := detectLanguage(r)
+
 	if err := hookValidatePassword(password); err != nil {
-		clientError(w, ErrValidation, i18n.T("fr", "pwd_error."+err.Error()), http.StatusBadRequest)
+		clientError(w, ErrValidation, i18n.T(detectedLang, "pwd_error."+err.Error()), http.StatusBadRequest)
 		return
 	}
 
@@ -296,8 +315,13 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Générer le token et connecter (nouveaux utilisateurs : langue/devise par défaut)
-	token, err := hookGenerateToken(userID, role, "fr", "EUR", 1)
+	// Persist the detected language preference
+	if detectedLang != "fr" {
+		_ = hookUpdateUserPrefs(userID, detectedLang, "EUR")
+	}
+
+	// Générer le token et connecter (langue détectée depuis Accept-Language, devise par défaut)
+	token, err := hookGenerateToken(userID, role, detectedLang, "EUR", 1)
 	if err != nil {
 		serverError(w, "generate token", err)
 		return
@@ -325,4 +349,19 @@ func handleFailedLogin(user *db.User) {
 // resetLoginAttempts réinitialise les tentatives de connexion
 func resetLoginAttempts(userID int64) {
 	hookUpdateLoginAttempts(userID, 0, nil) //nolint:errcheck
+}
+
+// detectLanguage parses the Accept-Language header and returns "fr" if French
+// is preferred, otherwise defaults to "en".
+func detectLanguage(r *http.Request) string {
+	accept := r.Header.Get("Accept-Language")
+	if accept == "" {
+		return "en"
+	}
+	// Simple parsing: check if "fr" appears before any other language tag
+	accept = strings.ToLower(accept)
+	if strings.Contains(accept, "fr") {
+		return "fr"
+	}
+	return "en"
 }

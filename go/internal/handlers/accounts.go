@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"log/slog"
+	"math"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -14,6 +15,18 @@ import (
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/projection"
 )
+
+// parseCents parses a decimal string ("1234.56") into centimes (123456).
+func parseCents(s string) (int64, error) {
+	if s == "" {
+		return 0, nil
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0, err
+	}
+	return int64(math.Round(f * 100)), nil
+}
 
 var hexColorRegex = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
@@ -48,6 +61,11 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len([]rune(name)) > 100 {
+		clientError(w, ErrValidation, "Nom trop long (100 caractères max)", http.StatusBadRequest)
+		return
+	}
+
 	// Chiffrer le nom du compte
 	encryptedName, err := hookEncryptStr(name)
 	if err != nil {
@@ -56,10 +74,10 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	balance := 0.0
+	var balance int64
 	if balanceStr != "" {
 		var err error
-		balance, err = strconv.ParseFloat(balanceStr, 64)
+		balance, err = parseCents(balanceStr)
 		if err != nil {
 			clientError(w, ErrValidation, "Solde invalide", http.StatusBadRequest)
 			return
@@ -221,7 +239,7 @@ func UpdateBalance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	balanceStr := r.FormValue("balance")
-	balance, err := strconv.ParseFloat(balanceStr, 64)
+	balance, err := parseCents(balanceStr)
 	if err != nil {
 		clientError(w, ErrValidation, "Solde invalide", http.StatusBadRequest)
 		return
@@ -362,10 +380,11 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 		if rec.ToAccountID != nil {
 			continue // Virement interne : ne compte pas dans entrées/sorties
 		}
-		if rec.Amount > 0 {
-			monthlyIncome += rec.Amount
+		recAmt := float64(rec.Amount) / 100.0
+		if recAmt > 0 {
+			monthlyIncome += recAmt
 		} else {
-			monthlyExpenses += -rec.Amount
+			monthlyExpenses += -recAmt
 		}
 	}
 

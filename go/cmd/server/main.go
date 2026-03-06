@@ -151,10 +151,16 @@ func main() {
 	fileServer := http.FileServer(http.Dir("static"))
 	r.Handle("/static/*", http.StripPrefix("/static/", cacheStatic(fileServer)))
 
-	// Health check, metrics, CSP report (pas de rate limit strict)
+	// Health check, CSP report (pas de rate limit strict)
 	r.Get("/api/health", handlers.HealthCheck)
-	r.Get("/metrics", metrics.Handler().ServeHTTP)
 	r.Post("/api/csp-report", handlers.CSPReport)
+
+	// Metrics endpoint (admin auth required)
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.RequireAuth)
+		r.Use(middleware.RequireAdmin)
+		r.Get("/metrics", metrics.Handler().ServeHTTP)
+	})
 
 	// Routes auth avec rate limit (10 req/min anti-bruteforce, humain = ~1 essai/6s)
 	r.Group(func(r chi.Router) {

@@ -19,7 +19,17 @@ const (
 	testBlindIndexKey = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
 )
 
+// mustInit resets crypto state and initializes with valid test keys.
+func mustInit(t *testing.T) {
+	t.Helper()
+	ResetForTest()
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		t.Fatalf("crypto.Init: %v", err)
+	}
+}
+
 func TestInit(t *testing.T) {
+	ResetForTest()
 	err := Init(testEncryptionKey, testBlindIndexKey)
 	if err != nil {
 		t.Fatalf("Init failed: %v", err)
@@ -27,6 +37,7 @@ func TestInit(t *testing.T) {
 }
 
 func TestInitInvalidEncKey(t *testing.T) {
+	ResetForTest()
 	err := Init("not-valid-hex!!", testBlindIndexKey)
 	if err == nil {
 		t.Fatal("expected error for invalid encryption key hex")
@@ -37,6 +48,7 @@ func TestInitInvalidEncKey(t *testing.T) {
 }
 
 func TestInitEncKeyTooShort(t *testing.T) {
+	ResetForTest()
 	// 16 hex chars = 8 bytes, not 32
 	err := Init("0102030405060708090a0b0c0d0e0f10", testBlindIndexKey)
 	if err == nil {
@@ -48,6 +60,7 @@ func TestInitEncKeyTooShort(t *testing.T) {
 }
 
 func TestInitInvalidBlindKey(t *testing.T) {
+	ResetForTest()
 	err := Init(testEncryptionKey, "not-valid-hex!!")
 	if err == nil {
 		t.Fatal("expected error for invalid blind index key hex")
@@ -58,6 +71,7 @@ func TestInitInvalidBlindKey(t *testing.T) {
 }
 
 func TestInitBlindKeyTooShort(t *testing.T) {
+	ResetForTest()
 	// 8 hex chars = 4 bytes, not 32
 	err := Init(testEncryptionKey, "01020304")
 	if err == nil {
@@ -69,9 +83,7 @@ func TestInitBlindKeyTooShort(t *testing.T) {
 }
 
 func TestEncryptDecrypt(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 
 	tests := []string{
 		"Hello, World!",
@@ -101,16 +113,12 @@ func TestEncryptDecrypt(t *testing.T) {
 }
 
 func TestDecryptNodeJSFormat(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 	t.Skip("Test à activer avec données Node.js réelles")
 }
 
 func TestDecryptNonEncrypted(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 
 	plaintext := "not encrypted"
 	result, err := Decrypt(plaintext)
@@ -123,9 +131,7 @@ func TestDecryptNonEncrypted(t *testing.T) {
 }
 
 func TestDecryptWrongPartCount(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 	// 2 parts → not 3 → return as-is, no error
 	result, err := Decrypt("a:b")
 	if err != nil {
@@ -145,9 +151,7 @@ func TestDecryptWrongPartCount(t *testing.T) {
 }
 
 func TestDecryptBadHexIV(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 	// 'g' is not valid hex → IV decode fails → ErrDecryption
 	_, err := Decrypt("gggggggggggggggggggggggg:aabbccddeeff001122334455aabbccdd:aabb")
 	if !errors.Is(err, ErrDecryption) {
@@ -156,9 +160,7 @@ func TestDecryptBadHexIV(t *testing.T) {
 }
 
 func TestDecryptBadHexAuthTag(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 	// Valid 12-byte IV (24 hex chars), invalid auth tag
 	_, err := Decrypt("0123456789abcdef01234567:gggggggggggggggggggggggggggggggg:aabb")
 	if !errors.Is(err, ErrDecryption) {
@@ -167,9 +169,7 @@ func TestDecryptBadHexAuthTag(t *testing.T) {
 }
 
 func TestDecryptBadHexCiphertext(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 	// Valid 12-byte IV, valid 16-byte auth tag, invalid ciphertext
 	_, err := Decrypt("0123456789abcdef01234567:aabbccddeeff001122334455aabbccdd:gg")
 	if !errors.Is(err, ErrDecryption) {
@@ -178,9 +178,7 @@ func TestDecryptBadHexCiphertext(t *testing.T) {
 }
 
 func TestDecryptZeroLengthIV(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 	// Empty IV → len=0 → NewGCMWithNonceSize(block, 0) returns error (nonce cannot be zero length)
 	_, err := Decrypt(":aabbccddeeff001122334455aabbccdd:aabb")
 	if err == nil {
@@ -189,9 +187,7 @@ func TestDecryptZeroLengthIV(t *testing.T) {
 }
 
 func TestDecryptTamperedData(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 	enc, err := Encrypt("secret data to tamper")
 	if err != nil {
 		t.Fatal(err)
@@ -213,9 +209,7 @@ func TestDecryptTamperedData(t *testing.T) {
 }
 
 func TestDecryptLegacy16ByteNonce(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 	// Build a ciphertext with 16-byte nonce (legacy Node.js format)
 	block, err := aes.NewCipher(encryptionKey)
 	if err != nil {
@@ -248,9 +242,7 @@ func TestDecryptLegacy16ByteNonce(t *testing.T) {
 }
 
 func TestComputeBlindIndex(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 
 	input := "test@example.com"
 	index1 := ComputeBlindIndex(input)
@@ -298,9 +290,7 @@ func TestHashPassword(t *testing.T) {
 }
 
 func TestEncryptDecryptFloat(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 
 	values := []float64{0, 1.23, -456.789, 100000.50, 0.001}
 	for _, v := range values {
@@ -321,9 +311,7 @@ func TestEncryptDecryptFloat(t *testing.T) {
 }
 
 func TestDecryptFloatPlaintext(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 	got, err := DecryptFloat("1234.56")
 	if err != nil {
 		t.Fatalf("DecryptFloat plaintext: %v", err)
@@ -334,9 +322,7 @@ func TestDecryptFloatPlaintext(t *testing.T) {
 }
 
 func TestDecryptFloatError(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 	// Bad hex IV → ErrDecryption propagated through DecryptFloat
 	_, err := DecryptFloat("gg:aabbccddeeff001122334455aabbccdd:aabb")
 	if err == nil {
@@ -345,9 +331,7 @@ func TestDecryptFloatError(t *testing.T) {
 }
 
 func TestDecryptFloatBadValue(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 	// Plain text that is not a valid float → ParseFloat error
 	_, err := DecryptFloat("notafloat")
 	if err == nil {
@@ -356,9 +340,7 @@ func TestDecryptFloatBadValue(t *testing.T) {
 }
 
 func TestEncryptDecryptInt(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 
 	values := []int{0, 1, 50, 100, -10}
 	for _, v := range values {
@@ -379,9 +361,7 @@ func TestEncryptDecryptInt(t *testing.T) {
 }
 
 func TestDecryptIntPlaintext(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 	got, err := DecryptInt("42")
 	if err != nil {
 		t.Fatalf("DecryptInt plaintext: %v", err)
@@ -392,9 +372,7 @@ func TestDecryptIntPlaintext(t *testing.T) {
 }
 
 func TestDecryptIntError(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 	_, err := DecryptInt("gg:aabbccddeeff001122334455aabbccdd:aabb")
 	if err == nil {
 		t.Error("bad encrypted int should return error")
@@ -402,9 +380,7 @@ func TestDecryptIntError(t *testing.T) {
 }
 
 func TestDecryptIntBadValue(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 	// Plain text that is not a valid int → Atoi error
 	_, err := DecryptInt("notanint")
 	if err == nil {
@@ -477,21 +453,27 @@ func TestNeedsRehashInvalidHash(t *testing.T) {
 // --- error branches via hooks / key corruption ---
 
 func TestEncrypt_NewCipherError(t *testing.T) {
-	// Corrupt the key to trigger aes.NewCipher failure.
-	orig := encryptionKey
-	encryptionKey = []byte("bad-key") // wrong length
-	defer func() { encryptionKey = orig }()
+	ResetForTest()
+	mustInit(t)
+	// Corrupt the pre-computed cipher block to trigger GCM creation failure.
+	origBlock := cipherBlock
+	badBlock, _ := aes.NewCipher([]byte("0123456789abcdef")) // valid but different block
+	cipherBlock = badBlock
+	// We override GCM to return an error since a valid block won't fail NewGCM.
+	origGCM := cipherNewGCMFn
+	cipherNewGCMFn = func(_ cipher.Block) (cipher.AEAD, error) {
+		return nil, errors.New("forced cipher error")
+	}
+	defer func() { cipherBlock = origBlock; cipherNewGCMFn = origGCM }()
 
 	_, err := Encrypt("test")
 	if err == nil {
-		t.Error("Encrypt: want error with bad key, got nil")
+		t.Error("Encrypt: want error with bad cipher, got nil")
 	}
 }
 
 func TestEncrypt_NewGCMError(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 	orig := cipherNewGCMFn
 	defer func() { cipherNewGCMFn = orig }()
 
@@ -506,9 +488,7 @@ func TestEncrypt_NewGCMError(t *testing.T) {
 }
 
 func TestEncrypt_RandReadError(t *testing.T) {
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatal(err)
-	}
+	mustInit(t)
 	orig := cryptoRandRead
 	defer func() { cryptoRandRead = orig }()
 
@@ -523,16 +503,20 @@ func TestEncrypt_RandReadError(t *testing.T) {
 }
 
 func TestDecrypt_NewCipherError(t *testing.T) {
-	// Corrupt the key to trigger aes.NewCipher failure in Decrypt.
-	orig := encryptionKey
-	encryptionKey = []byte("bad") // wrong length
-	defer func() { encryptionKey = orig }()
+	ResetForTest()
+	mustInit(t)
+	// Encrypt a value first, then corrupt the cipher block
+	encrypted, err := Encrypt("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	origBlock := cipherBlock
+	cipherBlock = nil
+	defer func() { cipherBlock = origBlock }()
 
-	// Valid 3-part hex string: IV (12 bytes), authTag (16 bytes), ciphertext (1 byte)
-	encrypted := "616161616161616161616161:61616161616161616161616161616161:61"
-	_, err := Decrypt(encrypted)
+	_, err = Decrypt(encrypted)
 	if err == nil {
-		t.Error("Decrypt: want error with bad key, got nil")
+		t.Error("Decrypt: want error with nil cipher block, got nil")
 	}
 }
 

@@ -28,6 +28,30 @@
             document.getElementById('theme-color')?.setAttribute('content', dark ? '#0b1120' : '#ffffff');
         })();
 
+        // Shared password validation mixin — used by login, settings, and reset-password pages.
+        // Each page's Alpine component spreads this into its own data via ...pwdMixin()
+        function pwdMixin() {
+            return {
+                get hasLength()  { return this.password.length >= 12; },
+                get hasUpper()   { return /[A-Z]/.test(this.password); },
+                get hasLower()   { return /[a-z]/.test(this.password); },
+                get hasDigit()   { return /[0-9]/.test(this.password); },
+                get hasSpecial() { return /[!@#$%^&*(),.?:{}|]/.test(this.password); },
+                get pwdStrength() {
+                    return (this.hasLength ? 1 : 0) + (this.hasUpper ? 1 : 0)
+                         + (this.hasLower ? 1 : 0) + (this.hasDigit ? 1 : 0)
+                         + (this.hasSpecial ? 1 : 0);
+                },
+                get pwdsMatch() { return this.password === this.confirm; },
+                get strengthColor() {
+                    if (this.pwdStrength === 5) return 'bg-emerald-500';
+                    if (this.pwdStrength >= 4) return 'bg-yellow-500';
+                    if (this.pwdStrength >= 3) return 'bg-orange-500';
+                    return 'bg-red-500';
+                }
+            };
+        }
+
         // Toast
         function toastData() {
             return {

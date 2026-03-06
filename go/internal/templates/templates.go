@@ -124,48 +124,67 @@ func RenderPartial(w io.Writer, pageName, blockName string, data interface{}) er
 	return tmpl.ExecuteTemplate(w, blockName, data)
 }
 
+// toFloat64 converts numeric types for template use.
+// int64 is treated as centimes (divided by 100).
+// float64 and int are used as-is.
+func toFloat64(v interface{}) float64 {
+	switch n := v.(type) {
+	case int64:
+		return float64(n) / 100.0
+	case float64:
+		return n
+	case int:
+		return float64(n)
+	default:
+		return 0
+	}
+}
+
 // formatMoney formate un montant avec la devise donnée
-func formatMoney(amount float64, currency string) string {
+func formatMoney(amount interface{}, currency string) string {
+	f := toFloat64(amount)
 	if currency == "" {
 		currency = "EUR"
 	}
 	decimals := 0
-	if amount != float64(int64(amount)) {
+	if f != float64(int64(f)) {
 		decimals = 2
 	}
 
 	if decimals == 0 {
-		return fmt.Sprintf("%s %s", formatWithSpaces(int64(amount)), currency)
+		return fmt.Sprintf("%s %s", formatWithSpaces(int64(f)), currency)
 	}
-	return fmt.Sprintf("%s %s", formatFloat(amount), currency)
+	return fmt.Sprintf("%s %s", formatFloat(f), currency)
 }
 
 // formatMoneyCompact formate un montant en notation compacte (k, M) avec devise
-func formatMoneyCompact(amount float64, currency string) string {
+func formatMoneyCompact(amount interface{}, currency string) string {
+	f := toFloat64(amount)
 	if currency == "" {
 		currency = "EUR"
 	}
-	if amount < 0 {
-		return "-" + formatMoneyCompact(-amount, currency)
+	if f < 0 {
+		return "-" + formatMoneyCompact(-f, currency)
 	}
-	if amount >= 1000000 {
-		return fmt.Sprintf("%.1fM %s", amount/1000000, currency)
+	if f >= 1000000 {
+		return fmt.Sprintf("%.1fM %s", f/1000000, currency)
 	}
-	if amount >= 10000 {
-		return fmt.Sprintf("%.0fk %s", amount/1000, currency)
+	if f >= 10000 {
+		return fmt.Sprintf("%.0fk %s", f/1000, currency)
 	}
-	if amount >= 1000 {
-		return fmt.Sprintf("%.1fk %s", amount/1000, currency)
+	if f >= 1000 {
+		return fmt.Sprintf("%.1fk %s", f/1000, currency)
 	}
-	return fmt.Sprintf("%.0f %s", amount, currency)
+	return fmt.Sprintf("%.0f %s", f, currency)
 }
 
 // formatBalance formate un solde pour l'input
-func formatBalance(amount float64) string {
-	if amount == float64(int64(amount)) {
-		return fmt.Sprintf("%.0f", amount)
+func formatBalance(amount interface{}) string {
+	f := toFloat64(amount)
+	if f == float64(int64(f)) {
+		return fmt.Sprintf("%.0f", f)
 	}
-	return fmt.Sprintf("%.2f", amount)
+	return fmt.Sprintf("%.2f", f)
 }
 
 func formatWithSpaces(n int64) string {
@@ -188,17 +207,26 @@ func formatWithSpaces(n int64) string {
 	return result.String()
 }
 
-func formatFloat(f float64) string {
+func formatFloat(v interface{}) string {
+	f := toFloat64(v)
 	// Separer partie entiere et decimale
-	intPart := int64(f)
-	decPart := int(math.Round((f - float64(intPart)) * 100))
-	if decPart < 0 {
-		decPart = -decPart
+	negative := math.Signbit(f)
+	absVal := math.Abs(f)
+	intPart := int64(absVal)
+	decPart := int(math.Round((absVal - float64(intPart)) * 100))
+
+	// Handle rounding overflow (e.g., 99.999... -> decPart=100)
+	if decPart >= 100 {
+		intPart++
+		decPart = 0
 	}
 
 	// Formater avec separateurs de milliers
 	intStr := formatWithSpaces(intPart)
 
+	if negative {
+		return fmt.Sprintf("-%s,%02d", intStr, decPart)
+	}
 	return fmt.Sprintf("%s,%02d", intStr, decPart)
 }
 
@@ -244,20 +272,21 @@ func toJSON(v interface{}) template.JS {
 }
 
 // Fonctions arithmetiques
-func mult(a, b float64) float64 { return a * b }
-func add(a, b float64) float64  { return a + b }
-func sub(a, b float64) float64  { return a - b }
+func mult(a, b interface{}) float64 { return toFloat64(a) * toFloat64(b) }
+func add(a, b interface{}) float64  { return toFloat64(a) + toFloat64(b) }
+func sub(a, b interface{}) float64  { return toFloat64(a) - toFloat64(b) }
 
 // Fonctions de comparaison
-func ge(a, b float64) bool         { return a >= b }
-func gt(a, b float64) bool         { return a > b }
-func eqFunc(a, b interface{}) bool { return a == b }
-func neFunc(a, b interface{}) bool { return a != b }
+func ge(a, b interface{}) bool      { return toFloat64(a) >= toFloat64(b) }
+func gt(a, b interface{}) bool      { return toFloat64(a) > toFloat64(b) }
+func eqFunc(a, b interface{}) bool  { return a == b }
+func neFunc(a, b interface{}) bool  { return a != b }
 
 // Fonction valeur absolue
-func absFunc(a float64) float64 {
-	if a < 0 {
-		return -a
+func absFunc(a interface{}) float64 {
+	f := toFloat64(a)
+	if f < 0 {
+		return -f
 	}
-	return a
+	return f
 }

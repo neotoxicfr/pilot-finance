@@ -3,10 +3,14 @@ package db
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"time"
 
 	"pilot-finance/internal/crypto"
 )
+
+// auditDecryptConcurrency limits parallel decryption goroutines for audit logs
+const auditDecryptConcurrency = 8
 
 // Constantes d'action pour l'audit log
 const (
@@ -56,7 +60,7 @@ func LogAudit(userID int64, action, ip, userAgent string) {
 }
 
 // GetAuditLogByUserID retourne toutes les entrées d'audit d'un utilisateur (export GDPR).
-// IP et UserAgent sont déchiffrés automatiquement.
+// IP et UserAgent sont déchiffrés en parallèle (semaphore-limited).
 func GetAuditLogByUserID(userID int64) ([]AuditEntry, error) {
 	rows, err := DB.Query(`
 		SELECT id, user_id, action, COALESCE(ip, ''), COALESCE(user_agent, ''), created_at
@@ -75,16 +79,21 @@ func GetAuditLogByUserID(userID int64) ([]AuditEntry, error) {
 		if err := rows.Scan(&e.ID, &e.UserID, &e.Action, &e.IP, &e.UserAgent, &ts); err != nil {
 			return nil, err
 		}
-		e.IP, _ = crypto.Decrypt(e.IP)
-		e.UserAgent, _ = crypto.Decrypt(e.UserAgent)
 		e.CreatedAt = time.Unix(ts, 0)
 		entries = append(entries, e)
 	}
-	return entries, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Parallel decryption with semaphore
+	decryptAuditEntries(entries)
+
+	return entries, nil
 }
 
 // GetAuditLog retourne les entrées d'audit paginées, les plus récentes en premier.
-// IP et UserAgent sont déchiffrés automatiquement.
+// IP et UserAgent sont déchiffrés en parallèle (semaphore-limited).
 func GetAuditLog(page, limit int) ([]AuditEntry, error) {
 	if page < 1 {
 		page = 1
@@ -109,12 +118,40 @@ func GetAuditLog(page, limit int) ([]AuditEntry, error) {
 		if err := rows.Scan(&e.ID, &e.UserID, &e.Action, &e.IP, &e.UserAgent, &createdAt); err != nil {
 			return nil, err
 		}
-		e.IP, _ = crypto.Decrypt(e.IP)
-		e.UserAgent, _ = crypto.Decrypt(e.UserAgent)
 		e.CreatedAt = time.Unix(createdAt, 0)
 		entries = append(entries, e)
 	}
-	return entries, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Parallel decryption with semaphore
+	decryptAuditEntries(entries)
+
+	return entries, nil
+}
+
+// decryptAuditEntries decrypts IP and UserAgent fields in parallel using a semaphore.
+func decryptAuditEntries(entries []AuditEntry) {
+	if len(entries) == 0 {
+		return
+	}
+
+	sem := make(chan struct{}, auditDecryptConcurrency)
+	var wg sync.WaitGroup
+
+	for i := range entries {
+		wg.Add(1)
+		sem <- struct{}{} // acquire semaphore slot
+		go func(idx int) {
+			defer wg.Done()
+			defer func() { <-sem }() // release semaphore slot
+			entries[idx].IP, _ = crypto.Decrypt(entries[idx].IP)
+			entries[idx].UserAgent, _ = crypto.Decrypt(entries[idx].UserAgent)
+		}(i)
+	}
+
+	wg.Wait()
 }
 
 // CountAuditLog retourne le nombre total d'entrées dans le journal d'audit.

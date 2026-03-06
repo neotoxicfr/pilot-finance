@@ -13,12 +13,12 @@ func TestCalculate_YearlyPayoutFlush(t *testing.T) {
 	targetID := int64(2)
 	accounts := []db.Account{
 		{
-			ID: 1, Name: "Source", Balance: 12000,
+			ID: 1, Name: "Source", Balance: 1200000,
 			IsYieldActive: true, YieldType: "FIXED", YieldMin: 12,
 			ReinvestmentRate: 0, PayoutFrequency: "YEARLY",
 			TargetAccountID: &targetID,
 		},
-		{ID: 2, Name: "Target", Balance: 1000},
+		{ID: 2, Name: "Target", Balance: 100000},
 	}
 	result := projection.Calculate(accounts, nil, 1, "fr")
 	if len(result.Projection) == 0 {
@@ -45,7 +45,7 @@ func TestCalculateEmpty(t *testing.T) {
 
 func TestCalculateSimpleNoYield(t *testing.T) {
 	accounts := []db.Account{
-		{ID: 1, Name: "Checking", Balance: 10000, IsYieldActive: false},
+		{ID: 1, Name: "Checking", Balance: 1000000, IsYieldActive: false},
 	}
 	result := projection.Calculate(accounts, nil, 3, "en")
 	if result.TotalBalance != 10000 {
@@ -63,7 +63,7 @@ func TestCalculateSimpleNoYield(t *testing.T) {
 
 func TestCalculateMonthlyGranularity(t *testing.T) {
 	accounts := []db.Account{
-		{ID: 1, Name: "Checking", Balance: 5000, IsYieldActive: false},
+		{ID: 1, Name: "Checking", Balance: 500000, IsYieldActive: false},
 	}
 	// years <= 2 → monthly granularity
 	result := projection.Calculate(accounts, nil, 1, "fr")
@@ -75,7 +75,7 @@ func TestCalculateMonthlyGranularity(t *testing.T) {
 
 func TestCalculateWithYieldFixed(t *testing.T) {
 	accounts := []db.Account{
-		{ID: 1, Name: "Savings", Balance: 10000, IsYieldActive: true, YieldType: "FIXED",
+		{ID: 1, Name: "Savings", Balance: 1000000, IsYieldActive: true, YieldType: "FIXED",
 			YieldMin: 5.0, YieldMax: 5.0, ReinvestmentRate: 100, PayoutFrequency: "MONTHLY"},
 	}
 	result := projection.Calculate(accounts, nil, 3, "en")
@@ -91,7 +91,7 @@ func TestCalculateWithYieldFixed(t *testing.T) {
 
 func TestCalculateWithYieldRange(t *testing.T) {
 	accounts := []db.Account{
-		{ID: 1, Name: "PEA", Balance: 10000, IsYieldActive: true, YieldType: "RANGE",
+		{ID: 1, Name: "PEA", Balance: 1000000, IsYieldActive: true, YieldType: "RANGE",
 			YieldMin: 2.0, YieldMax: 8.0, ReinvestmentRate: 100, PayoutFrequency: "MONTHLY"},
 	}
 	result := projection.Calculate(accounts, nil, 5, "en")
@@ -109,7 +109,7 @@ func TestCalculateWithRecurringIncome(t *testing.T) {
 		{ID: 1, Name: "Checking", Balance: 0, IsYieldActive: false},
 	}
 	recurrings := []db.RecurringOperation{
-		{ID: 1, UserID: 1, AccountID: 1, Amount: 1000, DayOfMonth: 1},
+		{ID: 1, UserID: 1, AccountID: 1, Amount: 100000, DayOfMonth: 1},
 	}
 	result := projection.Calculate(accounts, recurrings, 1, "en")
 	last := result.Projection[len(result.Projection)-1]
@@ -123,11 +123,11 @@ func TestCalculateWithTransfer(t *testing.T) {
 	fromID := int64(1)
 	toID := int64(2)
 	accounts := []db.Account{
-		{ID: fromID, Name: "Checking", Balance: 5000, IsYieldActive: false},
+		{ID: fromID, Name: "Checking", Balance: 500000, IsYieldActive: false},
 		{ID: toID, Name: "Savings", Balance: 0, IsYieldActive: false},
 	}
 	recurrings := []db.RecurringOperation{
-		{ID: 1, UserID: 1, AccountID: fromID, ToAccountID: &toID, Amount: 500, DayOfMonth: 1},
+		{ID: 1, UserID: 1, AccountID: fromID, ToAccountID: &toID, Amount: 50000, DayOfMonth: 1},
 	}
 	result := projection.Calculate(accounts, recurrings, 1, "en")
 	last := result.Projection[len(result.Projection)-1]
@@ -141,7 +141,7 @@ func TestCalculateWithTransfer(t *testing.T) {
 func TestCalculateWithYearlyPayout(t *testing.T) {
 	targetID := int64(2)
 	accounts := []db.Account{
-		{ID: 1, Name: "Savings", Balance: 10000, IsYieldActive: true,
+		{ID: 1, Name: "Savings", Balance: 1000000, IsYieldActive: true,
 			YieldType: "FIXED", YieldMin: 12.0, YieldMax: 12.0,
 			ReinvestmentRate: 0, TargetAccountID: &targetID, PayoutFrequency: "YEARLY"},
 		{ID: targetID, Name: "Checking", Balance: 0, IsYieldActive: false},
@@ -157,10 +157,10 @@ func TestCalculateWithYearlyPayout(t *testing.T) {
 func TestCalculateYieldPayoutsMonthly(t *testing.T) {
 	targetID := int64(2)
 	accounts := []db.Account{
-		{ID: 1, Name: "Savings", Balance: 12000, IsYieldActive: true,
+		{ID: 1, Name: "Savings", Balance: 1200000, IsYieldActive: true,
 			YieldType: "FIXED", YieldMin: 3.0, YieldMax: 3.0,
 			ReinvestmentRate: 0, TargetAccountID: &targetID, PayoutFrequency: "MONTHLY"},
-		{ID: 2, Name: "Checking", Balance: 1000},
+		{ID: 2, Name: "Checking", Balance: 100000},
 	}
 	names := map[int64]string{1: "Savings", 2: "Checking"}
 
@@ -180,10 +180,10 @@ func TestCalculateYieldPayoutsMonthly(t *testing.T) {
 func TestCalculateYieldPayoutsYearly(t *testing.T) {
 	targetID := int64(2)
 	accounts := []db.Account{
-		{ID: 1, Name: "Livret", Balance: 10000, IsYieldActive: true,
+		{ID: 1, Name: "Livret", Balance: 1000000, IsYieldActive: true,
 			YieldType: "FIXED", YieldMin: 2.0, YieldMax: 2.0,
 			ReinvestmentRate: 0, TargetAccountID: &targetID, PayoutFrequency: "YEARLY"},
-		{ID: 2, Name: "Checking", Balance: 500},
+		{ID: 2, Name: "Checking", Balance: 50000},
 	}
 	names := map[int64]string{1: "Livret", 2: "Checking"}
 
@@ -204,7 +204,7 @@ func TestCalculateYieldPayoutsYearly(t *testing.T) {
 func TestCalculateYieldPayoutsRange(t *testing.T) {
 	targetID := int64(2)
 	accounts := []db.Account{
-		{ID: 1, Name: "PEA", Balance: 10000, IsYieldActive: true, YieldType: "RANGE",
+		{ID: 1, Name: "PEA", Balance: 1000000, IsYieldActive: true, YieldType: "RANGE",
 			YieldMin: 2.0, YieldMax: 8.0, ReinvestmentRate: 0, TargetAccountID: &targetID, PayoutFrequency: "MONTHLY"},
 		{ID: 2, Name: "Checking", Balance: 0},
 	}
@@ -224,7 +224,7 @@ func TestCalculateYieldPayoutsRange(t *testing.T) {
 func TestCalculateYieldPayoutsEmptyFrequency(t *testing.T) {
 	targetID := int64(2)
 	accounts := []db.Account{
-		{ID: 1, Name: "Savings", Balance: 12000, IsYieldActive: true,
+		{ID: 1, Name: "Savings", Balance: 1200000, IsYieldActive: true,
 			YieldType: "FIXED", YieldMin: 3.0, YieldMax: 3.0,
 			ReinvestmentRate: 0, TargetAccountID: &targetID, PayoutFrequency: ""},
 		{ID: 2, Name: "Checking", Balance: 0},
@@ -242,7 +242,7 @@ func TestCalculateYieldPayoutsEmptyFrequency(t *testing.T) {
 
 func TestCalculateYieldPayoutsNoTarget(t *testing.T) {
 	accounts := []db.Account{
-		{ID: 1, Name: "Savings", Balance: 5000, IsYieldActive: true,
+		{ID: 1, Name: "Savings", Balance: 500000, IsYieldActive: true,
 			YieldType: "FIXED", YieldMin: 4.0, YieldMax: 4.0,
 			ReinvestmentRate: 100, TargetAccountID: nil, PayoutFrequency: "MONTHLY"},
 	}
@@ -257,7 +257,7 @@ func TestCalculateYieldPayoutsNoTarget(t *testing.T) {
 // TestCalculateMonthlyYieldPayoutRange covers the YieldType=="RANGE" branch.
 func TestCalculateMonthlyYieldPayoutRange(t *testing.T) {
 	accounts := []db.Account{
-		{ID: 1, Name: "PEA", Balance: 12000, IsYieldActive: true, YieldType: "RANGE",
+		{ID: 1, Name: "PEA", Balance: 1200000, IsYieldActive: true, YieldType: "RANGE",
 			YieldMin: 2.0, YieldMax: 10.0, ReinvestmentRate: 0, PayoutFrequency: "MONTHLY"},
 	}
 	// avg rate = (2+10)/2 = 6%, annual = 720, monthly = 60, payout (0% reinvested) = 60
@@ -270,7 +270,7 @@ func TestCalculateMonthlyYieldPayoutRange(t *testing.T) {
 // TestCalculateAnnualYieldPayoutRange covers the YieldType=="RANGE" branch.
 func TestCalculateAnnualYieldPayoutRange(t *testing.T) {
 	accounts := []db.Account{
-		{ID: 1, Name: "PEA", Balance: 10000, IsYieldActive: true, YieldType: "RANGE",
+		{ID: 1, Name: "PEA", Balance: 1000000, IsYieldActive: true, YieldType: "RANGE",
 			YieldMin: 3.0, YieldMax: 7.0, ReinvestmentRate: 0, PayoutFrequency: "YEARLY"},
 	}
 	// avg rate = (3+7)/2 = 5%, annual = 500
@@ -282,11 +282,11 @@ func TestCalculateAnnualYieldPayoutRange(t *testing.T) {
 
 func TestCalculateMonthlySummary(t *testing.T) {
 	accounts := []db.Account{
-		{ID: 1, Name: "Checking", Balance: 5000, IsYieldActive: false},
+		{ID: 1, Name: "Checking", Balance: 500000, IsYieldActive: false},
 	}
 	recurrings := []db.RecurringOperation{
-		{ID: 1, UserID: 1, AccountID: 1, Amount: 3000, DayOfMonth: 1},
-		{ID: 2, UserID: 1, AccountID: 1, Amount: -1500, DayOfMonth: 15},
+		{ID: 1, UserID: 1, AccountID: 1, Amount: 300000, DayOfMonth: 1},
+		{ID: 2, UserID: 1, AccountID: 1, Amount: -150000, DayOfMonth: 15},
 	}
 	summary := projection.CalculateMonthlySummary(recurrings, accounts)
 
@@ -304,7 +304,7 @@ func TestCalculateMonthlySummary(t *testing.T) {
 func TestCalculateMonthlySummaryWithYield(t *testing.T) {
 	targetID := int64(1)
 	accounts := []db.Account{
-		{ID: 1, Name: "Checking", Balance: 12000, IsYieldActive: true,
+		{ID: 1, Name: "Checking", Balance: 1200000, IsYieldActive: true,
 			YieldType: "FIXED", YieldMin: 3.0, YieldMax: 3.0,
 			ReinvestmentRate: 0, TargetAccountID: &targetID, PayoutFrequency: "MONTHLY"},
 	}
@@ -322,13 +322,13 @@ func TestCalculateMonthlySummaryWithYield(t *testing.T) {
 func TestCalculateMonthlySummaryTransferToYield(t *testing.T) {
 	toID := int64(2)
 	accounts := []db.Account{
-		{ID: 1, Name: "Checking", Balance: 5000, IsYieldActive: false},
-		{ID: 2, Name: "Investment", Balance: 10000, IsYieldActive: true,
+		{ID: 1, Name: "Checking", Balance: 500000, IsYieldActive: false},
+		{ID: 2, Name: "Investment", Balance: 1000000, IsYieldActive: true,
 			YieldType: "FIXED", YieldMin: 5.0, YieldMax: 5.0,
 			ReinvestmentRate: 100, PayoutFrequency: "MONTHLY"},
 	}
 	recurrings := []db.RecurringOperation{
-		{ID: 1, UserID: 1, AccountID: 1, ToAccountID: &toID, Amount: 500, DayOfMonth: 1},
+		{ID: 1, UserID: 1, AccountID: 1, ToAccountID: &toID, Amount: 50000, DayOfMonth: 1},
 	}
 	summary := projection.CalculateMonthlySummary(recurrings, accounts)
 	if summary.Transfers != 500 {
@@ -341,7 +341,7 @@ func TestCalculateMonthlySummaryTransferToYield(t *testing.T) {
 func TestCalculate_MonthlyPayoutToTarget(t *testing.T) {
 	targetID := int64(2)
 	accounts := []db.Account{
-		{ID: 1, Name: "Savings", Balance: 12000, IsYieldActive: true,
+		{ID: 1, Name: "Savings", Balance: 1200000, IsYieldActive: true,
 			YieldType: "FIXED", YieldMin: 12, ReinvestmentRate: 0,
 			PayoutFrequency: "MONTHLY", TargetAccountID: &targetID},
 		{ID: 2, Name: "Current", Balance: 0},
@@ -356,7 +356,7 @@ func TestCalculate_MonthlyPayoutToTarget(t *testing.T) {
 func TestCalculateMonthlySummaryWithAnnualYield(t *testing.T) {
 	targetID := int64(1)
 	accounts := []db.Account{
-		{ID: 1, Name: "Livret", Balance: 10000, IsYieldActive: true,
+		{ID: 1, Name: "Livret", Balance: 1000000, IsYieldActive: true,
 			YieldType: "FIXED", YieldMin: 2.0, YieldMax: 2.0,
 			ReinvestmentRate: 0, TargetAccountID: &targetID, PayoutFrequency: "YEARLY"},
 	}
@@ -376,16 +376,16 @@ func BenchmarkCalculate_5years(b *testing.B) {
 	for i := range accounts {
 		accounts[i] = db.Account{
 			ID: int64(i + 1), Name: "Account",
-			Balance: float64((i + 1) * 10000), IsYieldActive: true,
+			Balance: int64((i + 1) * 1000000), IsYieldActive: true,
 			YieldType: "RANGE", YieldMin: 2.0, YieldMax: 8.0,
 			ReinvestmentRate: 80, PayoutFrequency: "MONTHLY",
 			TargetAccountID: &targetID,
 		}
 	}
 	recurrings := []db.RecurringOperation{
-		{ID: 1, UserID: 1, AccountID: 1, Amount: 2000, DayOfMonth: 1},
-		{ID: 2, UserID: 1, AccountID: 1, Amount: -1200, DayOfMonth: 15},
-		{ID: 3, UserID: 1, AccountID: 2, Amount: 500, DayOfMonth: 1},
+		{ID: 1, UserID: 1, AccountID: 1, Amount: 200000, DayOfMonth: 1},
+		{ID: 2, UserID: 1, AccountID: 1, Amount: -120000, DayOfMonth: 15},
+		{ID: 3, UserID: 1, AccountID: 2, Amount: 50000, DayOfMonth: 1},
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -400,15 +400,15 @@ func BenchmarkCalculate_30years(b *testing.B) {
 	for i := range accounts {
 		accounts[i] = db.Account{
 			ID: int64(i + 1), Name: "Account",
-			Balance: float64((i + 1) * 50000), IsYieldActive: true,
+			Balance: int64((i + 1) * 5000000), IsYieldActive: true,
 			YieldType: "RANGE", YieldMin: 1.0, YieldMax: 10.0,
 			ReinvestmentRate: 50, PayoutFrequency: "YEARLY",
 			TargetAccountID: &targetID,
 		}
 	}
 	recurrings := []db.RecurringOperation{
-		{ID: 1, UserID: 1, AccountID: 1, Amount: 3000, DayOfMonth: 1},
-		{ID: 2, UserID: 1, AccountID: 1, Amount: -2000, DayOfMonth: 15},
+		{ID: 1, UserID: 1, AccountID: 1, Amount: 300000, DayOfMonth: 1},
+		{ID: 2, UserID: 1, AccountID: 1, Amount: -200000, DayOfMonth: 15},
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

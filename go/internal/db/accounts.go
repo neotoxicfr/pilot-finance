@@ -8,8 +8,8 @@ import (
 )
 
 // CreateAccountWithYield cree un nouveau compte avec rendement
-func CreateAccountWithYield(userID int64, name string, balance float64, color string, position int, isYieldActive bool, yieldType string, yieldMin, yieldMax float64, reinvestmentRate int, targetAccountID *int64, payoutFrequency string) error {
-	balEnc, err := crypto.EncryptFloat(balance)
+func CreateAccountWithYield(userID int64, name string, balance int64, color string, position int, isYieldActive bool, yieldType string, yieldMin, yieldMax float64, reinvestmentRate int, targetAccountID *int64, payoutFrequency string) error {
+	balEnc, err := crypto.EncryptCents(balance)
 	if err != nil {
 		return fmt.Errorf("encrypt balance: %w", err)
 	}
@@ -34,8 +34,8 @@ func CreateAccountWithYield(userID int64, name string, balance float64, color st
 }
 
 // UpdateAccountWithYield met a jour un compte avec rendement
-func UpdateAccountWithYield(id, userID int64, name string, balance float64, color string, isYieldActive bool, yieldType string, yieldMin, yieldMax float64, reinvestmentRate int, targetAccountID *int64, payoutFrequency string) error {
-	balEnc, err := crypto.EncryptFloat(balance)
+func UpdateAccountWithYield(id, userID int64, name string, balance int64, color string, isYieldActive bool, yieldType string, yieldMin, yieldMax float64, reinvestmentRate int, targetAccountID *int64, payoutFrequency string) error {
+	balEnc, err := crypto.EncryptCents(balance)
 	if err != nil {
 		return fmt.Errorf("encrypt balance: %w", err)
 	}
@@ -61,8 +61,8 @@ func UpdateAccountWithYield(id, userID int64, name string, balance float64, colo
 }
 
 // UpdateAccountBalance met a jour uniquement le solde d'un compte
-func UpdateAccountBalance(id, userID int64, balance float64) error {
-	balEnc, err := crypto.EncryptFloat(balance)
+func UpdateAccountBalance(id, userID int64, balance int64) error {
+	balEnc, err := crypto.EncryptCents(balance)
 	if err != nil {
 		return fmt.Errorf("encrypt balance: %w", err)
 	}
@@ -149,8 +149,8 @@ func ReorderAccounts(userID int64, ids []int64) error {
 }
 
 // CreateRecurring cree une operation recurrente
-func CreateRecurring(userID, accountID int64, toAccountID *int64, description string, amount float64, dayOfMonth int) error {
-	amtEnc, err := crypto.EncryptFloat(amount)
+func CreateRecurring(userID, accountID int64, toAccountID *int64, description string, amount int64, dayOfMonth int) error {
+	amtEnc, err := crypto.EncryptCents(amount)
 	if err != nil {
 		return fmt.Errorf("encrypt amount: %w", err)
 	}
@@ -162,8 +162,8 @@ func CreateRecurring(userID, accountID int64, toAccountID *int64, description st
 }
 
 // UpdateRecurring met a jour une operation recurrente
-func UpdateRecurring(id, userID int64, description string, amount float64, dayOfMonth int, toAccountID *int64) error {
-	amtEnc, err := crypto.EncryptFloat(amount)
+func UpdateRecurring(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
+	amtEnc, err := crypto.EncryptCents(amount)
 	if err != nil {
 		return fmt.Errorf("encrypt amount: %w", err)
 	}
