@@ -16,44 +16,67 @@
 
 :gb: [English version](README.md)
 
-**Pilot Finance** est un cockpit financier personnel conçu pour l'auto-hébergement. Une application simple et sécurisée pour suivre votre patrimoine net, vos rendements et vos opérations récurrentes — en toute confidentialité.
+**Pilot Finance** est un cockpit financier personnel concu pour l'auto-hebergement. Suivez votre patrimoine net, simulez vos rendements avec interets composes et gerez vos operations recurrentes — en toute confidentialite. Toutes les donnees sont chiffrees au repos, aucun service externe n'est jamais contacte.
 
 ---
 
-## Fonctionnalités
+## Fonctionnalites
 
-* **Suivi de patrimoine** — Visualisez l'évolution globale de vos actifs dans le temps.
-* **Simulation de rendements** — Gérez vos intérêts composés et projetez vos gains sur plusieurs années, avec versement automatique des intérêts non réinvestis vers un compte cible.
-* **Opérations récurrentes** — Suivez vos revenus et dépenses mensuels avec projection automatique.
-* **Multi-langue & Multi-devise** — Interface disponible en français et en anglais. Devise d'affichage configurable par utilisateur (EUR, USD, GBP, CHF, JPY, CAD, AUD).
-* **Sécurité par défaut** :
-    * Build **`@alpinejs/csp`** — pas d'`unsafe-eval` dans la CSP ; tous les composants Alpine enregistrés côté serveur
-    * **Content Security Policy** stricte avec nonces dynamiques par requête — pas d'`unsafe-inline` pour les scripts
-    * **`X-Frame-Options: SAMEORIGIN`** + **`Permissions-Policy`** — protection clickjacking et restriction des API navigateur
-    * **Protection CSRF** — validation des headers Origin/Referer sur toutes les requêtes mutantes
-    * Chiffrement **AES-256-GCM** de toutes les données sensibles (emails, soldes, montants, taux, IPs, user agents)
-    * Hashing des mots de passe **bcrypt** — coût 12, minimum 12 caractères, complexité 5 critères, upgrade automatique du coût au login
-    * **Session versioning** — déconnexion automatique de tous les appareils en cas de changement de mot de passe
-    * **Rate limiting** multi-niveaux — 120 req/min global, 10 req/min sur les routes d'authentification
-    * Support natif des **Passkeys** (WebAuthn) et **2FA** (TOTP)
-    * **Journal d'audit** — traçabilité complète des événements d'authentification et de compte (admin)
-    * **API Health Check** — endpoint de monitoring de la base de données et de la mémoire
-* **Email** (optionnel) — Vérification du compte à l'inscription et récupération de mot de passe.
-* **Responsive** — Expérience fluide sur tous les supports. Glisser-déposer sur desktop, boutons de déplacement sur mobile. Compatible PWA.
-* **Léger** — Image Docker ~46 Mo, ~30 Mo de RAM, démarrage <1s. JS chargé par page (pas de bundle global). Zéro requête CDN.
+### Coeur
+
+- **Suivi de patrimoine** — Visualisez l'evolution globale de vos actifs dans le temps
+- **Simulation de rendements** — Projection des interets composes sur plusieurs annees, avec versement automatique des interets non reinvestis vers un compte cible
+- **Operations recurrentes** — Suivi des revenus et depenses mensuels avec projection automatique
+- **Multi-langue** — Interface en francais et en anglais
+- **Multi-devise** — EUR, USD, GBP, CHF, JPY, CAD, AUD (configurable par utilisateur)
+
+### Securite
+
+- Chiffrement **AES-256-GCM** de toutes les donnees sensibles (emails, soldes, montants, taux, IPs, user agents)
+- Hashing **bcrypt** des mots de passe (cout 12, minimum 12 caracteres, complexite 5 criteres)
+- Support **Passkeys** (WebAuthn) et **2FA** (TOTP)
+- **CSP stricte** — nonces dynamiques par requete, build `@alpinejs/csp` (pas d'`unsafe-eval`, pas d'`unsafe-inline`)
+- **Protection CSRF** — validation Origin/Referer sur toutes les requetes mutantes
+- **Rate limiting** — 120 req/min global, 10 req/min sur les routes d'authentification
+- **Session versioning** — deconnexion automatique sur tous les appareils apres changement de mot de passe
+- **Journal d'audit** — tracabilite complete des evenements d'authentification et de compte (vue admin)
+- Support **Docker Secrets** pour toutes les variables sensibles
+
+### Qualite
+
+- **100% de couverture de tests** appliquee en CI
+- **Tests E2E** — Playwright sur Chromium, Firefox, WebKit, Mobile Chrome
+- **Accessibilite** — audit axe-core integre aux E2E, contraste WCAG AA, support `prefers-reduced-motion`
+- **Lighthouse CI** — seuil de performance a 80%
+- **CodeQL** + scan de conteneur **Trivy** + **Dependabot**
+- **API Health Check** — monitoring base de donnees et memoire
+- **Prometheus `/metrics`** — latence, taux d'erreurs, stats DB
+
+### Design
+
+- **Responsive** — experience fluide sur tous les supports, compatible PWA
+- **Dark mode** — automatique (systeme) ou basculement manuel
+- **Glisser-deposer** sur desktop, boutons de deplacement sur mobile
+- **Leger** — image Docker ~46 Mo, ~30 Mo de RAM, demarrage <1s. Zero requete CDN
 
 ---
 
-## Installation avec Docker
+## Demarrage rapide
 
-La méthode recommandée est **Docker Compose**.
+### Prerequis
 
-### Prérequis
+- Un nom de domaine (indispensable pour les Passkeys et HTTPS)
+- Un reverse-proxy (Traefik, Nginx Proxy Manager, Cloudflare Tunnel, etc.)
 
-* Un nom de domaine (indispensable pour les Passkeys et HTTPS).
-* Un reverse-proxy déjà configuré (Traefik, Nginx Proxy Manager, Cloudflare Tunnel, etc.).
+### 1. Generer les cles de chiffrement
 
-### `docker-compose.yml`
+```bash
+openssl rand -hex 32  # ENCRYPTION_KEY
+openssl rand -hex 32  # BLIND_INDEX_KEY
+openssl rand -hex 32  # AUTH_SECRET
+```
+
+### 2. Creer `docker-compose.yml`
 
 ```yaml
 services:
@@ -67,17 +90,17 @@ services:
       - ALL
     environment:
       - TZ=Europe/Paris
-      - HOST=pilot.votre-domaine.tld  # Votre domaine sans https (ex: pilot.exemple.com)
-      - ALLOW_REGISTER=true           # Mettre à false après votre inscription initiale
-      - SMTP_HOST=                    # Optionnel : activer les emails
+      - HOST=pilot.votre-domaine.tld
+      - ALLOW_REGISTER=true
+      - SMTP_HOST=
       - SMTP_PORT=587
       - SMTP_USER=
       - SMTP_PASS=
       - SMTP_FROM=
       - DATABASE_URL=file:/data/pilot.db
-      - ENCRYPTION_KEY=               # Obligatoire : openssl rand -hex 32
-      - BLIND_INDEX_KEY=              # Obligatoire : openssl rand -hex 32
-      - AUTH_SECRET=                  # Obligatoire : openssl rand -hex 32
+      - ENCRYPTION_KEY=
+      - BLIND_INDEX_KEY=
+      - AUTH_SECRET=
     volumes:
       - ./data:/data
     healthcheck:
@@ -88,80 +111,56 @@ services:
       start_period: 10s
 ```
 
-```bash
-docker compose up -d
-```
-
-L'application écoute sur le port **3000** à l'intérieur du conteneur.
-
-### Démarrage rapide (étape par étape)
-
-1. **Générer les clés de chiffrement** (exécuter chaque commande une fois, sauvegarder le résultat) :
-   ```bash
-   openssl rand -hex 32  # → ENCRYPTION_KEY
-   openssl rand -hex 32  # → BLIND_INDEX_KEY
-   openssl rand -hex 32  # → AUTH_SECRET
-   ```
-
-2. **Créer le dossier du projet** :
-   ```bash
-   mkdir -p ~/pilot-finance/data
-   cd ~/pilot-finance
-   ```
-
-3. **Créer `docker-compose.yml`** avec le modèle ci-dessus, en remplaçant les clés et le domaine.
-
-4. **Démarrer l'application** :
-   ```bash
-   docker compose up -d
-   ```
-
-5. **Configurer votre reverse proxy** pour rediriger le trafic de votre domaine vers `http://localhost:3000`.
-
-6. **Ouvrir votre domaine** dans un navigateur, créer votre compte, puis passer `ALLOW_REGISTER=false` et redémarrer :
-   ```bash
-   docker compose down
-   docker compose up -d
-   ```
-
-### Mise à jour
+### 3. Demarrer
 
 ```bash
-docker compose pull
-docker compose up -d
+mkdir -p data && docker compose up -d
 ```
 
-### Sauvegarde
+### 4. S'inscrire et verrouiller
 
-Vos données sont stockées dans `./data/pilot.db`. Sauvegardez ce fichier régulièrement. L'application crée des sauvegardes rotatives automatiques au démarrage.
+Ouvrez votre domaine, creez votre compte, puis passez `ALLOW_REGISTER=false` et redemarrez :
+
+```bash
+docker compose down && docker compose up -d
+```
+
+L'application ecoute sur le port **3000** a l'interieur du conteneur. Configurez votre reverse-proxy pour y rediriger le trafic.
+
+---
+
+## Mise a jour
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+---
+
+## Sauvegarde
+
+Vos donnees sont dans `./data/pilot.db`. Sauvegardez ce fichier regulierement. L'application cree aussi des sauvegardes rotatives automatiques au demarrage.
 
 ---
 
 ## Variables d'environnement
 
-| Variable | Description |
-| :--- | :--- |
-| **HOST** | Votre nom de domaine complet sans le protocole (ex: `pilot.exemple.com`). Indispensable pour les Passkeys et les liens mail. |
-| **ENCRYPTION_KEY** | **Critique.** Clé hex de 32 octets pour le chiffrement AES. Si perdue, les données chiffrées sont irrécupérables. Générer avec `openssl rand -hex 32`. |
-| **BLIND_INDEX_KEY** | **Critique.** Clé hex de 32 octets pour les index de recherche sécurisés (emails). Générer avec `openssl rand -hex 32`. |
-| **AUTH_SECRET** | **Critique.** Clé d'au moins 32 octets pour la signature des cookies de session JWT. Générer avec `openssl rand -hex 32`. |
-| **ALLOW_REGISTER** | Permet ou bloque la création de nouveaux comptes. Passer à `false` après votre inscription. |
-| **DATABASE_URL** | Chemin vers votre base SQLite (ex: `file:/data/pilot.db`). |
-| **TZ** | Fuseau horaire du conteneur (ex: `Europe/Paris`) pour la précision des dates. |
-| **SMTP_HOST / PORT / USER / PASS / FROM** | Optionnel. Active les fonctionnalités email (vérification, réinitialisation). |
+| Variable | Requis | Description |
+| :--- | :---: | :--- |
+| `HOST` | Oui | FQDN sans protocole (ex : `pilot.exemple.com`). Utilise pour les Passkeys et les liens mail. |
+| `ENCRYPTION_KEY` | Oui | Cle hex de 32 octets pour le chiffrement AES. **Si perdue, les donnees chiffrees sont irrecuperables.** |
+| `BLIND_INDEX_KEY` | Oui | Cle hex de 32 octets pour les index de recherche securises. |
+| `AUTH_SECRET` | Oui | Cle hex de 32+ octets pour la signature des sessions JWT. |
+| `DATABASE_URL` | Oui | Chemin SQLite (ex : `file:/data/pilot.db`). |
+| `ALLOW_REGISTER` | Non | `true` / `false`. Passer a `false` apres l'inscription initiale. |
+| `TZ` | Non | Fuseau horaire du conteneur (ex : `Europe/Paris`). |
+| `SMTP_HOST` | Non | Serveur SMTP. Active la verification email et la recuperation de mot de passe. |
+| `SMTP_PORT` | Non | Port SMTP (defaut : 587). |
+| `SMTP_USER` | Non | Identifiant SMTP. |
+| `SMTP_PASS` | Non | Mot de passe SMTP. |
+| `SMTP_FROM` | Non | Adresse email d'expedition. |
 
-> **Docker Secrets** : Les variables sensibles supportent le suffixe `_FILE` (ex : `AUTH_SECRET_FILE=/run/secrets/auth_secret`). L'app lit le fichier et utilise son contenu. Supportées : `AUTH_SECRET`, `ENCRYPTION_KEY`, `BLIND_INDEX_KEY`, `SMTP_PASS`, `DATABASE_URL`.
-
----
-
-## Sécurité et Confidentialité
-
-* **Zéro stockage en clair** — Toutes les données sensibles (emails, soldes, montants, taux, IPs, user agents) sont chiffrées avec AES-256-GCM. Seul votre serveur détient la clé.
-* **Zéro dépendance externe** — Aucune requête CDN à l'exécution. Tous les assets JS et CSS sont compilés et servis localement.
-* **CSP stricte** — Nonces dynamiques par requête + build `@alpinejs/csp` (pas d'`unsafe-eval`). Pas d'`unsafe-inline` dans `script-src`.
-* **Vérification au démarrage** — Le serveur refuse de démarrer si les clés de chiffrement sont absentes ou trop courtes. L'intégrité du schéma est vérifiée à chaque démarrage.
-* **Passkeys** — WebAuthn offre une authentification résistante au phishing sans mémorisation de mot de passe.
-* **Codes d'erreur structurés** — Chaque réponse d'erreur inclut un header `X-Error-Code` pour un traitement programmatique.
+> **Docker Secrets** : Les variables sensibles supportent le suffixe `_FILE` (ex : `AUTH_SECRET_FILE=/run/secrets/auth_secret`). L'app lit le contenu du fichier au demarrage. Supportees : `AUTH_SECRET`, `ENCRYPTION_KEY`, `BLIND_INDEX_KEY`, `SMTP_PASS`, `DATABASE_URL`.
 
 ---
 
@@ -171,42 +170,38 @@ Vos données sont stockées dans `./data/pilot.db`. Sauvegardez ce fichier régu
 |---|---|
 | Backend | Go 1.26 + chi router |
 | Frontend | HTMX 2.0 + Alpine.js 3.15 (build CSP) + Tailwind CSS v4 |
-| Base de données | SQLite (mode WAL) + backups rotatifs automatiques |
+| Base de donnees | SQLite (mode WAL) + backups rotatifs automatiques |
 | Graphiques | Chart.js 4.5 |
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
-| CI/CD | GitHub Actions (tests, E2E, CodeQL, Trivy, image GHCR, auto-release) |
+| CI/CD | GitHub Actions (tests unitaires, E2E, CodeQL, Trivy, Lighthouse, GHCR, auto-release) |
 | E2E | Playwright (Chromium, Firefox, WebKit, Mobile Chrome) |
-| Image Docker | ~46 Mo (base alpine:3.23) |
+| Docker | Image ~46 Mo (base alpine:3.23) |
 
 ---
 
-## Feuille de route
+## Securite et confidentialite
 
-| Catégorie | Élément | Statut |
-|---|---|---|
-| **UI/UX** | Refonte visuelle — glassmorphism, dark mode, micro-interactions | Fait |
-| **Sécurité** | Rate limiting par compte (protection brute-force distribué) | Fait |
-| **Sécurité** | Verrouillage temporaire du compte après N échecs de connexion | Fait |
-| **Sécurité** | Directive CSP `report-to` vers `/api/csp-report` en production | Fait |
-| **Sécurité** | Forcer TLS sur les connexions SMTP sortantes | Fait |
-| **Sécurité** | Scan de vulnérabilités Docker (Trivy) en CI | Fait |
-| **Monitoring** | Endpoint Prometheus `/metrics` (latence, erreurs, stats DB) | Fait |
-| **Testing** | Tests E2E navigateur — Chromium, Firefox, WebKit, Mobile (Playwright) | Fait |
-| **Testing** | Audit d'accessibilité (axe-core) intégré aux tests E2E | Fait |
-| **CI/CD** | Tests E2E dans GitHub Actions avec matrice multi-navigateurs | Fait |
-| **CI/CD** | Audit de performance Lighthouse en CI (seuil 80%) | Fait |
-| **CI/CD** | Changelog automatique avec release-please | Fait |
-| **Testing** | Tests de charge k6 (smoke + stress) | Fait |
-| **Docs** | Guide de contribution avec convention de commit | Fait |
+- **Zero stockage en clair** — toutes les donnees sensibles chiffrees avec AES-256-GCM
+- **Zero dependance externe** — pas de CDN, pas d'analytics, pas de telemetrie. Tous les assets servis localement
+- **Verification au demarrage** — le serveur refuse de demarrer si les cles sont absentes ou trop courtes
+- **Codes d'erreur structures** — chaque reponse d'erreur inclut un header `X-Error-Code`
+
+Politique de securite complete : [SECURITY.md](SECURITY.md)
 
 ---
 
-## Crédits
+## Contribuer
 
-Ce projet a été conçu avec l'assistance d'une Intelligence Artificielle pour la structure et l'optimisation du code. Le code final est purement applicatif et n'utilise aucun algorithme d'IA ou service tiers lors de son exécution. Votre cockpit reste 100% local et privé.
+Voir [CONTRIBUTING.md](CONTRIBUTING.md) pour la configuration de developpement, les conventions de commit et les regles de code.
+
+---
+
+## Credits
+
+Concu avec l'assistance d'une Intelligence Artificielle pour la structure et l'optimisation du code. L'application finale est purement deterministe — aucun algorithme d'IA ou service tiers a l'execution. Vos donnees restent 100% locales et privees.
 
 ---
 
 ## Licence
 
-Distribué sous licence **MIT**.
+[MIT](LICENSE)

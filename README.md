@@ -14,46 +14,69 @@
 ![Dependabot](https://img.shields.io/badge/dependabot-active-brightgreen?logo=dependabot&label=Dependabot)
 ![GitHub License](https://img.shields.io/github/license/neotoxicfr/pilot-finance?color=brightgreen)
 
-:fr: [Version française](README.fr.md)
+:fr: [Version francaise](README.fr.md)
 
-**Pilot Finance** is a personal financial cockpit designed for self-hosting. A simple and secure application to track your net worth, yields and recurring operations — with complete privacy.
+**Pilot Finance** is a self-hosted personal finance cockpit. Track your net worth, simulate yields with compound interest, and manage recurring operations — with complete privacy. All data is encrypted at rest, no external service is ever contacted at runtime.
 
 ---
 
 ## Features
 
-* **Net worth tracking** — Visualize the overall evolution of your assets over time.
-* **Yield simulation** — Manage compound interest and project gains over multiple years, with automatic payment of non-reinvested interest to a target account.
-* **Recurring operations** — Track monthly income and expenses with automatic projection.
-* **Multi-language & Multi-currency** — Interface available in French and English. Currency display configurable per user (EUR, USD, GBP, CHF, JPY, CAD, AUD).
-* **Security by default** :
-    * **`@alpinejs/csp`** build — no `unsafe-eval` in CSP; all Alpine components registered server-side
-    * Strict **Content Security Policy** with per-request dynamic nonces — no `unsafe-inline` for scripts
-    * **`X-Frame-Options: SAMEORIGIN`** + **`Permissions-Policy`** — clickjacking protection and browser API restrictions
-    * **CSRF protection** — Origin/Referer header validation on all mutating requests
-    * **AES-256-GCM** encryption of all sensitive data (emails, balances, amounts, rates, IPs, user agents)
-    * **bcrypt** password hashing — cost 12, 12-character minimum, 5-criteria complexity validation, automatic cost upgrade on login
-    * **Session versioning** — automatic logout from all devices on password change
-    * Multi-level **rate limiting** — global 120 req/min, auth routes 10 req/min
-    * Native **Passkeys** (WebAuthn) and **2FA** (TOTP) support
-    * **Audit log** — full traceability of authentication and account events (admin)
-    * **Health Check API** — database and memory monitoring endpoint
-* **Email** (optional) — Account verification on registration and password recovery.
-* **Responsive** — Smooth experience on all devices. Drag & drop reorder on desktop, tap-to-move arrows on mobile. PWA-ready.
-* **Lightweight** — ~46 MB Docker image, ~30 MB RAM, <1s start time. JS loaded per-page (no global bundle). Zero CDN requests.
+### Core
+
+- **Net worth tracking** — Visualize the overall evolution of your assets over time
+- **Yield simulation** — Compound interest projection over multiple years, with automatic payment of non-reinvested interest to a target account
+- **Recurring operations** — Monthly income & expense tracking with automatic projection
+- **Multi-language** — French and English interface
+- **Multi-currency** — EUR, USD, GBP, CHF, JPY, CAD, AUD (configurable per user)
+
+### Security
+
+- **AES-256-GCM** encryption of all sensitive data (emails, balances, amounts, rates, IPs, user agents)
+- **bcrypt** password hashing (cost 12, 12-char minimum, 5-criteria complexity)
+- **Passkeys** (WebAuthn) and **2FA** (TOTP) support
+- **Strict CSP** — per-request nonces, `@alpinejs/csp` build (no `unsafe-eval`, no `unsafe-inline`)
+- **CSRF protection** — Origin/Referer validation on all mutating requests
+- **Rate limiting** — 120 req/min global, 10 req/min on auth routes
+- **Session versioning** — automatic logout on all devices after password change
+- **Audit log** — full traceability of authentication and account events (admin view)
+- **Docker Secrets** support for all sensitive environment variables
+
+### Quality
+
+- **100% test coverage** enforced in CI
+- **E2E tests** — Playwright across Chromium, Firefox, WebKit, Mobile Chrome
+- **Accessibility** — axe-core audit integrated in E2E, WCAG AA contrast, `prefers-reduced-motion` support
+- **Lighthouse CI** — performance threshold at 80%
+- **CodeQL** + **Trivy** container scanning + **Dependabot**
+- **Health check API** — database and memory monitoring endpoint
+- **Prometheus `/metrics`** — request latency, error rates, DB stats
+
+### Design
+
+- **Responsive** — smooth experience on all devices, PWA-ready
+- **Dark mode** — automatic (system) or manual toggle
+- **Drag & drop** reorder on desktop, tap-to-move arrows on mobile
+- **Lightweight** — ~46 MB Docker image, ~30 MB RAM, <1s start. Zero CDN requests
 
 ---
 
-## Installation with Docker
-
-The recommended method is **Docker Compose**.
+## Quick Start
 
 ### Prerequisites
 
-* A domain name (required for Passkeys and HTTPS).
-* A reverse proxy already configured (Traefik, Nginx Proxy Manager, Cloudflare Tunnel, etc.).
+- A domain name (required for Passkeys and HTTPS)
+- A reverse proxy (Traefik, Nginx Proxy Manager, Cloudflare Tunnel, etc.)
 
-### `docker-compose.yml`
+### 1. Generate encryption keys
+
+```bash
+openssl rand -hex 32  # ENCRYPTION_KEY
+openssl rand -hex 32  # BLIND_INDEX_KEY
+openssl rand -hex 32  # AUTH_SECRET
+```
+
+### 2. Create `docker-compose.yml`
 
 ```yaml
 services:
@@ -67,17 +90,17 @@ services:
       - ALL
     environment:
       - TZ=Europe/Paris
-      - HOST=pilot.your-domain.tld  # Your domain without https (e.g. pilot.example.com)
-      - ALLOW_REGISTER=true         # Set to false after your initial registration
-      - SMTP_HOST=                  # Optional: enable emails
+      - HOST=pilot.your-domain.tld
+      - ALLOW_REGISTER=true
+      - SMTP_HOST=
       - SMTP_PORT=587
       - SMTP_USER=
       - SMTP_PASS=
       - SMTP_FROM=
       - DATABASE_URL=file:/data/pilot.db
-      - ENCRYPTION_KEY=             # Required: openssl rand -hex 32
-      - BLIND_INDEX_KEY=            # Required: openssl rand -hex 32
-      - AUTH_SECRET=                # Required: openssl rand -hex 32
+      - ENCRYPTION_KEY=
+      - BLIND_INDEX_KEY=
+      - AUTH_SECRET=
     volumes:
       - ./data:/data
     healthcheck:
@@ -88,80 +111,56 @@ services:
       start_period: 10s
 ```
 
-```bash
-docker compose up -d
-```
-
-The application listens on port **3000** inside the container.
-
-### Quick start (step by step)
-
-1. **Generate your encryption keys** (run each command once, save the output):
-   ```bash
-   openssl rand -hex 32  # → ENCRYPTION_KEY
-   openssl rand -hex 32  # → BLIND_INDEX_KEY
-   openssl rand -hex 32  # → AUTH_SECRET
-   ```
-
-2. **Create the project folder**:
-   ```bash
-   mkdir -p ~/pilot-finance/data
-   cd ~/pilot-finance
-   ```
-
-3. **Create `docker-compose.yml`** with the template above, replacing the keys and domain.
-
-4. **Start the application**:
-   ```bash
-   docker compose up -d
-   ```
-
-5. **Configure your reverse proxy** to forward traffic from your domain to `http://localhost:3000`.
-
-6. **Open your domain** in a browser, register your account, then set `ALLOW_REGISTER=false` and restart:
-   ```bash
-   docker compose down
-   docker compose up -d
-   ```
-
-### Updating
+### 3. Start
 
 ```bash
-docker compose pull
-docker compose up -d
+mkdir -p data && docker compose up -d
 ```
 
-### Backup
+### 4. Register & lock
 
-Your data is stored in `./data/pilot.db`. Back up this file regularly. The application creates automatic rotating backups at startup.
+Open your domain, create your account, then set `ALLOW_REGISTER=false` and restart:
+
+```bash
+docker compose down && docker compose up -d
+```
+
+The application listens on port **3000** inside the container. Point your reverse proxy there.
 
 ---
 
-## Environment variables
+## Updating
 
-| Variable | Description |
-| :--- | :--- |
-| **HOST** | Your fully qualified domain name without the protocol (e.g. `pilot.example.com`). Required for Passkeys and email links. |
-| **ENCRYPTION_KEY** | **Critical.** 32-byte hex key for AES data encryption. If lost, encrypted data is unrecoverable. Generate with `openssl rand -hex 32`. |
-| **BLIND_INDEX_KEY** | **Critical.** 32-byte hex key for secure email search indexes. Generate with `openssl rand -hex 32`. |
-| **AUTH_SECRET** | **Critical.** Key of at least 32 bytes for JWT session signing. Generate with `openssl rand -hex 32`. |
-| **ALLOW_REGISTER** | Allows or blocks new account creation. Set to `false` after your initial registration. |
-| **DATABASE_URL** | Path to your SQLite database (e.g. `file:/data/pilot.db`). |
-| **TZ** | Container timezone (e.g. `Europe/Paris`) for accurate operation dates. |
-| **SMTP_HOST / PORT / USER / PASS / FROM** | Optional. Enable email features (verification, password reset). |
-
-> **Docker Secrets**: Sensitive variables support the `_FILE` suffix (e.g. `AUTH_SECRET_FILE=/run/secrets/auth_secret`). The app reads the file and uses its content. Supported: `AUTH_SECRET`, `ENCRYPTION_KEY`, `BLIND_INDEX_KEY`, `SMTP_PASS`, `DATABASE_URL`.
+```bash
+docker compose pull && docker compose up -d
+```
 
 ---
 
-## Security & Privacy
+## Backup
 
-* **Zero plaintext storage** — All sensitive data (emails, balances, amounts, rates, IPs, user agents) is encrypted with AES-256-GCM. Only your server holds the key.
-* **Zero external dependency** — No CDN requests at runtime. All JS and CSS assets are compiled and served locally.
-* **Strict CSP** — Per-request nonces + `@alpinejs/csp` build (no `unsafe-eval`). No `unsafe-inline` in `script-src`.
-* **Startup verification** — The server refuses to start if encryption keys are missing or too short. Schema integrity is verified at every startup.
-* **Passkeys** — WebAuthn provides phishing-resistant authentication without passwords.
-* **Structured error codes** — Every error response includes an `X-Error-Code` header for programmatic error handling.
+Your data lives in `./data/pilot.db`. Back it up regularly. The application also creates automatic rotating backups at startup.
+
+---
+
+## Environment Variables
+
+| Variable | Required | Description |
+| :--- | :---: | :--- |
+| `HOST` | Yes | FQDN without protocol (e.g. `pilot.example.com`). Used for Passkeys and email links. |
+| `ENCRYPTION_KEY` | Yes | 32-byte hex key for AES data encryption. **If lost, encrypted data is unrecoverable.** |
+| `BLIND_INDEX_KEY` | Yes | 32-byte hex key for secure email search indexes. |
+| `AUTH_SECRET` | Yes | 32+ byte hex key for JWT session signing. |
+| `DATABASE_URL` | Yes | SQLite path (e.g. `file:/data/pilot.db`). |
+| `ALLOW_REGISTER` | No | `true` / `false`. Set to `false` after initial registration. |
+| `TZ` | No | Container timezone (e.g. `Europe/Paris`). |
+| `SMTP_HOST` | No | SMTP server. Enables email verification and password recovery. |
+| `SMTP_PORT` | No | SMTP port (default: 587). |
+| `SMTP_USER` | No | SMTP username. |
+| `SMTP_PASS` | No | SMTP password. |
+| `SMTP_FROM` | No | Sender email address. |
+
+> **Docker Secrets**: Sensitive variables support the `_FILE` suffix (e.g. `AUTH_SECRET_FILE=/run/secrets/auth_secret`). The app reads the file content at startup. Supported: `AUTH_SECRET`, `ENCRYPTION_KEY`, `BLIND_INDEX_KEY`, `SMTP_PASS`, `DATABASE_URL`.
 
 ---
 
@@ -174,39 +173,35 @@ Your data is stored in `./data/pilot.db`. Back up this file regularly. The appli
 | Database | SQLite (WAL mode) + automatic rotating backups |
 | Charts | Chart.js 4.5 |
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
-| CI/CD | GitHub Actions (tests, E2E, CodeQL, Trivy, GHCR image, auto-release) |
+| CI/CD | GitHub Actions (unit tests, E2E, CodeQL, Trivy, Lighthouse, GHCR, auto-release) |
 | E2E | Playwright (Chromium, Firefox, WebKit, Mobile Chrome) |
-| Docker image | ~46 MB (alpine:3.23 base) |
+| Docker | ~46 MB image (alpine:3.23 base) |
 
 ---
 
-## Roadmap
+## Security & Privacy
 
-| Category | Item | Status |
-|---|---|---|
-| **UI/UX** | Visual overhaul — glassmorphism, dark mode, micro-interactions | Done |
-| **Security** | Per-account rate limiting (protect against distributed brute-force) | Done |
-| **Security** | Temporary account lock-out after N failed login attempts | Done |
-| **Security** | CSP `report-to` directive pointing to `/api/csp-report` in production | Done |
-| **Security** | Force TLS on outbound SMTP connections | Done |
-| **Security** | Docker image vulnerability scan (Trivy) in CI | Done |
-| **Monitoring** | Prometheus `/metrics` endpoint (request latency, error rates, DB stats) | Done |
-| **Testing** | E2E browser tests — Chromium, Firefox, WebKit, Mobile (Playwright) | Done |
-| **Testing** | Accessibility audit (axe-core) integrated in E2E suite | Done |
-| **CI/CD** | E2E tests in GitHub Actions with multi-browser matrix | Done |
-| **CI/CD** | Lighthouse performance audit in CI (threshold 80%) | Done |
-| **CI/CD** | Automatic changelog with release-please | Done |
-| **Testing** | k6 load tests (smoke + stress) | Done |
-| **Docs** | Contributing guide with commit convention | Done |
+- **Zero plaintext storage** — all sensitive data encrypted with AES-256-GCM
+- **Zero external dependency** — no CDN, no analytics, no telemetry. All assets served locally
+- **Startup verification** — server refuses to start with missing or weak encryption keys
+- **Structured error codes** — every error response includes an `X-Error-Code` header
+
+Full security policy: [SECURITY.md](SECURITY.md)
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, commit conventions, and code guidelines.
 
 ---
 
 ## Credits
 
-This project was designed with AI assistance for code structure and optimization. The final code is purely applicative and uses no AI algorithms or third-party data processing at runtime. Your cockpit remains 100% local and private.
+Built with AI assistance for code structure and optimization. The final application is purely deterministic — no AI algorithms or third-party data processing at runtime. Your data stays 100% local and private.
 
 ---
 
 ## License
 
-Distributed under the **MIT** license.
+[MIT](LICENSE)
