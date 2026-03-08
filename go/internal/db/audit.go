@@ -22,6 +22,7 @@ const (
 	AuditMFADisable    = "MFA_DISABLE"
 	AuditPasskeyAdd    = "PASSKEY_ADD"
 	AuditPasskeyRemove = "PASSKEY_REMOVE"
+	AuditPasskeyRename = "PASSKEY_RENAME"
 	AuditAccountCreate = "ACCOUNT_CREATE"
 	AuditAccountUpdate = "ACCOUNT_UPDATE"
 	AuditAccountDelete = "ACCOUNT_DELETE"

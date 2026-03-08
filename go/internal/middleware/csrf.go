@@ -29,6 +29,10 @@ func ValidateOrigin(host string) func(http.Handler) http.Handler {
 					if effectiveHost == "" {
 						effectiveHost = "localhost"
 					}
+					if !strings.HasPrefix(effectiveHost, "localhost") && !strings.HasPrefix(effectiveHost, "127.0.0.1") {
+						http.Error(w, "HOST env required in production", http.StatusForbidden)
+						return
+					}
 				}
 
 				// Build expected origin prefixes (support both http and https for localhost/dev)

@@ -62,12 +62,12 @@ func HealthCheck(w http.ResponseWriter, r *http.Request) {
 
 // CSPReport reçoit les rapports de violation CSP et les log
 func CSPReport(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(r.Body, 10240))
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
 
 	if len(body) > 0 {
 		slog.Warn("csp-violation", "report", string(body), "ip", r.RemoteAddr, "ua", r.UserAgent())

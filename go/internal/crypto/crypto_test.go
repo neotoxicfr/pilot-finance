@@ -548,6 +548,16 @@ func TestNeedsRehashInvalidHash(t *testing.T) {
 	}
 }
 
+func TestEncrypt_NilCipherBlock(t *testing.T) {
+	ResetForTest()
+	// cipherBlock is nil after ResetForTest (Init not called)
+	_, err := Encrypt("test")
+	if err != ErrDecryption {
+		t.Errorf("want ErrDecryption, got %v", err)
+	}
+	mustInit(t) // restore for subsequent tests
+}
+
 // --- error branches via hooks / key corruption ---
 
 func TestEncrypt_NewCipherError(t *testing.T) {

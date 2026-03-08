@@ -129,7 +129,7 @@
                                         <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">
                                             {{index .T "accounts.target_account"}}
                                         </label>
-                                        <select name="targetAccountId"
+                                        <select name="targetAccountId" id="target-account-select"
                                                 x-model="targetAccountId"
                                                 class="w-full bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-emerald-500">
                                             <option value="">{{index .T "accounts.no_target"}}</option>
@@ -227,7 +227,7 @@
                                     <option value="income">{{index .T "recurring.type_income"}}</option>
                                     <option value="transfer">{{index .T "recurring.type_transfer"}}</option>
                                 </select>
-                                <select name="accountId" required
+                                <select name="accountId" id="recurring-account-select" required
                                         x-model="accountId"
                                         class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
                                     <option value="">{{index .T "recurring.account_placeholder"}}</option>
@@ -240,7 +240,7 @@
                                 <div class="w-28 shrink-0 flex justify-end text-muted-foreground/50">
                                     {{template "icon-arrow-right" dict "Size" 14}}
                                 </div>
-                                <select name="toAccountId"
+                                <select name="toAccountId" id="recurring-to-account-select"
                                         x-model="toAccountId"
                                         class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
                                     <option value="">{{index .T "recurring.account_placeholder"}}</option>
@@ -580,4 +580,22 @@ document.addEventListener('alpine:init', () => {
     <p class="font-semibold text-foreground mb-1">{{index .T "accounts.empty_title"}}</p>
     <p class="text-sm text-muted-foreground">{{index .T "accounts.empty_subtitle"}}</p>
 </div>
+{{end}}
+
+{{define "account-options-recurring"}}
+<select id="recurring-account-select" hx-swap-oob="innerHTML">
+    <option value="">{{index .T "recurring.account_placeholder"}}</option>
+    {{range .Accounts}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+</select>
+<select id="recurring-to-account-select" hx-swap-oob="innerHTML">
+    <option value="">{{index .T "recurring.account_placeholder"}}</option>
+    {{range .Accounts}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+</select>
+{{end}}
+
+{{define "account-options-target"}}
+<select id="target-account-select" hx-swap-oob="innerHTML">
+    <option value="">{{index .T "accounts.no_target"}}</option>
+    {{range .Accounts}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+</select>
 {{end}}

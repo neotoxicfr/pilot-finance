@@ -288,9 +288,8 @@ func TestRenderAccountsList_GetAccountsError(t *testing.T) {
 	}), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
 	CreateAccount(rr, req)
-	// Handler continues (logs error) — response is still written
-	if rr.Code == http.StatusInternalServerError {
-		t.Errorf("renderAccountsList error should be non-fatal, but got 500")
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("renderAccountsList accounts error should return 500, got %d", rr.Code)
 	}
 }
 
@@ -311,8 +310,8 @@ func TestRenderAccountsList_GetRecurringError(t *testing.T) {
 	}), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
 	CreateAccount(rr, req)
-	if rr.Code == http.StatusInternalServerError {
-		t.Errorf("renderAccountsList recurring error should be non-fatal, but got 500")
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("renderAccountsList recurring error should return 500, got %d", rr.Code)
 	}
 }
 
@@ -771,9 +770,8 @@ func TestRenderRecurringTable_RecurringError(t *testing.T) {
 	)
 	rr := httptest.NewRecorder()
 	DeleteRecurring(rr, req)
-	// renderRecurringTable error is non-fatal
-	if rr.Code == http.StatusInternalServerError {
-		t.Errorf("renderRecurringTable recurring error should be non-fatal, got 500")
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("renderRecurringTable recurring error should return 500, got %d", rr.Code)
 	}
 }
 
@@ -802,8 +800,8 @@ func TestRenderRecurringTable_AccountsError(t *testing.T) {
 	)
 	rr := httptest.NewRecorder()
 	DeleteRecurring(rr, req)
-	if rr.Code == http.StatusInternalServerError {
-		t.Errorf("renderRecurringTable accounts error should be non-fatal, got 500")
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("renderRecurringTable accounts error should return 500, got %d", rr.Code)
 	}
 }
 

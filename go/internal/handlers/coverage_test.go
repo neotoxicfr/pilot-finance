@@ -712,24 +712,12 @@ func TestHandleLogin_NeedsRehash(t *testing.T) {
 	}
 }
 
-// --- HandleRegister : méthode GET → 405 ---
-
-func TestHandleRegister_GetMethod(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
-
-	rr := httptest.NewRecorder()
-	HandleRegister(rr, httptest.NewRequest(http.MethodGet, "/register", nil))
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("want 405, got %d", rr.Code)
-	}
-}
-
 // --- HandleRegister : second user → role USER ---
 
 func TestHandleRegister_SecondUser(t *testing.T) {
 	cleanup := setupHandlerTest(t)
 	defer cleanup()
+	t.Setenv("ALLOW_REGISTER", "true")
 	newUser(t, "first@example.com", "ValidP@ss1!", "ADMIN") // premier user direct DB
 
 	// Deuxième inscription via HandleRegister → isFirstUser=false → role=USER
@@ -887,6 +875,7 @@ func TestHandleRegister_RateLimit(t *testing.T) {
 func TestHandleRegister_CountUsersError(t *testing.T) {
 	cleanup := setupHandlerTest(t)
 	defer cleanup()
+	t.Setenv("ALLOW_REGISTER", "true")
 	orig := hookCountUsers
 	hookCountUsers = func() (int, error) { return 0, errTest }
 	t.Cleanup(func() { hookCountUsers = orig })

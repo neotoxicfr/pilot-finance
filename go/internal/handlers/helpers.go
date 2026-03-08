@@ -47,8 +47,44 @@ func decryptAccountNames(accounts []db.Account) {
 	for i := range accounts {
 		if decrypted, err := hookDecryptStr(accounts[i].Name); err == nil {
 			accounts[i].Name = decrypted
+		} else {
+			slog.Warn("decryptAccountNames: failed", "accountID", accounts[i].ID, "err", err)
+			accounts[i].Name = "???"
 		}
 	}
+}
+
+// summaryTotals contient les totaux mensuels/annuels pour le summary card
+type summaryTotals struct {
+	MonthlyIncome   float64
+	MonthlyExpenses float64
+	MonthlyYield    float64
+	AnnualYield     float64
+}
+
+// calculateSummary calcule les totaux à partir des yield payouts et opérations récurrentes
+func calculateSummary(yieldPayouts []projection.YieldPayout, recurrings []db.RecurringOperation) summaryTotals {
+	var s summaryTotals
+	for _, payout := range yieldPayouts {
+		if payout.PayoutFrequency == "YEARLY" {
+			s.AnnualYield += payout.Amount
+		} else {
+			s.MonthlyIncome += payout.Amount
+			s.MonthlyYield += payout.Amount
+		}
+	}
+	for _, rec := range recurrings {
+		if rec.ToAccountID != nil {
+			continue
+		}
+		recAmt := float64(rec.Amount) / 100.0
+		if recAmt > 0 {
+			s.MonthlyIncome += recAmt
+		} else {
+			s.MonthlyExpenses += -recAmt
+		}
+	}
+	return s
 }
 
 // buildAccountMap construit un map ID→nom depuis des comptes déjà déchiffrés

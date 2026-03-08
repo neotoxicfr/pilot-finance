@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -135,7 +136,10 @@ func ExportData(w http.ResponseWriter, r *http.Request) {
 		clientError(w, ErrNotFound, "Utilisateur non trouvé", http.StatusNotFound)
 		return
 	}
-	email, _ := hookDecryptStr(dbUser.EmailEncrypted)
+	email, err := hookDecryptStr(dbUser.EmailEncrypted)
+	if err != nil {
+		slog.Warn("ExportData: decrypt email", "err", err)
+	}
 
 	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
@@ -160,7 +164,10 @@ func ExportData(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	auditEntries, _ := hookGetAuditLogByUserID(user.ID)
+	auditEntries, err := hookGetAuditLogByUserID(user.ID)
+	if err != nil {
+		slog.Warn("ExportData: audit log", "err", err)
+	}
 
 	// Passkeys : exporter sans la clé publique brute (non intelligible)
 	type passkeyExport struct {
@@ -169,7 +176,10 @@ func ExportData(w http.ResponseWriter, r *http.Request) {
 		DeviceType string `json:"device_type"`
 		BackedUp   bool   `json:"backed_up"`
 	}
-	rawPasskeys, _ := hookGetAuthenticatorsByUserID(user.ID)
+	rawPasskeys, err := hookGetAuthenticatorsByUserID(user.ID)
+	if err != nil {
+		slog.Warn("ExportData: passkeys", "err", err)
+	}
 	passkeys := make([]passkeyExport, len(rawPasskeys))
 	for i, pk := range rawPasskeys {
 		passkeys[i] = passkeyExport{
@@ -208,12 +218,16 @@ func DeleteSelfAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hookLogAudit(user.ID, db.AuditGDPRDelete, getClientIP(r), r.UserAgent())
+	userID := user.ID
+	clientIP := getClientIP(r)
+	ua := r.UserAgent()
 
-	if err := hookDeleteUserAndData(user.ID); err != nil {
+	if err := hookDeleteUserAndData(userID); err != nil {
 		serverError(w, "delete user", err)
 		return
 	}
+
+	hookLogAudit(userID, db.AuditGDPRDelete, clientIP, ua)
 
 	clearCookie(w, "session")
 	w.Header().Set("HX-Redirect", "/login")

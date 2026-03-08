@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -210,41 +209,21 @@ func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
 
 	recurrings, err := hookGetRecurringByUserID(user.ID)
 	if err != nil {
-		slog.Error("renderRecurringTable: recurring", "err", err)
+		serverError(w, "renderRecurringTable: recurring", err)
+		return
 	}
 	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
-		slog.Error("renderRecurringTable: accounts", "err", err)
+		serverError(w, "renderRecurringTable: accounts", err)
+		return
 	}
 
 	decryptAccountNames(accounts)
 	accountMap := buildAccountMap(accounts)
 
-	// Calculer les yield payouts
 	yieldPayouts := projection.CalculateYieldPayouts(accounts, accountMap)
 	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
-
-	// Calculer les totaux pour le summary card
-	var monthlyIncome, monthlyExpenses, monthlyYield, annualYield float64
-	for _, payout := range yieldPayouts {
-		if payout.PayoutFrequency == "YEARLY" {
-			annualYield += payout.Amount
-		} else {
-			monthlyIncome += payout.Amount
-			monthlyYield += payout.Amount
-		}
-	}
-	for _, rec := range recurrings {
-		if rec.ToAccountID != nil {
-			continue
-		}
-		recAmt := float64(rec.Amount) / 100.0
-		if recAmt > 0 {
-			monthlyIncome += recAmt
-		} else {
-			monthlyExpenses += -recAmt
-		}
-	}
+	s := calculateSummary(yieldPayouts, recurrings)
 
 	recurringData := buildRecurringData(yieldPayouts, recurrings, accountMap, interestPrefix)
 
@@ -259,11 +238,11 @@ func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
 	w.Write([]byte(`<div id="summary-card" hx-swap-oob="innerHTML">`)) //nolint:errcheck
 	hookRenderPartial(w, "accounts.html", "summary-card", map[string]interface{}{ //nolint:errcheck
 		"T":               i18n.Map(lang),
-		"MonthlyIncome":   monthlyIncome,
-		"MonthlyExpenses": monthlyExpenses,
-		"MonthlyNet":      monthlyIncome - monthlyExpenses,
-		"MonthlyYield":    monthlyYield,
-		"AnnualYield":     annualYield,
+		"MonthlyIncome":   s.MonthlyIncome,
+		"MonthlyExpenses": s.MonthlyExpenses,
+		"MonthlyNet":      s.MonthlyIncome - s.MonthlyExpenses,
+		"MonthlyYield":    s.MonthlyYield,
+		"AnnualYield":     s.AnnualYield,
 		"Currency":        currency,
 	})
 	w.Write([]byte(`</div>`)) //nolint:errcheck

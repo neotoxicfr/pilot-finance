@@ -85,6 +85,9 @@ func Init(encKeyHex, blindKeyHex string) error {
 // Encrypt chiffre un texte avec AES-256-GCM
 // Format de sortie: IV_HEX:AUTH_TAG_HEX:CIPHERTEXT_HEX (compatible Node.js)
 func Encrypt(plaintext string) (string, error) {
+	if cipherBlock == nil {
+		return "", ErrDecryption
+	}
 	gcm, err := cipherNewGCMFn(cipherBlock)
 	if err != nil {
 		return "", err
