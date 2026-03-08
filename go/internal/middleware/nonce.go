@@ -4,15 +4,20 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"io"
 	"net/http"
 )
 
 type nonceContextKey struct{}
 
+var randReader io.Reader = rand.Reader
+
 // GenerateNonce génère un nonce aléatoire de 16 octets (base64url, ~22 chars)
 func GenerateNonce() string {
 	b := make([]byte, 16)
-	_, _ = rand.Read(b)
+	if _, err := io.ReadFull(randReader, b); err != nil {
+		panic("crypto/rand failed: " + err.Error())
+	}
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 

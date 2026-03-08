@@ -3,16 +3,21 @@ package handlers
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	qrcode "github.com/skip2/go-qrcode"
 	"github.com/go-webauthn/webauthn/webauthn"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"pilot-finance/internal/auth"
+	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/mail"
 )
@@ -942,5 +947,297 @@ func TestLegalPage_RenderError(t *testing.T) {
 	LegalPage(rr, httptest.NewRequest(http.MethodGet, "/legal", nil))
 	if rr.Code != http.StatusInternalServerError {
 		t.Errorf("want 500, got %d", rr.Code)
+	}
+}
+
+// ── auth.go — ALLOW_REGISTER disabled ──────────────────────────────────────
+
+func TestHandleRegister_Disabled_WithExistingUsers(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	newUser(t, "existing@example.com", "ValidP@ss1!", "ADMIN")
+
+	rr := httptest.NewRecorder()
+	HandleRegister(rr, post("/register", url.Values{
+		"email":           {"new@example.com"},
+		"password":        {"ValidP@ssw0rd!"},
+		"confirmPassword": {"ValidP@ssw0rd!"},
+	}))
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("want 403 (register disabled), got %d", rr.Code)
+	}
+}
+
+// ── auth.go — handleFailedLogin error log ──────────────────────────────────
+
+func TestHandleLogin_FailedLoginAttemptsError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	newUser(t, "faillog@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookUpdateLoginAttempts
+	hookUpdateLoginAttempts = func(int64, int, *time.Time) error { return errTest }
+	t.Cleanup(func() { hookUpdateLoginAttempts = orig })
+
+	rr := httptest.NewRecorder()
+	HandleLogin(rr, post("/login", url.Values{
+		"email":    {"faillog@example.com"},
+		"password": {"WrongPassword!"},
+	}))
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("want 401, got %d", rr.Code)
+	}
+}
+
+// ── auth.go — resetLoginAttempts error log ──────────────────────────────────
+
+func TestHandleLogin_ResetAttemptsError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	newUser(t, "resetlog@example.com", "ValidP@ss1!", "USER")
+
+	// First, trigger a failed login to increment FailedLoginAttempts > 0
+	rr1 := httptest.NewRecorder()
+	HandleLogin(rr1, post("/login", url.Values{
+		"email":    {"resetlog@example.com"},
+		"password": {"WrongPass1!"},
+	}))
+
+	// Now mock hookUpdateLoginAttempts to return error
+	orig := hookUpdateLoginAttempts
+	hookUpdateLoginAttempts = func(int64, int, *time.Time) error { return errTest }
+	t.Cleanup(func() { hookUpdateLoginAttempts = orig })
+
+	// Login with correct password → resetLoginAttempts is called (FailedLoginAttempts > 0)
+	rr := httptest.NewRecorder()
+	HandleLogin(rr, post("/login", url.Values{
+		"email":    {"resetlog@example.com"},
+		"password": {"ValidP@ss1!"},
+	}))
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("want 303, got %d", rr.Code)
+	}
+}
+
+// ── auth.go — rehash hookUpdatePasswordHash error ──────────────────────────
+
+func TestHandleLogin_RehashUpdateError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+
+	email := "rehashfail@example.com"
+	password := "ValidP@ss1!"
+
+	// Créer un user avec low-cost hash pour déclencher NeedsRehash
+	lowCostHash, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
+	encEmail, _ := crypto.Encrypt(email)
+	blind := crypto.ComputeBlindIndex(email)
+	db.CreateUser(encEmail, blind, string(lowCostHash), "USER") //nolint:errcheck
+
+	orig := hookUpdatePasswordHash
+	hookUpdatePasswordHash = func(int64, string) error { return errTest }
+	t.Cleanup(func() { hookUpdatePasswordHash = orig })
+
+	rr := httptest.NewRecorder()
+	HandleLogin(rr, post("/login", url.Values{
+		"email":    {email},
+		"password": {password},
+	}))
+	// Login should still succeed despite rehash error
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("want 303, got %d", rr.Code)
+	}
+}
+
+// ── helpers.go — decryptAccountNames error ──────────────────────────────────
+
+func TestDecryptAccountNames_Error(t *testing.T) {
+	orig := hookDecryptStr
+	hookDecryptStr = func(string) (string, error) { return "", errTest }
+	t.Cleanup(func() { hookDecryptStr = orig })
+
+	accounts := []db.Account{{ID: 1, Name: "encrypted"}}
+	decryptAccountNames(accounts)
+	if accounts[0].Name != "???" {
+		t.Errorf("want '???' placeholder, got %q", accounts[0].Name)
+	}
+}
+
+// ── pages.go — SettingsPage error logs ──────────────────────────────────────
+
+func TestSettingsPage_GetUserError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "setuser@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookGetUserByID
+	hookGetUserByID = func(int64) (*db.User, error) { return nil, errTest }
+	t.Cleanup(func() { hookGetUserByID = orig })
+
+	rr := httptest.NewRecorder()
+	SettingsPage(rr, injectUser(httptest.NewRequest(http.MethodGet, "/settings", nil), mu(uid, "USER")))
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200 (graceful), got %d", rr.Code)
+	}
+}
+
+func TestSettingsPage_GetPasskeysError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "setpk@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookGetAuthenticatorsByUserID
+	hookGetAuthenticatorsByUserID = func(int64) ([]db.Authenticator, error) { return nil, errTest }
+	t.Cleanup(func() { hookGetAuthenticatorsByUserID = orig })
+
+	rr := httptest.NewRecorder()
+	SettingsPage(rr, injectUser(httptest.NewRequest(http.MethodGet, "/settings", nil), mu(uid, "USER")))
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200 (graceful), got %d", rr.Code)
+	}
+}
+
+// ── passkey.go — PasskeyLoginFinish counter update error ────────────────────
+
+func TestPasskeyLoginFinish_UpdateCounterError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+
+	uid := newUser(t, "pkcounter@example.com", "ValidP@ss1!", "USER")
+
+	origCounter := hookUpdateAuthCounter
+	hookUpdateAuthCounter = func(string, int) error { return errTest }
+	t.Cleanup(func() { hookUpdateAuthCounter = origCounter })
+
+	origFinish := hookFinishLogin
+	hookFinishLogin = func(string, *http.Request, func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
+		return &auth.PasskeyUser{ID: uid, Email: "pkcounter@example.com"}, &webauthn.Credential{ID: []byte("cred")}, nil
+	}
+	t.Cleanup(func() { hookFinishLogin = origFinish })
+
+	req := httptest.NewRequest(http.MethodPost, "/api/passkey/login/finish", nil)
+	req.AddCookie(&http.Cookie{Name: "passkey_auth_challenge", Value: "dummy"})
+	rr := httptest.NewRecorder()
+	PasskeyLoginFinish(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d", rr.Code)
+	}
+}
+
+// ── passkey.go — RenamePasskey validation branches ──────────────────────────
+
+func TestRenamePasskey_EmptyName(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "rnpkempty@example.com", "ValidP@ss1!", "USER")
+
+	body, _ := json.Marshal(map[string]string{"name": "   "})
+	req := injectUser(
+		withParam(httptest.NewRequest(http.MethodPatch, "/api/passkey/1/rename", bytes.NewReader(body)), "id", "1"),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	RenamePasskey(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (empty name), got %d", rr.Code)
+	}
+}
+
+func TestRenamePasskey_TooLongName(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "rnpklong@example.com", "ValidP@ss1!", "USER")
+
+	longName := make([]byte, 101)
+	for i := range longName {
+		longName[i] = 'a'
+	}
+	body, _ := json.Marshal(map[string]string{"name": string(longName)})
+	req := injectUser(
+		withParam(httptest.NewRequest(http.MethodPatch, "/api/passkey/1/rename", bytes.NewReader(body)), "id", "1"),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	RenamePasskey(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (name too long), got %d", rr.Code)
+	}
+}
+
+// ── password_reset.go — ResetPasswordSubmit clear token error ───────────────
+
+func TestResetPasswordSubmit_ClearTokenError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "clrtok@example.com", "ValidP@ss1!", "USER")
+
+	rawToken := "cleartoken-test-456"
+	hashed := crypto.HashToken(rawToken)
+	if err := db.SetResetToken(uid, hashed, time.Now().Add(1*time.Hour)); err != nil {
+		t.Fatalf("SetResetToken: %v", err)
+	}
+
+	orig := hookClearResetToken
+	hookClearResetToken = func(int64) error { return errTest }
+	t.Cleanup(func() { hookClearResetToken = orig })
+
+	rr := httptest.NewRecorder()
+	ResetPasswordSubmit(rr, post("/reset-password", url.Values{
+		"token":           {rawToken},
+		"password":        {"NewValidP@ss1!"},
+		"confirmPassword": {"NewValidP@ss1!"},
+	}))
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("want 303, got %d", rr.Code)
+	}
+}
+
+// ── settings.go — ExportData error logs ─────────────────────────────────────
+
+func TestExportData_DecryptEmailError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "expdec@example.com", "ValidP@ss1!", "USER")
+
+	origDecrypt := hookDecryptStr
+	hookDecryptStr = func(string) (string, error) { return "", errTest }
+	t.Cleanup(func() { hookDecryptStr = origDecrypt })
+
+	rr := httptest.NewRecorder()
+	ExportData(rr, injectUser(httptest.NewRequest(http.MethodGet, "/api/export", nil), mu(uid, "USER")))
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d", rr.Code)
+	}
+}
+
+func TestExportData_AuditLogError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "expaudit@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookGetAuditLogByUserID
+	hookGetAuditLogByUserID = func(int64) ([]db.AuditEntry, error) { return nil, errTest }
+	t.Cleanup(func() { hookGetAuditLogByUserID = orig })
+
+	rr := httptest.NewRecorder()
+	ExportData(rr, injectUser(httptest.NewRequest(http.MethodGet, "/api/export", nil), mu(uid, "USER")))
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d", rr.Code)
+	}
+}
+
+func TestExportData_PasskeysError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "exppk@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookGetAuthenticatorsByUserID
+	hookGetAuthenticatorsByUserID = func(int64) ([]db.Authenticator, error) { return nil, errTest }
+	t.Cleanup(func() { hookGetAuthenticatorsByUserID = orig })
+
+	rr := httptest.NewRecorder()
+	ExportData(rr, injectUser(httptest.NewRequest(http.MethodGet, "/api/export", nil), mu(uid, "USER")))
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d", rr.Code)
 	}
 }

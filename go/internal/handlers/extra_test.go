@@ -1061,6 +1061,7 @@ func TestHandleRegister_EmptyFields(t *testing.T) {
 func TestHandleRegister_DuplicateEmail(t *testing.T) {
 	cleanup := setupHandlerTest(t)
 	defer cleanup()
+	t.Setenv("ALLOW_REGISTER", "true")
 	newUser(t, "dup@example.com", "ValidP@ss1!", "USER")
 
 	rr := httptest.NewRecorder()

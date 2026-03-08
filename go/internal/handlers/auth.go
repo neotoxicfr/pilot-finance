@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -52,11 +53,6 @@ func getClientIP(r *http.Request) string {
 
 // HandleLogin gère la soumission du formulaire de connexion
 func HandleLogin(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		clientError(w, ErrForbidden, "Méthode non autorisée", http.StatusMethodNotAllowed)
-		return
-	}
-
 	clientIP := getClientIP(r)
 
 	// Rate limiting
@@ -177,7 +173,9 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// Mise à niveau silencieuse du hash bcrypt (cost 10 → 12) sans invalider les sessions
 	if hookNeedsRehash(user.Password) {
 		if newHash, err := hookHashPassword(password); err == nil {
-			hookUpdatePasswordHash(user.ID, newHash) //nolint:errcheck
+			if err := hookUpdatePasswordHash(user.ID, newHash); err != nil {
+				slog.Warn("rehash: update password hash", "err", err, "userID", user.ID)
+			}
 		}
 	}
 
@@ -225,9 +223,12 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 // HandleRegister gère l'inscription
 func HandleRegister(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		clientError(w, ErrForbidden, "Méthode non autorisée", http.StatusMethodNotAllowed)
-		return
+	if os.Getenv("ALLOW_REGISTER") != "true" {
+		count, err := hookCountUsers()
+		if err != nil || count > 0 {
+			clientError(w, ErrForbidden, "Inscription désactivée", http.StatusForbidden)
+			return
+		}
 	}
 
 	clientIP := getClientIP(r)
@@ -343,25 +344,30 @@ func handleFailedLogin(user *db.User) {
 		newCount = 0
 	}
 
-	hookUpdateLoginAttempts(user.ID, newCount, lockUntil) //nolint:errcheck
+	if err := hookUpdateLoginAttempts(user.ID, newCount, lockUntil); err != nil {
+		slog.Error("handleFailedLogin: update attempts", "err", err, "userID", user.ID)
+	}
 }
 
 // resetLoginAttempts réinitialise les tentatives de connexion
 func resetLoginAttempts(userID int64) {
-	hookUpdateLoginAttempts(userID, 0, nil) //nolint:errcheck
+	if err := hookUpdateLoginAttempts(userID, 0, nil); err != nil {
+		slog.Error("resetLoginAttempts: update attempts", "err", err, "userID", userID)
+	}
 }
 
 // detectLanguage parses the Accept-Language header and returns "fr" if French
 // is preferred, otherwise defaults to "en".
 func detectLanguage(r *http.Request) string {
-	accept := r.Header.Get("Accept-Language")
+	accept := strings.ToLower(r.Header.Get("Accept-Language"))
 	if accept == "" {
 		return "en"
 	}
-	// Simple parsing: check if "fr" appears before any other language tag
-	accept = strings.ToLower(accept)
-	if strings.Contains(accept, "fr") {
-		return "fr"
+	for _, part := range strings.Split(accept, ",") {
+		tag := strings.TrimSpace(strings.SplitN(part, ";", 2)[0])
+		if tag == "fr" || strings.HasPrefix(tag, "fr-") {
+			return "fr"
+		}
 	}
 	return "en"
 }

@@ -188,7 +188,9 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Effacer le token
-	hookClearResetToken(user.ID) //nolint:errcheck
+	if err := hookClearResetToken(user.ID); err != nil {
+		slog.Error("clearResetToken failed", "err", err, "userID", user.ID)
+	}
 
 	// Rediriger vers login avec message de succes
 	http.Redirect(w, r, "/login?reset=success", http.StatusSeeOther)

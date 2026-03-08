@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"testing/iotest"
 
 	"pilot-finance/internal/middleware"
 )
@@ -11,6 +12,18 @@ import (
 var passThroughHandler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 })
+
+func TestGenerateNonce_PanicOnRandError(t *testing.T) {
+	restore := middleware.SetRandReader(iotest.ErrReader(iotest.ErrTimeout))
+	defer restore()
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic when rand reader fails")
+		}
+	}()
+	middleware.GenerateNonce()
+}
 
 // --- GenerateNonce ---
 
@@ -127,16 +140,16 @@ func TestValidateOrigin_POST_NoOriginNoReferer_NoHost_Rejects(t *testing.T) {
 	}
 }
 
-func TestValidateOrigin_POST_NoHost_MatchesRequestHost(t *testing.T) {
-	// When HOST env is empty, CSRF uses the request Host header for validation
+func TestValidateOrigin_POST_NoHost_NonLocalhost_Rejected(t *testing.T) {
+	// When HOST env is empty, non-localhost hosts are rejected (fail-closed)
 	mw := middleware.ValidateOrigin("")
 	req := httptest.NewRequest(http.MethodPost, "/", nil)
 	req.Host = "myapp.local"
 	req.Header.Set("Origin", "https://myapp.local")
 	rr := httptest.NewRecorder()
 	mw(passThroughHandler).ServeHTTP(rr, req)
-	if rr.Code != http.StatusOK {
-		t.Errorf("Origin matching request Host should pass, got %d", rr.Code)
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("Non-localhost host without HOST env should be rejected, got %d", rr.Code)
 	}
 }
 

@@ -4,8 +4,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-webauthn/webauthn/protocol"
@@ -206,7 +208,9 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Mettre à jour le compteur (base64 encode credential ID)
-	hookUpdateAuthCounter(base64.StdEncoding.EncodeToString(credential.ID), int(credential.Authenticator.SignCount)) //nolint:errcheck
+	if err := hookUpdateAuthCounter(base64.StdEncoding.EncodeToString(credential.ID), int(credential.Authenticator.SignCount)); err != nil {
+		slog.Warn("passkey: update counter", "err", err)
+	}
 
 	// Récupérer l'utilisateur complet
 	user, err := hookGetUserByID(passkeyUser.ID)
@@ -279,11 +283,19 @@ func RenamePasskey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" || len([]rune(req.Name)) > 100 {
+		clientError(w, ErrValidation, "Nom invalide (1-100 caractères)", http.StatusBadRequest)
+		return
+	}
+
 	err = hookRenameAuthenticator(id, user.ID, req.Name)
 	if err != nil {
 		serverError(w, "rename authenticator", err)
 		return
 	}
+
+	hookLogAudit(user.ID, db.AuditPasskeyRename, getClientIP(r), r.UserAgent())
 
 	jsonSuccess(w, map[string]bool{"success": true})
 }

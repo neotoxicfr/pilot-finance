@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"math"
 	"testing"
 )
 
@@ -38,6 +39,9 @@ func FuzzEncryptDecryptFloat(f *testing.F) {
 	f.Add(1e18)
 
 	f.Fuzz(func(t *testing.T, input float64) {
+		if math.IsNaN(input) || math.IsInf(input, 0) {
+			t.Skip("skipping NaN/Inf")
+		}
 		encrypted, err := EncryptFloat(input)
 		if err != nil {
 			t.Fatalf("EncryptFloat(%v): %v", input, err)

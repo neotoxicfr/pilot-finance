@@ -16,30 +16,6 @@ import (
 
 // --- HandleLogin : method not allowed ---
 
-func TestHandleLogin_GET_MethodNotAllowed(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
-
-	rr := httptest.NewRecorder()
-	HandleLogin(rr, httptest.NewRequest(http.MethodGet, "/login", nil))
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("want 405, got %d", rr.Code)
-	}
-}
-
-// --- HandleRegister : method not allowed ---
-
-func TestHandleRegister_GET_MethodNotAllowed(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
-
-	rr := httptest.NewRecorder()
-	HandleRegister(rr, httptest.NewRequest(http.MethodGet, "/register", nil))
-	if rr.Code != http.StatusMethodNotAllowed {
-		t.Errorf("want 405, got %d", rr.Code)
-	}
-}
-
 // --- HandleLogin : 2FA second step — invalid pending token ---
 
 func TestHandleLogin_2FA_InvalidPendingToken(t *testing.T) {

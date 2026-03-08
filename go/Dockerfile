@@ -17,7 +17,7 @@ COPY templates templates/
 RUN NODE_PATH=$(npm root -g) npx @tailwindcss/cli -i static/css/input.css -o static/css/tailwind.css --minify
 
 # ============ GO BUILD STAGE ============
-FROM golang:1.26-alpine AS builder
+FROM golang:1.26.1-alpine AS builder
 
 ARG TARGETARCH
 ARG VERSION=dev

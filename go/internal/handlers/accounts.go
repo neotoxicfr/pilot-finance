@@ -352,41 +352,21 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 
 	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
-		slog.Error("renderAccountsList: accounts", "err", err)
+		serverError(w, "renderAccountsList: accounts", err)
+		return
 	}
 	recurrings, err := hookGetRecurringByUserID(user.ID)
 	if err != nil {
-		slog.Error("renderAccountsList: recurring", "err", err)
+		serverError(w, "renderAccountsList: recurring", err)
+		return
 	}
 
 	decryptAccountNames(accounts)
 	accountMap := buildAccountMap(accounts)
 
-	// Calculer les yield payouts
 	yieldPayouts := projection.CalculateYieldPayouts(accounts, accountMap)
 	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
-
-	// Calculer les totaux : séparer versements mensuels et annuels
-	var monthlyIncome, monthlyExpenses, monthlyYield, annualYield float64
-	for _, payout := range yieldPayouts {
-		if payout.PayoutFrequency == "YEARLY" {
-			annualYield += payout.Amount
-		} else {
-			monthlyIncome += payout.Amount
-			monthlyYield += payout.Amount
-		}
-	}
-	for _, rec := range recurrings {
-		if rec.ToAccountID != nil {
-			continue // Virement interne : ne compte pas dans entrées/sorties
-		}
-		recAmt := float64(rec.Amount) / 100.0
-		if recAmt > 0 {
-			monthlyIncome += recAmt
-		} else {
-			monthlyExpenses += -recAmt
-		}
-	}
+	s := calculateSummary(yieldPayouts, recurrings)
 
 	recurringData := buildRecurringData(yieldPayouts, recurrings, accountMap, interestPrefix)
 
@@ -413,11 +393,11 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 	w.Write([]byte(`<div id="summary-card" hx-swap-oob="innerHTML">`))
 	hookRenderPartial(w, "accounts.html", "summary-card", map[string]interface{}{ //nolint:errcheck
 		"T":               i18n.Map(lang),
-		"MonthlyIncome":   monthlyIncome,
-		"MonthlyExpenses": monthlyExpenses,
-		"MonthlyNet":      monthlyIncome - monthlyExpenses,
-		"MonthlyYield":    monthlyYield,
-		"AnnualYield":     annualYield,
+		"MonthlyIncome":   s.MonthlyIncome,
+		"MonthlyExpenses": s.MonthlyExpenses,
+		"MonthlyNet":      s.MonthlyIncome - s.MonthlyExpenses,
+		"MonthlyYield":    s.MonthlyYield,
+		"AnnualYield":     s.AnnualYield,
 		"Currency":        currency,
 	})
 	w.Write([]byte(`</div>`))
@@ -430,4 +410,12 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 		"T":          i18n.Map(lang),
 	})
 	w.Write([]byte(`</div>`))
+
+	// OOB: Mettre a jour les selects de comptes (formulaires recurrent + compte)
+	accountSelectData := map[string]interface{}{
+		"Accounts": accounts,
+		"T":        i18n.Map(lang),
+	}
+	hookRenderPartial(w, "accounts.html", "account-options-recurring", accountSelectData) //nolint:errcheck
+	hookRenderPartial(w, "accounts.html", "account-options-target", accountSelectData)    //nolint:errcheck
 }

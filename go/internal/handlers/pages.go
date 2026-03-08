@@ -176,28 +176,7 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	yieldPayouts := projection.CalculateYieldPayouts(accounts, accountMap)
 	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
 
-	// Calculer les totaux : séparer versements mensuels et annuels
-	var monthlyIncome, monthlyExpenses, monthlyYield, annualYield float64
-	for _, payout := range yieldPayouts {
-		if payout.PayoutFrequency == "YEARLY" {
-			annualYield += payout.Amount
-		} else {
-			monthlyIncome += payout.Amount
-			monthlyYield += payout.Amount
-		}
-	}
-	for _, rec := range recurrings {
-		if rec.ToAccountID != nil {
-			continue // Virement interne : ne compte pas dans entrées/sorties
-		}
-		recAmt := float64(rec.Amount) / 100.0
-		if recAmt > 0 {
-			monthlyIncome += recAmt
-		} else {
-			monthlyExpenses += -recAmt
-		}
-	}
-
+	s := calculateSummary(yieldPayouts, recurrings)
 	recurringData := buildRecurringData(yieldPayouts, recurrings, accountMap, interestPrefix)
 
 	data := baseData(r, user)
@@ -206,11 +185,11 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	data["Accounts"] = accounts
 	data["AccountLastIdx"] = len(accounts) - 1
 	data["Recurrings"] = recurringData
-	data["MonthlyIncome"] = monthlyIncome
-	data["MonthlyExpenses"] = monthlyExpenses
-	data["MonthlyNet"] = monthlyIncome - monthlyExpenses
-	data["MonthlyYield"] = monthlyYield
-	data["AnnualYield"] = annualYield
+	data["MonthlyIncome"] = s.MonthlyIncome
+	data["MonthlyExpenses"] = s.MonthlyExpenses
+	data["MonthlyNet"] = s.MonthlyIncome - s.MonthlyExpenses
+	data["MonthlyYield"] = s.MonthlyYield
+	data["AnnualYield"] = s.AnnualYield
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "accounts.html", data); err != nil {
@@ -227,7 +206,10 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Récupérer l'utilisateur complet pour MFAEnabled
-	dbUser, _ := hookGetUserByID(user.ID)
+	dbUser, err := hookGetUserByID(user.ID)
+	if err != nil {
+		slog.Warn("SettingsPage: get user", "err", err, "userID", user.ID)
+	}
 	mfaEnabled := false
 	if dbUser != nil {
 		mfaEnabled = dbUser.MFAEnabled
@@ -245,7 +227,10 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 	data["IsRegisterOpen"] = os.Getenv("ALLOW_REGISTER") == "true"
 	data["Users"] = []interface{}{}
 
-	passkeys, _ := hookGetAuthenticatorsByUserID(user.ID)
+	passkeys, err := hookGetAuthenticatorsByUserID(user.ID)
+	if err != nil {
+		slog.Warn("SettingsPage: get passkeys", "err", err, "userID", user.ID)
+	}
 	data["Passkeys"] = passkeys
 
 	if isAdmin {
