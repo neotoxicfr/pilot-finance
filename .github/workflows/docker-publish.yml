@@ -79,7 +79,7 @@ jobs:
 
       - name: Scan Docker image with Trivy
         if: startsWith(github.ref, 'refs/tags/')
-        uses: aquasecurity/trivy-action@0.34.2
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           format: sarif
