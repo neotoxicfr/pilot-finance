@@ -50,7 +50,7 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 		if acc.Balance > 0 {
 			pieData = append(pieData, map[string]interface{}{
 				"name":  acc.Name,
-				"value": acc.Balance,
+				"value": float64(acc.Balance) / 100.0,
 				"color": acc.Color,
 			})
 		}
