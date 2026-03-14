@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -1459,5 +1460,44 @@ func TestCreateAccount_CountAccountsError(t *testing.T) {
 	CreateAccount(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Errorf("want 200 (account created despite count error), got %d", rr.Code)
+	}
+}
+
+// ── recurring.go: UpdateRecurring invalid toAccountId ────────────────────────
+
+func TestUpdateRecurring_InvalidToAccountID(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "updrectoaccbad@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	recID := createRec(t, uid, accID)
+
+	idStr := strconv.FormatInt(recID, 10)
+	req := injectUser(
+		withParam(post("/recurring/"+idStr, url.Values{
+			"description": {"Updated"},
+			"amount":      {"500"},
+			"dayOfMonth":  {"15"},
+			"type":        {"transfer"},
+			"toAccountId": {"abc"},
+		}), "id", idStr),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	UpdateRecurring(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (invalid toAccountId), got %d", rr.Code)
+	}
+}
+
+// ── helpers.go: parseFormAny url.ParseQuery error ────────────────────────────
+
+func TestParseFormAny_InvalidBody(t *testing.T) {
+	body := strings.NewReader("key=%zz")
+	req := httptest.NewRequest(http.MethodDelete, "/test", body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	err := parseFormAny(req)
+	if err == nil {
+		t.Error("want error for invalid percent-encoded body")
 	}
 }

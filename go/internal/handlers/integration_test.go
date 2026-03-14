@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"pilot-finance/internal/auth"
 	"pilot-finance/internal/middleware"
 )
 
@@ -52,8 +53,12 @@ func TestIntegration_RegisterLoginCreateAccount(t *testing.T) {
 	if rr.Code != http.StatusSeeOther {
 		t.Fatalf("login: got %d, want 303", rr.Code)
 	}
-	// 3. Create account (with injected user context since we bypass middleware)
-	user := &middleware.User{ID: 1, Role: "ADMIN", Language: "fr", Currency: "EUR", SessionVersion: 1}
+	// 3. Create account — derive user ID from session cookie
+	claims, err := auth.ValidateToken(sessionToken)
+	if err != nil {
+		t.Fatalf("ValidateToken: %v", err)
+	}
+	user := &middleware.User{ID: claims.UserID, Role: claims.Role, Language: claims.Language, Currency: claims.Currency, SessionVersion: claims.SessionVersion}
 	req := injectUser(post("/accounts", url.Values{
 		"name":    {"Livret A"},
 		"balance": {"22950"},
