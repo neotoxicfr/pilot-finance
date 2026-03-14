@@ -1283,7 +1283,9 @@ func TestDeleteSelfAccount_DBError(t *testing.T) {
 	hookDeleteUserAndData = func(int64) error { return errTest }
 	t.Cleanup(func() { hookDeleteUserAndData = orig })
 
-	req := injectUser(httptest.NewRequest(http.MethodDelete, "/settings/account", nil), mu(uid, "USER"))
+	body := strings.NewReader("current_password=ValidP%40ss1!")
+	req := injectUser(httptest.NewRequest(http.MethodDelete, "/settings/account", body), mu(uid, "USER"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 	DeleteSelfAccount(rr, req)
 	if rr.Code != http.StatusInternalServerError {

@@ -66,7 +66,7 @@ async function loginWithPasskey() {
 
         if (!startResponse.ok) {
             const error = await startResponse.text();
-            throw new Error(error || 'Erreur serveur');
+            throw new Error(error || 'Server error');
         }
 
         const options = await startResponse.json();
@@ -94,7 +94,7 @@ async function loginWithPasskey() {
         });
 
         if (!credential) {
-            throw new Error('Authentification annulee');
+            throw new Error('Authentication cancelled');
         }
 
         // 4. Preparer la reponse pour le serveur
@@ -121,7 +121,7 @@ async function loginWithPasskey() {
 
         if (!finishResponse.ok) {
             const error = await finishResponse.text();
-            throw new Error(error || 'Authentification echouee');
+            throw new Error(error || 'Authentication failed');
         }
 
         // 6. Redirection vers le dashboard
@@ -129,12 +129,13 @@ async function loginWithPasskey() {
 
     } catch (err) {
         console.error('Passkey error:', err);
+        var t = window.PASSKEY_I18N || {};
         if (err.name === 'NotAllowedError') {
-            showPasskeyToast('Authentification annulee ou refusee', true);
+            showPasskeyToast(t.cancelled || 'Authentication cancelled', true);
         } else if (err.name === 'SecurityError') {
-            showPasskeyToast('Erreur de securite: verifiez que vous etes sur HTTPS', true);
+            showPasskeyToast(t.security || 'Security error', true);
         } else {
-            showPasskeyToast('Erreur: ' + err.message, true);
+            showPasskeyToast((t.generic || 'Error') + ': ' + err.message, true);
         }
     }
 }
@@ -151,7 +152,7 @@ async function registerPasskey() {
 
         if (!startResponse.ok) {
             const error = await startResponse.text();
-            throw new Error(error || 'Erreur serveur');
+            throw new Error(error || 'Server error');
         }
 
         const options = await startResponse.json();
@@ -186,7 +187,7 @@ async function registerPasskey() {
         });
 
         if (!credential) {
-            throw new Error('Enregistrement annule');
+            throw new Error('Registration cancelled');
         }
 
         // 4. Preparer la reponse pour le serveur
@@ -210,7 +211,7 @@ async function registerPasskey() {
 
         if (!finishResponse.ok) {
             const error = await finishResponse.text();
-            throw new Error(error || 'Enregistrement echoue');
+            throw new Error(error || 'Registration failed');
         }
 
         // 6. Recharger la page
@@ -218,12 +219,13 @@ async function registerPasskey() {
 
     } catch (err) {
         console.error('Passkey registration error:', err);
+        var t = window.PASSKEY_I18N || {};
         if (err.name === 'NotAllowedError') {
-            showPasskeyToast('Enregistrement annule ou refuse', true);
+            showPasskeyToast(t.registerCancelled || 'Registration cancelled', true);
         } else if (err.name === 'InvalidStateError') {
-            showPasskeyToast('Cette Passkey est deja enregistree', true);
+            showPasskeyToast(t.alreadyRegistered || 'Already registered', true);
         } else {
-            showPasskeyToast('Erreur: ' + err.message, true);
+            showPasskeyToast((t.generic || 'Error') + ': ' + err.message, true);
         }
     }
 }

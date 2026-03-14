@@ -173,11 +173,11 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 		hookLogAudit(user.ID, db.AuditAccountUpdate, getClientIP(r), r.UserAgent())
 	} else {
 		// Creation d'un nouveau compte
-		existingAccounts, posErr := hookGetAccountsByUserID(user.ID)
+		accountCount, posErr := hookCountAccountsByUserID(user.ID)
 		if posErr != nil {
 			slog.Warn("CreateAccount: position lookup", "err", posErr)
 		}
-		position := len(existingAccounts)
+		position := accountCount
 
 		err := hookCreateAccountWithYield(user.ID, encryptedName, balance, color, position, isYieldActive, yieldType, yieldMin, yieldMax, reinvestmentRate, targetAccountID, payoutFrequency)
 		if err != nil {

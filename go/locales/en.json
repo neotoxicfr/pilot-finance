@@ -145,6 +145,7 @@
   "settings.danger_zone": "Danger Zone",
   "settings.delete_account": "Delete my account",
   "settings.delete_account_confirm": "Confirm deletion",
+  "settings.delete_account_password": "Enter your current password to confirm account deletion.",
   "settings.export_data": "Download my data",
   "settings.language_label": "Language",
   "settings.mfa_active": "2FA Active",

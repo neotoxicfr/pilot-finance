@@ -37,7 +37,7 @@
                           class="space-y-5">
                         <input type="hidden" name="id" x-model="accountEditId">
                         <div class="grid grid-cols-2 gap-4">
-                            <input type="text" name="name" placeholder="{{index .T "accounts.name_placeholder"}}" required
+                            <input type="text" name="name" placeholder="{{index .T "accounts.name_placeholder"}}" required autofocus
                                    x-model="accountName"
                                    class="bg-accent border border-border rounded-xl p-3 text-sm w-full outline-hidden focus:border-blue-500 text-foreground">
                             <div class="relative">
@@ -52,7 +52,7 @@
                             <div class="flex flex-wrap gap-2 mb-3">
                                 <template x-for="c in ['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#10b981','#14b8a6','#06b6d4','#0ea5e9','#3b82f6','#6366f1','#8b5cf6','#a855f7','#d946ef','#ec4899','#f43f5e','#64748b']">
                                     <button type="button" @click="selectedColor = c"
-                                            :aria-label="c" :aria-pressed="selectedColor === c ? 'true' : 'false'"
+                                            :aria-label="colorName(c)" :aria-pressed="selectedColor === c ? 'true' : 'false'"
                                             :class="selectedColor === c ? 'ring-2 ring-foreground scale-110' : 'opacity-60 hover:opacity-100'"
                                             class="w-8 h-8 rounded-full transition-all duration-150"
                                             :style="'background-color:' + c"></button>
@@ -203,22 +203,24 @@
                           data-toast=""
                           class="space-y-4">
                             <input type="hidden" name="id" x-model="recurringEditId">
-                            <div class="flex gap-3">
+                            <div class="flex flex-col sm:flex-row gap-3">
                                 <label for="recurring-desc" class="sr-only">{{index .T "recurring.label_placeholder"}}</label>
-                                <input id="recurring-desc" type="text" name="description" placeholder="{{index .T "recurring.label_placeholder"}}" required
+                                <input id="recurring-desc" type="text" name="description" placeholder="{{index .T "recurring.label_placeholder"}}" required autofocus
                                        x-model="recurringDescription"
                                        class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-blue-500">
-                                <label for="recurring-amount" class="sr-only">{{index .T "recurring.amount_label"}}</label>
-                                <div class="relative w-28">
-                                    <input id="recurring-amount" type="number" step="0.01" name="amount" placeholder="{{index .T "recurring.amount_label"}}" required
-                                           x-model="recurringAmount"
-                                           class="w-full bg-accent border border-border text-foreground rounded-xl p-2.5 pr-12 text-sm outline-hidden font-mono focus:border-blue-500">
-                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">{{.Currency}}</span>
+                                <div class="flex gap-3">
+                                    <label for="recurring-amount" class="sr-only">{{index .T "recurring.amount_label"}}</label>
+                                    <div class="relative flex-1 sm:w-28 sm:flex-none">
+                                        <input id="recurring-amount" type="number" step="0.01" name="amount" placeholder="{{index .T "recurring.amount_label"}}" required
+                                               x-model="recurringAmount"
+                                               class="w-full bg-accent border border-border text-foreground rounded-xl p-2.5 pr-12 text-sm outline-hidden font-mono focus:border-blue-500">
+                                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">{{.Currency}}</span>
+                                    </div>
+                                    <label for="recurring-day" class="sr-only">{{index .T "recurring.day_placeholder"}}</label>
+                                    <input id="recurring-day" type="number" min="1" max="31" name="dayOfMonth" placeholder="{{index .T "recurring.day_placeholder"}}" required
+                                           x-model="recurringDay"
+                                           class="w-14 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden text-center focus:border-blue-500">
                                 </div>
-                                <label for="recurring-day" class="sr-only">{{index .T "recurring.day_placeholder"}}</label>
-                                <input id="recurring-day" type="number" min="1" max="31" name="dayOfMonth" placeholder="{{index .T "recurring.day_placeholder"}}" required
-                                       x-model="recurringDay"
-                                       class="w-14 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden text-center focus:border-blue-500">
                             </div>
                             <div class="flex gap-3">
                                 <select name="type" x-model="opType"
@@ -346,6 +348,11 @@ function accountsPage() {
             });
         },
 
+        colorName(hex) {
+            const names = {'#ef4444':'Red','#f97316':'Orange','#f59e0b':'Amber','#eab308':'Yellow','#84cc16':'Lime','#22c55e':'Green','#10b981':'Emerald','#14b8a6':'Teal','#06b6d4':'Cyan','#0ea5e9':'Sky','#3b82f6':'Blue','#6366f1':'Indigo','#8b5cf6':'Violet','#a855f7':'Purple','#d946ef':'Fuchsia','#ec4899':'Pink','#f43f5e':'Rose','#64748b':'Slate'};
+            return names[hex] || hex;
+        },
+
         closeAccountDialog()  { document.getElementById('account-dialog').close(); },
         closeRecurringDialog() { document.getElementById('recurring-dialog').close(); },
 
@@ -413,7 +420,7 @@ document.addEventListener('alpine:init', () => {
                    value="{{formatBalance .Account.Balance}}"
                    aria-label="{{index .T "accounts.balance_placeholder"}}"
                    @input="dirty = true"
-                   class="bg-transparent w-20 sm:w-24 text-right outline-hidden font-mono text-base sm:text-lg font-bold text-foreground focus:text-blue-500 focus:bg-accent rounded-lg px-1 transition-colors">
+                   class="bg-transparent w-20 sm:w-24 text-right outline-hidden font-mono text-base sm:text-lg font-bold text-foreground focus:text-blue-500 focus:bg-accent hover:border-b hover:border-dashed hover:border-muted-foreground rounded-lg px-1 transition-colors cursor-text">
             <span class="text-xs text-muted-foreground font-medium whitespace-nowrap">{{.Currency}}</span>
             <button aria-label="{{index .T "common.save"}}" class="text-blue-500 p-1.5 rounded-lg transition-all"
                     :class="dirty ? 'opacity-100' : 'opacity-0 pointer-events-none'">
