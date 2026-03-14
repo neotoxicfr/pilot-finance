@@ -158,9 +158,15 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 	var toAccountID *int64
 	if toAccountIDStr != "" {
 		tid, err := strconv.ParseInt(toAccountIDStr, 10, 64)
-		if err == nil {
-			toAccountID = &tid
+		if err != nil {
+			clientError(w, ErrValidation, "Compte destinataire invalide", http.StatusBadRequest)
+			return
 		}
+		if ok, err := hookAccountBelongsToUser(tid, user.ID); err != nil || !ok {
+			clientError(w, ErrValidation, "Compte destinataire invalide", http.StatusBadRequest)
+			return
+		}
+		toAccountID = &tid
 	}
 
 	if opType == "expense" && amount > 0 {

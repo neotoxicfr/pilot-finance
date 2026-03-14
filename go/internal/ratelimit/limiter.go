@@ -45,6 +45,11 @@ var Configs = map[string]Config{
 		WindowMs:    300000, // 5 minutes
 		BlockMs:     900000, // 15 minutes
 	},
+	"resetPassword": {
+		MaxAttempts: 5,
+		WindowMs:    900000,  // 15 minutes
+		BlockMs:     1800000, // 30 minutes
+	},
 }
 
 type attempt struct {

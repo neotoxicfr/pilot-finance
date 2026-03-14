@@ -53,27 +53,14 @@ func initDB(cfg Config) error {
 		return fmt.Errorf("création dossier DB: %w", err)
 	}
 
+	// PRAGMAs via DSN ensure they apply to every connection in the pool
+	// (foreign_keys, busy_timeout, cache_size, temp_store are per-connection).
+	dsn := cfg.Path + "?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=cache_size(10000)&_pragma=temp_store(MEMORY)&_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=mmap_size(268435456)"
+
 	var err error
-	DB, err = sql.Open("sqlite", cfg.Path)
+	DB, err = sql.Open("sqlite", dsn)
 	if err != nil {
 		return fmt.Errorf("ouverture DB: %w", err)
-	}
-
-	// Configuration SQLite pour performance
-	pragmas := []string{
-		"PRAGMA journal_mode=WAL",
-		"PRAGMA synchronous=NORMAL",
-		"PRAGMA cache_size=10000",
-		"PRAGMA temp_store=MEMORY",
-		"PRAGMA foreign_keys=ON",
-		"PRAGMA busy_timeout=5000",
-		"PRAGMA mmap_size=268435456",
-	}
-
-	for _, pragma := range pragmas {
-		if _, err := DB.Exec(pragma); err != nil {
-			slog.Warn("pragma failed", "pragma", pragma, "err", err)
-		}
 	}
 
 	// Pool de connexions

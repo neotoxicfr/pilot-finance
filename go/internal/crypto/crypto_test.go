@@ -560,38 +560,30 @@ func TestEncrypt_NilCipherBlock(t *testing.T) {
 
 // --- error branches via hooks / key corruption ---
 
-func TestEncrypt_NewCipherError(t *testing.T) {
+func TestEncrypt_NilGCM(t *testing.T) {
 	ResetForTest()
 	mustInit(t)
-	// Corrupt the pre-computed cipher block to trigger GCM creation failure.
-	origBlock := cipherBlock
-	badBlock, _ := aes.NewCipher([]byte("0123456789abcdef")) // valid but different block
-	cipherBlock = badBlock
-	// We override GCM to return an error since a valid block won't fail NewGCM.
-	origGCM := cipherNewGCMFn
-	cipherNewGCMFn = func(_ cipher.Block) (cipher.AEAD, error) {
-		return nil, errors.New("forced cipher error")
-	}
-	defer func() { cipherBlock = origBlock; cipherNewGCMFn = origGCM }()
+	origGCM := gcmStandard
+	gcmStandard = nil
+	defer func() { gcmStandard = origGCM }()
 
 	_, err := Encrypt("test")
 	if err == nil {
-		t.Error("Encrypt: want error with bad cipher, got nil")
+		t.Error("Encrypt: want error with nil gcmStandard, got nil")
 	}
 }
 
-func TestEncrypt_NewGCMError(t *testing.T) {
-	mustInit(t)
+func TestInit_NewGCMError(t *testing.T) {
+	ResetForTest()
 	orig := cipherNewGCMFn
-	defer func() { cipherNewGCMFn = orig }()
-
 	cipherNewGCMFn = func(_ cipher.Block) (cipher.AEAD, error) {
 		return nil, errors.New("forced gcm error")
 	}
+	defer func() { cipherNewGCMFn = orig }()
 
-	_, err := Encrypt("test")
-	if err == nil || err.Error() != "forced gcm error" {
-		t.Errorf("Encrypt: want 'forced gcm error', got %v", err)
+	err := Init(testEncryptionKey, testBlindIndexKey)
+	if err == nil || !strings.Contains(err.Error(), "forced gcm error") {
+		t.Errorf("Init: want 'forced gcm error', got %v", err)
 	}
 }
 
@@ -610,21 +602,20 @@ func TestEncrypt_RandReadError(t *testing.T) {
 	}
 }
 
-func TestDecrypt_NewCipherError(t *testing.T) {
+func TestDecrypt_NilGCM(t *testing.T) {
 	ResetForTest()
 	mustInit(t)
-	// Encrypt a value first, then corrupt the cipher block
 	encrypted, err := Encrypt("test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	origBlock := cipherBlock
-	cipherBlock = nil
-	defer func() { cipherBlock = origBlock }()
+	origGCM := gcmStandard
+	gcmStandard = nil
+	defer func() { gcmStandard = origGCM }()
 
 	_, err = Decrypt(encrypted)
 	if err == nil {
-		t.Error("Decrypt: want error with nil cipher block, got nil")
+		t.Error("Decrypt: want error with nil gcmStandard, got nil")
 	}
 }
 

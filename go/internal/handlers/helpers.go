@@ -1,13 +1,37 @@
 package handlers
 
 import (
+	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/projection"
 )
+
+// parseFormAny parses form data from the request body for any HTTP method.
+// Go's ParseForm only reads the body for POST/PUT/PATCH; this extends it to DELETE.
+func parseFormAny(r *http.Request) error {
+	if err := r.ParseForm(); err != nil {
+		return err
+	}
+	if r.Method == http.MethodDelete && r.Body != nil {
+		body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+		if err != nil {
+			return err
+		}
+		vals, err := url.ParseQuery(string(body))
+		if err != nil {
+			return err
+		}
+		for k, v := range vals {
+			r.Form[k] = v
+		}
+	}
+	return nil
+}
 
 // serverError logue l'erreur interne et renvoie une 500 générique au client.
 // Inclut le header X-Error-Code pour le suivi structuré.

@@ -493,8 +493,10 @@ func TestDeleteSelfAccount_Success(t *testing.T) {
 	defer cleanup()
 	uid := newUser(t, "del@example.com", "DelP@ss1!", "USER")
 
-	req := injectUser(httptest.NewRequest(http.MethodDelete, "/settings/account", nil),
+	body := strings.NewReader("current_password=DelP%40ss1!")
+	req := injectUser(httptest.NewRequest(http.MethodDelete, "/settings/account", body),
 		&middleware.User{ID: uid, Role: "USER", Language: "fr", Currency: "EUR", SessionVersion: 1})
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	rr := httptest.NewRecorder()
 	DeleteSelfAccount(rr, req)
 

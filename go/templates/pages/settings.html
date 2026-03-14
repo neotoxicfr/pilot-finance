@@ -7,6 +7,7 @@ function mfaData() {
         mfaCode: '',
         mfaError: '',
         mfaLoading: false,
+        mfaDisableForm: false,
         setupMfa() {
             this.mfaLoading = true;
             fetch('/settings/mfa/setup')
@@ -222,17 +223,40 @@ document.addEventListener('alpine:init', () => {
                 </h2>
 
                 {{if .MFAEnabled}}
-                <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 flex items-center justify-between">
-                    <div class="flex items-center gap-3 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
-                        {{template "icon-shield" dict "Size" 24}} {{index .T "settings.mfa_active"}}
+                <div class="space-y-4">
+                    <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 flex items-center justify-between">
+                        <div class="flex items-center gap-3 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
+                            {{template "icon-shield" dict "Size" 24}} {{index .T "settings.mfa_active"}}
+                        </div>
+                        <button type="button" @click="mfaDisableForm = !mfaDisableForm"
+                                class="text-xs bg-background hover:bg-red-500/10 text-muted-foreground hover:text-red-500 px-3 py-2 rounded-lg border border-border hover:border-red-500/50 transition-colors">
+                            {{index .T "settings.mfa_disable_btn"}}
+                        </button>
                     </div>
-                    <button hx-post="/settings/mfa/disable"
-                            hx-confirm="{{index .T "settings.mfa_disable_confirm"}}"
-                            hx-swap="none"
-                            @htmx:after-request="event.detail.successful && reload()"
-                            class="text-xs bg-background hover:bg-red-500/10 text-muted-foreground hover:text-red-500 px-3 py-2 rounded-lg border border-border hover:border-red-500/50 transition-colors">
-                        {{index .T "settings.mfa_disable_btn"}}
-                    </button>
+                    <template x-if="mfaDisableForm">
+                        <form hx-post="/settings/mfa/disable" hx-swap="none"
+                              @htmx:after-request="event.detail.successful && reload()"
+                              @htmx:response-error="mfaError = $event.detail.xhr.responseText"
+                              class="bg-red-500/5 border border-red-500/20 rounded-xl p-4 space-y-3">
+                            <p class="text-sm text-muted-foreground">{{index .T "settings.mfa_disable_password"}}</p>
+                            <input type="password" name="current_password" required autofocus
+                                   class="w-full bg-accent border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-red-500 transition-colors text-sm"
+                                   placeholder="{{index .T "settings.current_password"}}">
+                            <template x-if="mfaError">
+                                <div class="text-red-500 text-xs text-center bg-red-500/10 p-2 rounded-lg border border-red-500/20" x-text="mfaError"></div>
+                            </template>
+                            <div class="flex gap-2">
+                                <button type="button" @click="mfaDisableForm = false; mfaError = ''"
+                                        class="flex-1 bg-accent hover:bg-accent/80 text-muted-foreground font-bold py-2.5 rounded-xl transition-all text-sm">
+                                    {{index .T "common.cancel"}}
+                                </button>
+                                <button type="submit"
+                                        class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl transition-all text-sm">
+                                    {{index .T "settings.mfa_disable_confirm"}}
+                                </button>
+                            </div>
+                        </form>
+                    </template>
                 </div>
                 {{else}}
                 <template x-if="!mfaSetup">
@@ -376,21 +400,26 @@ document.addEventListener('alpine:init', () => {
                             {{template "icon-trash" dict "Size" 16}}
                             {{index .T "settings.delete_account"}}
                         </button>
-                        <template x-if="selfDeleteConfirm">
-                            <div class="flex gap-2 flex-1">
-                                <button hx-delete="/settings/account"
-                                        hx-target="body"
-                                        class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-sm font-bold text-white transition-all whitespace-nowrap">
-                                    {{template "icon-trash" dict "Size" 16}}
-                                    {{index .T "settings.delete_account_confirm"}}
-                                </button>
-                                <button @click="selfDeleteConfirm = false"
-                                        class="flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-all whitespace-nowrap">
+                    </div>
+                    <template x-if="selfDeleteConfirm">
+                        <form hx-delete="/settings/account" hx-target="body"
+                              class="bg-red-500/5 border border-red-500/20 rounded-xl p-4 space-y-3 mt-4">
+                            <p class="text-sm text-muted-foreground">{{index .T "settings.delete_account_password"}}</p>
+                            <input type="password" name="current_password" required autofocus
+                                   class="w-full bg-accent border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-red-500 transition-colors text-sm"
+                                   placeholder="{{index .T "settings.current_password"}}">
+                            <div class="flex gap-2">
+                                <button type="button" @click="selfDeleteConfirm = false"
+                                        class="flex-1 bg-accent hover:bg-accent/80 text-muted-foreground font-bold py-2.5 rounded-xl transition-all text-sm">
                                     {{index .T "common.cancel"}}
                                 </button>
+                                <button type="submit"
+                                        class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl transition-all text-sm">
+                                    {{index .T "settings.delete_account_confirm"}}
+                                </button>
                             </div>
-                        </template>
-                    </div>
+                        </form>
+                    </template>
                 </div>
             </div>
 

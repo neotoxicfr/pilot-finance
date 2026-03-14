@@ -30,6 +30,7 @@ var (
 	encryptionKey  []byte
 	blindIndexKey  []byte
 	cipherBlock    cipher.Block // pre-computed AES cipher block
+	gcmStandard    cipher.AEAD // pre-computed GCM for standard 12-byte nonce
 	initOnce       sync.Once
 	initErr        error
 	ErrInvalidKey  = errors.New("clé invalide: 32 bytes requis")
@@ -44,6 +45,7 @@ func ResetForTest() {
 	encryptionKey = nil
 	blindIndexKey = nil
 	cipherBlock = nil
+	gcmStandard = nil
 }
 
 // Hooks injectables pour les tests (permettent de couvrir les branches d'erreur impossibles en prod).
@@ -78,6 +80,13 @@ func Init(encKeyHex, blindKeyHex string) error {
 			initErr = fmt.Errorf("AES cipher init: %w", err)
 			return
 		}
+
+		// Pre-compute GCM for standard 12-byte nonce (avoids GF(2^128) table rebuild per call)
+		gcmStandard, err = cipherNewGCMFn(cipherBlock)
+		if err != nil {
+			initErr = fmt.Errorf("GCM init: %w", err)
+			return
+		}
 	})
 	return initErr
 }
@@ -85,13 +94,10 @@ func Init(encKeyHex, blindKeyHex string) error {
 // Encrypt chiffre un texte avec AES-256-GCM
 // Format de sortie: IV_HEX:AUTH_TAG_HEX:CIPHERTEXT_HEX (compatible Node.js)
 func Encrypt(plaintext string) (string, error) {
-	if cipherBlock == nil {
+	if gcmStandard == nil {
 		return "", ErrDecryption
 	}
-	gcm, err := cipherNewGCMFn(cipherBlock)
-	if err != nil {
-		return "", err
-	}
+	gcm := gcmStandard
 
 	iv := make([]byte, ivLength)
 	if _, err := cryptoRandRead(iv); err != nil {
@@ -144,18 +150,18 @@ func Decrypt(encrypted string) (string, error) {
 		return "", ErrDecryption
 	}
 
-	// Créer GCM avec la taille de nonce appropriée (12 ou 16 bytes)
-	if cipherBlock == nil {
+	// Use pre-computed GCM for standard 12-byte nonce, fallback for legacy 16-byte
+	if gcmStandard == nil {
 		return "", ErrDecryption
 	}
 	var gcm cipher.AEAD
 	if len(iv) == 12 {
-		gcm, err = cipher.NewGCM(cipherBlock)
+		gcm = gcmStandard
 	} else {
 		gcm, err = cipher.NewGCMWithNonceSize(cipherBlock, len(iv))
-	}
-	if err != nil {
-		return "", err
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// Reconstituer ciphertext + tag pour GCM Open

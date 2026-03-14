@@ -61,8 +61,8 @@ func T(lang, key string) string {
 	return key
 }
 
-// Map retourne une copie de la map complète pour une langue (pour injection dans les templates).
-// La copie empêche toute mutation accidentelle de la source.
+// Map retourne la map complète pour une langue (pour injection dans les templates).
+// html/template ne mute jamais les données, donc pas besoin de copie.
 func Map(lang string) map[string]string {
 	src := translations[lang]
 	if src == nil {
@@ -71,9 +71,5 @@ func Map(lang string) map[string]string {
 	if src == nil {
 		return map[string]string{}
 	}
-	cp := make(map[string]string, len(src))
-	for k, v := range src {
-		cp[k] = v
-	}
-	return cp
+	return src
 }
