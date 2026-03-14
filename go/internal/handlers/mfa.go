@@ -115,7 +115,7 @@ func MFADisable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !hookVerifyPassword(currentPassword, dbUser.Password) {
-		clientError(w, ErrAuthInvalid, "Mot de passe incorrect", http.StatusForbidden)
+		clientError(w, ErrAuthInvalid, "Mot de passe incorrect", http.StatusUnauthorized)
 		return
 	}
 

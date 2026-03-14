@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -69,7 +70,7 @@ func CSPReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(body) > 0 {
+	if len(body) > 0 && json.Valid(body) {
 		slog.Warn("csp-violation", "report", string(body), "ip", r.RemoteAddr, "ua", r.UserAgent())
 	}
 	w.WriteHeader(http.StatusNoContent)

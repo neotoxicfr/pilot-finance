@@ -68,6 +68,14 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// Vérifier s'il y a un pending_2fa cookie (deuxième étape de login avec 2FA)
 	pendingCookie, _ := r.Cookie("pending_2fa")
 	if pendingCookie != nil && twoFactorCode != "" {
+		// Rate limit on 2FA verification (prevents TOTP brute-force)
+		twoFAResult := hookRateLimitCheck(clientIP, "twoFactor")
+		if !twoFAResult.Allowed {
+			waitMin := (twoFAResult.RetryAfterMs / 60000) + 1
+			clientError(w, ErrRateLimited, "Trop de tentatives 2FA. Réessayez dans "+strconv.FormatInt(waitMin, 10)+" min.", http.StatusTooManyRequests)
+			return
+		}
+
 		// Validation du code 2FA
 		pendingUserID, err := hookValidatePending2FAToken(pendingCookie.Value)
 		if err != nil {

@@ -5,3 +5,6 @@ docker-compose.yml
 .gitignore
 README.md
 LICENSE
+*_test.go
+**/*_test.go
+Makefile

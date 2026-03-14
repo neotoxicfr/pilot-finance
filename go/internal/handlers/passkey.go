@@ -146,6 +146,13 @@ func PasskeyLoginStart(w http.ResponseWriter, r *http.Request) {
 
 // PasskeyLoginFinish termine l'authentification par passkey
 func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
+	clientIP := getClientIP(r)
+	result := hookRateLimitCheck(clientIP, "login")
+	if !result.Allowed {
+		clientError(w, ErrRateLimited, "Too many attempts", http.StatusTooManyRequests)
+		return
+	}
+
 	cookie, err := r.Cookie("passkey_auth_challenge")
 	if err != nil {
 		clientError(w, ErrValidation, "Session expirée", http.StatusBadRequest)

@@ -131,7 +131,8 @@ func InvalidateSessionCache(userID int64) {
 	sessionCache.Delete(userID)
 }
 
-// OptionalAuth tente de parser le JWT si présent, sans rediriger si absent ou invalide
+// OptionalAuth tente de parser le JWT si présent, sans rediriger si absent ou invalide.
+// Uses the same session cache as RequireAuth to avoid redundant DB queries.
 func OptionalAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("session")
@@ -144,8 +145,30 @@ func OptionalAuth(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		sv, emailEncrypted, err := getUserAuthData(claims.UserID)
-		if err != nil || sv != claims.SessionVersion {
+
+		var sv int
+		var emailEncrypted string
+		if cached, ok := sessionCache.Load(claims.UserID); ok {
+			entry := cached.(sessionCacheEntry)
+			if time.Now().Before(entry.expiresAt) {
+				sv = entry.sessionVersion
+				emailEncrypted = entry.emailEncrypted
+			}
+		}
+		if emailEncrypted == "" {
+			sv, emailEncrypted, err = getUserAuthData(claims.UserID)
+			if err != nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+			sessionCache.Store(claims.UserID, sessionCacheEntry{
+				sessionVersion: sv,
+				emailEncrypted: emailEncrypted,
+				expiresAt:      time.Now().Add(sessionCacheTTL),
+			})
+		}
+
+		if sv != claims.SessionVersion {
 			next.ServeHTTP(w, r)
 			return
 		}

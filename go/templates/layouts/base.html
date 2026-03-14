@@ -53,17 +53,19 @@
         });
         function pwdMixin(obj) { return Object.defineProperties(obj, _pwdDescriptors); }
 
-        // Toast
+        // Toast (supports success and error variants)
         function toastData() {
             return {
                 visible: false,
                 message: '',
+                isError: false,
                 timeout: null,
-                show(msg) {
+                show(msg, error) {
                     this.message = msg;
+                    this.isError = !!error;
                     this.visible = true;
                     clearTimeout(this.timeout);
-                    this.timeout = setTimeout(() => this.visible = false, 2500);
+                    this.timeout = setTimeout(() => this.visible = false, error ? 4000 : 2500);
                 }
             };
         }
@@ -125,6 +127,7 @@
     {{end}}
     <script nonce="{{.Nonce}}" defer src="/static/js/alpine-csp.min.js?v={{.AssetVer}}"></script>
     {{if or (eq .CurrentPath "/login") (eq .CurrentPath "/settings")}}
+    <script nonce="{{.Nonce}}">window.PASSKEY_I18N={cancelled:"{{index .T "passkey.error.cancelled"}}",security:"{{index .T "passkey.error.security"}}",generic:"{{index .T "passkey.error.generic"}}",registerCancelled:"{{index .T "passkey.error.register_cancelled"}}",alreadyRegistered:"{{index .T "passkey.error.already_registered"}}"};</script>
     <script nonce="{{.Nonce}}" async src="/static/js/passkey.js?v={{.AssetVer}}"></script>
     {{end}}
     {{if eq .CurrentPath "/accounts"}}
@@ -134,7 +137,7 @@
 <body class="font-sans antialiased bg-background text-foreground {{block "bodyClass" .}}min-h-screen flex flex-col{{end}}" x-data="themeData">
     <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[200] focus:px-4 focus:py-2 focus:bg-background focus:text-foreground focus:border focus:border-border focus:rounded-lg focus:text-sm focus:font-bold">Skip to main content</a>
     {{if .User}}
-    <nav class="border-b border-border bg-background/50 backdrop-blur-md sticky top-0 z-50">
+    <nav class="border-b border-border bg-background backdrop-blur-md sticky top-0 z-50">
         <div class="max-w-[1400px] mx-auto px-2 sm:px-4 h-16 flex items-center justify-between">
             <div class="flex items-center gap-3 sm:gap-8">
                 <a href="/" class="hover:opacity-80 transition-opacity flex-shrink-0" aria-label="Pilot Finance">
@@ -177,14 +180,16 @@
     </main>
     {{template "htmx-config" .}}
     <!-- Toast -->
-    <div x-data="toastData" @pilot:toast.window="show($event.detail.message)"
+    <div x-data="toastData" @pilot:toast.window="show($event.detail.message, $event.detail.isError)"
          role="status" aria-live="polite" aria-atomic="true"
          class="toast-container fixed left-1/2 -translate-x-1/2 z-[100] pointer-events-none">
         <template x-if="visible">
-            <div class="pointer-events-auto bg-background border border-border shadow-xl rounded-xl px-4 py-3 flex items-center gap-2.5 text-sm font-medium text-foreground whitespace-nowrap"
+            <div class="pointer-events-auto bg-background border shadow-xl rounded-xl px-4 py-3 flex items-center gap-2.5 text-sm font-medium text-foreground whitespace-nowrap"
+                 :class="isError ? 'border-red-500/30' : 'border-border'"
                  x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0"
                  x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 translate-y-2">
-                <span class="text-emerald-500">{{template "icon-check" dict "Size" 16}}</span>
+                <span x-show="!isError" class="text-emerald-500">{{template "icon-check" dict "Size" 16}}</span>
+                <span x-show="isError" x-cloak class="text-red-500">{{template "icon-x" dict "Size" 16}}</span>
                 <span x-text="message"></span>
             </div>
         </template>
@@ -195,6 +200,10 @@
 {{define "htmx-config"}}
 <script nonce="{{.Nonce}}">
 document.body.addEventListener('htmx:beforeSwap', e => { if (e.detail.xhr.status === 401) location.href = '/login'; });
+document.body.addEventListener('htmx:responseError', e => {
+    const msg = e.detail.xhr.responseText || '{{index .T "common.network_error"}}';
+    window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: msg.substring(0, 100), isError: true } }));
+});
 document.body.addEventListener('htmx:afterRequest', e => {
     if (e.detail.successful) {
         const t = e.detail.target?.id;
