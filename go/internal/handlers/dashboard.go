@@ -20,9 +20,16 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 	// Nombre d'annees de projection (defaut 5)
 	years := 5
 	if y := r.URL.Query().Get("years"); y != "" {
-		if parsed, err := strconv.Atoi(y); err == nil && parsed >= 1 && parsed <= 30 {
-			years = parsed
+		parsed, err := strconv.Atoi(y)
+		if err != nil {
+			clientError(w, ErrValidation, "years must be an integer", http.StatusBadRequest)
+			return
 		}
+		if parsed < 1 || parsed > 30 {
+			clientError(w, ErrValidation, "years must be between 1 and 30", http.StatusBadRequest)
+			return
+		}
+		years = parsed
 	}
 
 	// Recuperer les comptes

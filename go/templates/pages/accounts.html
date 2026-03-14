@@ -23,7 +23,7 @@
             <!-- Account Form Modal -->
             <dialog id="account-dialog" aria-labelledby="account-dialog-title"
                     @close="editingAccount = null"
-                    @click="$event.target.tagName === 'DIALOG' && $event.target.close()">
+                    @click="$event.target === $el && $el.close()">
                 <div class="modal-panel relative border border-border rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5">
                     <button @click="closeAccountDialog()" aria-label="{{index .T "common.close"}}"
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
@@ -190,7 +190,7 @@
             <!-- Recurring Form Modal -->
             <dialog id="recurring-dialog" aria-labelledby="recurring-dialog-title"
                     @close="editingRecurring = null"
-                    @click="$event.target.tagName === 'DIALOG' && $event.target.close()">
+                    @click="$event.target === $el && $el.close()">
                 <div class="modal-panel relative border border-border rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5">
                     <button @click="closeRecurringDialog()" aria-label="{{index .T "common.close"}}"
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
@@ -298,6 +298,7 @@ function accountsPage() {
             this.targetAccountId = account?.target_account_id ? String(account.target_account_id) : '';
             this.payoutFrequency = account?.payout_frequency || 'MONTHLY';
             document.getElementById('account-dialog').showModal();
+            this.$nextTick(() => document.querySelector('#account-dialog input[name="name"]')?.focus());
         },
 
         editingRecurring: null,
@@ -325,6 +326,7 @@ function accountsPage() {
                 this.opType = recurring.Amount > 0 ? 'income' : 'expense';
             }
             document.getElementById('recurring-dialog').showModal();
+            this.$nextTick(() => document.querySelector('#recurring-dialog input[name="description"]')?.focus());
         },
 
         initSortable() {
@@ -358,9 +360,15 @@ function accountsPage() {
 
         init() {
             this.$nextTick(() => this.initSortable());
-            document.body.addEventListener('htmx:afterSettle', e => {
+            this._htmxHandler = e => {
                 if (e.detail.target?.id === 'accounts-list') this.initSortable();
-            });
+            };
+            document.body.addEventListener('htmx:afterSettle', this._htmxHandler);
+        },
+        destroy() {
+            if (this._htmxHandler) {
+                document.body.removeEventListener('htmx:afterSettle', this._htmxHandler);
+            }
         }
     };
 }

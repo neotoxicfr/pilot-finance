@@ -62,7 +62,7 @@ COPY templates /app/templates
 COPY locales /app/locales
 
 # Permissions
-RUN chown -R appuser:appuser /app
+RUN mkdir -p /data && chown -R appuser:appuser /app /data
 
 USER appuser
 
@@ -72,9 +72,6 @@ EXPOSE 3000
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1
-
-# Logs JSON en production
-ENV ENV=production
 
 # Démarrage
 CMD ["/app/server"]

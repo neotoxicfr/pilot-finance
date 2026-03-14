@@ -147,8 +147,12 @@ func decryptAuditEntries(entries []AuditEntry) {
 		go func(idx int) {
 			defer wg.Done()
 			defer func() { <-sem }() // release semaphore slot
-			entries[idx].IP, _ = crypto.Decrypt(entries[idx].IP)
-			entries[idx].UserAgent, _ = crypto.Decrypt(entries[idx].UserAgent)
+			if dec, err := crypto.Decrypt(entries[idx].IP); err == nil {
+				entries[idx].IP = dec
+			}
+			if dec, err := crypto.Decrypt(entries[idx].UserAgent); err == nil {
+				entries[idx].UserAgent = dec
+			}
 		}(i)
 	}
 

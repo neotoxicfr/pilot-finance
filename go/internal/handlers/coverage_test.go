@@ -378,7 +378,7 @@ func TestAuditPage_WithEntries(t *testing.T) {
 	}
 	body := rr.Body.String()
 	// Vérifier que les 3 entrées sont rendues (3 lignes <tr> dans tbody)
-	trCount := strings.Count(body, "hover:bg-accent/20")
+	trCount := strings.Count(body, "hover:bg-accent transition-colors")
 	if trCount != 3 {
 		t.Errorf("want 3 audit rows, got %d", trCount)
 	}
@@ -556,6 +556,34 @@ func TestDashboardAPI_WithYearsParam(t *testing.T) {
 	DashboardAPI(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Errorf("want 200, got %d", rr.Code)
+	}
+}
+
+// --- DashboardAPI : invalid years parameter → 400 ---
+
+func TestDashboardAPI_InvalidYears(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "dashyearsinv@example.com", "ValidP@ss1!", "USER")
+
+	tests := []struct {
+		query string
+	}{
+		{"years=abc"},
+		{"years=0"},
+		{"years=31"},
+		{"years=-1"},
+	}
+	for _, tc := range tests {
+		req := injectUser(
+			httptest.NewRequest(http.MethodGet, "/api/dashboard?"+tc.query, nil),
+			mu(uid, "USER"),
+		)
+		rr := httptest.NewRecorder()
+		DashboardAPI(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("%s: want 400, got %d", tc.query, rr.Code)
+		}
 	}
 }
 
@@ -1632,7 +1660,7 @@ func TestMFADisable_MissingPassword(t *testing.T) {
 	}
 }
 
-// --- MFADisable: wrong password → 403 ---
+// --- MFADisable: wrong password → 401 ---
 
 func TestMFADisable_WrongPassword(t *testing.T) {
 	cleanup := setupHandlerTest(t)
@@ -1644,8 +1672,8 @@ func TestMFADisable_WrongPassword(t *testing.T) {
 	}), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
 	MFADisable(rr, req)
-	if rr.Code != http.StatusForbidden {
-		t.Errorf("want 403 (wrong password), got %d", rr.Code)
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("want 401 (wrong password), got %d", rr.Code)
 	}
 }
 
