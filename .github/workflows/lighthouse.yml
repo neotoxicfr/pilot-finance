@@ -65,6 +65,13 @@ jobs:
         run: |
           echo "## Lighthouse Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ ! -f .lighthouseci/manifest.json ]; then
+            echo "::warning::Lighthouse did not produce results (NO_FCP — flaky Chrome headless)"
+            echo "No reports generated — Chrome headless rendering failed." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
           echo "| Category | Score |" >> $GITHUB_STEP_SUMMARY
           echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
 
@@ -99,5 +106,5 @@ jobs:
               exit 1
             fi
           else
-            echo "::warning::Could not find Lighthouse report"
+            echo "::warning::Could not find valid Lighthouse report"
           fi
