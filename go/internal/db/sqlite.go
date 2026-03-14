@@ -436,7 +436,10 @@ func runMigrations(dbPath string) {
 
 	for _, m := range migrations {
 		var count int
-		DB.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE name = ?`, m.Name).Scan(&count)
+		if err := DB.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE name = ?`, m.Name).Scan(&count); err != nil {
+			slog.Warn("migration: impossible de vérifier schema_migrations", "name", m.Name, "err", err)
+			continue
+		}
 		if count > 0 {
 			continue
 		}
