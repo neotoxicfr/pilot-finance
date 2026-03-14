@@ -42,10 +42,12 @@ jobs:
             ENCRYPTION_KEY=${{ steps.keys.outputs.enc }} \
             BLIND_INDEX_KEY=${{ steps.keys.outputs.blind }} \
             ../server &
-          for i in $(seq 1 10); do
-            sleep 2
+          for i in $(seq 1 30); do
             curl -sf http://localhost:3000/login > /dev/null && break
+            echo "Waiting for server... ($i/30)"
+            sleep 2
           done
+          curl -sf http://localhost:3000/login > /dev/null || { echo "::error::Server failed to start"; exit 1; }
 
       - name: Lighthouse audit (login page)
         id: lighthouse
@@ -53,7 +55,7 @@ jobs:
         with:
           urls: |
             http://localhost:3000/login
-          runs: 1
+          runs: 3
           uploadArtifacts: true
           configPath: .lighthouserc.json
 
