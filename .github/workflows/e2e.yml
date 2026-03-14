@@ -13,6 +13,8 @@ jobs:
     name: Playwright E2E
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v6
@@ -57,7 +59,11 @@ jobs:
             ENCRYPTION_KEY=${{ steps.keys.outputs.enc }} \
             BLIND_INDEX_KEY=${{ steps.keys.outputs.blind }} \
             ../server &
-          sleep 3
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/api/health && break
+            echo "Waiting for server... ($i/30)"
+            sleep 1
+          done
           curl -sf http://localhost:3000/api/health || exit 1
 
       - name: Run E2E tests
