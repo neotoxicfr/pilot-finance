@@ -5,9 +5,7 @@
         "chromeFlags": [
           "--headless=new",
           "--no-sandbox",
-          "--disable-gpu",
-          "--disable-dev-shm-usage",
-          "--disable-software-rasterizer"
+          "--disable-dev-shm-usage"
         ],
         "maxWaitForFcp": 60000,
         "maxWaitForLoad": 60000,

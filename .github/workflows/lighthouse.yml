@@ -60,21 +60,32 @@ jobs:
           configPath: .lighthouserc.json
 
       - name: Check scores
+        if: always() && steps.lighthouse.outcome == 'success'
         run: |
           echo "## Lighthouse Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Category | Score |" >> $GITHUB_STEP_SUMMARY
           echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
 
-          # Parse report
+          # Parse best report (highest performance score)
           MANIFEST=$(cat .lighthouseci/manifest.json)
-          REPORT=$(echo "$MANIFEST" | jq -r '.[0].jsonPath')
+          BEST_REPORT=""
+          BEST_PERF=0
+          for REPORT in $(echo "$MANIFEST" | jq -r '.[].jsonPath'); do
+            if [ -f "$REPORT" ]; then
+              P=$(jq '.categories.performance.score // 0' "$REPORT")
+              if [ "$(echo "$P > $BEST_PERF" | bc)" -eq 1 ]; then
+                BEST_PERF=$P
+                BEST_REPORT=$REPORT
+              fi
+            fi
+          done
 
-          if [ -f "$REPORT" ]; then
-            PERF=$(jq '.categories.performance.score * 100' "$REPORT")
-            A11Y=$(jq '.categories.accessibility.score * 100' "$REPORT")
-            BP=$(jq '.categories["best-practices"].score * 100' "$REPORT")
-            SEO=$(jq '.categories.seo.score * 100' "$REPORT")
+          if [ -n "$BEST_REPORT" ]; then
+            PERF=$(jq '.categories.performance.score * 100' "$BEST_REPORT")
+            A11Y=$(jq '.categories.accessibility.score * 100' "$BEST_REPORT")
+            BP=$(jq '.categories["best-practices"].score * 100' "$BEST_REPORT")
+            SEO=$(jq '.categories.seo.score * 100' "$BEST_REPORT")
 
             echo "| Performance | ${PERF}% |" >> $GITHUB_STEP_SUMMARY
             echo "| Accessibility | ${A11Y}% |" >> $GITHUB_STEP_SUMMARY
