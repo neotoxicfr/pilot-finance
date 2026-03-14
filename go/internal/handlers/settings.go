@@ -73,7 +73,18 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Invalidate session cache so the new session_version takes effect immediately
+	middleware.InvalidateSessionCache(user.ID)
+
 	hookLogAudit(user.ID, db.AuditPasswordChange, getClientIP(r), r.UserAgent())
+
+	// Re-issue JWT with new session version
+	dbUser, dbErr := hookGetUserByID(user.ID)
+	if dbErr == nil && dbUser != nil {
+		if token, err := hookGenerateToken(user.ID, user.Role, user.Language, user.Currency, dbUser.SessionVersion); err == nil {
+			setSessionCookie(w, "session", token, 86400)
+		}
+	}
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -211,10 +222,33 @@ func ExportData(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeleteSelfAccount supprime le compte de l'utilisateur connecté et toutes ses données (GDPR).
+// Requires current password for re-authentication (irreversible action).
 func DeleteSelfAccount(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
 		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		return
+	}
+
+	if err := parseFormAny(r); err != nil {
+		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
+		return
+	}
+
+	currentPassword := r.FormValue("current_password")
+	if currentPassword == "" {
+		clientError(w, ErrValidation, "Mot de passe requis", http.StatusBadRequest)
+		return
+	}
+
+	dbUser, err := hookGetUserByID(user.ID)
+	if err != nil || dbUser == nil {
+		clientError(w, ErrNotFound, "Utilisateur non trouvé", http.StatusNotFound)
+		return
+	}
+
+	if !hookVerifyPassword(currentPassword, dbUser.Password) {
+		clientError(w, ErrAuthInvalid, "Mot de passe incorrect", http.StatusUnauthorized)
 		return
 	}
 

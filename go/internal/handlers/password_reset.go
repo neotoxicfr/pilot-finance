@@ -128,6 +128,15 @@ func ResetPasswordPage(w http.ResponseWriter, r *http.Request) {
 
 // ResetPasswordSubmit traite la reinitialisation
 func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
+	clientIP := getClientIP(r)
+
+	// Rate limiting
+	result := hookRateLimitCheck(clientIP, "resetPassword")
+	if !result.Allowed {
+		clientError(w, ErrRateLimited, "Too many attempts", http.StatusTooManyRequests)
+		return
+	}
+
 	token := r.FormValue("token")
 	password := r.FormValue("password")
 	confirmPassword := r.FormValue("confirmPassword")
@@ -186,6 +195,9 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 		serverError(w, "update password", err)
 		return
 	}
+
+	// Invalidate session cache so stolen tokens are rejected immediately
+	hookInvalidateSessionCache(user.ID)
 
 	// Effacer le token
 	if err := hookClearResetToken(user.ID); err != nil {

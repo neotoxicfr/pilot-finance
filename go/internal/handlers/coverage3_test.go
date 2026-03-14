@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,6 +22,7 @@ import (
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/mail"
+	"pilot-finance/internal/ratelimit"
 )
 
 // ── accounts.go ─────────────────────────────────────────────────────────────
@@ -1239,5 +1242,262 @@ func TestExportData_PasskeysError(t *testing.T) {
 	ExportData(rr, injectUser(httptest.NewRequest(http.MethodGet, "/api/export", nil), mu(uid, "USER")))
 	if rr.Code != http.StatusOK {
 		t.Errorf("want 200, got %d", rr.Code)
+	}
+}
+
+// ── helpers.go: parseFormAny DELETE io.ReadAll error ─────────────────────────
+
+func TestParseFormAny_DeleteReadError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "pfdelete_readerr@example.com", "ValidP@ss1!", "USER")
+
+	req := httptest.NewRequest(http.MethodDelete, "/settings/account", &errReader{})
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = injectUser(req, mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	DeleteSelfAccount(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (parseFormAny ReadAll error), got %d", rr.Code)
+	}
+}
+
+// ── settings.go: DeleteSelfAccount password verification ────────────────────
+
+func TestDeleteSelfAccount_MissingPassword(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "delself_nopass@example.com", "ValidP@ss1!", "USER")
+
+	body := strings.NewReader("")
+	req := injectUser(httptest.NewRequest(http.MethodDelete, "/settings/account", body), mu(uid, "USER"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	DeleteSelfAccount(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (missing password), got %d", rr.Code)
+	}
+}
+
+func TestDeleteSelfAccount_WrongPassword(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "delself_wrongpw@example.com", "ValidP@ss1!", "USER")
+
+	body := strings.NewReader("current_password=WrongP%40ss1!")
+	req := injectUser(httptest.NewRequest(http.MethodDelete, "/settings/account", body), mu(uid, "USER"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	DeleteSelfAccount(rr, req)
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("want 401 (wrong password), got %d", rr.Code)
+	}
+}
+
+func TestDeleteSelfAccount_ParseFormError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "delself_parseerr@example.com", "ValidP@ss1!", "USER")
+
+	req := injectUser(
+		postBody("/settings/account", []byte("bad"), "multipart/form-data; boundary="),
+		mu(uid, "USER"),
+	)
+	req.Method = http.MethodDelete
+	rr := httptest.NewRecorder()
+	DeleteSelfAccount(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (ParseForm error), got %d", rr.Code)
+	}
+}
+
+func TestDeleteSelfAccount_UserNotFound(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+
+	orig := hookGetUserByID
+	hookGetUserByID = func(int64) (*db.User, error) { return nil, nil }
+	t.Cleanup(func() { hookGetUserByID = orig })
+
+	body := strings.NewReader("current_password=AnyP%40ss1!")
+	req := injectUser(httptest.NewRequest(http.MethodDelete, "/settings/account", body), mu(99999, "USER"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	DeleteSelfAccount(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("want 404 (user not found), got %d", rr.Code)
+	}
+}
+
+// ── recurring.go: UpdateRecurring toAccountID ownership ─────────────────────
+
+func TestUpdateRecurring_ToAccountNotOwned(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "updrecidor1@example.com", "ValidP@ss1!", "USER")
+	uid2 := newUser(t, "updrecidor2@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	accID2 := createAcc(t, uid2)
+	recID := createRec(t, uid, accID)
+
+	idStr := intStr(recID)
+	req := injectUser(
+		withParam(post("/recurring/"+idStr, url.Values{
+			"description": {"Updated"},
+			"amount":      {"500"},
+			"dayOfMonth":  {"15"},
+			"type":        {"income"},
+			"toAccountId": {intStr(accID2)},
+		}), "id", idStr),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	UpdateRecurring(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (IDOR toAccount in UpdateRecurring), got %d", rr.Code)
+	}
+	_ = uid2
+}
+
+// ── password_reset.go: ResetPasswordSubmit rate limit ────────────────────────
+
+func TestResetPasswordSubmit_RateLimited(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+
+	orig := hookRateLimitCheck
+	hookRateLimitCheck = func(identifier, action string) ratelimit.Result {
+		if action == "resetPassword" {
+			return ratelimit.Result{Allowed: false, RetryAfterMs: 900000, Remaining: 0}
+		}
+		return orig(identifier, action)
+	}
+	t.Cleanup(func() { hookRateLimitCheck = orig })
+
+	req := post("/reset-password", url.Values{
+		"token":           {"sometoken"},
+		"password":        {"NewValidP@ssw0rd!"},
+		"confirmPassword": {"NewValidP@ssw0rd!"},
+	})
+	rr := httptest.NewRecorder()
+	ResetPasswordSubmit(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("want 429 (rate limited), got %d", rr.Code)
+	}
+}
+
+// ── passkey.go: PasskeyLoginFinish rate limit ────────────────────────────────
+
+func TestPasskeyLoginFinish_RateLimited(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+
+	orig := hookRateLimitCheck
+	hookRateLimitCheck = func(identifier, action string) ratelimit.Result {
+		if action == "login" {
+			return ratelimit.Result{Allowed: false, RetryAfterMs: 900000, Remaining: 0}
+		}
+		return orig(identifier, action)
+	}
+	t.Cleanup(func() { hookRateLimitCheck = orig })
+
+	req := httptest.NewRequest(http.MethodPost, "/passkey/login/finish", nil)
+	rr := httptest.NewRecorder()
+	PasskeyLoginFinish(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("want 429 (passkey login rate limited), got %d", rr.Code)
+	}
+}
+
+// ── auth.go: HandleLogin 2FA rate limit ──────────────────────────────────────
+
+func TestHandleLogin_2FA_RateLimited(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+
+	uid, _ := newMFAUser(t, "mfa_ratelim@example.com")
+
+	orig := hookRateLimitCheck
+	hookRateLimitCheck = func(identifier, action string) ratelimit.Result {
+		if action == "twoFactor" {
+			return ratelimit.Result{Allowed: false, RetryAfterMs: 900000, Remaining: 0}
+		}
+		return orig(identifier, action)
+	}
+	t.Cleanup(func() { hookRateLimitCheck = orig })
+
+	pendingToken, err := auth.GeneratePending2FAToken(uid)
+	if err != nil {
+		t.Fatalf("GeneratePending2FAToken: %v", err)
+	}
+
+	req := post("/login", url.Values{"twoFactorCode": {"123456"}})
+	req.AddCookie(&http.Cookie{Name: "pending_2fa", Value: pendingToken})
+	rr := httptest.NewRecorder()
+	HandleLogin(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("want 429 (2FA rate limited), got %d", rr.Code)
+	}
+}
+
+// ── accounts.go: CreateAccount hookCountAccountsByUserID error ───────────────
+
+func TestCreateAccount_CountAccountsError(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "countaccerr@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookCountAccountsByUserID
+	hookCountAccountsByUserID = func(userID int64) (int, error) { return 0, errTest2 }
+	t.Cleanup(func() { hookCountAccountsByUserID = orig })
+
+	req := injectUser(post("/accounts", url.Values{
+		"name":    {"FallbackAcc"},
+		"balance": {"100"},
+		"color":   {"#3b82f6"},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	CreateAccount(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200 (account created despite count error), got %d", rr.Code)
+	}
+}
+
+// ── recurring.go: UpdateRecurring invalid toAccountId ────────────────────────
+
+func TestUpdateRecurring_InvalidToAccountID(t *testing.T) {
+	cleanup := setupHandlerTest(t)
+	defer cleanup()
+	uid := newUser(t, "updrectoaccbad@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	recID := createRec(t, uid, accID)
+
+	idStr := strconv.FormatInt(recID, 10)
+	req := injectUser(
+		withParam(post("/recurring/"+idStr, url.Values{
+			"description": {"Updated"},
+			"amount":      {"500"},
+			"dayOfMonth":  {"15"},
+			"type":        {"transfer"},
+			"toAccountId": {"abc"},
+		}), "id", idStr),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	UpdateRecurring(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (invalid toAccountId), got %d", rr.Code)
+	}
+}
+
+// ── helpers.go: parseFormAny url.ParseQuery error ────────────────────────────
+
+func TestParseFormAny_InvalidBody(t *testing.T) {
+	body := strings.NewReader("key=%zz")
+	req := httptest.NewRequest(http.MethodDelete, "/test", body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	err := parseFormAny(req)
+	if err == nil {
+		t.Error("want error for invalid percent-encoded body")
 	}
 }

@@ -2,6 +2,7 @@ version: 2
 updates:
   - package-ecosystem: "gomod"
     directory: "/go"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
@@ -14,6 +15,7 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/go"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
     commit-message:
@@ -21,6 +23,7 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
     commit-message:
@@ -32,8 +35,13 @@ updates:
 
   - package-ecosystem: "npm"
     directory: "/e2e"
+    target-branch: "develop"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
     commit-message:
       prefix: "chore(deps)"
+    groups:
+      npm-dependencies:
+        patterns:
+          - "*"

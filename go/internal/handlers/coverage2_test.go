@@ -267,17 +267,11 @@ func TestRenderAccountsList_GetAccountsError(t *testing.T) {
 	defer cleanup()
 	uid := newUser(t, "ral_get_err@example.com", "ValidP@ss1!", "USER")
 
-	// hookGetAccountsByUserID is used in both the position lookup AND renderAccountsList.
-	// We want it to succeed during position lookup but fail during renderAccountsList.
-	// Strategy: first call returns empty slice (OK), second call returns error.
-	callCount := 0
+	// hookGetAccountsByUserID is called in renderAccountsList only
+	// (CreateAccount uses hookCountAccountsByUserID for position).
 	orig := hookGetAccountsByUserID
 	hookGetAccountsByUserID = func(userID int64) ([]db.Account, error) {
-		callCount++
-		if callCount >= 2 {
-			return nil, errTest2
-		}
-		return []db.Account{}, nil
+		return nil, errTest2
 	}
 	t.Cleanup(func() { hookGetAccountsByUserID = orig })
 

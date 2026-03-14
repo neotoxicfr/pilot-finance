@@ -17,6 +17,7 @@ import (
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/mail"
+	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/ratelimit"
 	"pilot-finance/internal/templates"
 )
@@ -45,6 +46,7 @@ var (
 	hookCreateAccountWithYield   = db.CreateAccountWithYield
 	hookDeleteAccount            = db.DeleteAccount
 	hookAccountBelongsToUser     = db.AccountBelongsToUser
+	hookCountAccountsByUserID    = db.CountAccountsByUserID
 	hookUpdateAccountBalance     = db.UpdateAccountBalance
 	hookSwapAccountPositions     = db.SwapAccountPositions
 	hookGetAuditLog              = db.GetAuditLog
@@ -103,6 +105,9 @@ var (
 	// --- ratelimit ---
 	hookRateLimitCheck = ratelimit.Check
 	hookRateLimitReset = ratelimit.Reset
+
+	// --- middleware ---
+	hookInvalidateSessionCache = func(userID int64) { middleware.InvalidateSessionCache(userID) }
 
 	// --- stdlib ---
 	hookRandRead = rand.Read

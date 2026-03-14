@@ -1013,14 +1013,6 @@ func TestMFADisable_Success(t *testing.T) {
 	}
 }
 
-// min est disponible en Go 1.21+
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // --- ChangePassword success ---
 
 func TestChangePassword_Success(t *testing.T) {

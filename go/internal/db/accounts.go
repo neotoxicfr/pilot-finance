@@ -100,6 +100,13 @@ func AccountBelongsToUser(accountID, userID int64) (bool, error) {
 	return count > 0, err
 }
 
+// CountAccountsByUserID retourne le nombre de comptes d'un utilisateur (sans déchiffrement).
+func CountAccountsByUserID(userID int64) (int, error) {
+	var count int
+	err := DB.QueryRow(`SELECT COUNT(*) FROM accounts WHERE user_id = ?`, userID).Scan(&count)
+	return count, err
+}
+
 // SwapAccountPositions echange les positions de deux comptes
 func SwapAccountPositions(id1, id2, userID int64) error {
 	tx, err := DB.Begin()
