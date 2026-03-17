@@ -226,6 +226,14 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Rate limiting par compte (protection brute-force distribué multi-IP)
+	userIDStr := strconv.FormatInt(user.ID, 10)
+	acctResult := hookRateLimitCheck(userIDStr, "loginAccount")
+	if !acctResult.Allowed {
+		clientError(w, ErrRateLimited, "Too many attempts", http.StatusTooManyRequests)
+		return
+	}
+
 	// Générer le token JWT
 	token, err := hookGenerateToken(user.ID, user.Role, user.Language, user.Currency, user.SessionVersion)
 	if err != nil {
@@ -235,6 +243,9 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 
 	clearCookie(w, "passkey_auth_challenge")
 	setSessionCookie(w, "session", token, 86400) // 24 heures
+
+	hookRateLimitReset(clientIP, "login")
+	hookRateLimitReset(userIDStr, "loginAccount")
 
 	hookLogAudit(user.ID, db.AuditLoginSuccess, getClientIP(r), r.UserAgent())
 

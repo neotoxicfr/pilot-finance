@@ -129,7 +129,9 @@ window.initPieChart = (accounts, animated = true) => {
                 const cc = getColors(), d = tm.dataPoints[0], total = d.dataset.data.reduce((a,b) => a+b, 0);
                 const esc = s => { const d2 = document.createElement('div'); d2.textContent = s; return d2.innerHTML; };
                 t.innerHTML = '<strong>'+esc(d.label)+'</strong><br>'+fmt(d.raw)+' ('+(d.raw/total*100).toFixed(1)+'%)';
-                Object.assign(t.style, { backgroundColor: cc.tipBg, color: cc.tipBody, border: '1px solid '+cc.tipBorder, opacity: 1, left: (ctx.chart.canvas.getBoundingClientRect().left+tm.caretX+10)+'px', top: (ctx.chart.canvas.getBoundingClientRect().top+tm.caretY-10)+'px' });
+                const tw = t.offsetWidth || 160, th = t.offsetHeight || 50;
+                const rect = ctx.chart.canvas.getBoundingClientRect();
+                Object.assign(t.style, { backgroundColor: cc.tipBg, color: cc.tipBody, border: '1px solid '+cc.tipBorder, opacity: 1, left: Math.min(rect.left+tm.caretX+10, window.innerWidth-tw-8)+'px', top: Math.min(rect.top+tm.caretY-10, window.innerHeight-th-8)+'px' });
             } } }
         }
     });

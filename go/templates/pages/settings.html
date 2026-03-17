@@ -11,7 +11,7 @@ function mfaData() {
         setupMfa() {
             this.mfaLoading = true;
             fetch('/settings/mfa/setup')
-                .then(r => r.json())
+                .then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); })
                 .then(d => { this.mfaSetup = d; this.mfaLoading = false; })
                 .catch(() => { this.mfaLoading = false; this.mfaError = '{{index .T "common.network_error"}}'; });
         },
@@ -20,7 +20,7 @@ function mfaData() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ secret: this.mfaSetup.secret, code: this.mfaCode })
-            }).then(r => r.json()).then(d => {
+            }).then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); }).then(d => {
                 if (d.error) this.mfaError = d.error;
                 else location.reload();
             }).catch(() => { this.mfaError = '{{index .T "common.network_error"}}'; });
@@ -41,10 +41,12 @@ function passkeyData() {
         openRename(id, name) {
             this.renameId = id;
             this.renameName = name;
+            this._renameTrigger = document.activeElement;
             document.getElementById('passkey-rename-dialog').showModal();
         },
         closeRenameDialog() {
             document.getElementById('passkey-rename-dialog').close();
+            this.$nextTick(() => this._renameTrigger?.focus());
         },
         submitRename() {
             if (!this.renameId) return;
@@ -53,7 +55,7 @@ function passkeyData() {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: this.renameName })
-            }).then(() => location.reload()).catch(() => location.reload());
+            }).then(function(r) { if (!r.ok) throw new Error(r.statusText); }).then(() => location.reload()).catch(() => location.reload());
         }
     };
 }
@@ -102,7 +104,7 @@ function dangerData() {
                 })
                 .catch(function() {
                     window.dispatchEvent(new CustomEvent('pilot:toast', {
-                        detail: { message: 'Export failed', isError: true }
+                        detail: { message: '{{index .T "settings.export_error"}}', isError: true }
                     }));
                 });
         }
@@ -288,8 +290,8 @@ document.addEventListener('alpine:init', () => {
                         </div>
                         <div class="text-center text-sm text-muted-foreground">{{index .T "settings.mfa_scan"}}</div>
                         <div>
-                            <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.mfa_code_label"}}</label>
-                            <input type="text" inputmode="numeric" maxlength="6" x-model="mfaCode"
+                            <label for="mfa-code" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.mfa_code_label"}}</label>
+                            <input id="mfa-code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" x-model="mfaCode"
                                    class="w-full bg-accent border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 text-center text-xl tracking-[0.5em] font-mono transition-colors"
                                    placeholder="000000">
                         </div>
@@ -362,8 +364,8 @@ document.addEventListener('alpine:init', () => {
                         @close="renameId = null">
                     <div class="modal-panel rounded-2xl p-6 w-full max-w-sm mx-auto mt-20 shadow-2xl" @click.stop>
                         <h3 id="passkey-rename-title" class="text-lg font-bold text-foreground mb-4">{{index .T "settings.passkey_rename_title"}}</h3>
-                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.passkey_name_prompt"}}</label>
-                        <input type="text" x-model="renameName"
+                        <label for="passkey-rename-input" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.passkey_name_prompt"}}</label>
+                        <input id="passkey-rename-input" type="text" x-model="renameName"
                                class="w-full bg-accent border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-blue-500 transition-colors mb-4"
                                @keydown.enter="submitRename()">
                         <div class="flex gap-2">

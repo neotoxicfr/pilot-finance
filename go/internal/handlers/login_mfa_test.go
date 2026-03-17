@@ -19,8 +19,7 @@ import (
 // --- HandleLogin : 2FA second step — invalid pending token ---
 
 func TestHandleLogin_2FA_InvalidPendingToken(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	// Cookie pending_2fa avec valeur invalide + code quelconque
 	req := post("/login", url.Values{"twoFactorCode": {"123456"}})
@@ -53,8 +52,7 @@ func newMFAUser(t *testing.T, email string) (int64, string) {
 // --- HandleLogin : MFA activé, premier step (password OK) → rendu formulaire 2FA ---
 
 func TestHandleLogin_MFAEnabled_ShowsForm(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	newMFAUser(t, "mfaform@example.com")
 
 	rr := httptest.NewRecorder()
@@ -81,8 +79,7 @@ func TestHandleLogin_MFAEnabled_ShowsForm(t *testing.T) {
 // --- HandleLogin : 2FA second step — code TOTP invalide ---
 
 func TestHandleLogin_2FA_WrongCode(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid, _ := newMFAUser(t, "mfa2wrong@example.com")
 
 	pendingToken, err := auth.GeneratePending2FAToken(uid)
@@ -102,8 +99,7 @@ func TestHandleLogin_2FA_WrongCode(t *testing.T) {
 // --- HandleLogin : 2FA second step — succès complet ---
 
 func TestHandleLogin_2FA_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid, secret := newMFAUser(t, "mfa2ok@example.com")
 
 	pendingToken, err := auth.GeneratePending2FAToken(uid)
@@ -130,8 +126,7 @@ func TestHandleLogin_2FA_Success(t *testing.T) {
 // --- HandleLogin : 2FA second step — MFASecret nil (DB inconsistency) ---
 
 func TestHandleLogin_2FA_NilMFASecret(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "mfanil@example.com", "ValidP@ss1!", "USER")
 
 	// Activer MFA sans secret (simule une incohérence DB)
@@ -166,8 +161,7 @@ func TestHandleLogin_2FA_NilMFASecret(t *testing.T) {
 // --- UpdatePreferences : langue/devise invalides → fallback silencieux ---
 
 func TestUpdatePreferences_InvalidLang_FallsBack(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "prefsinvalid@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/settings/preferences", url.Values{

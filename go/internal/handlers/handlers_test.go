@@ -44,7 +44,7 @@ func goRoot() string {
 }
 
 // setupHandlerTest initialise tous les sous-systèmes requis par les handlers.
-func setupHandlerTest(t *testing.T) func() {
+func setupHandlerTest(t *testing.T) {
 	t.Helper()
 	root := goRoot()
 
@@ -75,7 +75,7 @@ func setupHandlerTest(t *testing.T) func() {
 	if err := templates.Init(filepath.Join(root, "templates")); err != nil {
 		t.Fatalf("templates.Init: %v", err)
 	}
-	return func() { db.Close() }
+	t.Cleanup(func() { db.Close() })
 }
 
 // newUser crée un utilisateur de test et retourne son ID.
@@ -113,8 +113,7 @@ func post(path string, form url.Values) *http.Request {
 // ----- HealthCheck -----
 
 func TestHealthCheck(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
 	rr := httptest.NewRecorder()
@@ -171,8 +170,7 @@ func TestCSPReport_EmptyBody(t *testing.T) {
 // ----- HandleLogin -----
 
 func TestHandleLogin_MissingFields(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	HandleLogin(rr, post("/login", url.Values{"email": {""}, "password": {""}}))
@@ -182,8 +180,7 @@ func TestHandleLogin_MissingFields(t *testing.T) {
 }
 
 func TestHandleLogin_UnknownUser(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	HandleLogin(rr, post("/login", url.Values{
@@ -196,8 +193,7 @@ func TestHandleLogin_UnknownUser(t *testing.T) {
 }
 
 func TestHandleLogin_WrongPassword(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	newUser(t, "login@example.com", "CorrectP@ss1!", "USER")
 
 	rr := httptest.NewRecorder()
@@ -211,8 +207,7 @@ func TestHandleLogin_WrongPassword(t *testing.T) {
 }
 
 func TestHandleLogin_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	newUser(t, "success@example.com", "ValidP@ss1!", "USER")
 
 	rr := httptest.NewRecorder()
@@ -232,8 +227,7 @@ func TestHandleLogin_Success(t *testing.T) {
 // ----- HandleRegister -----
 
 func TestHandleRegister_WeakPassword(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	t.Setenv("ALLOW_REGISTER", "true")
 
 	rr := httptest.NewRecorder()
@@ -248,8 +242,7 @@ func TestHandleRegister_WeakPassword(t *testing.T) {
 }
 
 func TestHandleRegister_InvalidEmail(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	t.Setenv("ALLOW_REGISTER", "true")
 
 	rr := httptest.NewRecorder()
@@ -264,8 +257,7 @@ func TestHandleRegister_InvalidEmail(t *testing.T) {
 }
 
 func TestHandleRegister_PasswordMismatch(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	t.Setenv("ALLOW_REGISTER", "true")
 
 	rr := httptest.NewRecorder()
@@ -282,8 +274,7 @@ func TestHandleRegister_PasswordMismatch(t *testing.T) {
 // ----- CreateAccount -----
 
 func TestCreateAccount_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	CreateAccount(rr, post("/accounts", url.Values{"name": {"Test"}}))
@@ -293,8 +284,7 @@ func TestCreateAccount_Unauthorized(t *testing.T) {
 }
 
 func TestCreateAccount_NoName(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "noname@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/accounts", url.Values{"name": {""}}),
@@ -307,8 +297,7 @@ func TestCreateAccount_NoName(t *testing.T) {
 }
 
 func TestCreateAccount_InvalidBalance(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "invbal@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/accounts", url.Values{"name": {"Savings"}, "balance": {"not-a-number"}}),
@@ -321,8 +310,7 @@ func TestCreateAccount_InvalidBalance(t *testing.T) {
 }
 
 func TestCreateAccount_InvalidColor(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "invcolor@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/accounts", url.Values{
@@ -338,8 +326,7 @@ func TestCreateAccount_InvalidColor(t *testing.T) {
 }
 
 func TestCreateAccount_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "create@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/accounts", url.Values{
@@ -361,8 +348,7 @@ func TestCreateAccount_Success(t *testing.T) {
 // ----- ChangePassword -----
 
 func TestChangePassword_MissingFields(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pwd@example.com", "OldP@ss1!", "USER")
 
 	req := injectUser(post("/settings/password", url.Values{
@@ -377,8 +363,7 @@ func TestChangePassword_MissingFields(t *testing.T) {
 }
 
 func TestChangePassword_WrongCurrentPassword(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pwdwrong@example.com", "OldP@ss1!", "USER")
 
 	req := injectUser(post("/settings/password", url.Values{
@@ -394,8 +379,7 @@ func TestChangePassword_WrongCurrentPassword(t *testing.T) {
 }
 
 func TestChangePassword_PasswordMismatch(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pwdmatch@example.com", "OldP@ss1!", "USER")
 
 	req := injectUser(post("/settings/password", url.Values{
@@ -411,8 +395,7 @@ func TestChangePassword_PasswordMismatch(t *testing.T) {
 }
 
 func TestChangePassword_WeakNewPassword(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pwdweak@example.com", "OldP@ss1!", "USER")
 
 	req := injectUser(post("/settings/password", url.Values{
@@ -430,8 +413,7 @@ func TestChangePassword_WeakNewPassword(t *testing.T) {
 // ----- ExportData -----
 
 func TestExportData_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	ExportData(rr, httptest.NewRequest(http.MethodGet, "/settings/export", nil))
@@ -441,8 +423,7 @@ func TestExportData_Unauthorized(t *testing.T) {
 }
 
 func TestExportData_ContainsAllFields(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "export@example.com", "ExportP@ss1!", "USER")
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/settings/export", nil),
@@ -478,8 +459,7 @@ func TestExportData_ContainsAllFields(t *testing.T) {
 // ----- DeleteSelfAccount -----
 
 func TestDeleteSelfAccount_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	DeleteSelfAccount(rr, httptest.NewRequest(http.MethodDelete, "/settings/account", nil))
@@ -489,8 +469,7 @@ func TestDeleteSelfAccount_Unauthorized(t *testing.T) {
 }
 
 func TestDeleteSelfAccount_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "del@example.com", "DelP@ss1!", "USER")
 
 	body := strings.NewReader("current_password=DelP%40ss1!")
@@ -511,8 +490,7 @@ func TestDeleteSelfAccount_Success(t *testing.T) {
 // ----- AuditPage -----
 
 func TestAuditPage_NonAdmin(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "user@example.com", "UserP@ss1!", "USER")
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/admin/audit", nil),
@@ -525,8 +503,7 @@ func TestAuditPage_NonAdmin(t *testing.T) {
 }
 
 func TestAuditPage_Admin(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "admin@example.com", "AdminP@ss1!", "ADMIN")
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/admin/audit", nil),

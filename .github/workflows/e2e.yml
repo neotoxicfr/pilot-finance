@@ -17,10 +17,10 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version-file: go/go.mod
           cache-dependency-path: go/go.sum
@@ -30,7 +30,7 @@ jobs:
         run: go build -o ../server ./cmd/server
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
         with:
           node-version: 25
           cache: npm
@@ -45,19 +45,24 @@ jobs:
         run: npx playwright install --with-deps chromium firefox
 
       - name: Generate test keys
-        id: keys
         run: |
-          echo "auth=$(openssl rand -hex 32)" >> $GITHUB_OUTPUT
-          echo "enc=$(openssl rand -hex 32)" >> $GITHUB_OUTPUT
-          echo "blind=$(openssl rand -hex 32)" >> $GITHUB_OUTPUT
+          AUTH=$(openssl rand -hex 32)
+          ENC=$(openssl rand -hex 32)
+          BLIND=$(openssl rand -hex 32)
+          echo "::add-mask::$AUTH"
+          echo "::add-mask::$ENC"
+          echo "::add-mask::$BLIND"
+          echo "AUTH_SECRET=$AUTH" >> $GITHUB_ENV
+          echo "ENCRYPTION_KEY=$ENC" >> $GITHUB_ENV
+          echo "BLIND_INDEX_KEY=$BLIND" >> $GITHUB_ENV
 
       - name: Start server
         run: |
           cd go && DISABLE_RATE_LIMIT=true \
             ALLOW_REGISTER=true \
-            AUTH_SECRET=${{ steps.keys.outputs.auth }} \
-            ENCRYPTION_KEY=${{ steps.keys.outputs.enc }} \
-            BLIND_INDEX_KEY=${{ steps.keys.outputs.blind }} \
+            AUTH_SECRET=${{ env.AUTH_SECRET }} \
+            ENCRYPTION_KEY=${{ env.ENCRYPTION_KEY }} \
+            BLIND_INDEX_KEY=${{ env.BLIND_INDEX_KEY }} \
             ../server &
           for i in $(seq 1 30); do
             curl -sf http://localhost:3000/api/health && break
@@ -75,7 +80,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: playwright-report
           path: e2e/playwright-report/
@@ -83,7 +88,7 @@ jobs:
 
       - name: Upload screenshots on failure
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: test-results
           path: e2e/test-results/

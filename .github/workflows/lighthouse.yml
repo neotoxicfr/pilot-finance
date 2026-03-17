@@ -13,12 +13,14 @@ jobs:
     name: Lighthouse Audit
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version-file: go/go.mod
           cache-dependency-path: go/go.sum
@@ -28,19 +30,24 @@ jobs:
         run: go build -o ../server ./cmd/server
 
       - name: Generate test keys
-        id: keys
         run: |
-          echo "auth=$(openssl rand -hex 32)" >> $GITHUB_OUTPUT
-          echo "enc=$(openssl rand -hex 32)" >> $GITHUB_OUTPUT
-          echo "blind=$(openssl rand -hex 32)" >> $GITHUB_OUTPUT
+          AUTH=$(openssl rand -hex 32)
+          ENC=$(openssl rand -hex 32)
+          BLIND=$(openssl rand -hex 32)
+          echo "::add-mask::$AUTH"
+          echo "::add-mask::$ENC"
+          echo "::add-mask::$BLIND"
+          echo "AUTH_SECRET=$AUTH" >> $GITHUB_ENV
+          echo "ENCRYPTION_KEY=$ENC" >> $GITHUB_ENV
+          echo "BLIND_INDEX_KEY=$BLIND" >> $GITHUB_ENV
 
       - name: Start server
         run: |
           cd go && DISABLE_RATE_LIMIT=true \
             ALLOW_REGISTER=true \
-            AUTH_SECRET=${{ steps.keys.outputs.auth }} \
-            ENCRYPTION_KEY=${{ steps.keys.outputs.enc }} \
-            BLIND_INDEX_KEY=${{ steps.keys.outputs.blind }} \
+            AUTH_SECRET=${{ env.AUTH_SECRET }} \
+            ENCRYPTION_KEY=${{ env.ENCRYPTION_KEY }} \
+            BLIND_INDEX_KEY=${{ env.BLIND_INDEX_KEY }} \
             ../server &
           for i in $(seq 1 30); do
             curl -sf http://localhost:3000/login > /dev/null && break
@@ -52,7 +59,7 @@ jobs:
       - name: Lighthouse audit (login page)
         id: lighthouse
         continue-on-error: true
-        uses: treosh/lighthouse-ci-action@v12
+        uses: treosh/lighthouse-ci-action@3e7e23fb74242897f95c0ba9cabad3d0227b9b18 # v12
         with:
           urls: |
             http://localhost:3000/login
