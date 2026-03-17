@@ -262,5 +262,8 @@
   "email.reset_btn": "Reset my password",
   "email.reset_expiry": "This link expires in 1 hour.",
   "email.reset_ignore": "If you did not request this reset, please ignore this email.",
-  "email.reset_footer": "Pilot Finance - Your personal financial cockpit"
+  "email.reset_footer": "Pilot Finance - Your personal financial cockpit",
+  "theme.light": "Theme: Light",
+  "theme.dark": "Theme: Dark",
+  "theme.system": "Theme: System"
 }
