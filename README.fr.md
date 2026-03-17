@@ -57,7 +57,7 @@
 - **Responsive** — experience fluide sur tous les supports, compatible PWA
 - **Dark mode** — automatique (systeme) ou basculement manuel
 - **Glisser-deposer** sur desktop, boutons de deplacement sur mobile
-- **Leger** — image Docker ~46 Mo, ~30 Mo de RAM, demarrage <1s. Zero requete CDN
+- **Leger** — image Docker ~8 Mo, ~30 Mo de RAM, demarrage <1s. Zero requete CDN
 
 ---
 
@@ -104,7 +104,7 @@ services:
     volumes:
       - ./data:/data
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
+      test: ["/app/server", "healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -175,7 +175,7 @@ Vos donnees sont dans `./data/pilot.db`. Sauvegardez ce fichier regulierement. L
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
 | CI/CD | GitHub Actions (tests unitaires, E2E, CodeQL, Trivy, Lighthouse, GHCR, auto-release) |
 | E2E | Playwright (Chromium, Firefox, WebKit, Mobile Chrome) |
-| Docker | Image ~46 Mo (base alpine:3.23) |
+| Docker | Image ~8 Mo (base alpine:3.23) |
 
 ---
 
