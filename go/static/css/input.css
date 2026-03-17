@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Prevent iOS Safari auto-zoom on input focus (triggers when font-size < 16px) */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* Dark mode class-based */
 @custom-variant dark (&:where(.dark, .dark *));
 
