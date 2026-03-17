@@ -1436,3 +1436,83 @@ func TestParseFormAny_InvalidBody(t *testing.T) {
 		t.Error("want error for invalid percent-encoded body")
 	}
 }
+
+// ── helpers.go: parseFormAny ParseForm error ────────────────────────────────
+
+func TestParseFormAny_ParseFormError(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/test", nil)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Body = nil
+	req.Form = nil
+	// Force un Content-Type multipart invalide pour que ParseForm échoue
+	req.Header.Set("Content-Type", "multipart/form-data") // pas de boundary → erreur
+	err := parseFormAny(req)
+	if err == nil {
+		t.Error("want error from ParseForm with invalid multipart")
+	}
+}
+
+// ── passkey.go: PasskeyLoginFinish account rate limit ───────────────────────
+
+func TestPasskeyLoginFinish_AccountRateLimited(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "pkacctrl@example.com", "ValidP@ss1!", "USER")
+
+	rawCredID := []byte("testcred-acctrl-12345")
+	credIDBase64 := base64.StdEncoding.EncodeToString(rawCredID)
+	if err := db.CreateAuthenticator(credIDBase64, "pubkey-test", 0, "multiDevice", false, false, "[]", uid); err != nil {
+		t.Fatalf("CreateAuthenticator: %v", err)
+	}
+
+	origFinish := hookFinishLogin
+	defer func() { hookFinishLogin = origFinish }()
+	hookFinishLogin = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
+		user, err := h(rawCredID, nil)
+		if err != nil || user == nil {
+			return nil, nil, errTest
+		}
+		return user.(*auth.PasskeyUser), &webauthn.Credential{ID: rawCredID}, nil
+	}
+
+	// Block loginAccount but allow login IP
+	origRL := hookRateLimitCheck
+	defer func() { hookRateLimitCheck = origRL }()
+	hookRateLimitCheck = func(identifier, action string) ratelimit.Result {
+		if action == "loginAccount" {
+			return ratelimit.Result{Allowed: false, RetryAfterMs: 900000, Remaining: 0}
+		}
+		return ratelimit.Result{Allowed: true, Remaining: 10}
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/passkey/auth/finish", nil)
+	req.AddCookie(&http.Cookie{Name: "passkey_auth_challenge", Value: "dummysession"})
+	rr := httptest.NewRecorder()
+	PasskeyLoginFinish(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("want 429 (account rate limited), got %d", rr.Code)
+	}
+}
+
+// ── recurring.go: CreateRecurring description too long ──────────────────────
+
+func TestCreateRecurring_DescriptionTooLong(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "longdesc@example.com", "ValidP@ss1!", "USER")
+
+	longDesc := strings.Repeat("a", 501)
+	form := url.Values{
+		"description": {longDesc},
+		"amount":      {"100.00"},
+		"dayOfMonth":  {"1"},
+		"type":        {"EXPENSE"},
+		"accountId":   {"1"},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/accounts", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req = injectUser(req, mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	CreateRecurring(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (description too long), got %d", rr.Code)
+	}
+}
