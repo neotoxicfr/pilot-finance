@@ -1,5 +1,5 @@
 # Pilot Finance - Go + HTMX
-# Image finale: ~46MB
+# Image finale: ~8MB (scratch + UPX)
 
 # ============ CSS BUILD STAGE ============
 FROM node:25-alpine AS css
@@ -24,8 +24,8 @@ ARG VERSION=dev
 
 WORKDIR /app
 
-# Installer les dépendances de build
-RUN apk add --no-cache git
+# Installer les dépendances de build + UPX pour compression binaire
+RUN apk add --no-cache git upx
 
 # Copier les fichiers de dépendances en premier (cache layer)
 COPY go.mod go.sum ./
@@ -37,41 +37,37 @@ COPY . .
 # Copier le CSS compilé depuis le stage CSS
 COPY --from=css /app/static/css/tailwind.css static/css/tailwind.css
 
-# Build
+# Build + compress
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
     -ldflags="-s -w -X main.Version=${VERSION}" \
-    -o /server ./cmd/server
+    -o /server ./cmd/server \
+    && upx --best --lzma /server
 
-# ============ PRODUCTION STAGE ============
-FROM alpine:3.23
-
-# Certificats SSL et timezone
+# Copier les certificats CA et timezone depuis alpine
+FROM alpine:3.23 AS certs
 RUN apk add --no-cache ca-certificates tzdata
 
-# Créer un utilisateur non-root
-RUN adduser -D -g '' appuser
+# ============ PRODUCTION STAGE ============
+FROM scratch
 
-WORKDIR /app
+# Certificats SSL et timezone (copiés depuis alpine)
+COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=certs /usr/share/zoneinfo /usr/share/zoneinfo
 
-# Copier le binaire
+# Copier le binaire et les assets
 COPY --from=builder /server /app/server
-
-# Copier les fichiers statiques (avec tailwind.css compilé), templates et locales
 COPY --from=builder /app/static /app/static
 COPY --from=builder /app/templates /app/templates
 COPY --from=builder /app/locales /app/locales
 
-# Permissions
-RUN mkdir -p /data && chown -R appuser:appuser /app /data
-
-USER appuser
+WORKDIR /app
 
 # Port
 EXPOSE 3000
 
-# Health check
+# Health check via le binaire intégré (pas de wget dans scratch)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1
+    CMD ["/app/server", "healthcheck"]
 
 # Démarrage
-CMD ["/app/server"]
+ENTRYPOINT ["/app/server"]
