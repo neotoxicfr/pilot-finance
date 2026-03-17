@@ -58,8 +58,8 @@ COPY --from=builder /server /app/server
 
 # Copier les fichiers statiques (avec tailwind.css compilé), templates et locales
 COPY --from=builder /app/static /app/static
-COPY templates /app/templates
-COPY locales /app/locales
+COPY --from=builder /app/templates /app/templates
+COPY --from=builder /app/locales /app/locales
 
 # Permissions
 RUN mkdir -p /data && chown -R appuser:appuser /app /data

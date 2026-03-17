@@ -13,6 +13,16 @@ services:
       - no-new-privileges=true
     cap_drop:
       - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '1.0'
+        reservations:
+          memory: 64M
     environment:
       - ENV=production
       - TZ=Europe/Paris
