@@ -262,5 +262,8 @@
   "email.reset_btn": "Reinitialiser mon mot de passe",
   "email.reset_expiry": "Ce lien expire dans 1 heure.",
   "email.reset_ignore": "Si vous n'avez pas demande cette reinitialisation, ignorez cet email.",
-  "email.reset_footer": "Pilot Finance - Votre cockpit financier personnel"
+  "email.reset_footer": "Pilot Finance - Votre cockpit financier personnel",
+  "theme.light": "Th\u00e8me : Clair",
+  "theme.dark": "Th\u00e8me : Sombre",
+  "theme.system": "Th\u00e8me : Syst\u00e8me"
 }

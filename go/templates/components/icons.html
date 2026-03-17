@@ -100,34 +100,34 @@
     <div class="h-1.5 w-full bg-accent rounded-full overflow-hidden"><div class="h-full transition-all duration-300" :class="strengthColor" :style="'width:' + (pwdStrength * 20) + '%'"></div></div>
     <div class="grid grid-cols-2 gap-1.5 text-xs">
         <div class="flex items-center gap-1.5" :class="hasLength ? 'text-emerald-500' : 'text-muted-foreground'">
-            <svg x-show="hasLength" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
-            <svg x-show="!hasLength" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            <svg x-show="hasLength" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg x-show="!hasLength" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
             <span>{{index .T "pwd.min8"}}</span>
         </div>
         <div class="flex items-center gap-1.5" :class="hasUpper ? 'text-emerald-500' : 'text-muted-foreground'">
-            <svg x-show="hasUpper" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
-            <svg x-show="!hasUpper" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            <svg x-show="hasUpper" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg x-show="!hasUpper" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
             <span>{{index .T "pwd.upper"}}</span>
         </div>
         <div class="flex items-center gap-1.5" :class="hasLower ? 'text-emerald-500' : 'text-muted-foreground'">
-            <svg x-show="hasLower" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
-            <svg x-show="!hasLower" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            <svg x-show="hasLower" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg x-show="!hasLower" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
             <span>{{index .T "pwd.lower"}}</span>
         </div>
         <div class="flex items-center gap-1.5" :class="hasDigit ? 'text-emerald-500' : 'text-muted-foreground'">
-            <svg x-show="hasDigit" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
-            <svg x-show="!hasDigit" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            <svg x-show="hasDigit" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg x-show="!hasDigit" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
             <span>{{index .T "pwd.digit"}}</span>
         </div>
         <div class="flex items-center gap-1.5 col-span-2" :class="hasSpecial ? 'text-emerald-500' : 'text-muted-foreground'">
-            <svg x-show="hasSpecial" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
-            <svg x-show="!hasSpecial" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            <svg x-show="hasSpecial" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+            <svg x-show="!hasSpecial" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50"><path d="M18 6 6 18M6 6l12 12"/></svg>
             <span>{{index .T "pwd.special"}}</span>
         </div>
     </div>
     <div x-show="confirm.length > 0" class="flex items-center gap-1.5 text-xs font-medium" :class="pwdsMatch ? 'text-emerald-500' : 'text-red-500'">
-        <svg x-show="pwdsMatch" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
-        <svg x-show="!pwdsMatch" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        <svg x-show="pwdsMatch" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+        <svg x-show="!pwdsMatch" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
         <span x-text="pwdsMatch ? '{{index .T "pwd.match"}}' : '{{index .T "pwd.diff"}}'"></span>
     </div>
 </div>

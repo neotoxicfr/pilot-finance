@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -356,20 +357,24 @@ func TestHandleLogin_RateLimited(t *testing.T) {
 
 	newUser(t, "ratelim@example.com", "ValidP@ss1!", "USER")
 
-	// Exhaust the rate limit for this IP by sending bad logins
-	for i := 0; i < 10; i++ {
-		req := post("/login", url.Values{
-			"email":    {"ratelim@example.com"},
-			"password": {"WrongP@ss!"},
-		})
-		req.Header.Set("X-Forwarded-For", "7.7.7.7")
-		rr := httptest.NewRecorder()
-		HandleLogin(rr, req)
-		if rr.Code == http.StatusTooManyRequests {
-			return // rate limit hit — test passes
+	orig := hookRateLimitCheck
+	hookRateLimitCheck = func(identifier, action string) ratelimit.Result {
+		if action == "login" {
+			return ratelimit.Result{Allowed: false, RetryAfterMs: 900000, Remaining: 0}
 		}
+		return ratelimit.Result{Allowed: true, Remaining: 10}
 	}
-	t.Error("expected rate limit 429 after repeated failures, never got it")
+	t.Cleanup(func() { hookRateLimitCheck = orig })
+
+	req := post("/login", url.Values{
+		"email":    {"ratelim@example.com"},
+		"password": {"WrongP@ss!"},
+	})
+	rr := httptest.NewRecorder()
+	HandleLogin(rr, req)
+	if rr.Code != http.StatusTooManyRequests {
+		t.Errorf("want 429, got %d", rr.Code)
+	}
 }
 
 // auth.go — per-account rate limit (loginAccount) → 429
@@ -638,8 +643,9 @@ func TestDashboardAPI_WithPositiveBalance(t *testing.T) {
 func TestHealthCheck_DBError(t *testing.T) {
 	setupHandlerTest(t)
 
-	// Close the DB so PingContext fails
-	db.Close()
+	orig := hookPingDB
+	hookPingDB = func(ctx context.Context) error { return errTest }
+	t.Cleanup(func() { hookPingDB = orig })
 
 	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
 	rr := httptest.NewRecorder()

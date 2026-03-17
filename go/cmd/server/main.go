@@ -235,6 +235,7 @@ func main() {
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.RequireAuth)
 		r.Use(middleware.RequireAdmin)
+		r.Use(middleware.ValidateOrigin(host))
 
 		r.Get("/admin", handlers.SettingsPage)
 		r.Delete("/admin/users/{id}", handlers.DeleteUser)

@@ -135,8 +135,6 @@ func TestForgotPasswordSubmit_EmptyLanguageFallback(t *testing.T) {
 	enableTestSMTP(t)
 
 	// Force language to empty string to trigger fallback
-	origPrefs := hookUpdateUserPrefs
-	defer func() { hookUpdateUserPrefs = origPrefs }()
 	db.DB.Exec("UPDATE users SET language='' WHERE id=?", uid) //nolint:errcheck
 
 	rr := httptest.NewRecorder()

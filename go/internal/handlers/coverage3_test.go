@@ -71,7 +71,7 @@ func TestCreateAccount_PositionLookupError(t *testing.T) {
 	hookGetAccountsByUserID = func(id int64) ([]db.Account, error) {
 		return nil, errTest
 	}
-	defer func() { hookGetAccountsByUserID = orig }()
+	t.Cleanup(func() { hookGetAccountsByUserID = orig })
 
 	req := injectUser(post("/accounts", url.Values{
 		"name":    {"TestAccount"},
@@ -95,7 +95,7 @@ func TestReorderAccounts_DBError(t *testing.T) {
 	hookReorderAccounts = func(userID int64, ids []int64) error {
 		return errTest
 	}
-	defer func() { hookReorderAccounts = orig }()
+	t.Cleanup(func() { hookReorderAccounts = orig })
 
 	req := injectUser(
 		postBody("/accounts/reorder", []byte(`{"ids":[1,2,3]}`), "application/json"),
@@ -119,7 +119,7 @@ func TestMFASetup_QREncodeError(t *testing.T) {
 	hookQREncode = func(content string, level qrcode.RecoveryLevel, size int) ([]byte, error) {
 		return nil, errTest
 	}
-	defer func() { hookQREncode = orig }()
+	t.Cleanup(func() { hookQREncode = orig })
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/api/mfa/setup", nil), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
@@ -139,7 +139,7 @@ func TestLoginPage_RenderError(t *testing.T) {
 	hookRender = func(w io.Writer, name string, data interface{}) error {
 		return errTest
 	}
-	defer func() { hookRender = orig }()
+	t.Cleanup(func() { hookRender = orig })
 
 	rr := httptest.NewRecorder()
 	LoginPage(rr, httptest.NewRequest(http.MethodGet, "/login", nil))
@@ -157,7 +157,7 @@ func TestDashboard_RecurringWarning(t *testing.T) {
 	hookGetRecurringByUserID = func(id int64) ([]db.RecurringOperation, error) {
 		return nil, errTest
 	}
-	defer func() { hookGetRecurringByUserID = orig }()
+	t.Cleanup(func() { hookGetRecurringByUserID = orig })
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/", nil), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
@@ -190,7 +190,7 @@ func TestDashboard_RenderError(t *testing.T) {
 	hookRender = func(w io.Writer, name string, data interface{}) error {
 		return errTest
 	}
-	defer func() { hookRender = orig }()
+	t.Cleanup(func() { hookRender = orig })
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/", nil), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
@@ -209,7 +209,7 @@ func TestAccountsPage_RenderError(t *testing.T) {
 	hookRender = func(w io.Writer, name string, data interface{}) error {
 		return errTest
 	}
-	defer func() { hookRender = orig }()
+	t.Cleanup(func() { hookRender = orig })
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/accounts", nil), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
@@ -229,7 +229,7 @@ func TestSettingsPage_AdminDecryptError(t *testing.T) {
 		// Return a user with non-AES-GCM email → crypto.Decrypt will fail
 		return []db.User{{ID: 999, EmailEncrypted: "not-valid-aes-gcm-data", Role: "USER"}}, nil
 	}
-	defer func() { hookGetAllUsers = orig }()
+	t.Cleanup(func() { hookGetAllUsers = orig })
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/settings", nil), mu(uid, "ADMIN"))
 	rr := httptest.NewRecorder()
@@ -248,7 +248,7 @@ func TestSettingsPage_RenderError(t *testing.T) {
 	hookRender = func(w io.Writer, name string, data interface{}) error {
 		return errTest
 	}
-	defer func() { hookRender = orig }()
+	t.Cleanup(func() { hookRender = orig })
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/settings", nil), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
@@ -266,7 +266,7 @@ func TestVerifyEmailPage_ServerError(t *testing.T) {
 	hookVerifyEmailByToken = func(s string) error {
 		return errTest
 	}
-	defer func() { hookVerifyEmailByToken = orig }()
+	t.Cleanup(func() { hookVerifyEmailByToken = orig })
 
 	req := httptest.NewRequest(http.MethodGet, "/verify-email?token=sometoken", nil)
 	rr := httptest.NewRecorder()
@@ -284,7 +284,7 @@ func TestVerifyEmailPage_Success(t *testing.T) {
 	hookVerifyEmailByToken = func(s string) error {
 		return nil
 	}
-	defer func() { hookVerifyEmailByToken = orig }()
+	t.Cleanup(func() { hookVerifyEmailByToken = orig })
 
 	req := httptest.NewRequest(http.MethodGet, "/verify-email?token=sometoken", nil)
 	rr := httptest.NewRecorder()
@@ -302,7 +302,7 @@ func TestPrivacyPage_RenderError(t *testing.T) {
 	hookRender = func(w io.Writer, name string, data interface{}) error {
 		return errTest
 	}
-	defer func() { hookRender = orig }()
+	t.Cleanup(func() { hookRender = orig })
 
 	rr := httptest.NewRecorder()
 	PrivacyPage(rr, httptest.NewRequest(http.MethodGet, "/privacy", nil))
@@ -351,7 +351,7 @@ func TestDeletePasskey_DBError(t *testing.T) {
 	hookDeleteAuthenticator = func(id, userID int64) error {
 		return errTest
 	}
-	defer func() { hookDeleteAuthenticator = orig }()
+	t.Cleanup(func() { hookDeleteAuthenticator = orig })
 
 	req := injectUser(
 		withParam(httptest.NewRequest(http.MethodDelete, "/api/passkey/"+intStr(authID), nil), "id", intStr(authID)),
@@ -379,7 +379,7 @@ func TestRenamePasskey_DBError(t *testing.T) {
 	hookRenameAuthenticator = func(id, userID int64, name string) error {
 		return errTest
 	}
-	defer func() { hookRenameAuthenticator = orig }()
+	t.Cleanup(func() { hookRenameAuthenticator = orig })
 
 	body := bytes.NewBufferString(`{"name":"test"}`)
 	req := injectUser(
@@ -408,13 +408,13 @@ func TestPasskeyLoginFinish_ClosureUserError(t *testing.T) {
 	// dbGetAuthByCredIDFn stays real (finds the authenticator)
 	// hookGetUserByID → fail (covers closure line 182-184)
 	origGetUser := hookGetUserByID
-	defer func() { hookGetUserByID = origGetUser }()
+	t.Cleanup(func() { hookGetUserByID = origGetUser })
 	hookGetUserByID = func(id int64) (*db.User, error) {
 		return nil, errTest
 	}
 
 	origFinish := hookFinishLogin
-	defer func() { hookFinishLogin = origFinish }()
+	t.Cleanup(func() { hookFinishLogin = origFinish })
 	hookFinishLogin = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
 		// Call the closure with the real credID → authenticator found → user lookup fails
 		_, err := h(rawCredID, nil)
@@ -438,13 +438,13 @@ func TestPasskeyLoginFinish_ClosureAuthNil(t *testing.T) {
 	setupHandlerTest(t)
 
 	origGetAuth := hookGetAuthByCredentialID
-	defer func() { hookGetAuthByCredentialID = origGetAuth }()
+	t.Cleanup(func() { hookGetAuthByCredentialID = origGetAuth })
 	hookGetAuthByCredentialID = func(id string) (*db.Authenticator, error) {
 		return nil, nil // not found, no error
 	}
 
 	origFinish := hookFinishLogin
-	defer func() { hookFinishLogin = origFinish }()
+	t.Cleanup(func() { hookFinishLogin = origFinish })
 	hookFinishLogin = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
 		_, err := h([]byte("nonexistent"), nil)
 		if err != nil {
@@ -474,13 +474,13 @@ func TestPasskeyLoginFinish_ClosureUserNil(t *testing.T) {
 	}
 
 	origGetUser := hookGetUserByID
-	defer func() { hookGetUserByID = origGetUser }()
+	t.Cleanup(func() { hookGetUserByID = origGetUser })
 	hookGetUserByID = func(id int64) (*db.User, error) {
 		return nil, nil // user not found, no error
 	}
 
 	origFinish := hookFinishLogin
-	defer func() { hookFinishLogin = origFinish }()
+	t.Cleanup(func() { hookFinishLogin = origFinish })
 	hookFinishLogin = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
 		_, err := h(rawCredID, nil)
 		if err != nil {
@@ -564,7 +564,7 @@ func TestCreateRecurring_EncryptError(t *testing.T) {
 
 	orig := hookEncryptStr
 	hookEncryptStr = func(s string) (string, error) { return "", errTest }
-	defer func() { hookEncryptStr = orig }()
+	t.Cleanup(func() { hookEncryptStr = orig })
 
 	req := injectUser(post("/recurring", url.Values{
 		"description": {"Test"},
@@ -612,7 +612,7 @@ func TestCreateRecurring_UpdateDBError(t *testing.T) {
 	hookUpdateRecurring = func(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
 		return errTest
 	}
-	defer func() { hookUpdateRecurring = orig }()
+	t.Cleanup(func() { hookUpdateRecurring = orig })
 
 	req := injectUser(post("/recurring", url.Values{
 		"id":          {intStr(recID)},
@@ -639,7 +639,7 @@ func TestCreateRecurring_CreateDBError(t *testing.T) {
 	hookCreateRecurring = func(userID, accountID int64, toAccountID *int64, description string, amount int64, dayOfMonth int) error {
 		return errTest
 	}
-	defer func() { hookCreateRecurring = orig }()
+	t.Cleanup(func() { hookCreateRecurring = orig })
 
 	req := injectUser(post("/recurring", url.Values{
 		"description": {"Test"},
@@ -683,7 +683,7 @@ func TestUpdateRecurring_EncryptError(t *testing.T) {
 
 	orig := hookEncryptStr
 	hookEncryptStr = func(s string) (string, error) { return "", errTest }
-	defer func() { hookEncryptStr = orig }()
+	t.Cleanup(func() { hookEncryptStr = orig })
 
 	req := injectUser(
 		withParam(
@@ -715,7 +715,7 @@ func TestUpdateRecurring_DBError(t *testing.T) {
 	hookUpdateRecurring = func(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
 		return errTest
 	}
-	defer func() { hookUpdateRecurring = orig }()
+	t.Cleanup(func() { hookUpdateRecurring = orig })
 
 	req := injectUser(
 		withParam(
@@ -799,7 +799,7 @@ func TestDeleteRecurring_DBError(t *testing.T) {
 	hookDeleteRecurring = func(id, userID int64) error {
 		return errTest
 	}
-	defer func() { hookDeleteRecurring = orig }()
+	t.Cleanup(func() { hookDeleteRecurring = orig })
 
 	req := injectUser(
 		withParam(httptest.NewRequest(http.MethodDelete, "/recurring/"+intStr(recID), nil), "id", intStr(recID)),
@@ -855,7 +855,7 @@ func TestExportData_RecurringError(t *testing.T) {
 	hookGetRecurringByUserID = func(id int64) ([]db.RecurringOperation, error) {
 		return nil, errTest
 	}
-	defer func() { hookGetRecurringByUserID = orig }()
+	t.Cleanup(func() { hookGetRecurringByUserID = orig })
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/settings/export", nil), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
@@ -903,7 +903,7 @@ func TestLegalPage_RenderError(t *testing.T) {
 	hookRender = func(w io.Writer, name string, data interface{}) error {
 		return errTest
 	}
-	defer func() { hookRender = orig }()
+	t.Cleanup(func() { hookRender = orig })
 
 	rr := httptest.NewRecorder()
 	LegalPage(rr, httptest.NewRequest(http.MethodGet, "/legal", nil))
@@ -1465,7 +1465,7 @@ func TestPasskeyLoginFinish_AccountRateLimited(t *testing.T) {
 	}
 
 	origFinish := hookFinishLogin
-	defer func() { hookFinishLogin = origFinish }()
+	t.Cleanup(func() { hookFinishLogin = origFinish })
 	hookFinishLogin = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
 		user, err := h(rawCredID, nil)
 		if err != nil || user == nil {
@@ -1476,7 +1476,7 @@ func TestPasskeyLoginFinish_AccountRateLimited(t *testing.T) {
 
 	// Block loginAccount but allow login IP
 	origRL := hookRateLimitCheck
-	defer func() { hookRateLimitCheck = origRL }()
+	t.Cleanup(func() { hookRateLimitCheck = origRL })
 	hookRateLimitCheck = func(identifier, action string) ratelimit.Result {
 		if action == "loginAccount" {
 			return ratelimit.Result{Allowed: false, RetryAfterMs: 900000, Remaining: 0}

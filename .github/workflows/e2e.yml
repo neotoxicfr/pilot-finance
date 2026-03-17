@@ -45,19 +45,24 @@ jobs:
         run: npx playwright install --with-deps chromium firefox
 
       - name: Generate test keys
-        id: keys
         run: |
-          echo "auth=$(openssl rand -hex 32)" >> $GITHUB_OUTPUT
-          echo "enc=$(openssl rand -hex 32)" >> $GITHUB_OUTPUT
-          echo "blind=$(openssl rand -hex 32)" >> $GITHUB_OUTPUT
+          AUTH=$(openssl rand -hex 32)
+          ENC=$(openssl rand -hex 32)
+          BLIND=$(openssl rand -hex 32)
+          echo "::add-mask::$AUTH"
+          echo "::add-mask::$ENC"
+          echo "::add-mask::$BLIND"
+          echo "AUTH_SECRET=$AUTH" >> $GITHUB_ENV
+          echo "ENCRYPTION_KEY=$ENC" >> $GITHUB_ENV
+          echo "BLIND_INDEX_KEY=$BLIND" >> $GITHUB_ENV
 
       - name: Start server
         run: |
           cd go && DISABLE_RATE_LIMIT=true \
             ALLOW_REGISTER=true \
-            AUTH_SECRET=${{ steps.keys.outputs.auth }} \
-            ENCRYPTION_KEY=${{ steps.keys.outputs.enc }} \
-            BLIND_INDEX_KEY=${{ steps.keys.outputs.blind }} \
+            AUTH_SECRET=${{ env.AUTH_SECRET }} \
+            ENCRYPTION_KEY=${{ env.ENCRYPTION_KEY }} \
+            BLIND_INDEX_KEY=${{ env.BLIND_INDEX_KEY }} \
             ../server &
           for i in $(seq 1 30); do
             curl -sf http://localhost:3000/api/health && break

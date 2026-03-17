@@ -7,7 +7,7 @@ FROM node:25-alpine AS css
 WORKDIR /app
 
 # Installer Tailwind CSS v4 (framework + CLI)
-RUN npm install -g tailwindcss @tailwindcss/cli
+RUN npm install -g tailwindcss@4.1.7 @tailwindcss/cli@4.1.7
 
 # Copier les fichiers nécessaires pour la compilation CSS
 COPY static/css/input.css static/css/

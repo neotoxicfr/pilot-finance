@@ -3,6 +3,8 @@ package db
 import (
 	"fmt"
 	"time"
+
+	"pilot-finance/internal/crypto"
 )
 
 // CreateUser crée un nouvel utilisateur
@@ -113,10 +115,11 @@ func DeleteUserAndData(userID int64) error {
 	}
 	defer tx.Rollback()
 
-	// Anonymize audit logs: replace user-identifying fields but keep the audit trail
+	// Anonymize audit logs: encrypt placeholder to match other audit entries
+	deletedVal, _ := crypto.Encrypt("deleted-user")
 	if _, err := tx.Exec(
-		`UPDATE audit_log SET ip = 'deleted-user', user_agent = 'deleted-user' WHERE user_id = ?`,
-		userID,
+		`UPDATE audit_log SET ip = ?, user_agent = ? WHERE user_id = ?`,
+		deletedVal, deletedVal, userID,
 	); err != nil {
 		return err
 	}

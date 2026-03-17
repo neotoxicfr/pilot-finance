@@ -251,13 +251,14 @@ func TestRenamePasskey_Success(t *testing.T) {
 // --- PasskeyRegistrationStart — error paths ---
 
 func TestPasskeyRegistrationStart_GetAuthsError(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "pkregauths@example.com", "ValidP@ss1!", "USER")
+
 	orig := hookGetAuthenticatorsByUserID
-	defer func() { hookGetAuthenticatorsByUserID = orig }()
+	t.Cleanup(func() { hookGetAuthenticatorsByUserID = orig })
 	hookGetAuthenticatorsByUserID = func(id int64) ([]db.Authenticator, error) {
 		return nil, errors.New("db error")
 	}
-	setupHandlerTest(t)
-	uid := newUser(t, "pkregauths@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/start", nil), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
@@ -271,13 +272,14 @@ func TestPasskeyRegistrationStart_BeginRegError(t *testing.T) {
 	if err := auth.InitWebAuthn("localhost", "http://localhost:8080", "Test"); err != nil {
 		t.Fatalf("InitWebAuthn: %v", err)
 	}
+	setupHandlerTest(t)
+	uid := newUser(t, "pkregbeg@example.com", "ValidP@ss1!", "USER")
+
 	orig := hookBeginRegistration
-	defer func() { hookBeginRegistration = orig }()
+	t.Cleanup(func() { hookBeginRegistration = orig })
 	hookBeginRegistration = func(u *auth.PasskeyUser) (*protocol.CredentialCreation, string, error) {
 		return nil, "", errors.New("webauthn error")
 	}
-	setupHandlerTest(t)
-	uid := newUser(t, "pkregbeg@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/start", nil), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
