@@ -36,6 +36,15 @@ import (
 var Version = "dev"
 
 func main() {
+	// Mode healthcheck intégré (pour scratch/distroless sans wget)
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		resp, err := http.Get("http://127.0.0.1:3000/api/health")
+		if err != nil || resp.StatusCode != http.StatusOK {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	// JSON logs en production, texte en dev
 	var logHandler slog.Handler
 	if os.Getenv("ENV") == "production" {

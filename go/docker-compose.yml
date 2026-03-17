@@ -58,7 +58,7 @@ services:
     ports:
       - "3000:3000"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
+      test: ["/app/server", "healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3
