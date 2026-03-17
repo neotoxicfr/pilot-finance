@@ -6,10 +6,10 @@ Only the latest minor release receives security fixes.
 
 | Version | Supported |
 | ------- | --------- |
-| v2.10.x | ✅ |
-| < v2.10 | ❌ |
+| v2.12.x | ✅ |
+| < v2.12 | ❌ |
 
-> Versions prior to v2.10 are no longer supported. Please update to the latest release.
+> Versions prior to v2.12 are no longer supported. Please update to the latest release.
 
 ## Reporting a Vulnerability
 
