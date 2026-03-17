@@ -432,6 +432,72 @@ func runMigrations(dbPath string) {
 			}
 			return nil
 		}},
+		{Name: "013_add_foreign_keys", Run: func(d *sql.DB) error {
+			stmts := []string{
+				`CREATE TABLE accounts_new (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+					name TEXT NOT NULL,
+					balance TEXT,
+					color TEXT,
+					position INTEGER DEFAULT 0,
+					updated_at INTEGER,
+					is_yield_active INTEGER DEFAULT 0,
+					yield_type TEXT DEFAULT 'FIXED',
+					yield_min TEXT DEFAULT '0',
+					yield_max TEXT DEFAULT '0',
+					yield_frequency TEXT NOT NULL DEFAULT 'MONTHLY',
+					payout_frequency TEXT NOT NULL DEFAULT 'MONTHLY',
+					last_yield_date INTEGER,
+					reinvestment_rate TEXT DEFAULT '100',
+					target_account_id INTEGER REFERENCES accounts_new(id) ON DELETE SET NULL
+				)`,
+				`INSERT INTO accounts_new SELECT * FROM accounts`,
+				`DROP TABLE accounts`,
+				`ALTER TABLE accounts_new RENAME TO accounts`,
+				`CREATE INDEX idx_accounts_user_id ON accounts(user_id, position)`,
+
+				`CREATE TABLE recurring_operations_new (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+					account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+					to_account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+					amount TEXT,
+					description TEXT,
+					day_of_month INTEGER DEFAULT 1,
+					last_run_date INTEGER,
+					is_active INTEGER DEFAULT 1
+				)`,
+				`INSERT INTO recurring_operations_new SELECT * FROM recurring_operations`,
+				`DROP TABLE recurring_operations`,
+				`ALTER TABLE recurring_operations_new RENAME TO recurring_operations`,
+				`CREATE INDEX idx_recurring_user_id ON recurring_operations(user_id, day_of_month)`,
+
+				`CREATE TABLE authenticators_new (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					credential_id TEXT NOT NULL UNIQUE,
+					credential_public_key TEXT NOT NULL,
+					counter INTEGER DEFAULT 0,
+					credential_device_type TEXT,
+					credential_backed_up INTEGER DEFAULT 0,
+					backup_eligible INTEGER DEFAULT 0,
+					transports TEXT,
+					user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+					name TEXT
+				)`,
+				`INSERT INTO authenticators_new SELECT * FROM authenticators`,
+				`DROP TABLE authenticators`,
+				`ALTER TABLE authenticators_new RENAME TO authenticators`,
+				`CREATE INDEX IF NOT EXISTS idx_authenticators_user_id ON authenticators(user_id)`,
+				`CREATE INDEX IF NOT EXISTS idx_authenticators_cred_id ON authenticators(credential_id)`,
+			}
+			for _, stmt := range stmts {
+				if _, err := d.Exec(stmt); err != nil {
+					return fmt.Errorf("013_add_foreign_keys: %w", err)
+				}
+			}
+			return nil
+		}},
 	}
 
 	for _, m := range migrations {

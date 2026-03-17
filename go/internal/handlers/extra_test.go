@@ -122,8 +122,7 @@ func TestGetClientIP_PrefersRemoteAddr(t *testing.T) {
 // --- handleFailedLogin ---
 
 func TestHandleFailedLogin_LockOnFifthFailure(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "lockuser@example.com", "ValidP@ss1!", "USER")
 
 	// 4 failures déjà → newCount = 5 → verrouillage
@@ -145,8 +144,7 @@ func TestHandleFailedLogin_LockOnFifthFailure(t *testing.T) {
 // --- resetLoginAttempts ---
 
 func TestResetLoginAttempts_ClearsCount(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "resetuser@example.com", "ValidP@ss1!", "USER")
 
 	// Provoquer 2 échecs, puis reset
@@ -165,8 +163,7 @@ func TestResetLoginAttempts_ClearsCount(t *testing.T) {
 // --- HandleLogin HTMX ---
 
 func TestHandleLogin_Success_HTMX(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	newUser(t, "htmxlogin@example.com", "ValidP@ss1!", "USER")
 
 	req := post("/login", url.Values{
@@ -188,8 +185,7 @@ func TestHandleLogin_Success_HTMX(t *testing.T) {
 // --- HandleRegister success ---
 
 func TestHandleRegister_Success_HTMX(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	req := post("/register", url.Values{
 		"email":           {"first@pilot.test"},
@@ -211,8 +207,7 @@ func TestHandleRegister_Success_HTMX(t *testing.T) {
 // --- DashboardAPI ---
 
 func TestDashboardAPI_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	DashboardAPI(rr, httptest.NewRequest(http.MethodGet, "/api/dashboard", nil))
@@ -222,8 +217,7 @@ func TestDashboardAPI_Unauthorized(t *testing.T) {
 }
 
 func TestDashboardAPI_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "dash@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/api/dashboard", nil), mu(uid, "USER"))
@@ -245,8 +239,7 @@ func TestDashboardAPI_Success(t *testing.T) {
 // --- AccountsAPI ---
 
 func TestAccountsAPI_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	AccountsAPI(rr, httptest.NewRequest(http.MethodGet, "/api/accounts", nil))
@@ -256,8 +249,7 @@ func TestAccountsAPI_Unauthorized(t *testing.T) {
 }
 
 func TestAccountsAPI_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "accapi@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/api/accounts", nil), mu(uid, "USER"))
@@ -275,8 +267,7 @@ func TestAccountsAPI_Success(t *testing.T) {
 // --- RecurringAPI ---
 
 func TestRecurringAPI_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	RecurringAPI(rr, httptest.NewRequest(http.MethodGet, "/api/recurring", nil))
@@ -286,8 +277,7 @@ func TestRecurringAPI_Unauthorized(t *testing.T) {
 }
 
 func TestRecurringAPI_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "recapi@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/api/recurring", nil), mu(uid, "USER"))
@@ -302,8 +292,7 @@ func TestRecurringAPI_Success(t *testing.T) {
 // --- DeleteAccount ---
 
 func TestDeleteAccount_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	req := withParam(httptest.NewRequest(http.MethodDelete, "/accounts/1", nil), "id", "1")
 	rr := httptest.NewRecorder()
@@ -314,8 +303,7 @@ func TestDeleteAccount_Unauthorized(t *testing.T) {
 }
 
 func TestDeleteAccount_InvalidID(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "delaccid@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(withParam(httptest.NewRequest(http.MethodDelete, "/accounts/abc", nil), "id", "abc"), mu(uid, "USER"))
@@ -327,8 +315,7 @@ func TestDeleteAccount_InvalidID(t *testing.T) {
 }
 
 func TestDeleteAccount_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "delacc@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 
@@ -345,8 +332,7 @@ func TestDeleteAccount_Success(t *testing.T) {
 // --- UpdateBalance ---
 
 func TestUpdateBalance_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	req := withParam(post("/accounts/1/balance", url.Values{"balance": {"1000"}}), "id", "1")
 	rr := httptest.NewRecorder()
@@ -357,8 +343,7 @@ func TestUpdateBalance_Unauthorized(t *testing.T) {
 }
 
 func TestUpdateBalance_InvalidBalance(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "updbalist@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 
@@ -375,8 +360,7 @@ func TestUpdateBalance_InvalidBalance(t *testing.T) {
 }
 
 func TestUpdateBalance_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "updbal@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 
@@ -396,8 +380,7 @@ func TestUpdateBalance_Success(t *testing.T) {
 // --- MoveAccount ---
 
 func TestMoveAccount_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	req := withParam(httptest.NewRequest(http.MethodPost, "/accounts/1/move?direction=up", nil), "id", "1")
 	rr := httptest.NewRecorder()
@@ -408,8 +391,7 @@ func TestMoveAccount_Unauthorized(t *testing.T) {
 }
 
 func TestMoveAccount_InvalidID(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "moveaccid@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(
@@ -424,8 +406,7 @@ func TestMoveAccount_InvalidID(t *testing.T) {
 }
 
 func TestMoveAccount_InvalidDirection(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "moveaccdir@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(
@@ -440,8 +421,7 @@ func TestMoveAccount_InvalidDirection(t *testing.T) {
 }
 
 func TestMoveAccount_NotFound(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "moveaccnf@example.com", "ValidP@ss1!", "USER")
 
 	// Aucun compte créé → currentIdx restera -1
@@ -457,8 +437,7 @@ func TestMoveAccount_NotFound(t *testing.T) {
 }
 
 func TestMoveAccount_AtBoundary(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "moveaccbnd@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 
@@ -477,8 +456,7 @@ func TestMoveAccount_AtBoundary(t *testing.T) {
 }
 
 func TestMoveAccount_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "moveacc@example.com", "ValidP@ss1!", "USER")
 
 	// Créer 2 comptes
@@ -508,8 +486,7 @@ func TestMoveAccount_Success(t *testing.T) {
 // --- ReorderAccounts ---
 
 func TestReorderAccounts_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	body := bytes.NewBufferString(`{"ids":[1,2]}`)
 	rr := httptest.NewRecorder()
@@ -520,8 +497,7 @@ func TestReorderAccounts_Unauthorized(t *testing.T) {
 }
 
 func TestReorderAccounts_InvalidBody(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "reorderbad@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(
@@ -536,8 +512,7 @@ func TestReorderAccounts_InvalidBody(t *testing.T) {
 }
 
 func TestReorderAccounts_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "reorder@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 
@@ -557,8 +532,7 @@ func TestReorderAccounts_Success(t *testing.T) {
 // --- CreateRecurring ---
 
 func TestCreateRecurring_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	CreateRecurring(rr, post("/recurring", url.Values{"description": {"Test"}}))
@@ -568,8 +542,7 @@ func TestCreateRecurring_Unauthorized(t *testing.T) {
 }
 
 func TestCreateRecurring_MissingFields(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "crecrembad@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/recurring", url.Values{"description": {"Test"}}), mu(uid, "USER"))
@@ -581,8 +554,7 @@ func TestCreateRecurring_MissingFields(t *testing.T) {
 }
 
 func TestCreateRecurring_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "crerec@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 
@@ -605,8 +577,7 @@ func TestCreateRecurring_Success(t *testing.T) {
 }
 
 func TestCreateRecurring_Update(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "updrec@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 	recID := createRec(t, uid, accID)
@@ -630,8 +601,7 @@ func TestCreateRecurring_Update(t *testing.T) {
 // --- UpdateRecurring ---
 
 func TestUpdateRecurring_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	req := withParam(post("/recurring/1", url.Values{"amount": {"100"}}), "id", "1")
 	rr := httptest.NewRecorder()
@@ -642,8 +612,7 @@ func TestUpdateRecurring_Unauthorized(t *testing.T) {
 }
 
 func TestUpdateRecurring_InvalidID(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "updrecid@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(
@@ -658,8 +627,7 @@ func TestUpdateRecurring_InvalidID(t *testing.T) {
 }
 
 func TestUpdateRecurring_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "updrecok@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 	recID := createRec(t, uid, accID)
@@ -685,8 +653,7 @@ func TestUpdateRecurring_Success(t *testing.T) {
 // --- DeleteRecurring ---
 
 func TestDeleteRecurring_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	req := withParam(httptest.NewRequest(http.MethodDelete, "/recurring/1", nil), "id", "1")
 	rr := httptest.NewRecorder()
@@ -697,8 +664,7 @@ func TestDeleteRecurring_Unauthorized(t *testing.T) {
 }
 
 func TestDeleteRecurring_InvalidID(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "delrecid@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(
@@ -713,8 +679,7 @@ func TestDeleteRecurring_InvalidID(t *testing.T) {
 }
 
 func TestDeleteRecurring_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "delrec@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 	recID := createRec(t, uid, accID)
@@ -735,8 +700,7 @@ func TestDeleteRecurring_Success(t *testing.T) {
 // --- UpdatePreferences ---
 
 func TestUpdatePreferences_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	UpdatePreferences(rr, post("/settings/preferences", url.Values{"language": {"en"}, "currency": {"USD"}}))
@@ -746,8 +710,7 @@ func TestUpdatePreferences_Unauthorized(t *testing.T) {
 }
 
 func TestUpdatePreferences_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "prefs@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/settings/preferences", url.Values{
@@ -765,8 +728,7 @@ func TestUpdatePreferences_Success(t *testing.T) {
 // --- DeleteUser ---
 
 func TestDeleteUser_NonAdmin(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "nonAdmin@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(
@@ -781,8 +743,7 @@ func TestDeleteUser_NonAdmin(t *testing.T) {
 }
 
 func TestDeleteUser_InvalidID(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "adminid@example.com", "ValidP@ss1!", "ADMIN")
 
 	req := injectUser(
@@ -797,8 +758,7 @@ func TestDeleteUser_InvalidID(t *testing.T) {
 }
 
 func TestDeleteUser_NotFound(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "adminnf@example.com", "ValidP@ss1!", "ADMIN")
 
 	req := injectUser(
@@ -813,8 +773,7 @@ func TestDeleteUser_NotFound(t *testing.T) {
 }
 
 func TestDeleteUser_TargetIsAdmin(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	callerUID := newUser(t, "caller@example.com", "ValidP@ss1!", "ADMIN")
 	targetUID := newUser(t, "targetadmin@example.com", "ValidP@ss1!", "ADMIN")
 
@@ -831,8 +790,7 @@ func TestDeleteUser_TargetIsAdmin(t *testing.T) {
 }
 
 func TestDeleteUser_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	adminUID := newUser(t, "admindel@example.com", "ValidP@ss1!", "ADMIN")
 	targetUID := newUser(t, "userTarget@example.com", "ValidP@ss1!", "USER")
 
@@ -851,8 +809,7 @@ func TestDeleteUser_Success(t *testing.T) {
 // --- MFASetup ---
 
 func TestMFASetup_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	MFASetup(rr, httptest.NewRequest(http.MethodGet, "/api/mfa/setup", nil))
@@ -862,8 +819,7 @@ func TestMFASetup_Unauthorized(t *testing.T) {
 }
 
 func TestMFASetup_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "mfasetup@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/api/mfa/setup", nil), mu(uid, "USER"))
@@ -888,8 +844,7 @@ func TestMFASetup_Success(t *testing.T) {
 // --- MFAEnable ---
 
 func TestMFAEnable_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	body := bytes.NewBufferString(`{"secret":"TESTSECRET","code":"123456"}`)
 	rr := httptest.NewRecorder()
@@ -900,8 +855,7 @@ func TestMFAEnable_Unauthorized(t *testing.T) {
 }
 
 func TestMFAEnable_InvalidBody(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "mfabody@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(
@@ -923,8 +877,7 @@ func TestMFAEnable_InvalidBody(t *testing.T) {
 }
 
 func TestMFAEnable_InvalidCode(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "mfacode@example.com", "ValidP@ss1!", "USER")
 
 	secret, err := auth.GenerateTOTPSecret()
@@ -948,8 +901,7 @@ func TestMFAEnable_InvalidCode(t *testing.T) {
 }
 
 func TestMFAEnable_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "mfaok@example.com", "ValidP@ss1!", "USER")
 
 	secret, err := auth.GenerateTOTPSecret()
@@ -982,8 +934,7 @@ func TestMFAEnable_Success(t *testing.T) {
 // --- MFADisable ---
 
 func TestMFADisable_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	MFADisable(rr, httptest.NewRequest(http.MethodPost, "/api/mfa/disable", nil))
@@ -993,8 +944,7 @@ func TestMFADisable_Unauthorized(t *testing.T) {
 }
 
 func TestMFADisable_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "mfadis@example.com", "ValidP@ss1!", "USER")
 
 	// MFADisable now requires password re-verification
@@ -1016,8 +966,7 @@ func TestMFADisable_Success(t *testing.T) {
 // --- ChangePassword success ---
 
 func TestChangePassword_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pwdchange@example.com", "OldP@ss1!", "USER")
 
 	req := injectUser(post("/settings/password", url.Values{
@@ -1036,8 +985,7 @@ func TestChangePassword_Success(t *testing.T) {
 // --- HandleRegister additional branches ---
 
 func TestHandleRegister_EmptyFields(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	HandleRegister(rr, post("/register", url.Values{
@@ -1051,8 +999,7 @@ func TestHandleRegister_EmptyFields(t *testing.T) {
 }
 
 func TestHandleRegister_DuplicateEmail(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	t.Setenv("ALLOW_REGISTER", "true")
 	newUser(t, "dup@example.com", "ValidP@ss1!", "USER")
 
@@ -1070,8 +1017,7 @@ func TestHandleRegister_DuplicateEmail(t *testing.T) {
 // --- HandleLogin additional branches ---
 
 func TestHandleLogin_AccountLocked(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "locked@example.com", "ValidP@ss1!", "USER")
 
 	// Verrouiller le compte
@@ -1089,8 +1035,7 @@ func TestHandleLogin_AccountLocked(t *testing.T) {
 }
 
 func TestHandleLogin_Success_ResetsFailedAttempts(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "hadattempts@example.com", "ValidP@ss1!", "USER")
 
 	// Simuler 2 échecs précédents
@@ -1110,8 +1055,7 @@ func TestHandleLogin_Success_ResetsFailedAttempts(t *testing.T) {
 // --- LegalPage ---
 
 func TestLegalPage_Anonymous(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	LegalPage(rr, httptest.NewRequest(http.MethodGet, "/legal", nil))
@@ -1121,8 +1065,7 @@ func TestLegalPage_Anonymous(t *testing.T) {
 }
 
 func TestLegalPage_Authenticated(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "legal@example.com", "ValidP@ss1!", "USER")
 
 	rr := httptest.NewRecorder()
@@ -1135,8 +1078,7 @@ func TestLegalPage_Authenticated(t *testing.T) {
 // --- CreateRecurring IDOR checks ---
 
 func TestCreateRecurring_AccountNotOwned(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "idor1@example.com", "ValidP@ss1!", "USER")
 	uid2 := newUser(t, "idor2@example.com", "ValidP@ss1!", "USER")
 	accID2 := createAcc(t, uid2) // compte de l'autre utilisateur
@@ -1156,8 +1098,7 @@ func TestCreateRecurring_AccountNotOwned(t *testing.T) {
 }
 
 func TestCreateRecurring_ToAccountNotOwned(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "idor3@example.com", "ValidP@ss1!", "USER")
 	uid2 := newUser(t, "idor4@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
@@ -1181,8 +1122,7 @@ func TestCreateRecurring_ToAccountNotOwned(t *testing.T) {
 // --- CreateAccount IDOR check (targetAccountId) ---
 
 func TestCreateAccount_TargetAccountNotOwned(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "idor5@example.com", "ValidP@ss1!", "USER")
 	uid2 := newUser(t, "idor6@example.com", "ValidP@ss1!", "USER")
 	accID2 := createAcc(t, uid2)

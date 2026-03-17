@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -20,9 +19,6 @@ import (
 	"pilot-finance/internal/ratelimit"
 )
 
-
-var errTest2 = errors.New("injected error")
-
 // ── helpers ─────────────────────────────────────────────────────────────────
 
 // postBody builds a POST request with a raw body (no form encoding).
@@ -36,8 +32,7 @@ func postBody(path string, body []byte, ct string) *http.Request {
 
 // accounts.go:30 — r.ParseForm() error → 400 (multipart with bad boundary)
 func TestCreateAccount_ParseFormError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pfe@example.com", "ValidP@ss1!", "USER")
 
 	// multipart/form-data with a broken boundary forces ParseForm to fail
@@ -57,12 +52,11 @@ func TestCreateAccount_ParseFormError(t *testing.T) {
 
 // accounts.go:55 — hookEncryptStr error → 500
 func TestCreateAccount_EncryptError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "enc_err@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookEncryptStr
-	hookEncryptStr = func(s string) (string, error) { return "", errTest2 }
+	hookEncryptStr = func(s string) (string, error) { return "", errTest }
 	t.Cleanup(func() { hookEncryptStr = orig })
 
 	req := injectUser(post("/accounts", url.Values{
@@ -79,14 +73,13 @@ func TestCreateAccount_EncryptError(t *testing.T) {
 
 // accounts.go:133+138 — ParseInt OK then hookUpdateAccountWithYield error → 500
 func TestCreateAccount_UpdateError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "upd_err@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 
 	orig := hookUpdateAccountWithYield
 	hookUpdateAccountWithYield = func(id, userID int64, name string, balance int64, color string, isYieldActive bool, yieldType string, yieldMin, yieldMax float64, reinvestmentRate int, targetAccountID *int64, payoutFrequency string) error {
-		return errTest2
+		return errTest
 	}
 	t.Cleanup(func() { hookUpdateAccountWithYield = orig })
 
@@ -105,13 +98,12 @@ func TestCreateAccount_UpdateError(t *testing.T) {
 
 // accounts.go:152 — hookCreateAccountWithYield error → 500
 func TestCreateAccount_CreateError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "cre_err@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookCreateAccountWithYield
 	hookCreateAccountWithYield = func(userID int64, name string, balance int64, color string, position int, isYieldActive bool, yieldType string, yieldMin, yieldMax float64, reinvestmentRate int, targetAccountID *int64, payoutFrequency string) error {
-		return errTest2
+		return errTest
 	}
 	t.Cleanup(func() { hookCreateAccountWithYield = orig })
 
@@ -129,13 +121,12 @@ func TestCreateAccount_CreateError(t *testing.T) {
 
 // accounts.go:179 — hookDeleteAccount error → 500
 func TestDeleteAccount_DBError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "delacc_err@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 
 	orig := hookDeleteAccount
-	hookDeleteAccount = func(id, userID int64) error { return errTest2 }
+	hookDeleteAccount = func(id, userID int64) error { return errTest }
 	t.Cleanup(func() { hookDeleteAccount = orig })
 
 	req := injectUser(withParam(httptest.NewRequest(http.MethodDelete, "/accounts/"+intStr(accID), nil), "id", intStr(accID)), mu(uid, "USER"))
@@ -148,8 +139,7 @@ func TestDeleteAccount_DBError(t *testing.T) {
 
 // accounts.go:205 — UpdateBalance ParseForm error → 400
 func TestUpdateBalance_ParseFormError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "ub_pfe@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 
@@ -169,13 +159,12 @@ func TestUpdateBalance_ParseFormError(t *testing.T) {
 
 // accounts.go:218 — hookUpdateAccountBalance error → 500
 func TestUpdateBalance_DBError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "ub_dberr@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 
 	orig := hookUpdateAccountBalance
-	hookUpdateAccountBalance = func(id, userID int64, balance int64) error { return errTest2 }
+	hookUpdateAccountBalance = func(id, userID int64, balance int64) error { return errTest }
 	t.Cleanup(func() { hookUpdateAccountBalance = orig })
 
 	req := injectUser(
@@ -194,12 +183,11 @@ func TestUpdateBalance_DBError(t *testing.T) {
 
 // accounts.go:249 — hookGetAccountsByUserID error in MoveAccount → 500
 func TestMoveAccount_GetAccountsError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "move_get_err@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookGetAccountsByUserID
-	hookGetAccountsByUserID = func(userID int64) ([]db.Account, error) { return nil, errTest2 }
+	hookGetAccountsByUserID = func(userID int64) ([]db.Account, error) { return nil, errTest }
 	t.Cleanup(func() { hookGetAccountsByUserID = orig })
 
 	req := injectUser(
@@ -218,14 +206,13 @@ func TestMoveAccount_GetAccountsError(t *testing.T) {
 
 // accounts.go:285 — hookSwapAccountPositions error → 500
 func TestMoveAccount_SwapError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "swap_err@example.com", "ValidP@ss1!", "USER")
 	acc1 := createAcc(t, uid)
 	createAcc(t, uid) // second account so swap is valid
 
 	orig := hookSwapAccountPositions
-	hookSwapAccountPositions = func(id1, id2, userID int64) error { return errTest2 }
+	hookSwapAccountPositions = func(id1, id2, userID int64) error { return errTest }
 	t.Cleanup(func() { hookSwapAccountPositions = orig })
 
 	req := injectUser(
@@ -244,8 +231,7 @@ func TestMoveAccount_SwapError(t *testing.T) {
 
 // accounts.go:310 — invalid JSON body in ReorderAccounts → 400
 func TestReorderAccounts_InvalidJSON(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "reorder_json@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(
@@ -263,15 +249,14 @@ func TestReorderAccounts_InvalidJSON(t *testing.T) {
 // We exercise this by failing the hook AFTER a successful CreateAccount path has run.
 // The handler should still return 200-range HTML (it just logs the error).
 func TestRenderAccountsList_GetAccountsError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "ral_get_err@example.com", "ValidP@ss1!", "USER")
 
 	// hookGetAccountsByUserID is called in renderAccountsList only
 	// (CreateAccount uses hookCountAccountsByUserID for position).
 	orig := hookGetAccountsByUserID
 	hookGetAccountsByUserID = func(userID int64) ([]db.Account, error) {
-		return nil, errTest2
+		return nil, errTest
 	}
 	t.Cleanup(func() { hookGetAccountsByUserID = orig })
 
@@ -289,12 +274,11 @@ func TestRenderAccountsList_GetAccountsError(t *testing.T) {
 
 // accounts.go:327 — hookGetRecurringByUserID error in renderAccountsList (non-fatal)
 func TestRenderAccountsList_GetRecurringError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "ral_rec_err@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookGetRecurringByUserID
-	hookGetRecurringByUserID = func(userID int64) ([]db.RecurringOperation, error) { return nil, errTest2 }
+	hookGetRecurringByUserID = func(userID int64) ([]db.RecurringOperation, error) { return nil, errTest }
 	t.Cleanup(func() { hookGetRecurringByUserID = orig })
 
 	req := injectUser(post("/accounts", url.Values{
@@ -313,12 +297,11 @@ func TestRenderAccountsList_GetRecurringError(t *testing.T) {
 
 // admin.go:30 — hookGetAuditLog error → 500
 func TestAuditPage_GetAuditLogError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "audit_err@example.com", "AdminP@ss1!", "ADMIN")
 
 	orig := hookGetAuditLog
-	hookGetAuditLog = func(page, limit int) ([]db.AuditEntry, error) { return nil, errTest2 }
+	hookGetAuditLog = func(page, limit int) ([]db.AuditEntry, error) { return nil, errTest }
 	t.Cleanup(func() { hookGetAuditLog = orig })
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/admin/audit", nil), mu(uid, "ADMIN"))
@@ -331,12 +314,11 @@ func TestAuditPage_GetAuditLogError(t *testing.T) {
 
 // admin.go:37 — hookCountAuditLog error (non-critical, continues)
 func TestAuditPage_CountAuditLogError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "audit_cnt_err@example.com", "AdminP@ss1!", "ADMIN")
 
 	orig := hookCountAuditLog
-	hookCountAuditLog = func() (int, error) { return 0, errTest2 }
+	hookCountAuditLog = func() (int, error) { return 0, errTest }
 	t.Cleanup(func() { hookCountAuditLog = orig })
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/admin/audit", nil), mu(uid, "ADMIN"))
@@ -348,12 +330,28 @@ func TestAuditPage_CountAuditLogError(t *testing.T) {
 	}
 }
 
+// admin.go — hookGetAllUsers error (non-critical, continues with ID fallback)
+func TestAuditPage_GetAllUsersError(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "audit_allusers_err@example.com", "AdminP@ss1!", "ADMIN")
+
+	orig := hookGetAllUsers
+	hookGetAllUsers = func() ([]db.User, error) { return nil, errTest }
+	t.Cleanup(func() { hookGetAllUsers = orig })
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/admin/audit", nil), mu(uid, "ADMIN"))
+	rr := httptest.NewRecorder()
+	AuditPage(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200 (GetAllUsers error non-fatal), got %d", rr.Code)
+	}
+}
+
 // ── auth.go ──────────────────────────────────────────────────────────────────
 
 // auth.go:51 — rate limit exceeded → 429
 func TestHandleLogin_RateLimited(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	ratelimit.StopAll()
 
 	newUser(t, "ratelim@example.com", "ValidP@ss1!", "USER")
@@ -376,8 +374,7 @@ func TestHandleLogin_RateLimited(t *testing.T) {
 
 // auth.go — per-account rate limit (loginAccount) → 429
 func TestHandleLogin_AccountRateLimited(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	ratelimit.StopAll()
 
 	newUser(t, "acctrl@example.com", "ValidP@ss1!", "USER")
@@ -405,11 +402,10 @@ func TestHandleLogin_AccountRateLimited(t *testing.T) {
 
 // auth.go:120 — hookGetUserByBlindIndex error → 500
 func TestHandleLogin_GetUserByBlindIndexError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	orig := hookGetUserByBlindIndex
-	hookGetUserByBlindIndex = func(blindIndex string) (*db.User, error) { return nil, errTest2 }
+	hookGetUserByBlindIndex = func(blindIndex string) (*db.User, error) { return nil, errTest }
 	t.Cleanup(func() { hookGetUserByBlindIndex = orig })
 
 	rr := httptest.NewRecorder()
@@ -424,13 +420,12 @@ func TestHandleLogin_GetUserByBlindIndexError(t *testing.T) {
 
 // auth.go:182 — hookGenerateToken error after successful login → 500
 func TestHandleLogin_GenerateTokenError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	newUser(t, "gen_tok_err@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookGenerateToken
 	hookGenerateToken = func(userID int64, role, lang, currency string, sv int) (string, error) {
-		return "", errTest2
+		return "", errTest
 	}
 	t.Cleanup(func() { hookGenerateToken = orig })
 
@@ -446,12 +441,11 @@ func TestHandleLogin_GenerateTokenError(t *testing.T) {
 
 // auth.go:161 — hookGeneratePending2FAToken error when MFA enabled → 500
 func TestHandleLogin_GeneratePending2FATokenError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	newMFAUser(t, "mfa_pend_err@example.com")
 
 	orig := hookGeneratePending2FAToken
-	hookGeneratePending2FAToken = func(userID int64) (string, error) { return "", errTest2 }
+	hookGeneratePending2FAToken = func(userID int64) (string, error) { return "", errTest }
 	t.Cleanup(func() { hookGeneratePending2FAToken = orig })
 
 	rr := httptest.NewRecorder()
@@ -466,12 +460,11 @@ func TestHandleLogin_GeneratePending2FATokenError(t *testing.T) {
 
 // auth.go:63 — hookValidatePending2FAToken error → 401
 func TestHandleLogin_2FA_ValidatePendingError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid, _ := newMFAUser(t, "mfa_val_err@example.com")
 
 	orig := hookValidatePending2FAToken
-	hookValidatePending2FAToken = func(token string) (int64, error) { return 0, errTest2 }
+	hookValidatePending2FAToken = func(token string) (int64, error) { return 0, errTest }
 	t.Cleanup(func() { hookValidatePending2FAToken = orig })
 
 	// Generate a valid pending token to get past the cookie check
@@ -491,12 +484,11 @@ func TestHandleLogin_2FA_ValidatePendingError(t *testing.T) {
 
 // auth.go:70 — hookGetUserByID error in 2FA path → 401
 func TestHandleLogin_2FA_GetUserError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid, _ := newMFAUser(t, "mfa_getuser_err@example.com")
 
 	orig := hookGetUserByID
-	hookGetUserByID = func(id int64) (*db.User, error) { return nil, errTest2 }
+	hookGetUserByID = func(id int64) (*db.User, error) { return nil, errTest }
 	t.Cleanup(func() { hookGetUserByID = orig })
 
 	pendingToken, err := auth.GeneratePending2FAToken(uid)
@@ -515,12 +507,11 @@ func TestHandleLogin_2FA_GetUserError(t *testing.T) {
 
 // auth.go:77 — hookDecryptStr error for MFA secret → 500
 func TestHandleLogin_2FA_DecryptError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid, _ := newMFAUser(t, "mfa_dec_err@example.com")
 
 	orig := hookDecryptStr
-	hookDecryptStr = func(s string) (string, error) { return "", errTest2 }
+	hookDecryptStr = func(s string) (string, error) { return "", errTest }
 	t.Cleanup(func() { hookDecryptStr = orig })
 
 	pendingToken, err := auth.GeneratePending2FAToken(uid)
@@ -539,13 +530,12 @@ func TestHandleLogin_2FA_DecryptError(t *testing.T) {
 
 // auth.go:91 — hookGenerateToken error in 2FA path → 500
 func TestHandleLogin_2FA_GenerateTokenError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid, secret := newMFAUser(t, "mfa_gentok_err@example.com")
 
 	origTok := hookGenerateToken
 	hookGenerateToken = func(userID int64, role, lang, currency string, sv int) (string, error) {
-		return "", errTest2
+		return "", errTest
 	}
 	t.Cleanup(func() { hookGenerateToken = origTok })
 
@@ -569,12 +559,11 @@ func TestHandleLogin_2FA_GenerateTokenError(t *testing.T) {
 
 // auth.go:289 — hookGenerateToken error in HandleRegister → 500
 func TestHandleRegister_GenerateTokenError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	orig := hookGenerateToken
 	hookGenerateToken = func(userID int64, role, lang, currency string, sv int) (string, error) {
-		return "", errTest2
+		return "", errTest
 	}
 	t.Cleanup(func() { hookGenerateToken = orig })
 
@@ -593,12 +582,11 @@ func TestHandleRegister_GenerateTokenError(t *testing.T) {
 
 // dashboard.go:42 — hookGetRecurringByUserID error (log warning, continue) → 200
 func TestDashboardAPI_RecurringError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "dash_rec_err@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookGetRecurringByUserID
-	hookGetRecurringByUserID = func(userID int64) ([]db.RecurringOperation, error) { return nil, errTest2 }
+	hookGetRecurringByUserID = func(userID int64) ([]db.RecurringOperation, error) { return nil, errTest }
 	t.Cleanup(func() { hookGetRecurringByUserID = orig })
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/api/dashboard", nil), mu(uid, "USER"))
@@ -615,8 +603,7 @@ func TestDashboardAPI_RecurringError(t *testing.T) {
 
 // dashboard.go:52-59 — pieData path with account having balance > 0
 func TestDashboardAPI_WithPositiveBalance(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "dash_pie@example.com", "ValidP@ss1!", "USER")
 
 	// Create an account with balance > 0 so the pieData path is hit
@@ -649,8 +636,7 @@ func TestDashboardAPI_WithPositiveBalance(t *testing.T) {
 
 // handlers.go:40+55 — DB ping error → 503 degraded
 func TestHealthCheck_DBError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	// Close the DB so PingContext fails
 	db.Close()
@@ -678,12 +664,11 @@ func TestHealthCheck_DBError(t *testing.T) {
 
 // mfa.go:35 — hookGenerateTOTPSecret error → 500
 func TestMFASetup_SecretError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "mfa_setup_err@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookGenerateTOTPSecret
-	hookGenerateTOTPSecret = func() (string, error) { return "", errTest2 }
+	hookGenerateTOTPSecret = func() (string, error) { return "", errTest }
 	t.Cleanup(func() { hookGenerateTOTPSecret = orig })
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/mfa/setup", nil), mu(uid, "USER"))
@@ -698,12 +683,11 @@ func TestMFASetup_SecretError(t *testing.T) {
 
 // pages.go:164 — hookGetAccountsByUserID error in AccountsPage (log+continue)
 func TestAccountsPage_GetAccountsError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "accpage_acc_err@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookGetAccountsByUserID
-	hookGetAccountsByUserID = func(userID int64) ([]db.Account, error) { return nil, errTest2 }
+	hookGetAccountsByUserID = func(userID int64) ([]db.Account, error) { return nil, errTest }
 	t.Cleanup(func() { hookGetAccountsByUserID = orig })
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/accounts", nil), mu(uid, "USER"))
@@ -717,12 +701,11 @@ func TestAccountsPage_GetAccountsError(t *testing.T) {
 
 // pages.go:168 — hookGetRecurringByUserID error in AccountsPage (log+continue)
 func TestAccountsPage_GetRecurringError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "accpage_rec_err@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookGetRecurringByUserID
-	hookGetRecurringByUserID = func(userID int64) ([]db.RecurringOperation, error) { return nil, errTest2 }
+	hookGetRecurringByUserID = func(userID int64) ([]db.RecurringOperation, error) { return nil, errTest }
 	t.Cleanup(func() { hookGetRecurringByUserID = orig })
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/accounts", nil), mu(uid, "USER"))
@@ -737,13 +720,12 @@ func TestAccountsPage_GetRecurringError(t *testing.T) {
 
 // renderRecurringTable: hookGetRecurringByUserID error (non-fatal, logs)
 func TestRenderRecurringTable_RecurringError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "rrt_rec_err@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 
 	orig := hookGetRecurringByUserID
-	hookGetRecurringByUserID = func(userID int64) ([]db.RecurringOperation, error) { return nil, errTest2 }
+	hookGetRecurringByUserID = func(userID int64) ([]db.RecurringOperation, error) { return nil, errTest }
 	t.Cleanup(func() { hookGetRecurringByUserID = orig })
 
 	// DeleteRecurring calls renderRecurringTable at the end; use a real rec first
@@ -756,7 +738,7 @@ func TestRenderRecurringTable_RecurringError(t *testing.T) {
 	recID := recs[0].ID
 
 	// Now set up hook to fail so renderRecurringTable gets the error
-	hookGetRecurringByUserID = func(userID int64) ([]db.RecurringOperation, error) { return nil, errTest2 }
+	hookGetRecurringByUserID = func(userID int64) ([]db.RecurringOperation, error) { return nil, errTest }
 
 	req := injectUser(
 		withParam(httptest.NewRequest(http.MethodDelete, "/recurring/"+intStr(recID), nil), "id", intStr(recID)),
@@ -771,8 +753,7 @@ func TestRenderRecurringTable_RecurringError(t *testing.T) {
 
 // renderRecurringTable: hookGetAccountsByUserID error (non-fatal, logs)
 func TestRenderRecurringTable_AccountsError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "rrt_acc_err@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 
@@ -785,7 +766,7 @@ func TestRenderRecurringTable_AccountsError(t *testing.T) {
 	recID := recs[0].ID
 
 	orig := hookGetAccountsByUserID
-	hookGetAccountsByUserID = func(userID int64) ([]db.Account, error) { return nil, errTest2 }
+	hookGetAccountsByUserID = func(userID int64) ([]db.Account, error) { return nil, errTest }
 	t.Cleanup(func() { hookGetAccountsByUserID = orig })
 
 	req := injectUser(
@@ -801,8 +782,7 @@ func TestRenderRecurringTable_AccountsError(t *testing.T) {
 
 // renderRecurringTable: monthly yield payout branch (not YEARLY)
 func TestRenderRecurringTable_MonthlyYield(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "rrt_monthly_yield@example.com", "ValidP@ss1!", "USER")
 
 	// Create target account (for yield payouts)

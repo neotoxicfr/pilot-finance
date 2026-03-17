@@ -113,7 +113,6 @@ func TestEncryptDecrypt(t *testing.T) {
 }
 
 func TestDecryptNodeJSFormat(t *testing.T) {
-	mustInit(t)
 	t.Skip("Test à activer avec données Node.js réelles")
 }
 
