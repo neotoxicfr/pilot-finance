@@ -175,7 +175,7 @@ Vos donnees sont dans `./data/pilot.db`. Sauvegardez ce fichier regulierement. L
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
 | CI/CD | GitHub Actions (tests unitaires, E2E, CodeQL, Trivy, Lighthouse, GHCR, auto-release) |
 | E2E | Playwright (Chromium, Firefox, WebKit, Mobile Chrome) |
-| Docker | Image ~8 Mo (base alpine:3.23) |
+| Docker | Image ~8 Mo (base scratch, compression UPX) |
 
 ---
 
