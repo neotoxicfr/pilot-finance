@@ -20,8 +20,7 @@ import (
 // --- PasskeyRegistrationStart ---
 
 func TestPasskeyRegistrationStart_NilUser(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	PasskeyRegistrationStart(rr, httptest.NewRequest(http.MethodPost, "/api/passkey/register/start", nil))
@@ -34,8 +33,7 @@ func TestPasskeyRegistrationStart_Success(t *testing.T) {
 	if err := auth.InitWebAuthn("localhost", "http://localhost:8080", "Test"); err != nil {
 		t.Fatalf("InitWebAuthn: %v", err)
 	}
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pkregstart@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/start", nil), mu(uid, "USER"))
@@ -49,8 +47,7 @@ func TestPasskeyRegistrationStart_Success(t *testing.T) {
 // --- PasskeyRegistrationFinish ---
 
 func TestPasskeyRegistrationFinish_NilUser(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	PasskeyRegistrationFinish(rr, httptest.NewRequest(http.MethodPost, "/api/passkey/register/finish", nil))
@@ -60,8 +57,7 @@ func TestPasskeyRegistrationFinish_NilUser(t *testing.T) {
 }
 
 func TestPasskeyRegistrationFinish_NoCookie(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pkregnoc@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/finish", nil), mu(uid, "USER"))
@@ -73,8 +69,7 @@ func TestPasskeyRegistrationFinish_NoCookie(t *testing.T) {
 }
 
 func TestPasskeyRegistrationFinish_InvalidJSON(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pkregjson@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(
@@ -90,8 +85,7 @@ func TestPasskeyRegistrationFinish_InvalidJSON(t *testing.T) {
 }
 
 func TestPasskeyRegistrationFinish_ParseError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pkregparse@example.com", "ValidP@ss1!", "USER")
 
 	// JSON structurellement valide mais données invalides → response.Parse() échoue
@@ -135,8 +129,7 @@ func TestPasskeyLoginFinish_NoCookie(t *testing.T) {
 // --- DeletePasskey ---
 
 func TestDeletePasskey_NilUser(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	req := withParam(httptest.NewRequest(http.MethodDelete, "/api/passkey/1", nil), "id", "1")
 	rr := httptest.NewRecorder()
@@ -147,8 +140,7 @@ func TestDeletePasskey_NilUser(t *testing.T) {
 }
 
 func TestDeletePasskey_InvalidID(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "delpkid@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(
@@ -163,8 +155,7 @@ func TestDeletePasskey_InvalidID(t *testing.T) {
 }
 
 func TestDeletePasskey_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "delpksucc@example.com", "ValidP@ss1!", "USER")
 
 	if err := db.CreateAuthenticator("cred-del-test", "pubkey-test", 0, "multiDevice", false, false, "[]", uid); err != nil {
@@ -191,8 +182,7 @@ func TestDeletePasskey_Success(t *testing.T) {
 // --- RenamePasskey ---
 
 func TestRenamePasskey_NilUser(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	req := withParam(httptest.NewRequest(http.MethodPatch, "/api/passkey/1/rename", nil), "id", "1")
 	rr := httptest.NewRecorder()
@@ -203,8 +193,7 @@ func TestRenamePasskey_NilUser(t *testing.T) {
 }
 
 func TestRenamePasskey_InvalidID(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "rnpkid@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(
@@ -219,8 +208,7 @@ func TestRenamePasskey_InvalidID(t *testing.T) {
 }
 
 func TestRenamePasskey_InvalidJSON(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "rnpkjson@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(
@@ -235,8 +223,7 @@ func TestRenamePasskey_InvalidJSON(t *testing.T) {
 }
 
 func TestRenamePasskey_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "rnpksucc@example.com", "ValidP@ss1!", "USER")
 
 	if err := db.CreateAuthenticator("cred-rename-test", "pubkey-test", 0, "multiDevice", false, false, "[]", uid); err != nil {
@@ -269,8 +256,7 @@ func TestPasskeyRegistrationStart_GetAuthsError(t *testing.T) {
 	hookGetAuthenticatorsByUserID = func(id int64) ([]db.Authenticator, error) {
 		return nil, errors.New("db error")
 	}
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pkregauths@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/start", nil), mu(uid, "USER"))
@@ -290,8 +276,7 @@ func TestPasskeyRegistrationStart_BeginRegError(t *testing.T) {
 	hookBeginRegistration = func(u *auth.PasskeyUser) (*protocol.CredentialCreation, string, error) {
 		return nil, "", errors.New("webauthn error")
 	}
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pkregbeg@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/start", nil), mu(uid, "USER"))
@@ -315,8 +300,7 @@ func TestPasskeyRegistrationFinish_FinishError(t *testing.T) {
 	hookFinishRegistration = func(u *auth.PasskeyUser, s string, p *protocol.ParsedCredentialCreationData) (*webauthn.Credential, error) {
 		return nil, errors.New("finish error")
 	}
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pkregfin@example.com", "ValidP@ss1!", "USER")
 
 	// "AA" = base64url valide (1 octet 0x00) — json.Decode réussit, hookParseCCR est appelée
@@ -346,8 +330,7 @@ func TestPasskeyRegistrationFinish_CreateAuthError(t *testing.T) {
 	hookCreateAuthenticator = func(credentialID, publicKey string, counter int, deviceType string, backedUp, backupEligible bool, transports string, userID int64) error {
 		return errors.New("db create error")
 	}
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pkregcreate@example.com", "ValidP@ss1!", "USER")
 
 	body := bytes.NewBufferString(`{"id":"x","rawId":"AA","type":"public-key","response":{"clientDataJSON":"AA","attestationObject":"AA"}}`)
@@ -371,8 +354,7 @@ func TestPasskeyRegistrationFinish_Success(t *testing.T) {
 	hookFinishRegistration = func(u *auth.PasskeyUser, s string, p *protocol.ParsedCredentialCreationData) (*webauthn.Credential, error) {
 		return &webauthn.Credential{ID: []byte("cred-ok"), PublicKey: []byte("pk-ok")}, nil
 	}
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pkregok@example.com", "ValidP@ss1!", "USER")
 
 	body := bytes.NewBufferString(`{"id":"x","rawId":"AA","type":"public-key","response":{"clientDataJSON":"AA","attestationObject":"AA"}}`)
@@ -423,8 +405,7 @@ func TestPasskeyLoginFinish_FinishError(t *testing.T) {
 }
 
 func TestPasskeyLoginFinish_AuthNil(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	orig := hookFinishLogin
 	defer func() { hookFinishLogin = orig }()
@@ -444,8 +425,7 @@ func TestPasskeyLoginFinish_AuthNil(t *testing.T) {
 }
 
 func TestPasskeyLoginFinish_GetUserError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pklguser@example.com", "ValidP@ss1!", "USER")
 
 	origFinish := hookFinishLogin
@@ -469,8 +449,7 @@ func TestPasskeyLoginFinish_GetUserError(t *testing.T) {
 }
 
 func TestPasskeyLoginFinish_GetUserNil(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pklgnil@example.com", "ValidP@ss1!", "USER")
 
 	origFinish := hookFinishLogin
@@ -494,8 +473,7 @@ func TestPasskeyLoginFinish_GetUserNil(t *testing.T) {
 }
 
 func TestPasskeyLoginFinish_GenerateTokenError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pklgtoken@example.com", "ValidP@ss1!", "USER")
 
 	origFinish := hookFinishLogin
@@ -519,8 +497,7 @@ func TestPasskeyLoginFinish_GenerateTokenError(t *testing.T) {
 }
 
 func TestPasskeyLoginFinish_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pklgsucc@example.com", "ValidP@ss1!", "USER")
 
 	// Créer un authenticator dans le test DB

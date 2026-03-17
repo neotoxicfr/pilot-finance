@@ -5,12 +5,17 @@ import (
 	"testing"
 )
 
-func init() {
-	_ = Init(testEncryptionKey, testBlindIndexKey)
+func fuzzInit(f *testing.F) {
+	f.Helper()
+	ResetForTest()
+	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
+		f.Fatalf("crypto.Init: %v", err)
+	}
 }
 
 // FuzzEncryptDecrypt vérifie que Decrypt(Encrypt(x)) == x pour toute entrée
 func FuzzEncryptDecrypt(f *testing.F) {
+	fuzzInit(f)
 	f.Add("hello world")
 	f.Add("")
 	f.Add("Livret A — 22 950,00 €")
@@ -33,6 +38,7 @@ func FuzzEncryptDecrypt(f *testing.F) {
 
 // FuzzEncryptDecryptFloat vérifie le roundtrip pour les flottants
 func FuzzEncryptDecryptFloat(f *testing.F) {
+	fuzzInit(f)
 	f.Add(0.0)
 	f.Add(22950.50)
 	f.Add(-100.0)
@@ -58,6 +64,7 @@ func FuzzEncryptDecryptFloat(f *testing.F) {
 
 // FuzzValidatePassword vérifie que ValidatePassword ne panique jamais
 func FuzzValidatePassword(f *testing.F) {
+	fuzzInit(f)
 	f.Add("short")
 	f.Add("ValidP@ssw0rd!")
 	f.Add("")

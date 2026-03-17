@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -132,7 +133,7 @@ func main() {
 
 	// Middlewares globaux — doivent être déclarés AVANT NotFound/MethodNotAllowed
 	// pour que chi les applique aux handlers d'erreur
-	r.Use(chimw.RealIP)
+	r.Use(trustedProxyMiddleware())
 	r.Use(chimw.RequestID)
 	r.Use(chimw.Logger)
 	r.Use(chimw.Recoverer)
@@ -339,6 +340,32 @@ func cacheStatic(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func trustedProxyMiddleware() func(http.Handler) http.Handler {
+	proxyEnv := os.Getenv("TRUSTED_PROXIES")
+	if proxyEnv == "" {
+		return chimw.RealIP
+	}
+	trusted := make(map[string]bool)
+	for _, p := range strings.Split(proxyEnv, ",") {
+		trusted[strings.TrimSpace(p)] = true
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			host, _, _ := net.SplitHostPort(r.RemoteAddr)
+			if trusted[host] {
+				if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+					parts := strings.Split(xff, ",")
+					clientIP := strings.TrimSpace(parts[0])
+					r.RemoteAddr = clientIP + ":0"
+				} else if xri := r.Header.Get("X-Real-IP"); xri != "" {
+					r.RemoteAddr = strings.TrimSpace(xri) + ":0"
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // securityHeaders génère un nonce par requête et l'intègre dans la CSP.

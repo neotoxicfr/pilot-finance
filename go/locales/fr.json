@@ -147,6 +147,7 @@
   "settings.delete_account_confirm": "Confirmer la suppression",
   "settings.delete_account_password": "Entrez votre mot de passe actuel pour confirmer la suppression de votre compte.",
   "settings.export_data": "T\u00e9l\u00e9charger mes donn\u00e9es",
+  "settings.export_error": "\u00c9chec de l'export",
   "settings.language_label": "Langue",
   "settings.mfa_active": "A2F Active",
   "settings.mfa_cancel": "Annuler",

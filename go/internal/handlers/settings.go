@@ -256,6 +256,8 @@ func DeleteSelfAccount(w http.ResponseWriter, r *http.Request) {
 	clientIP := getClientIP(r)
 	ua := r.UserAgent()
 
+	hookInvalidateSessionCache(userID)
+
 	if err := hookDeleteUserAndData(userID); err != nil {
 		serverError(w, "delete user", err)
 		return
@@ -295,13 +297,15 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hookLogAudit(user.ID, db.AuditAdminDeleteUser, getClientIP(r), r.UserAgent())
+	hookInvalidateSessionCache(id)
 
 	err = hookDeleteUserAndData(id)
 	if err != nil {
 		serverError(w, "delete user", err)
 		return
 	}
+
+	hookLogAudit(user.ID, db.AuditAdminDeleteUser, getClientIP(r), r.UserAgent())
 
 	w.WriteHeader(http.StatusNoContent)
 }

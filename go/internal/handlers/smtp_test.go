@@ -96,8 +96,7 @@ func enableTestSMTP(t *testing.T) {
 // --- ForgotPasswordSubmit avec mail activé ---
 
 func TestForgotPasswordSubmit_MailEnabled_EmptyEmail(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	enableTestSMTP(t)
 
 	rr := httptest.NewRecorder()
@@ -108,8 +107,7 @@ func TestForgotPasswordSubmit_MailEnabled_EmptyEmail(t *testing.T) {
 }
 
 func TestForgotPasswordSubmit_MailEnabled_UnknownEmail(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	enableTestSMTP(t)
 
 	rr := httptest.NewRecorder()
@@ -120,8 +118,7 @@ func TestForgotPasswordSubmit_MailEnabled_UnknownEmail(t *testing.T) {
 }
 
 func TestForgotPasswordSubmit_MailEnabled_KnownEmail(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	newUser(t, "resetflow@example.com", "ValidP@ssw0rd!", "USER")
 	enableTestSMTP(t)
 
@@ -133,8 +130,7 @@ func TestForgotPasswordSubmit_MailEnabled_KnownEmail(t *testing.T) {
 }
 
 func TestForgotPasswordSubmit_EmptyLanguageFallback(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "nolang@example.com", "ValidP@ssw0rd!", "USER")
 	enableTestSMTP(t)
 
@@ -151,8 +147,7 @@ func TestForgotPasswordSubmit_EmptyLanguageFallback(t *testing.T) {
 }
 
 func TestForgotPasswordSubmit_SendEmailError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	newUser(t, "senderr@example.com", "ValidP@ssw0rd!", "USER")
 	enableTestSMTP(t)
 
@@ -171,8 +166,7 @@ func TestForgotPasswordSubmit_SendEmailError(t *testing.T) {
 }
 
 func TestForgotPasswordSubmit_RandReadError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	newUser(t, "randerr@example.com", "ValidP@ssw0rd!", "USER")
 	enableTestSMTP(t)
 
@@ -190,8 +184,7 @@ func TestForgotPasswordSubmit_RandReadError(t *testing.T) {
 }
 
 func TestForgotPasswordSubmit_SetResetTokenError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	newUser(t, "reseterr@example.com", "ValidP@ssw0rd!", "USER")
 	enableTestSMTP(t)
 

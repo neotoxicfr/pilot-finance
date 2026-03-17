@@ -37,11 +37,13 @@
                           class="space-y-5">
                         <input type="hidden" name="id" x-model="accountEditId">
                         <div class="grid grid-cols-2 gap-4">
-                            <input type="text" name="name" placeholder="{{index .T "accounts.name_placeholder"}}" required autofocus
+                            <label for="account-name" class="sr-only">{{index .T "accounts.name_placeholder"}}</label>
+                            <input id="account-name" type="text" name="name" placeholder="{{index .T "accounts.name_placeholder"}}" required autofocus
                                    x-model="accountName"
                                    class="bg-accent border border-border rounded-xl p-3 text-sm w-full outline-hidden focus:border-blue-500 text-foreground">
                             <div class="relative">
-                                <input type="text" inputmode="decimal" name="balance" placeholder="{{index .T "accounts.balance_placeholder"}}"
+                                <label for="account-balance" class="sr-only">{{index .T "accounts.balance_placeholder"}}</label>
+                                <input id="account-balance" type="text" inputmode="decimal" name="balance" placeholder="{{index .T "accounts.balance_placeholder"}}"
                                        x-model="accountBalance"
                                        class="bg-accent border border-border rounded-xl p-3 pr-12 text-sm w-full font-mono outline-hidden focus:border-blue-500 text-foreground">
                                 <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">{{.Currency}}</span>
@@ -54,7 +56,7 @@
                                     <button type="button" @click="selectedColor = c"
                                             :aria-label="colorName(c)" :aria-pressed="selectedColor === c ? 'true' : 'false'"
                                             :class="selectedColor === c ? 'ring-2 ring-foreground scale-110' : 'opacity-60 hover:opacity-100'"
-                                            class="w-8 h-8 rounded-full transition-all duration-150"
+                                            class="w-10 h-10 rounded-full transition-all duration-150"
                                             :style="'background-color:' + c"></button>
                                 </template>
                             </div>
@@ -223,12 +225,14 @@
                                 </div>
                             </div>
                             <div class="flex gap-3">
-                                <select name="type" x-model="opType"
+                                <label for="recurring-type" class="sr-only">{{index .T "recurring.type_expense"}}</label>
+                                <select id="recurring-type" name="type" x-model="opType"
                                         class="w-28 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
                                     <option value="expense">{{index .T "recurring.type_expense"}}</option>
                                     <option value="income">{{index .T "recurring.type_income"}}</option>
                                     <option value="transfer">{{index .T "recurring.type_transfer"}}</option>
                                 </select>
+                                <label for="recurring-account-select" class="sr-only">{{index .T "recurring.account_placeholder"}}</label>
                                 <select name="accountId" id="recurring-account-select" required
                                         x-model="accountId"
                                         class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
@@ -242,6 +246,7 @@
                                 <div class="w-28 shrink-0 flex justify-end text-muted-foreground/50">
                                     {{template "icon-arrow-right" dict "Size" 14}}
                                 </div>
+                                <label for="recurring-to-account-select" class="sr-only">{{index .T "recurring.account_placeholder"}}</label>
                                 <select name="toAccountId" id="recurring-to-account-select"
                                         x-model="toAccountId"
                                         class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
@@ -387,7 +392,7 @@ document.addEventListener('alpine:init', () => {
      :class="del ? 'border-red-500/40 bg-red-500/5' : 'hover:border-blue-500/30'"
      :style="del ? '' : 'background: linear-gradient(135deg, var(--background) 0%, {{.Account.Color}}15 100%)'"
      data-account-id="{{.Account.ID}}">
-    <div class="drag-handle cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground touch-none flex-shrink-0 hidden md:flex items-center">
+    <div class="drag-handle cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground touch-none flex-shrink-0 hidden md:flex items-center" aria-hidden="true">
         {{template "icon-grip" dict "Size" 18}}
     </div>
     <div class="flex flex-col gap-0 flex-shrink-0 md:hidden">

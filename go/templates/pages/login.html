@@ -142,7 +142,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
                         {{template "icon-shield" dict "Size" 18}} {{index .T "login.totp_title"}}
                     </div>
                     <label for="login-totp" class="sr-only">{{index .T "login.totp_title"}}</label>
-                    <input id="login-totp" name="twoFactorCode" type="text" inputmode="numeric" maxlength="6" autofocus required
+                    <input id="login-totp" name="twoFactorCode" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" autofocus required
                            class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden text-center text-xl tracking-[0.5em] font-mono focus:border-blue-500 transition-colors"
                            placeholder="000000">
                     <p class="text-xs text-muted-foreground text-center mt-2">{{index .T "login.totp_help"}}</p>
