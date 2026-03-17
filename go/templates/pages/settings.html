@@ -358,7 +358,7 @@ document.addEventListener('alpine:init', () => {
 
                 <!-- Modal renommage passkey -->
                 <dialog id="passkey-rename-dialog" aria-labelledby="passkey-rename-title" class="p-0 border-none bg-transparent overflow-visible w-full h-full max-w-none max-h-none"
-                        @click="$event.target === $el && $el.close()"
+                        @click="if ($event.target === $el) { let r = $el.firstElementChild.getBoundingClientRect(); if ($event.clientX < r.left || $event.clientX > r.right || $event.clientY < r.top || $event.clientY > r.bottom) $el.close(); }"
                         @close="renameId = null">
                     <div class="modal-panel rounded-2xl p-6 w-full max-w-sm mx-auto mt-20 shadow-2xl" @click.stop>
                         <h3 id="passkey-rename-title" class="text-lg font-bold text-foreground mb-4">{{index .T "settings.passkey_rename_title"}}</h3>
