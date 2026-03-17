@@ -57,7 +57,7 @@
 - **Responsive** — smooth experience on all devices, PWA-ready
 - **Dark mode** — automatic (system) or manual toggle
 - **Drag & drop** reorder on desktop, tap-to-move arrows on mobile
-- **Lightweight** — ~46 MB Docker image, ~30 MB RAM, <1s start. Zero CDN requests
+- **Lightweight** — ~8 MB Docker image, ~30 MB RAM, <1s start. Zero CDN requests
 
 ---
 
@@ -104,7 +104,7 @@ services:
     volumes:
       - ./data:/data
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
+      test: ["/app/server", "healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3
