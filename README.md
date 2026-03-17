@@ -175,7 +175,7 @@ Your data lives in `./data/pilot.db`. Back it up regularly. The application also
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
 | CI/CD | GitHub Actions (unit tests, E2E, CodeQL, Trivy, Lighthouse, GHCR, auto-release) |
 | E2E | Playwright (Chromium, Firefox, WebKit, Mobile Chrome) |
-| Docker | ~46 MB image (alpine:3.23 base) |
+| Docker | ~8 MB image (scratch base, UPX compressed) |
 
 ---
 
