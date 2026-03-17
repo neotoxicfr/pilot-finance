@@ -25,8 +25,7 @@ var errTest = errors.New("injected test error")
 // --- CreateAccount : branches de validation rendement ---
 
 func TestCreateAccount_InvalidYieldMin(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "invymin@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/accounts", url.Values{
@@ -45,8 +44,7 @@ func TestCreateAccount_InvalidYieldMin(t *testing.T) {
 }
 
 func TestCreateAccount_InvalidYieldMax(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "invymax@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/accounts", url.Values{
@@ -66,8 +64,7 @@ func TestCreateAccount_InvalidYieldMax(t *testing.T) {
 }
 
 func TestCreateAccount_InvalidReinvestmentRate(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "invreinv@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/accounts", url.Values{
@@ -84,8 +81,7 @@ func TestCreateAccount_InvalidReinvestmentRate(t *testing.T) {
 }
 
 func TestCreateAccount_RANGE_MinGtMax(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "rangeinv@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/accounts", url.Values{
@@ -105,8 +101,7 @@ func TestCreateAccount_RANGE_MinGtMax(t *testing.T) {
 }
 
 func TestCreateAccount_RANGE_NegativeMin(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "rangeneg@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/accounts", url.Values{
@@ -126,8 +121,7 @@ func TestCreateAccount_RANGE_NegativeMin(t *testing.T) {
 }
 
 func TestCreateAccount_Update(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "updacc@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 
@@ -145,8 +139,7 @@ func TestCreateAccount_Update(t *testing.T) {
 }
 
 func TestCreateAccount_PayoutYearly(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "yearly@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/accounts", url.Values{
@@ -165,8 +158,7 @@ func TestCreateAccount_PayoutYearly(t *testing.T) {
 // --- CreateRecurring : branches non couvertes ---
 
 func TestCreateRecurring_InvalidAmount(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "crecbadamt@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 
@@ -185,8 +177,7 @@ func TestCreateRecurring_InvalidAmount(t *testing.T) {
 }
 
 func TestCreateRecurring_InvalidAccountID(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "crecbadacc@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/recurring", url.Values{
@@ -204,8 +195,7 @@ func TestCreateRecurring_InvalidAccountID(t *testing.T) {
 }
 
 func TestCreateRecurring_WithToAccount(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "crecto@example.com", "ValidP@ss1!", "USER")
 	accID1 := createAcc(t, uid)
 	accID2 := createAcc(t, uid) // compte destination
@@ -226,8 +216,7 @@ func TestCreateRecurring_WithToAccount(t *testing.T) {
 }
 
 func TestCreateRecurring_IncomeNegativeAmount(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "crecincome@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 
@@ -249,8 +238,7 @@ func TestCreateRecurring_IncomeNegativeAmount(t *testing.T) {
 // --- UpdateRecurring : branches non couvertes ---
 
 func TestUpdateRecurring_Expense(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "updrecexp@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 	recID := createRec(t, uid, accID)
@@ -273,8 +261,7 @@ func TestUpdateRecurring_Expense(t *testing.T) {
 }
 
 func TestUpdateRecurring_WithToAccount(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "updrecto@example.com", "ValidP@ss1!", "USER")
 	accID1 := createAcc(t, uid)
 	accID2 := createAcc(t, uid)
@@ -299,8 +286,7 @@ func TestUpdateRecurring_WithToAccount(t *testing.T) {
 }
 
 func TestUpdateRecurring_InvalidAmount(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "updrecbadamt@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 	recID := createRec(t, uid, accID)
@@ -324,8 +310,7 @@ func TestUpdateRecurring_InvalidAmount(t *testing.T) {
 // --- RecurringAPI : avec toAccountID ---
 
 func TestRecurringAPI_WithTransfer(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "recapitr@example.com", "ValidP@ss1!", "USER")
 	accID1 := createAcc(t, uid)
 	accID2 := createAcc(t, uid)
@@ -360,8 +345,7 @@ func encStr(t *testing.T, s string) string {
 // --- AuditPage : avec entrées + résolution email ---
 
 func TestAuditPage_WithEntries(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "auditwithen@example.com", "ValidP@ss1!", "ADMIN")
 
 	// Créer quelques entrées d'audit (dont une action inconnue pour couvrir le fallback)
@@ -392,8 +376,7 @@ func TestAuditPage_WithEntries(t *testing.T) {
 }
 
 func TestAuditPage_NilUser_Forbidden(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	AuditPage(rr, httptest.NewRequest(http.MethodGet, "/admin/audit", nil))
@@ -403,8 +386,7 @@ func TestAuditPage_NilUser_Forbidden(t *testing.T) {
 }
 
 func TestAuditPage_Pagination(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "auditpage2@example.com", "ValidP@ss1!", "ADMIN")
 
 	req := injectUser(
@@ -421,8 +403,7 @@ func TestAuditPage_Pagination(t *testing.T) {
 // --- UpdateBalance : ID invalide ---
 
 func TestUpdateBalance_InvalidID(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "updbalidx@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(
@@ -439,8 +420,7 @@ func TestUpdateBalance_InvalidID(t *testing.T) {
 // --- ChangePassword : utilisateur introuvable en DB ---
 
 func TestChangePassword_UserNotInDB(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	// Injecter un utilisateur avec un ID qui n'existe pas en base
 	req := injectUser(post("/settings/password", url.Values{
@@ -460,8 +440,7 @@ func TestChangePassword_UserNotInDB(t *testing.T) {
 // Conditions : IsYieldActive && ReinvestmentRate < 100 && TargetAccountID != nil
 
 func TestCreateAccount_YieldYearly_CoversPayoutBranch(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "yldyrly@example.com", "ValidP@ss1!", "USER")
 
 	// 1. Créer un compte cible (destination des intérêts)
@@ -498,8 +477,7 @@ func TestCreateAccount_YieldYearly_CoversPayoutBranch(t *testing.T) {
 // --- AccountsPage avec données riches (YEARLY yield + récurrente dépense) ---
 
 func TestAccountsPage_WithRichData(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "richaccp@example.com", "ValidP@ss1!", "USER")
 
 	// Compte cible (destination des intérêts non réinvestis)
@@ -544,8 +522,7 @@ func TestAccountsPage_WithRichData(t *testing.T) {
 // --- DashboardAPI : paramètre years ---
 
 func TestDashboardAPI_WithYearsParam(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "dashyears@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(
@@ -562,8 +539,7 @@ func TestDashboardAPI_WithYearsParam(t *testing.T) {
 // --- DashboardAPI : invalid years parameter → 400 ---
 
 func TestDashboardAPI_InvalidYears(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "dashyearsinv@example.com", "ValidP@ss1!", "USER")
 
 	tests := []struct {
@@ -590,8 +566,7 @@ func TestDashboardAPI_InvalidYears(t *testing.T) {
 // --- ChangePassword : nil user (401) ---
 
 func TestChangePassword_Unauthorized(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	ChangePassword(rr, post("/settings/password", url.Values{
@@ -607,8 +582,7 @@ func TestChangePassword_Unauthorized(t *testing.T) {
 // --- ExportData : avec données accounts + recurrings ---
 
 func TestExportData_WithData(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "exportdata@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 	createRec(t, uid, accID)
@@ -639,8 +613,7 @@ func TestExportData_WithData(t *testing.T) {
 // Couvre: else branch (payout MONTHLY), rec.ToAccountID!=nil, rec.Amount>0, rec.Amount<0
 
 func TestRenderAccountsList_MonthlyAndRecurrings(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "rendlist@example.com", "ValidP@ss1!", "USER")
 
 	// Compte cible pour les intérêts distribués
@@ -698,8 +671,7 @@ func TestRenderAccountsList_MonthlyAndRecurrings(t *testing.T) {
 // Couvre emailCache[e.UserID] = strconv.FormatInt(e.UserID, 10) (fallback)
 
 func TestAuditPage_OrphanEntry(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "auditorphan@example.com", "ValidP@ss1!", "ADMIN")
 
 	// Entrée d'audit pour un user inexistant → emailCache ne trouve pas → fallback ID string
@@ -717,8 +689,7 @@ func TestAuditPage_OrphanEntry(t *testing.T) {
 // Couvre la branche if crypto.NeedsRehash(user.Password) { ... }
 
 func TestHandleLogin_NeedsRehash(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	email := "rehash@example.com"
 	password := "ValidP@ss1!"
@@ -743,8 +714,7 @@ func TestHandleLogin_NeedsRehash(t *testing.T) {
 // --- HandleRegister : second user → role USER ---
 
 func TestHandleRegister_SecondUser(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	t.Setenv("ALLOW_REGISTER", "true")
 	newUser(t, "first@example.com", "ValidP@ss1!", "ADMIN") // premier user direct DB
 
@@ -765,8 +735,7 @@ func TestHandleRegister_SecondUser(t *testing.T) {
 // --- ChangePassword : champs manquants → 400 ---
 
 func TestChangePassword_EmptyFields(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pwdempty@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/settings/password", url.Values{
@@ -784,8 +753,7 @@ func TestChangePassword_EmptyFields(t *testing.T) {
 // --- ChangePassword : mots de passe ne correspondent pas → 400 ---
 
 func TestChangePassword_Mismatch(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pwdmismatch@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/settings/password", url.Values{
@@ -803,8 +771,7 @@ func TestChangePassword_Mismatch(t *testing.T) {
 // --- ChangePassword : nouveau mot de passe trop faible → 400 ---
 
 func TestChangePassword_WeakPassword(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pwdweak@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/settings/password", url.Values{
@@ -822,8 +789,7 @@ func TestChangePassword_WeakPassword(t *testing.T) {
 // --- UpdatePreferences : langue/devise invalides → fallback silencieux ---
 
 func TestUpdatePreferences_InvalidLangCurrency(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "prefsinvalid@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/settings/preferences", url.Values{
@@ -840,8 +806,7 @@ func TestUpdatePreferences_InvalidLangCurrency(t *testing.T) {
 // --- ExportData : utilisateur introuvable en DB → 404 ---
 
 func TestExportData_UserNotFound(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/settings/export", nil), mu(99999, "USER"))
 	rr := httptest.NewRecorder()
@@ -854,8 +819,7 @@ func TestExportData_UserNotFound(t *testing.T) {
 // --- VerifyEmailPage : token vide → rendu avec erreur ---
 
 func TestVerifyEmailPage_EmptyToken(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	VerifyEmailPage(rr, httptest.NewRequest(http.MethodGet, "/verify-email", nil))
@@ -871,8 +835,7 @@ func TestVerifyEmailPage_EmptyToken(t *testing.T) {
 // --- HandleRegister : rate limit → 429 ---
 
 func TestHandleRegister_RateLimit(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	// 3 tentatives valides (MaxAttempts=3) pour remplir le compteur
 	for i := 0; i < 3; i++ {
@@ -901,8 +864,7 @@ func TestHandleRegister_RateLimit(t *testing.T) {
 // --- HandleRegister : db.CountUsers error → 500 ---
 
 func TestHandleRegister_CountUsersError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	t.Setenv("ALLOW_REGISTER", "true")
 	orig := hookCountUsers
 	hookCountUsers = func() (int, error) { return 0, errTest }
@@ -922,8 +884,7 @@ func TestHandleRegister_CountUsersError(t *testing.T) {
 // --- HandleRegister : db.GetUserByBlindIndex error → 500 ---
 
 func TestHandleRegister_BlindIndexError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	orig := hookGetUserByBlindIndex
 	hookGetUserByBlindIndex = func(string) (*db.User, error) { return nil, errTest }
 	t.Cleanup(func() { hookGetUserByBlindIndex = orig })
@@ -942,8 +903,7 @@ func TestHandleRegister_BlindIndexError(t *testing.T) {
 // --- HandleRegister : crypto.HashPassword error → 500 ---
 
 func TestHandleRegister_HashPasswordError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	orig := hookHashPassword
 	hookHashPassword = func(string) (string, error) { return "", errTest }
 	t.Cleanup(func() { hookHashPassword = orig })
@@ -962,8 +922,7 @@ func TestHandleRegister_HashPasswordError(t *testing.T) {
 // --- HandleRegister : crypto.Encrypt error → 500 ---
 
 func TestHandleRegister_EncryptError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	orig := hookEncryptStr
 	hookEncryptStr = func(string) (string, error) { return "", errTest }
 	t.Cleanup(func() { hookEncryptStr = orig })
@@ -982,8 +941,7 @@ func TestHandleRegister_EncryptError(t *testing.T) {
 // --- HandleRegister : db.CreateUser error → 500 ---
 
 func TestHandleRegister_CreateUserError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	orig := hookCreateUser
 	hookCreateUser = func(string, string, string, string) (int64, error) { return 0, errTest }
 	t.Cleanup(func() { hookCreateUser = orig })
@@ -1002,8 +960,7 @@ func TestHandleRegister_CreateUserError(t *testing.T) {
 // --- ChangePassword : crypto.HashPassword error → 500 ---
 
 func TestChangePassword_HashError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pwdhash@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookHashPassword
@@ -1025,8 +982,7 @@ func TestChangePassword_HashError(t *testing.T) {
 // --- ChangePassword : db.UpdatePassword error → 500 ---
 
 func TestChangePassword_UpdatePasswordError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "pwdupderr@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookUpdatePassword
@@ -1048,8 +1004,7 @@ func TestChangePassword_UpdatePasswordError(t *testing.T) {
 // --- UpdatePreferences : db.UpdateUserPreferences error → 500 ---
 
 func TestUpdatePreferences_DBError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "prefsdberr@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookUpdateUserPrefs
@@ -1070,8 +1025,7 @@ func TestUpdatePreferences_DBError(t *testing.T) {
 // --- UpdatePreferences : auth.GenerateToken error → 500 ---
 
 func TestUpdatePreferences_TokenError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "prefstokenerr@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookGenerateToken
@@ -1092,8 +1046,7 @@ func TestUpdatePreferences_TokenError(t *testing.T) {
 // --- AccountsAPI : db.GetAccountsByUserID error → 500 ---
 
 func TestAccountsAPI_DBError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "accapidberr@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookGetAccountsByUserID
@@ -1111,8 +1064,7 @@ func TestAccountsAPI_DBError(t *testing.T) {
 // --- RecurringAPI : db.GetRecurringByUserID error → 500 ---
 
 func TestRecurringAPI_DBError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "recapidberr@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookGetRecurringByUserID
@@ -1130,8 +1082,7 @@ func TestRecurringAPI_DBError(t *testing.T) {
 // --- DashboardAPI : db.GetAccountsByUserID error → 500 ---
 
 func TestDashboardAPI_DBError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "dashdberr@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookGetAccountsByUserID
@@ -1149,8 +1100,7 @@ func TestDashboardAPI_DBError(t *testing.T) {
 // --- MFASetup : auth.GenerateTOTPSecret error → 500 ---
 
 func TestMFASetup_TOTPSecretError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "mfasetuperr@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookGenerateTOTPSecret
@@ -1168,8 +1118,7 @@ func TestMFASetup_TOTPSecretError(t *testing.T) {
 // --- MFAEnable : crypto.Encrypt error → JSON error ---
 
 func TestMFAEnable_EncryptError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "mfaencerr@example.com", "ValidP@ss1!", "USER")
 
 	secret, _ := hookGenerateTOTPSecret()
@@ -1196,8 +1145,7 @@ func TestMFAEnable_EncryptError(t *testing.T) {
 // --- MFAEnable : db.EnableMFA error → JSON error ---
 
 func TestMFAEnable_EnableMFAError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "mfaenablerr@example.com", "ValidP@ss1!", "USER")
 
 	secret, _ := hookGenerateTOTPSecret()
@@ -1224,8 +1172,7 @@ func TestMFAEnable_EnableMFAError(t *testing.T) {
 // --- MFADisable : db.DisableMFA error → 500 ---
 
 func TestMFADisable_DBError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "mfadisdberr@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookDisableMFA
@@ -1246,8 +1193,7 @@ func TestMFADisable_DBError(t *testing.T) {
 // --- Dashboard : hookGetAccountsByUserID error → 500 ---
 
 func TestDashboard_GetAccountsError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "dashdberr@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookGetAccountsByUserID
@@ -1265,8 +1211,7 @@ func TestDashboard_GetAccountsError(t *testing.T) {
 // --- ExportData : hookGetAccountsByUserID error → 500 ---
 
 func TestExportData_AccountsDBError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "exportaccerr@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookGetAccountsByUserID
@@ -1284,8 +1229,7 @@ func TestExportData_AccountsDBError(t *testing.T) {
 // --- ExportData : hookGetRecurringByUserID error → 500 ---
 
 func TestExportData_RecurringDBError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "exportrecerr@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookGetRecurringByUserID
@@ -1303,8 +1247,7 @@ func TestExportData_RecurringDBError(t *testing.T) {
 // --- DeleteSelfAccount : hookDeleteUserAndData error → 500 ---
 
 func TestDeleteSelfAccount_DBError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "delselfErr@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookDeleteUserAndData
@@ -1324,8 +1267,7 @@ func TestDeleteSelfAccount_DBError(t *testing.T) {
 // --- DeleteUser (admin) : hookDeleteUser error → 500 ---
 
 func TestDeleteUser_DBError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	adminUID := newUser(t, "admindelUserErr@example.com", "ValidP@ss1!", "ADMIN")
 	targetUID := newUser(t, "targetUserErr@example.com", "ValidP@ss1!", "USER")
 
@@ -1347,8 +1289,7 @@ func TestDeleteUser_DBError(t *testing.T) {
 // --- SettingsPage (admin) : hookGetAllUsers error → 500 ---
 
 func TestSettingsPage_Admin_GetAllUsersError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "settingsadminerr@example.com", "ValidP@ss1!", "ADMIN")
 
 	orig := hookGetAllUsers
@@ -1366,8 +1307,7 @@ func TestSettingsPage_Admin_GetAllUsersError(t *testing.T) {
 // --- CreateAccount: reinvestmentRate valide mais hors-limites (< 0) ---
 
 func TestCreateAccount_ReinvestmentRateOutOfRange(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "reinvrange@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/accounts", url.Values{
@@ -1386,8 +1326,7 @@ func TestCreateAccount_ReinvestmentRateOutOfRange(t *testing.T) {
 // --- CreateAccount: targetAccountId non-numérique → parse error 400 ---
 
 func TestCreateAccount_TargetIDParseError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "targetparse@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/accounts", url.Values{
@@ -1406,8 +1345,7 @@ func TestCreateAccount_TargetIDParseError(t *testing.T) {
 // --- CreateRecurring: dayOfMonth invalide → normalisé à 1, succès ---
 
 func TestCreateRecurring_DayNormalization(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "daynorm@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 
@@ -1428,8 +1366,7 @@ func TestCreateRecurring_DayNormalization(t *testing.T) {
 // --- CreateRecurring: toAccountId non-numérique → 400 ---
 
 func TestCreateRecurring_ToAccountIDParseError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "toaccparse@example.com", "ValidP@ss1!", "USER")
 	accID := createAcc(t, uid)
 
@@ -1451,8 +1388,7 @@ func TestCreateRecurring_ToAccountIDParseError(t *testing.T) {
 // --- AccountsPage: branches MONTHLY payout + income + virement interne ---
 
 func TestAccountsPage_AllBranches(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "accpageall@example.com", "ValidP@ss1!", "USER")
 
 	// Compte cible
@@ -1487,8 +1423,7 @@ func TestAccountsPage_AllBranches(t *testing.T) {
 // --- SettingsPage: admin avec email_encrypted corrompu → continue ---
 
 func TestSettingsPage_Admin_CorruptedEmail(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	adminUID := newUser(t, "admincorrupt@example.com", "ValidP@ss1!", "ADMIN")
 	corruptUID := newUser(t, "corrupt@example.com", "ValidP@ss1!", "USER")
 
@@ -1506,8 +1441,7 @@ func TestSettingsPage_Admin_CorruptedEmail(t *testing.T) {
 // --- ResetPasswordSubmit: hookHashPassword error → 500 ---
 
 func TestResetPasswordSubmit_HashError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "resethash@example.com", "ValidP@ss1!", "USER")
 
 	rawToken := "aabbccdd112233440000000000000000aabbccdd1122334400000000"
@@ -1533,8 +1467,7 @@ func TestResetPasswordSubmit_HashError(t *testing.T) {
 // --- ResetPasswordSubmit : db.UpdatePassword error → 500 ---
 
 func TestResetPasswordSubmit_UpdatePasswordError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "resetupd@example.com", "ValidP@ss1!", "USER")
 
 	rawToken := "eeff00112233445566778899aabbccdd00112233445566778899aabbccddee"
@@ -1560,8 +1493,7 @@ func TestResetPasswordSubmit_UpdatePasswordError(t *testing.T) {
 // --- ExportData: avec passkey → couvre le loop du slice passkeys ---
 
 func TestExportData_WithPasskey(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "exportpk@example.com", "ValidP@ss1!", "USER")
 
 	db.CreateAuthenticator("cred-test-id", "pubkey-data", 0, "platform", true, true, "internal", uid)
@@ -1648,8 +1580,7 @@ func TestDetectLanguage_OtherLanguage(t *testing.T) {
 // --- MFADisable: missing password → 400 ---
 
 func TestMFADisable_MissingPassword(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "mfadisnopass@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/api/mfa/disable", url.Values{}), mu(uid, "USER"))
@@ -1663,8 +1594,7 @@ func TestMFADisable_MissingPassword(t *testing.T) {
 // --- MFADisable: wrong password → 401 ---
 
 func TestMFADisable_WrongPassword(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "mfadiswrongpw@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/api/mfa/disable", url.Values{
@@ -1680,8 +1610,7 @@ func TestMFADisable_WrongPassword(t *testing.T) {
 // --- MFADisable: ParseForm error → 400 ---
 
 func TestMFADisable_ParseFormError(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "mfadisparseerr@example.com", "ValidP@ss1!", "USER")
 
 	// multipart/form-data with empty boundary forces ParseForm to fail
@@ -1699,8 +1628,7 @@ func TestMFADisable_ParseFormError(t *testing.T) {
 // --- CreateAccount: name too long → 400 ---
 
 func TestCreateAccount_NameTooLong(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "longname@example.com", "ValidP@ss1!", "USER")
 
 	longName := strings.Repeat("a", 101) // 101 characters > 100 limit
@@ -1743,8 +1671,7 @@ func TestGetClientIP_IPv6BracketedNoPort(t *testing.T) {
 // --- MFADisable: user not found in DB → 404 ---
 
 func TestMFADisable_UserNotFound(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	orig := hookGetUserByID
 	hookGetUserByID = func(int64) (*db.User, error) { return nil, nil }

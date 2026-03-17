@@ -24,7 +24,7 @@
             <dialog id="account-dialog" aria-labelledby="account-dialog-title"
                     @close="editingAccount = null"
                     @click="$event.target === $el && $el.close()">
-                <div class="modal-panel relative border border-border rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5">
+                <div class="modal-panel relative border border-border rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5" @click.stop>
                     <button @click="closeAccountDialog()" aria-label="{{index .T "common.close"}}"
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 20}}
@@ -37,11 +37,13 @@
                           class="space-y-5">
                         <input type="hidden" name="id" x-model="accountEditId">
                         <div class="grid grid-cols-2 gap-4">
-                            <input type="text" name="name" placeholder="{{index .T "accounts.name_placeholder"}}" required autofocus
+                            <label for="account-name" class="sr-only">{{index .T "accounts.name_placeholder"}}</label>
+                            <input id="account-name" type="text" name="name" placeholder="{{index .T "accounts.name_placeholder"}}" required autofocus
                                    x-model="accountName"
                                    class="bg-accent border border-border rounded-xl p-3 text-sm w-full outline-hidden focus:border-blue-500 text-foreground">
                             <div class="relative">
-                                <input type="text" inputmode="decimal" name="balance" placeholder="{{index .T "accounts.balance_placeholder"}}"
+                                <label for="account-balance" class="sr-only">{{index .T "accounts.balance_placeholder"}}</label>
+                                <input id="account-balance" type="text" inputmode="decimal" name="balance" placeholder="{{index .T "accounts.balance_placeholder"}}"
                                        x-model="accountBalance"
                                        class="bg-accent border border-border rounded-xl p-3 pr-12 text-sm w-full font-mono outline-hidden focus:border-blue-500 text-foreground">
                                 <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">{{.Currency}}</span>
@@ -54,7 +56,7 @@
                                     <button type="button" @click="selectedColor = c"
                                             :aria-label="colorName(c)" :aria-pressed="selectedColor === c ? 'true' : 'false'"
                                             :class="selectedColor === c ? 'ring-2 ring-foreground scale-110' : 'opacity-60 hover:opacity-100'"
-                                            class="w-8 h-8 rounded-full transition-all duration-150"
+                                            class="w-10 h-10 rounded-full transition-all duration-150"
                                             :style="'background-color:' + c"></button>
                                 </template>
                             </div>
@@ -99,14 +101,14 @@
 
                                 <div class="grid gap-4" :class="yieldType === 'RANGE' ? 'grid-cols-2' : 'grid-cols-1'">
                                     <div>
-                                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider"
+                                        <label for="yield-min" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider"
                                                x-text="yieldType === 'RANGE' ? '{{index .T "accounts.yield_rate_min"}}' : '{{index .T "accounts.yield_rate"}}'"></label>
-                                        <input type="number" step="0.01" name="yieldMin" x-model="yieldMin" placeholder="3.5"
+                                        <input id="yield-min" type="number" step="0.01" name="yieldMin" x-model="yieldMin" placeholder="3.5"
                                                class="bg-accent border border-border rounded-xl p-2.5 text-sm w-full font-mono outline-hidden focus:border-emerald-500 text-foreground">
                                     </div>
                                     <div x-show="yieldType === 'RANGE'">
-                                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.yield_rate_max"}}</label>
-                                        <input type="number" step="0.01" name="yieldMax" x-model="yieldMax" placeholder="5.0"
+                                        <label for="yield-max" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.yield_rate_max"}}</label>
+                                        <input id="yield-max" type="number" step="0.01" name="yieldMax" x-model="yieldMax" placeholder="5.0"
                                                class="bg-accent border border-border rounded-xl p-2.5 text-sm w-full font-mono outline-hidden focus:border-emerald-500 text-foreground">
                                     </div>
                                 </div>
@@ -126,7 +128,7 @@
 
                                 <div x-show="reinvestmentRate < 100" x-cloak class="space-y-3">
                                     <div>
-                                        <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">
+                                        <label for="target-account-select" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">
                                             {{index .T "accounts.target_account"}}
                                         </label>
                                         <select name="targetAccountId" id="target-account-select"
@@ -166,7 +168,7 @@
             </dialog>
 
             <!-- Accounts List -->
-            <div class="space-y-3" id="accounts-list">
+            <div class="space-y-3" id="accounts-list" aria-live="polite">
                 {{range $i, $v := .Accounts}}
                 {{template "account-row" dict "Account" $v "Currency" $.Currency "T" $.T "IsFirst" (eq $i 0) "IsLast" (eq $i $.AccountLastIdx)}}
                 {{else}}
@@ -191,7 +193,7 @@
             <dialog id="recurring-dialog" aria-labelledby="recurring-dialog-title"
                     @close="editingRecurring = null"
                     @click="$event.target === $el && $el.close()">
-                <div class="modal-panel relative border border-border rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5">
+                <div class="modal-panel relative border border-border rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5" @click.stop>
                     <button @click="closeRecurringDialog()" aria-label="{{index .T "common.close"}}"
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 20}}
@@ -223,12 +225,14 @@
                                 </div>
                             </div>
                             <div class="flex gap-3">
-                                <select name="type" x-model="opType"
+                                <label for="recurring-type" class="sr-only">{{index .T "recurring.type_expense"}}</label>
+                                <select id="recurring-type" name="type" x-model="opType"
                                         class="w-28 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
                                     <option value="expense">{{index .T "recurring.type_expense"}}</option>
                                     <option value="income">{{index .T "recurring.type_income"}}</option>
                                     <option value="transfer">{{index .T "recurring.type_transfer"}}</option>
                                 </select>
+                                <label for="recurring-account-select" class="sr-only">{{index .T "recurring.account_placeholder"}}</label>
                                 <select name="accountId" id="recurring-account-select" required
                                         x-model="accountId"
                                         class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
@@ -242,6 +246,7 @@
                                 <div class="w-28 shrink-0 flex justify-end text-muted-foreground/50">
                                     {{template "icon-arrow-right" dict "Size" 14}}
                                 </div>
+                                <label for="recurring-to-account-select" class="sr-only">{{index .T "recurring.account_placeholder"}}</label>
                                 <select name="toAccountId" id="recurring-to-account-select"
                                         x-model="toAccountId"
                                         class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
@@ -260,7 +265,7 @@
 
             <!-- Recurring List -->
             <div class="dashboard-card bg-background border rounded-2xl overflow-hidden">
-                <div class="max-h-[600px] overflow-y-auto overscroll-y-none" id="recurring-list">
+                <div class="max-h-[600px] overflow-y-auto overscroll-y-none" id="recurring-list" aria-live="polite">
                     {{template "recurring-table" .}}
                 </div>
             </div>
@@ -297,6 +302,7 @@ function accountsPage() {
             this.reinvestmentRate = account?.reinvestment_rate ?? 100;
             this.targetAccountId = account?.target_account_id ? String(account.target_account_id) : '';
             this.payoutFrequency = account?.payout_frequency || 'MONTHLY';
+            this._accountTrigger = document.activeElement;
             document.getElementById('account-dialog').showModal();
             this.$nextTick(() => document.querySelector('#account-dialog input[name="name"]')?.focus());
         },
@@ -325,6 +331,7 @@ function accountsPage() {
             } else {
                 this.opType = recurring.Amount > 0 ? 'income' : 'expense';
             }
+            this._recurringTrigger = document.activeElement;
             document.getElementById('recurring-dialog').showModal();
             this.$nextTick(() => document.querySelector('#recurring-dialog input[name="description"]')?.focus());
         },
@@ -355,8 +362,8 @@ function accountsPage() {
             return names[hex] || hex;
         },
 
-        closeAccountDialog()  { document.getElementById('account-dialog').close(); },
-        closeRecurringDialog() { document.getElementById('recurring-dialog').close(); },
+        closeAccountDialog()  { document.getElementById('account-dialog').close(); this.$nextTick(() => this._accountTrigger?.focus()); },
+        closeRecurringDialog() { document.getElementById('recurring-dialog').close(); this.$nextTick(() => this._recurringTrigger?.focus()); },
 
         init() {
             this.$nextTick(() => this.initSortable());
@@ -387,7 +394,7 @@ document.addEventListener('alpine:init', () => {
      :class="del ? 'border-red-500/40 bg-red-500/5' : 'hover:border-blue-500/30'"
      :style="del ? '' : 'background: linear-gradient(135deg, var(--background) 0%, {{.Account.Color}}15 100%)'"
      data-account-id="{{.Account.ID}}">
-    <div class="drag-handle cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground touch-none flex-shrink-0 hidden md:flex items-center">
+    <div class="drag-handle cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground touch-none flex-shrink-0 hidden md:flex items-center" aria-hidden="true">
         {{template "icon-grip" dict "Size" 18}}
     </div>
     <div class="flex flex-col gap-0 flex-shrink-0 md:hidden">
@@ -430,29 +437,29 @@ document.addEventListener('alpine:init', () => {
                    @input="dirty = true"
                    class="bg-transparent w-20 sm:w-24 text-right outline-hidden font-mono text-base sm:text-lg font-bold text-foreground focus:text-blue-500 focus:bg-accent hover:border-b hover:border-dashed hover:border-muted-foreground rounded-lg px-1 transition-colors cursor-text">
             <span class="text-xs text-muted-foreground font-medium whitespace-nowrap">{{.Currency}}</span>
-            <button aria-label="{{index .T "common.save"}}" class="text-blue-500 p-1.5 rounded-lg transition-all"
+            <button aria-label="{{index .T "common.save"}}" class="text-blue-500 p-2.5 rounded-lg transition-all"
                     :class="dirty ? 'opacity-100' : 'opacity-0 pointer-events-none'">
                 {{template "icon-save" dict "Size" 16}}
             </button>
         </form>
         <div class="flex items-center gap-0.5 shrink-0" x-show="!del">
             <button @click="openAccountForm({{.Account | json}})" aria-label="{{index .T "common.edit"}}"
-                    class="p-1.5 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
+                    class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
                 {{template "icon-pencil" dict "Size" 14}}
             </button>
             <button @click.prevent="del = true" aria-label="{{index .T "common.delete"}}"
-                    class="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                    class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                 {{template "icon-trash" dict "Size" 14}}
             </button>
         </div>
         <div class="flex items-center gap-0.5 shrink-0" x-show="del">
             <button hx-delete="/accounts/{{.Account.ID}}" hx-target="#accounts-list" hx-swap="innerHTML"
                     aria-label="{{index .T "common.confirm_delete"}}"
-                    class="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                    class="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                 {{template "icon-check" dict "Size" 14}}
             </button>
             <button @click.prevent="del = false" aria-label="{{index .T "common.cancel"}}"
-                    class="p-1.5 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
+                    class="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
                 {{template "icon-x" dict "Size" 14}}
             </button>
         </div>
@@ -514,22 +521,22 @@ document.addEventListener('alpine:init', () => {
         </div>
         <div class="flex items-center gap-0.5 shrink-0" x-show="!del">
             <button @click="openRecurringForm({{. | json}})" aria-label="{{index $.T "common.edit"}}"
-                    class="p-1.5 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
+                    class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
                 {{template "icon-pencil" dict "Size" 14}}
             </button>
             <button @click.prevent="del = true" aria-label="{{index $.T "common.delete"}}"
-                    class="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                    class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                 {{template "icon-trash" dict "Size" 14}}
             </button>
         </div>
         <div class="flex items-center gap-0.5 shrink-0" x-show="del">
             <button hx-delete="/recurring/{{.ID}}" hx-target="#recurring-list" hx-swap="innerHTML"
                     aria-label="{{index $.T "common.confirm_delete"}}"
-                    class="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                    class="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                 {{template "icon-check" dict "Size" 14}}
             </button>
             <button @click.prevent="del = false" aria-label="{{index $.T "common.cancel_delete"}}"
-                    class="p-1.5 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
+                    class="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
                 {{template "icon-x" dict "Size" 14}}
             </button>
         </div>

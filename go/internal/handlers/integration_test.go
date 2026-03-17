@@ -15,8 +15,7 @@ import (
 // TestIntegration_RegisterLoginCreateAccount tests the full user flow:
 // register → login → create account → view dashboard.
 func TestIntegration_RegisterLoginCreateAccount(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	const email = "integration@example.com"
 	const password = "IntegrationP@ss1!"

@@ -147,6 +147,7 @@
   "settings.delete_account_confirm": "Confirmer la suppression",
   "settings.delete_account_password": "Entrez votre mot de passe actuel pour confirmer la suppression de votre compte.",
   "settings.export_data": "T\u00e9l\u00e9charger mes donn\u00e9es",
+  "settings.export_error": "\u00c9chec de l'export",
   "settings.language_label": "Langue",
   "settings.mfa_active": "A2F Active",
   "settings.mfa_cancel": "Annuler",
@@ -261,5 +262,8 @@
   "email.reset_btn": "Reinitialiser mon mot de passe",
   "email.reset_expiry": "Ce lien expire dans 1 heure.",
   "email.reset_ignore": "Si vous n'avez pas demande cette reinitialisation, ignorez cet email.",
-  "email.reset_footer": "Pilot Finance - Votre cockpit financier personnel"
+  "email.reset_footer": "Pilot Finance - Votre cockpit financier personnel",
+  "theme.light": "Th\u00e8me : Clair",
+  "theme.dark": "Th\u00e8me : Sombre",
+  "theme.system": "Th\u00e8me : Syst\u00e8me"
 }

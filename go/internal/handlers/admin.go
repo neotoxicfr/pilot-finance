@@ -34,18 +34,19 @@ func AuditPage(w http.ResponseWriter, r *http.Request) {
 		slog.Error("AuditPage: CountAuditLog", "err", err)
 	}
 
-	// Résoudre les emails par user_id (lookup unique par ID)
+	// Résoudre les emails en une seule requête (évite N+1)
+	allUsers, usersErr := hookGetAllUsers()
 	emailCache := make(map[int64]string)
-	for _, e := range entries {
-		if _, ok := emailCache[e.UserID]; ok {
-			continue
-		}
-		u, err := hookGetUserByID(e.UserID)
-		if err == nil && u != nil {
+	if usersErr != nil {
+		slog.Error("AuditPage: GetAllUsers", "err", usersErr)
+	} else {
+		for _, u := range allUsers {
 			if email, err := hookDecryptStr(u.EmailEncrypted); err == nil {
-				emailCache[e.UserID] = email
+				emailCache[u.ID] = email
 			}
 		}
+	}
+	for _, e := range entries {
 		if emailCache[e.UserID] == "" {
 			emailCache[e.UserID] = strconv.FormatInt(e.UserID, 10)
 		}

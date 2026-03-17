@@ -36,6 +36,10 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 		clientError(w, ErrValidation, "Champs requis manquants", http.StatusBadRequest)
 		return
 	}
+	if len([]rune(description)) > 500 {
+		clientError(w, ErrValidation, "Description trop longue (max 500)", http.StatusBadRequest)
+		return
+	}
 
 	// Chiffrer la description
 	encryptedDesc, err := hookEncryptStr(description)

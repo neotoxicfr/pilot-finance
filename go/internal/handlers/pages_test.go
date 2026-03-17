@@ -16,8 +16,7 @@ import (
 // --- LoginPage ---
 
 func TestLoginPage_OK(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	LoginPage(rr, httptest.NewRequest(http.MethodGet, "/login", nil))
@@ -33,8 +32,7 @@ func TestLoginPage_OK(t *testing.T) {
 // --- LoginSubmit ---
 
 func TestLoginSubmit_DelegatesHandleLogin(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	// Missing fields → 400 (same behavior as HandleLogin)
 	rr := httptest.NewRecorder()
@@ -47,8 +45,7 @@ func TestLoginSubmit_DelegatesHandleLogin(t *testing.T) {
 // --- RegisterPage ---
 
 func TestRegisterPage_RegisterDisabled_Redirects(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	RegisterPage(rr, httptest.NewRequest(http.MethodGet, "/register", nil))
@@ -61,8 +58,7 @@ func TestRegisterPage_RegisterDisabled_Redirects(t *testing.T) {
 }
 
 func TestRegisterPage_RegisterEnabled_OK(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	t.Setenv("ALLOW_REGISTER", "true")
 
 	rr := httptest.NewRecorder()
@@ -75,8 +71,7 @@ func TestRegisterPage_RegisterEnabled_OK(t *testing.T) {
 // --- RegisterSubmit ---
 
 func TestRegisterSubmit_DelegatesHandleRegister(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	// Missing fields → 400
 	rr := httptest.NewRecorder()
@@ -89,8 +84,7 @@ func TestRegisterSubmit_DelegatesHandleRegister(t *testing.T) {
 // --- Logout ---
 
 func TestLogout_WithUser_Redirects(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "logout@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(httptest.NewRequest(http.MethodPost, "/logout", nil),
@@ -107,8 +101,7 @@ func TestLogout_WithUser_Redirects(t *testing.T) {
 }
 
 func TestLogout_NoUser_Redirects(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	Logout(rr, httptest.NewRequest(http.MethodPost, "/logout", nil))
@@ -120,8 +113,7 @@ func TestLogout_NoUser_Redirects(t *testing.T) {
 // --- Dashboard ---
 
 func TestDashboard_NoUser_Redirects(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	Dashboard(rr, httptest.NewRequest(http.MethodGet, "/", nil))
@@ -131,8 +123,7 @@ func TestDashboard_NoUser_Redirects(t *testing.T) {
 }
 
 func TestDashboard_WithUser_OK(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "dash2@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/", nil), mu(uid, "USER"))
@@ -150,8 +141,7 @@ func TestDashboard_WithUser_OK(t *testing.T) {
 // --- AccountsPage ---
 
 func TestAccountsPage_NoUser_Redirects(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	AccountsPage(rr, httptest.NewRequest(http.MethodGet, "/accounts", nil))
@@ -161,8 +151,7 @@ func TestAccountsPage_NoUser_Redirects(t *testing.T) {
 }
 
 func TestAccountsPage_WithUser_OK(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "accpage@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/accounts", nil), mu(uid, "USER"))
@@ -177,8 +166,7 @@ func TestAccountsPage_WithUser_OK(t *testing.T) {
 // --- SettingsPage ---
 
 func TestSettingsPage_NoUser_Redirects(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	SettingsPage(rr, httptest.NewRequest(http.MethodGet, "/settings", nil))
@@ -188,8 +176,7 @@ func TestSettingsPage_NoUser_Redirects(t *testing.T) {
 }
 
 func TestSettingsPage_WithUser_OK(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "settings@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/settings", nil), mu(uid, "USER"))
@@ -202,8 +189,7 @@ func TestSettingsPage_WithUser_OK(t *testing.T) {
 }
 
 func TestSettingsPage_Admin_OK(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "settings_admin@example.com", "ValidP@ss1!", "ADMIN")
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/settings", nil), mu(uid, "ADMIN"))
@@ -218,8 +204,7 @@ func TestSettingsPage_Admin_OK(t *testing.T) {
 // --- VerifyEmailPage ---
 
 func TestVerifyEmailPage_NoToken(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	VerifyEmailPage(rr, httptest.NewRequest(http.MethodGet, "/verify-email", nil))
@@ -232,8 +217,7 @@ func TestVerifyEmailPage_NoToken(t *testing.T) {
 }
 
 func TestVerifyEmailPage_InvalidToken(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	VerifyEmailPage(rr, httptest.NewRequest(http.MethodGet, "/verify-email?token=invalidtoken", nil))
@@ -245,8 +229,7 @@ func TestVerifyEmailPage_InvalidToken(t *testing.T) {
 // --- PrivacyPage ---
 
 func TestPrivacyPage_NoUser_OK(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	PrivacyPage(rr, httptest.NewRequest(http.MethodGet, "/privacy", nil))
@@ -259,8 +242,7 @@ func TestPrivacyPage_NoUser_OK(t *testing.T) {
 }
 
 func TestPrivacyPage_WithUser_OK(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "privacy@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/privacy", nil), mu(uid, "USER"))
@@ -275,8 +257,7 @@ func TestPrivacyPage_WithUser_OK(t *testing.T) {
 // --- ForgotPasswordPage ---
 
 func TestForgotPasswordPage_OK(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	ForgotPasswordPage(rr, httptest.NewRequest(http.MethodGet, "/forgot-password", nil))
@@ -288,8 +269,7 @@ func TestForgotPasswordPage_OK(t *testing.T) {
 // --- ForgotPasswordSubmit ---
 
 func TestForgotPasswordSubmit_MailDisabled(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	// SMTP_HOST not set → mail disabled
 
 	rr := httptest.NewRecorder()
@@ -302,8 +282,7 @@ func TestForgotPasswordSubmit_MailDisabled(t *testing.T) {
 // --- ResetPasswordPage ---
 
 func TestResetPasswordPage_NoToken(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	ResetPasswordPage(rr, httptest.NewRequest(http.MethodGet, "/reset-password", nil))
@@ -313,8 +292,7 @@ func TestResetPasswordPage_NoToken(t *testing.T) {
 }
 
 func TestResetPasswordPage_InvalidToken(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	ResetPasswordPage(rr, httptest.NewRequest(http.MethodGet, "/reset-password?token=invalid", nil))
@@ -324,8 +302,7 @@ func TestResetPasswordPage_InvalidToken(t *testing.T) {
 }
 
 func TestResetPasswordPage_ValidToken(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "resetpage@example.com", "ValidP@ss1!", "USER")
 
 	rawToken := "testrawtoken123"
@@ -345,8 +322,7 @@ func TestResetPasswordPage_ValidToken(t *testing.T) {
 // --- ResetPasswordSubmit ---
 
 func TestResetPasswordSubmit_MissingFields(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	ResetPasswordSubmit(rr, post("/reset-password", url.Values{"token": {""}, "password": {""}}))
@@ -356,8 +332,7 @@ func TestResetPasswordSubmit_MissingFields(t *testing.T) {
 }
 
 func TestResetPasswordSubmit_PasswordMismatch(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	ResetPasswordSubmit(rr, post("/reset-password", url.Values{
@@ -371,8 +346,7 @@ func TestResetPasswordSubmit_PasswordMismatch(t *testing.T) {
 }
 
 func TestResetPasswordSubmit_WeakPassword(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	ResetPasswordSubmit(rr, post("/reset-password", url.Values{
@@ -386,8 +360,7 @@ func TestResetPasswordSubmit_WeakPassword(t *testing.T) {
 }
 
 func TestResetPasswordSubmit_InvalidToken(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 
 	rr := httptest.NewRecorder()
 	ResetPasswordSubmit(rr, post("/reset-password", url.Values{
@@ -401,8 +374,7 @@ func TestResetPasswordSubmit_InvalidToken(t *testing.T) {
 }
 
 func TestResetPasswordSubmit_Success(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "resetsubmit@example.com", "ValidP@ss1!", "USER")
 
 	rawToken := "validresettoken456"
@@ -429,8 +401,7 @@ func TestResetPasswordSubmit_Success(t *testing.T) {
 // --- baseData locale fallback ---
 
 func TestDashboard_UnknownLanguage_FallsBackToFrFR(t *testing.T) {
-	cleanup := setupHandlerTest(t)
-	defer cleanup()
+	setupHandlerTest(t)
 	uid := newUser(t, "langunknown@example.com", "ValidP@ss1!", "USER")
 
 	// Language "de" is not in localeMap → baseData falls back to "fr-FR"
