@@ -1,5 +1,5 @@
 # Pilot Finance - Go + HTMX
-# Image finale: ~46MB
+# Image finale: ~28MB
 
 # ============ CSS BUILD STAGE ============
 FROM node:25-alpine AS css
@@ -24,8 +24,8 @@ ARG VERSION=dev
 
 WORKDIR /app
 
-# Installer les dépendances de build
-RUN apk add --no-cache git
+# Installer les dépendances de build + UPX pour compression binaire
+RUN apk add --no-cache git upx
 
 # Copier les fichiers de dépendances en premier (cache layer)
 COPY go.mod go.sum ./
@@ -37,10 +37,11 @@ COPY . .
 # Copier le CSS compilé depuis le stage CSS
 COPY --from=css /app/static/css/tailwind.css static/css/tailwind.css
 
-# Build
+# Build + compress
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
     -ldflags="-s -w -X main.Version=${VERSION}" \
-    -o /server ./cmd/server
+    -o /server ./cmd/server \
+    && upx --best --lzma /server
 
 # ============ PRODUCTION STAGE ============
 FROM alpine:3.23
@@ -48,21 +49,16 @@ FROM alpine:3.23
 # Certificats SSL et timezone
 RUN apk add --no-cache ca-certificates tzdata
 
-# Créer un utilisateur non-root
-RUN adduser -D -g '' appuser
+# Créer un utilisateur non-root + répertoire data
+RUN adduser -D -g '' appuser && mkdir -p /data && chown appuser:appuser /data
 
 WORKDIR /app
 
-# Copier le binaire
-COPY --from=builder /server /app/server
-
-# Copier les fichiers statiques (avec tailwind.css compilé), templates et locales
-COPY --from=builder /app/static /app/static
-COPY --from=builder /app/templates /app/templates
-COPY --from=builder /app/locales /app/locales
-
-# Permissions
-RUN mkdir -p /data && chown -R appuser:appuser /app /data
+# Copier avec --chown pour éviter un layer chown séparé (économise ~18MB)
+COPY --from=builder --chown=appuser:appuser /server /app/server
+COPY --from=builder --chown=appuser:appuser /app/static /app/static
+COPY --from=builder --chown=appuser:appuser /app/templates /app/templates
+COPY --from=builder --chown=appuser:appuser /app/locales /app/locales
 
 USER appuser
 
