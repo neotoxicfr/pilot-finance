@@ -31,7 +31,7 @@ Seule la dernière version mineure bénéficie des correctifs de sécurité.
 | Version | Supportée |
 | ------- | --------- |
 | v2.13.x | ✅ |
-| < v2.10 | ❌ |
+| < v2.13 | ❌ |
 
 > Les versions antérieures à v2.13 ne sont plus supportées. Veuillez mettre à jour vers la dernière version.
 
