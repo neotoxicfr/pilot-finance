@@ -463,7 +463,7 @@ document.addEventListener('alpine:init', () => {
             <span class="text-purple-500">{{template "icon-shield" dict "Size" 20}}</span>
             {{index .T "settings.admin_title"}} ({{len .Users}})
         </h2>
-        <div class="overflow-x-auto rounded-xl border border-border">
+        <div class="overflow-x-auto rounded-xl border border-border" tabindex="0" role="region" aria-label="{{index .T "settings.admin_title"}}">
             <table class="w-full text-left text-sm">
                 <thead class="bg-accent text-muted-foreground uppercase font-bold text-xs">
                     <tr>
