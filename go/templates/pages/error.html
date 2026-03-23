@@ -42,13 +42,13 @@
         <div class="flex items-center justify-center gap-3 pt-2">
             <button id="back-btn"
                     class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border
-                           bg-background hover:bg-accent text-sm font-bold text-foreground transition-all">
+                           bg-background hover:bg-accent text-sm font-bold text-foreground transition-colors">
                 {{template "icon-arrow-left" dict "Size" 16}}
                 {{index .T "error.back"}}
             </button>
             <a href="/"
                class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-                      btn-primary text-sm font-bold text-white transition-all">
+                      btn-primary text-sm font-bold text-white">
                 {{template "icon-home" dict "Size" 16}}
                 {{index .T "error.home"}}
             </a>

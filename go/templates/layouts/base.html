@@ -144,12 +144,12 @@
                     <span aria-hidden="true">{{template "brand-logo" dict "Size" 28}}</span>
                 </a>
                 <div class="flex items-center gap-1">
-                    <a href="/" aria-label="{{index .T "nav.dashboard"}}" {{if eq .CurrentPath "/"}}aria-current="page"{{end}} class="flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-lg transition-all
+                    <a href="/" aria-label="{{index .T "nav.dashboard"}}" {{if eq .CurrentPath "/"}}aria-current="page"{{end}} class="flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-lg transition-colors
                        {{if eq .CurrentPath "/"}}bg-accent text-foreground{{else}}text-foreground/70 hover:text-foreground hover:bg-accent{{end}}">
                         {{template "icon-dashboard" dict "Size" 20}}
                         <span class="hidden md:inline">{{index .T "nav.dashboard"}}</span>
                     </a>
-                    <a href="/accounts" aria-label="{{index .T "nav.accounts"}}" {{if or (eq .CurrentPath "/accounts") (eq .CurrentPath "/recurring")}}aria-current="page"{{end}} class="flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-lg transition-all
+                    <a href="/accounts" aria-label="{{index .T "nav.accounts"}}" {{if or (eq .CurrentPath "/accounts") (eq .CurrentPath "/recurring")}}aria-current="page"{{end}} class="flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-lg transition-colors
                        {{if or (eq .CurrentPath "/accounts") (eq .CurrentPath "/recurring")}}bg-accent text-foreground{{else}}text-foreground/70 hover:text-foreground hover:bg-accent{{end}}">
                         {{template "icon-wallet" dict "Size" 20}}
                         <span class="hidden md:inline">{{index .T "nav.accounts"}}</span>
@@ -157,17 +157,17 @@
                 </div>
             </div>
             <div class="flex items-center gap-1 sm:gap-2">
-                <button @click="toggleTheme()" class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-all" :aria-label="theme === 'light' ? '{{index .T "theme.light"}}' : theme === 'dark' ? '{{index .T "theme.dark"}}' : '{{index .T "theme.system"}}'">
+                <button @click="toggleTheme()" class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-colors" :aria-label="theme === 'light' ? '{{index .T "theme.light"}}' : theme === 'dark' ? '{{index .T "theme.dark"}}' : '{{index .T "theme.system"}}'">
                     <span x-show="theme === 'light'" x-cloak>{{template "icon-sun" dict "Size" 20}}</span>
                     <span x-show="theme === 'dark'" x-cloak>{{template "icon-moon" dict "Size" 20}}</span>
                     <span x-show="theme === 'system'" x-cloak>{{template "icon-monitor" dict "Size" 20}}</span>
                 </button>
-                <a href="/settings" class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-all" aria-label="{{index .T "nav.settings"}}">
+                <a href="/settings" class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-colors" aria-label="{{index .T "nav.settings"}}">
                     {{template "icon-settings" dict "Size" 20}}
                 </a>
                 <div class="h-4 w-px bg-border mx-0.5"></div>
                 <form action="/logout" method="POST">
-                    <button type="submit" class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all" aria-label="{{index .T "nav.signout"}}">
+                    <button type="submit" class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors" aria-label="{{index .T "nav.signout"}}">
                         {{template "icon-logout" dict "Size" 20}}
                     </button>
                 </form>
