@@ -561,7 +561,10 @@ document.addEventListener('alpine:init', () => {
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
         <!-- Income -->
         <div class="min-w-0">
-            <div class="text-xs text-muted-foreground uppercase font-bold mb-2 tracking-wider">{{index $.T "summary.income"}}</div>
+            <div class="text-xs text-muted-foreground uppercase font-bold mb-2 tracking-wider flex items-center gap-1.5">
+                <span class="text-emerald-500">{{template "icon-trending-up" dict "Size" 14}}</span>
+                {{index $.T "summary.income"}}
+            </div>
             <div class="font-mono font-bold text-emerald-500 whitespace-nowrap">
                 <span class="text-lg sm:text-xl">+{{formatMoney .MonthlyIncome $.Currency}}</span>
                 <span class="text-xs text-muted-foreground font-medium">{{index $.T "summary.per_month"}}</span>
@@ -575,7 +578,10 @@ document.addEventListener('alpine:init', () => {
         </div>
         <!-- Expenses -->
         <div class="min-w-0 border-t border-border sm:border-0 pt-3 sm:pt-0">
-            <div class="text-xs text-muted-foreground uppercase font-bold mb-2 tracking-wider">{{index $.T "summary.expenses"}}</div>
+            <div class="text-xs text-muted-foreground uppercase font-bold mb-2 tracking-wider flex items-center gap-1.5">
+                <span class="text-red-400">{{template "icon-trending-up" dict "Size" 14}}</span>
+                {{index $.T "summary.expenses"}}
+            </div>
             <div class="font-mono font-bold text-foreground whitespace-nowrap">
                 <span class="text-lg sm:text-xl">-{{formatMoney .MonthlyExpenses $.Currency}}</span>
                 <span class="text-xs text-muted-foreground font-medium">{{index $.T "summary.per_month"}}</span>
@@ -586,7 +592,10 @@ document.addEventListener('alpine:init', () => {
         </div>
         <!-- Net -->
         <div class="min-w-0 border-t border-border sm:border-0 pt-3 sm:pt-0">
-            <div class="text-xs text-muted-foreground uppercase font-bold mb-2 tracking-wider">{{index $.T "summary.balance"}}</div>
+            <div class="text-xs text-muted-foreground uppercase font-bold mb-2 tracking-wider flex items-center gap-1.5">
+                <span class="text-blue-500">{{template "icon-target" dict "Size" 14}}</span>
+                {{index $.T "summary.balance"}}
+            </div>
             <div class="font-mono font-bold whitespace-nowrap {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
                 <span class="text-lg sm:text-xl">{{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney .MonthlyNet $.Currency}}</span>
                 <span class="text-xs text-muted-foreground font-medium">{{index $.T "summary.per_month"}}</span>

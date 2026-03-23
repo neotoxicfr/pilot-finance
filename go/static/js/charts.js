@@ -140,15 +140,20 @@ window.initPieChart = (accounts, animated = true) => {
     window.pieChartData = accounts;
 };
 
-// Theme observer — re-render charts on dark/light switch
+// Theme observer — fade-out, re-render, fade-in on dark/light switch
 (function() {
     let last = document.documentElement.classList.contains('dark');
     new MutationObserver(() => {
         const cur = document.documentElement.classList.contains('dark');
         if (cur !== last) {
             last = cur;
-            window.pieChartData?.length && window.initPieChart(window.pieChartData, false);
-            window._projData?.length && window.initProjectionChart(window._projData, window._projAcc);
+            const canvases = [document.getElementById('projectionCanvas'), document.getElementById('pieCanvas')].filter(Boolean);
+            canvases.forEach(c => { c.style.transition = 'opacity .2s'; c.style.opacity = '0'; });
+            setTimeout(() => {
+                window.pieChartData?.length && window.initPieChart(window.pieChartData, false);
+                window._projData?.length && window.initProjectionChart(window._projData, window._projAcc);
+                canvases.forEach(c => { c.style.opacity = '1'; });
+            }, 200);
         }
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 })();
