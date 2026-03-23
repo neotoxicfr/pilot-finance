@@ -65,7 +65,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
             <div>
                 <button type="button"
                         @click="loginWithPasskey()"
-                        class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl mb-6 flex items-center justify-center gap-2 transition-all">
+                        class="w-full btn-purple text-white font-bold py-3 rounded-xl mb-6 flex items-center justify-center gap-2 text-sm">
                     {{template "icon-fingerprint" dict "Size" 20}} {{index .T "login.passkey_btn"}}
                 </button>
                 <div class="relative flex py-2 items-center mb-6">
@@ -153,7 +153,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
 
             <button type="submit"
                     :disabled="submitDisabled"
-                    class="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl mt-2 flex items-center justify-center gap-2">
+                    class="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl mt-2 flex items-center justify-center gap-2 text-sm">
                 <span x-show="loading">{{index .T "login.loading"}}</span>
                 <span x-show="!loading && requires2FA">{{index .T "login.verify_btn"}}</span>
                 <span x-show="!loading && !requires2FA && isRegister">{{index .T "login.create_account_btn"}}</span>

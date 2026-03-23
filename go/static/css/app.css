@@ -179,8 +179,7 @@ a {
     cursor: pointer;
 }
 
-/* Primary buttons — subtle gradient + glow
-   Contrast: #2563eb on white ≈ 4.6:1, #1d4ed8 on white ≈ 5.9:1 → WCAG AA pass */
+/* Buttons — gradient + glow system (consistent elevation across all colors) */
 .btn-primary {
     background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
     box-shadow: 0 1px 2px rgba(37, 99, 235, 0.3), inset 0 1px 0 rgba(255,255,255,0.15);
@@ -189,6 +188,33 @@ a {
 .btn-primary:hover {
     background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.btn-danger {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    box-shadow: 0 1px 2px rgba(220, 38, 38, 0.3), inset 0 1px 0 rgba(255,255,255,0.15);
+    transition: all 0.2s ease;
+}
+.btn-danger:hover {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.btn-success {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    box-shadow: 0 1px 2px rgba(5, 150, 105, 0.3), inset 0 1px 0 rgba(255,255,255,0.15);
+    transition: all 0.2s ease;
+}
+.btn-success:hover {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.btn-purple {
+    background: linear-gradient(135deg, #9333ea 0%, #7e22ce 100%);
+    box-shadow: 0 1px 2px rgba(147, 51, 234, 0.3), inset 0 1px 0 rgba(255,255,255,0.15);
+    transition: all 0.2s ease;
+}
+.btn-purple:hover {
+    background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
+    box-shadow: 0 4px 16px rgba(168, 85, 247, 0.35), inset 0 1px 0 rgba(255,255,255,0.15);
 }
 
 /* Range input slider styling */

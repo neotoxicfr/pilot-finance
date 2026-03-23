@@ -549,7 +549,7 @@ document.addEventListener('alpine:init', () => {
     <div class="text-muted-foreground/20 mb-4">{{template "icon-refresh" dict "Size" 40}}</div>
     <p class="font-semibold text-foreground mb-1">{{index $.T "recurring.empty_title"}}</p>
     <p class="text-xs text-muted-foreground">{{index $.T "recurring.empty_subtitle"}}</p>
-    <button @click="openRecurringForm(null)" class="mt-4 text-xs btn-primary text-white px-4 py-2 rounded-xl flex items-center gap-1 font-bold mx-auto">
+    <button @click="openRecurringForm(null)" class="mt-4 text-xs btn-primary text-white px-3 py-2 rounded-xl flex items-center gap-1 font-bold mx-auto">
         {{template "icon-plus" dict "Size" 14}} {{index $.T "recurring.add"}}
     </button>
 </div>
