@@ -573,7 +573,7 @@ document.addEventListener('alpine:init', () => {
                 +{{formatMoneyCompact (add (mult .MonthlyIncome 12) .AnnualYield) $.Currency}}{{index $.T "summary.per_year"}}
             </div>
             {{if gt (add .MonthlyYield .AnnualYield) 0.0}}
-            <div class="text-xs text-emerald-400/70 mt-1.5 font-medium whitespace-nowrap">{{index $.T "summary.yield_auto"}} +{{formatMoneyCompact (add (mult .MonthlyYield 12) .AnnualYield) $.Currency}}{{index $.T "summary.per_year"}}</div>
+            <div class="text-xs text-emerald-500/70 mt-1.5 font-medium whitespace-nowrap">{{index $.T "summary.yield_auto"}} +{{formatMoneyCompact (add (mult .MonthlyYield 12) .AnnualYield) $.Currency}}{{index $.T "summary.per_year"}}</div>
             {{end}}
         </div>
         <!-- Expenses -->
@@ -586,7 +586,7 @@ document.addEventListener('alpine:init', () => {
                 <span class="text-lg sm:text-xl">-{{formatMoney .MonthlyExpenses $.Currency}}</span>
                 <span class="text-xs text-muted-foreground font-medium">{{index $.T "summary.per_month"}}</span>
             </div>
-            <div class="font-mono text-sm text-muted-foreground/70 whitespace-nowrap mt-0.5">
+            <div class="font-mono text-sm text-red-500/70 whitespace-nowrap mt-0.5">
                 -{{formatMoneyCompact (mult .MonthlyExpenses 12) $.Currency}}{{index $.T "summary.per_year"}}
             </div>
         </div>
