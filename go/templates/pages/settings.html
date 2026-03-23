@@ -165,7 +165,7 @@ document.addEventListener('alpine:init', () => {
                         </select>
                     </div>
                     <button type="submit"
-                            class="w-full btn-primary text-white font-bold py-3 rounded-xl transition-all">
+                            class="w-full btn-primary text-white font-bold py-3 rounded-xl transition-all text-sm">
                         {{index .T "settings.save_preferences"}}
                     </button>
                 </form>
@@ -215,7 +215,7 @@ document.addEventListener('alpine:init', () => {
                     </template>
 
                     <button type="submit" :disabled="submitDisabled"
-                            class="w-full btn-primary text-white font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                            class="w-full btn-primary text-white font-bold py-3 rounded-xl transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed">
                         <span x-show="pwdLoading">{{index .T "settings.password_saving"}}</span>
                         <span x-show="!pwdLoading">{{index .T "settings.password_change_btn"}}</span>
                     </button>
@@ -260,11 +260,11 @@ document.addEventListener('alpine:init', () => {
                             </template>
                             <div class="flex gap-2">
                                 <button type="button" @click="mfaDisableForm = false; mfaError = ''"
-                                        class="flex-1 bg-accent hover:bg-border text-muted-foreground font-bold py-2.5 rounded-xl transition-all text-sm">
+                                        class="flex-1 bg-accent hover:bg-border text-muted-foreground font-bold py-3 rounded-xl transition-all text-sm">
                                     {{index .T "common.cancel"}}
                                 </button>
                                 <button type="submit"
-                                        class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl transition-all text-sm">
+                                        class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition-all text-sm">
                                     {{index .T "settings.mfa_disable_confirm"}}
                                 </button>
                             </div>
@@ -370,11 +370,11 @@ document.addEventListener('alpine:init', () => {
                                @keydown.enter="submitRename()">
                         <div class="flex gap-2">
                             <button @click="closeRenameDialog()"
-                                    class="flex-1 bg-accent hover:bg-border text-foreground font-bold py-2.5 rounded-xl transition-all text-sm">
+                                    class="flex-1 bg-accent hover:bg-border text-muted-foreground font-bold py-3 rounded-xl transition-all text-sm">
                                 {{index .T "common.cancel"}}
                             </button>
                             <button @click="submitRename()"
-                                    class="flex-1 btn-primary text-white font-bold py-2.5 rounded-xl transition-all text-sm">
+                                    class="flex-1 btn-primary text-white font-bold py-3 rounded-xl transition-all text-sm">
                                 {{index .T "settings.passkey_rename_btn"}}
                             </button>
                         </div>
@@ -404,12 +404,12 @@ document.addEventListener('alpine:init', () => {
                         {{index .T "settings.danger_zone"}}
                     </h2>
                     <div class="flex flex-col sm:flex-row gap-3">
-                        <button @click="exportData()" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-background hover:bg-accent text-sm font-medium text-foreground transition-all flex-1 whitespace-nowrap">
+                        <button @click="exportData()" class="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border bg-background hover:bg-accent text-sm font-bold text-foreground transition-all flex-1 whitespace-nowrap">
                             {{template "icon-save" dict "Size" 16}}
                             {{index .T "settings.export_data"}}
                         </button>
                         <button x-show="!selfDeleteConfirm" @click="selfDeleteConfirm = true"
-                                class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-medium text-red-500 transition-all flex-1 whitespace-nowrap">
+                                class="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-bold text-red-500 transition-all flex-1 whitespace-nowrap">
                             {{template "icon-trash" dict "Size" 16}}
                             {{index .T "settings.delete_account"}}
                         </button>
@@ -423,11 +423,11 @@ document.addEventListener('alpine:init', () => {
                                    placeholder="{{index .T "settings.current_password"}}">
                             <div class="flex gap-2">
                                 <button type="button" @click="selfDeleteConfirm = false"
-                                        class="flex-1 bg-accent hover:bg-border text-muted-foreground font-bold py-2.5 rounded-xl transition-all text-sm">
+                                        class="flex-1 bg-accent hover:bg-border text-muted-foreground font-bold py-3 rounded-xl transition-all text-sm">
                                     {{index .T "common.cancel"}}
                                 </button>
                                 <button type="submit"
-                                        class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl transition-all text-sm">
+                                        class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition-all text-sm">
                                     {{index .T "settings.delete_account_confirm"}}
                                 </button>
                             </div>
