@@ -199,7 +199,7 @@ input[type='range'] {
 }
 input[type='range']::-webkit-slider-runnable-track {
     height: 6px;
-    background: var(--accent);
+    background: var(--border);
     border-radius: 3px;
     border: 1px solid var(--border);
 }
@@ -222,7 +222,7 @@ input[type='range']::-webkit-slider-thumb:hover {
 
 input[type='range']::-moz-range-track {
     height: 6px;
-    background: var(--accent);
+    background: var(--border);
     border-radius: 3px;
     border: 1px solid var(--border);
 }
@@ -364,6 +364,12 @@ select:focus {
 .htmx-request.htmx-indicator {
     animation: none;
     opacity: 1;
+}
+form.htmx-request button[type="submit"],
+form.htmx-request > button:last-child {
+    opacity: 0.5;
+    pointer-events: none;
+    cursor: not-allowed;
 }
 
 /* Animations */

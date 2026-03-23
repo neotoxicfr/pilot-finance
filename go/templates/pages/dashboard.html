@@ -38,7 +38,7 @@
             <div x-show="!ready" class="skeleton skeleton-kpi mt-1"></div>
             <div x-show="ready" x-cloak class="flex items-baseline gap-2 font-mono tracking-tight">
                 <span class="text-3xl md:text-4xl font-bold text-emerald-500" x-text="'+' + formatAmount(totalInterests)"></span>
-                <span class="text-lg font-medium text-emerald-500/60" x-text="currency()"></span>
+                <span class="text-lg font-medium text-emerald-500/70" x-text="currency()"></span>
             </div>
         </div>
         <div class="dashboard-card bg-background kpi-card-blue border p-6 rounded-2xl relative overflow-hidden sm:col-span-2 md:col-span-1">
@@ -49,7 +49,7 @@
             <div x-show="!ready" class="skeleton skeleton-kpi mt-1"></div>
             <div x-show="ready" x-cloak class="flex items-baseline gap-2 font-mono tracking-tight">
                 <span class="text-3xl md:text-4xl font-bold text-blue-500" x-text="formatAmount(projectionTotal)"></span>
-                <span class="text-lg font-medium text-blue-500/60" x-text="currency()"></span>
+                <span class="text-lg font-medium text-blue-500/70" x-text="currency()"></span>
             </div>
         </div>
     </div>
