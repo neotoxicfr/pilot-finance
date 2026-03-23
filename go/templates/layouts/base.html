@@ -128,7 +128,7 @@
     <script nonce="{{.Nonce}}" defer src="/static/js/alpine-csp.min.js?v={{.AssetVer}}"></script>
     {{if or (eq .CurrentPath "/login") (eq .CurrentPath "/settings")}}
     <script nonce="{{.Nonce}}">window.PASSKEY_I18N={cancelled:"{{index .T "passkey.error.cancelled"}}",security:"{{index .T "passkey.error.security"}}",generic:"{{index .T "passkey.error.generic"}}",registerCancelled:"{{index .T "passkey.error.register_cancelled"}}",alreadyRegistered:"{{index .T "passkey.error.already_registered"}}"};</script>
-    <script nonce="{{.Nonce}}" async src="/static/js/passkey.js?v={{.AssetVer}}"></script>
+    <script nonce="{{.Nonce}}" defer src="/static/js/passkey.js?v={{.AssetVer}}"></script>
     {{end}}
     {{if eq .CurrentPath "/accounts"}}
     <script nonce="{{.Nonce}}" defer src="/static/js/sortable.min.js?v={{.AssetVer}}"></script>
@@ -184,7 +184,7 @@
          role="status" aria-live="polite" aria-atomic="true"
          class="toast-container fixed left-1/2 -translate-x-1/2 z-[100] pointer-events-none">
         <template x-if="visible">
-            <div class="pointer-events-auto bg-background border shadow-xl rounded-xl px-4 py-3 flex items-center gap-2.5 text-sm font-medium text-foreground whitespace-nowrap"
+            <div class="pointer-events-auto bg-background border shadow-xl rounded-xl px-4 py-3 flex items-center gap-2.5 text-sm font-medium text-foreground whitespace-nowrap max-w-[calc(100vw-2rem)] overflow-hidden text-ellipsis"
                  :class="isError ? 'border-red-500/30' : 'border-border'"
                  x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0"
                  x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 translate-y-2">

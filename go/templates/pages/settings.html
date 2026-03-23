@@ -260,7 +260,7 @@ document.addEventListener('alpine:init', () => {
                             </template>
                             <div class="flex gap-2">
                                 <button type="button" @click="mfaDisableForm = false; mfaError = ''"
-                                        class="flex-1 bg-accent hover:bg-border text-muted-foreground font-bold py-3 rounded-xl transition-all text-sm">
+                                        class="flex-1 bg-accent hover:bg-border text-muted-foreground font-medium py-3 rounded-xl transition-all text-sm">
                                     {{index .T "common.cancel"}}
                                 </button>
                                 <button type="submit"
@@ -300,7 +300,7 @@ document.addEventListener('alpine:init', () => {
                         </template>
                         <div class="flex gap-2">
                             <button @click="mfaSetup = null; mfaCode = ''; mfaError = ''"
-                                    class="flex-1 bg-accent hover:bg-border text-muted-foreground font-bold py-3 rounded-xl transition-all text-sm">
+                                    class="flex-1 bg-accent hover:bg-border text-muted-foreground font-medium py-3 rounded-xl transition-all text-sm">
                                 {{index .T "settings.mfa_cancel"}}
                             </button>
                             <button @click="enableMfa()"
@@ -332,7 +332,7 @@ document.addEventListener('alpine:init', () => {
                             <div class="p-2 bg-purple-500/10 text-purple-500 rounded-lg">{{template "icon-fingerprint" dict "Size" 16}}</div>
                             <div>
                                 <div class="font-bold text-sm text-foreground">{{or .Name (index $.T "settings.passkey_unnamed")}}</div>
-                                <div class="text-xs text-muted-foreground uppercase font-bold">
+                                <div class="text-xs text-muted-foreground uppercase font-semibold">
                                     {{if eq .CredentialDeviceType "singleDevice"}}{{index $.T "settings.passkey_physical"}}{{else}}{{index $.T "settings.passkey_device"}}{{end}}
                                 </div>
                             </div>
@@ -359,10 +359,10 @@ document.addEventListener('alpine:init', () => {
                 {{end}}
 
                 <!-- Modal renommage passkey -->
-                <dialog id="passkey-rename-dialog" aria-labelledby="passkey-rename-title" class="p-0 border-none bg-transparent overflow-visible w-full h-full max-w-none max-h-none"
+                <dialog id="passkey-rename-dialog" aria-labelledby="passkey-rename-title"
                         @click="$event.target === $el && $el.close()"
                         @close="renameId = null">
-                    <div class="modal-panel rounded-2xl p-6 w-full max-w-sm mx-auto mt-20 shadow-2xl" @click.stop>
+                    <div class="modal-panel rounded-2xl p-6 w-full max-w-sm shadow-2xl" @click.stop>
                         <h3 id="passkey-rename-title" class="text-lg font-bold text-foreground mb-4">{{index .T "settings.passkey_rename_title"}}</h3>
                         <label for="passkey-rename-input" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.passkey_name_prompt"}}</label>
                         <input id="passkey-rename-input" type="text" x-model="renameName"
@@ -370,7 +370,7 @@ document.addEventListener('alpine:init', () => {
                                @keydown.enter="submitRename()">
                         <div class="flex gap-2">
                             <button @click="closeRenameDialog()"
-                                    class="flex-1 bg-accent hover:bg-border text-muted-foreground font-bold py-3 rounded-xl transition-all text-sm">
+                                    class="flex-1 bg-accent hover:bg-border text-muted-foreground font-medium py-3 rounded-xl transition-all text-sm">
                                 {{index .T "common.cancel"}}
                             </button>
                             <button @click="submitRename()"
@@ -395,25 +395,25 @@ document.addEventListener('alpine:init', () => {
             </div>
             {{end}}
 
-            <!-- Danger Zone -->
+            <!-- Export & Danger Zone -->
             <div x-data="dangerData">
-                <div class="dashboard-card bg-background border border-red-500/20 rounded-2xl p-6 relative overflow-hidden">
+                <button @click="exportData()" class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border bg-background hover:bg-accent text-sm font-bold text-foreground transition-all">
+                    {{template "icon-save" dict "Size" 16}}
+                    {{index .T "settings.export_data"}}
+                </button>
+
+                <!-- Danger Zone -->
+                <div class="dashboard-card bg-background border border-red-500/20 rounded-2xl p-6 relative overflow-hidden mt-6">
                     <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
                     <h2 class="text-lg font-bold text-red-500 mb-6 flex items-center gap-2">
                         {{template "icon-trash" dict "Size" 18}}
                         {{index .T "settings.danger_zone"}}
                     </h2>
-                    <div class="flex flex-col sm:flex-row gap-3">
-                        <button @click="exportData()" class="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border bg-background hover:bg-accent text-sm font-bold text-foreground transition-all flex-1 whitespace-nowrap">
-                            {{template "icon-save" dict "Size" 16}}
-                            {{index .T "settings.export_data"}}
-                        </button>
-                        <button x-show="!selfDeleteConfirm" @click="selfDeleteConfirm = true"
-                                class="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-bold text-red-500 transition-all flex-1 whitespace-nowrap">
-                            {{template "icon-trash" dict "Size" 16}}
-                            {{index .T "settings.delete_account"}}
-                        </button>
-                    </div>
+                    <button x-show="!selfDeleteConfirm" @click="selfDeleteConfirm = true"
+                            class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-bold text-red-500 transition-all">
+                        {{template "icon-trash" dict "Size" 16}}
+                        {{index .T "settings.delete_account"}}
+                    </button>
                     <template x-if="selfDeleteConfirm">
                         <form hx-delete="/settings/account" hx-target="body"
                               class="bg-red-500/5 border border-red-500/20 rounded-xl p-4 space-y-3 mt-4">
@@ -423,7 +423,7 @@ document.addEventListener('alpine:init', () => {
                                    placeholder="{{index .T "settings.current_password"}}">
                             <div class="flex gap-2">
                                 <button type="button" @click="selfDeleteConfirm = false"
-                                        class="flex-1 bg-accent hover:bg-border text-muted-foreground font-bold py-3 rounded-xl transition-all text-sm">
+                                        class="flex-1 bg-accent hover:bg-border text-muted-foreground font-medium py-3 rounded-xl transition-all text-sm">
                                     {{index .T "common.cancel"}}
                                 </button>
                                 <button type="submit"
@@ -481,8 +481,8 @@ document.addEventListener('alpine:init', () => {
                                     {{template "icon-mail" dict "Size" 14}}
                                 </div>
                                 <div class="min-w-0">
-                                    <div class="font-bold text-foreground text-xs sm:text-sm truncate">{{.Email}}</div>
-                                    <div class="sm:hidden text-xs text-muted-foreground uppercase font-bold mt-0.5">{{.Role}}</div>
+                                    <div class="font-bold text-foreground text-sm truncate">{{.Email}}</div>
+                                    <div class="sm:hidden text-xs text-muted-foreground uppercase font-semibold mt-0.5">{{.Role}}</div>
                                 </div>
                             </div>
                         </td>
