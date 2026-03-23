@@ -264,7 +264,7 @@ document.addEventListener('alpine:init', () => {
                                     {{index .T "common.cancel"}}
                                 </button>
                                 <button type="submit"
-                                        class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition-all text-sm">
+                                        class="flex-1 btn-danger text-white font-bold py-3 rounded-xl text-sm">
                                     {{index .T "settings.mfa_disable_confirm"}}
                                 </button>
                             </div>
@@ -305,7 +305,7 @@ document.addEventListener('alpine:init', () => {
                             </button>
                             <button @click="enableMfa()"
                                     :disabled="mfaCode.length !== 6"
-                                    class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all text-sm disabled:opacity-50">
+                                    class="flex-1 btn-success text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50">
                                 {{index .T "settings.mfa_enable_btn"}}
                             </button>
                         </div>
@@ -387,7 +387,7 @@ document.addEventListener('alpine:init', () => {
 
                 <button @click="registerPasskey()"
                         :disabled="passkeyLoading"
-                        class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl transition-all text-sm flex items-center justify-center gap-2">
+                        class="w-full btn-purple text-white font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
                     {{template "icon-fingerprint" dict "Size" 18}}
                     <span x-show="passkeyLoading">{{index .T "settings.passkey_registering"}}</span>
                     <span x-show="!passkeyLoading">{{index .T "settings.passkey_add_btn"}}</span>
@@ -427,7 +427,7 @@ document.addEventListener('alpine:init', () => {
                                     {{index .T "common.cancel"}}
                                 </button>
                                 <button type="submit"
-                                        class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl transition-all text-sm">
+                                        class="flex-1 btn-danger text-white font-bold py-3 rounded-xl text-sm">
                                     {{index .T "settings.delete_account_confirm"}}
                                 </button>
                             </div>
