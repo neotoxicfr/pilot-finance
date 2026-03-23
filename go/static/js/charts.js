@@ -136,7 +136,7 @@ window.initPieChart = (accounts, animated = true) => {
         }
     });
     const leg = document.getElementById('chartLegend');
-    if (leg) { const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }; leg.innerHTML = accounts.map(a => '<div class="flex items-center gap-2 text-sm"><span class="w-3 h-3 rounded-full flex-shrink-0" style="background:'+esc(a.color)+'"></span><span class="text-muted-foreground font-medium">'+esc(a.name)+'</span></div>').join(''); }
+    if (leg) { const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }; leg.innerHTML = accounts.map(a => '<div class="flex items-center gap-2 text-sm"><span class="w-3 h-3 rounded-full flex-shrink-0" style="background:'+(/^#[0-9a-fA-F]{3,8}$/.test(a.color)?a.color:'#888')+'"></span><span class="text-muted-foreground font-medium">'+esc(a.name)+'</span></div>').join(''); }
     window.pieChartData = accounts;
 };
 
