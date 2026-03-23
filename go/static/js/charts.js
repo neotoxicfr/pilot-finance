@@ -16,7 +16,8 @@
 //            Filler, Tooltip, Legend);
 // This would reduce the Chart.js payload to ~80 KB.
 
-const fmt = v => new Intl.NumberFormat(window.PILOT_LOCALE||'fr-FR', { style: 'currency', currency: window.PILOT_CURRENCY||'EUR', maximumFractionDigits: 0 }).format(v);
+const _fmtCurrency = new Intl.NumberFormat(window.PILOT_LOCALE||'fr-FR', { style: 'currency', currency: window.PILOT_CURRENCY||'EUR', maximumFractionDigits: 0 });
+const fmt = v => _fmtCurrency.format(v);
 const fmtAxis = v => { const c = window.PILOT_CURRENCY||'EUR'; return v >= 1e6 ? (v/1e6).toFixed(1).replace('.0','')+'M '+c : v >= 1e3 ? Math.round(v/1e3)+'k '+c : v+' '+c; };
 const getColors = () => {
     const d = document.documentElement.classList.contains('dark');

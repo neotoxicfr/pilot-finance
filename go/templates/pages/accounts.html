@@ -419,7 +419,7 @@ document.addEventListener('alpine:init', () => {
         {{if .Account.IsYieldActive}}
         <div class="flex items-center gap-1 text-xs text-emerald-500 mt-0.5">
             {{template "icon-trending-up" dict "Size" 12}}
-            <span class="font-medium">
+            <span class="font-medium font-mono">
                 {{if eq .Account.YieldType "FIXED"}}{{.Account.YieldMin}}%{{else}}{{.Account.YieldMin}}-{{.Account.YieldMax}}%{{end}}
             </span>
         </div>
@@ -561,7 +561,7 @@ document.addEventListener('alpine:init', () => {
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
         <!-- Income -->
         <div class="min-w-0">
-            <div class="text-xs text-muted-foreground uppercase font-bold mb-2 tracking-wider flex items-center gap-1.5">
+            <div class="text-xs text-muted-foreground uppercase font-semibold mb-2 tracking-wider flex items-center gap-1.5">
                 <span class="text-emerald-500">{{template "icon-trending-up" dict "Size" 14}}</span>
                 {{index $.T "summary.income"}}
             </div>
@@ -578,11 +578,11 @@ document.addEventListener('alpine:init', () => {
         </div>
         <!-- Expenses -->
         <div class="min-w-0 border-t border-border sm:border-0 pt-3 sm:pt-0">
-            <div class="text-xs text-muted-foreground uppercase font-bold mb-2 tracking-wider flex items-center gap-1.5">
-                <span class="text-red-400">{{template "icon-trending-up" dict "Size" 14}}</span>
+            <div class="text-xs text-muted-foreground uppercase font-semibold mb-2 tracking-wider flex items-center gap-1.5">
+                <span class="text-red-400 rotate-180">{{template "icon-trending-up" dict "Size" 14}}</span>
                 {{index $.T "summary.expenses"}}
             </div>
-            <div class="font-mono font-bold text-foreground whitespace-nowrap">
+            <div class="font-mono font-bold text-red-500 whitespace-nowrap">
                 <span class="text-lg sm:text-xl">-{{formatMoney .MonthlyExpenses $.Currency}}</span>
                 <span class="text-xs text-muted-foreground font-medium">{{index $.T "summary.per_month"}}</span>
             </div>
@@ -592,7 +592,7 @@ document.addEventListener('alpine:init', () => {
         </div>
         <!-- Net -->
         <div class="min-w-0 border-t border-border sm:border-0 pt-3 sm:pt-0">
-            <div class="text-xs text-muted-foreground uppercase font-bold mb-2 tracking-wider flex items-center gap-1.5">
+            <div class="text-xs text-muted-foreground uppercase font-semibold mb-2 tracking-wider flex items-center gap-1.5">
                 <span class="text-blue-500">{{template "icon-target" dict "Size" 14}}</span>
                 {{index $.T "summary.balance"}}
             </div>
