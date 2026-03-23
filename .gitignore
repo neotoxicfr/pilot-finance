@@ -23,6 +23,7 @@ out/
 *.pdf
 .claude/
 CLAUDE.md
+.impeccable.md
 
 # IDE et éditeurs
 *.code-workspace
