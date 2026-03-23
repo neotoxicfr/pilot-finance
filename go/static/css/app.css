@@ -12,7 +12,7 @@
     --accent: #f1f5f9;
     --muted-foreground: #64748b;
     --accent-blue: #2563eb;
-    --surface-elevated: #f8fafc;
+
     color-scheme: light;
 }
 
@@ -23,7 +23,7 @@
     --border: #1e293b;
     --accent: #1e293b;
     --muted-foreground: #94a3b8;
-    --surface-elevated: #151f32;
+
     color-scheme: dark;
 }
 
@@ -35,7 +35,7 @@
         --border: #1e293b;
         --accent: #1e293b;
         --muted-foreground: #94a3b8;
-        --surface-elevated: #151f32;
+    
         color-scheme: dark;
     }
 
@@ -373,11 +373,8 @@ select:focus {
     border-radius: 8px;
     animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
-.skeleton-text { height: 0.75rem; width: 60%; }
-.skeleton-title { height: 1.25rem; width: 40%; }
 .skeleton-kpi { height: 2.25rem; width: 55%; }
 .skeleton-chart { height: 100%; width: 100%; border-radius: 12px; }
-.skeleton-row { height: 3.5rem; width: 100%; }
 
 /* HTMX Loading States */
 @keyframes htmx-pulse {

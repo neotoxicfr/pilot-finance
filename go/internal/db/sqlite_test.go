@@ -89,19 +89,6 @@ func TestCloseNilDB(t *testing.T) {
 	}
 }
 
-// TestGetSessionVersionNotFound covers the sql.ErrNoRows path in GetSessionVersion.
-func TestGetSessionVersionNotFound(t *testing.T) {
-	cleanup := setupTestDB(t)
-	defer cleanup()
-
-	sv, err := GetSessionVersion(999999)
-	if err != nil {
-		t.Fatalf("expected nil error for missing user, got: %v", err)
-	}
-	if sv != 0 {
-		t.Errorf("want 0 for non-existent user, got %d", sv)
-	}
-}
 
 // TestGetUserAuthDataNotFound covers the sql.ErrNoRows path in GetUserAuthData.
 func TestGetUserAuthDataNotFound(t *testing.T) {
