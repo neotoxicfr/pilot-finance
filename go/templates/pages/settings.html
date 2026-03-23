@@ -298,7 +298,7 @@ document.addEventListener('alpine:init', () => {
                         <template x-if="mfaError">
                             <div class="text-red-500 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="mfaError"></div>
                         </template>
-                        <div class="flex gap-3">
+                        <div class="flex gap-2">
                             <button @click="mfaSetup = null; mfaCode = ''; mfaError = ''"
                                     class="flex-1 bg-accent hover:bg-border text-muted-foreground font-bold py-3 rounded-xl transition-all text-sm">
                                 {{index .T "settings.mfa_cancel"}}
@@ -399,7 +399,7 @@ document.addEventListener('alpine:init', () => {
             <div x-data="dangerData">
                 <div class="dashboard-card bg-background border border-red-500/20 rounded-2xl p-6 relative overflow-hidden">
                     <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
-                    <h2 class="text-base font-bold text-red-500 mb-4 flex items-center gap-2">
+                    <h2 class="text-lg font-bold text-red-500 mb-6 flex items-center gap-2">
                         {{template "icon-trash" dict "Size" 18}}
                         {{index .T "settings.danger_zone"}}
                     </h2>
