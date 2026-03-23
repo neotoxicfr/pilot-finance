@@ -147,12 +147,12 @@
                     <a href="/" aria-label="{{index .T "nav.dashboard"}}" {{if eq .CurrentPath "/"}}aria-current="page"{{end}} class="flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-lg transition-all
                        {{if eq .CurrentPath "/"}}bg-accent text-foreground{{else}}text-foreground/70 hover:text-foreground hover:bg-accent{{end}}">
                         {{template "icon-dashboard" dict "Size" 20}}
-                        <span class="hidden lg:inline">{{index .T "nav.dashboard"}}</span>
+                        <span class="hidden md:inline">{{index .T "nav.dashboard"}}</span>
                     </a>
                     <a href="/accounts" aria-label="{{index .T "nav.accounts"}}" {{if or (eq .CurrentPath "/accounts") (eq .CurrentPath "/recurring")}}aria-current="page"{{end}} class="flex items-center gap-2 px-2 py-2 text-sm font-medium rounded-lg transition-all
                        {{if or (eq .CurrentPath "/accounts") (eq .CurrentPath "/recurring")}}bg-accent text-foreground{{else}}text-foreground/70 hover:text-foreground hover:bg-accent{{end}}">
                         {{template "icon-wallet" dict "Size" 20}}
-                        <span class="hidden lg:inline">{{index .T "nav.accounts"}}</span>
+                        <span class="hidden md:inline">{{index .T "nav.accounts"}}</span>
                     </a>
                 </div>
             </div>
