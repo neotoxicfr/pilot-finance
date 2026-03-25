@@ -6,15 +6,21 @@ FROM node:25-alpine AS css
 
 WORKDIR /app
 
-# Installer Tailwind CSS v4 (framework + CLI)
-RUN npm install -g tailwindcss@4.1.7 @tailwindcss/cli@4.1.7
+# Installer Tailwind CSS v4 (framework + CLI) + esbuild pour minification
+RUN npm install -g tailwindcss@4.1.7 @tailwindcss/cli@4.1.7 esbuild@0.25.4
 
 # Copier les fichiers nécessaires pour la compilation CSS
 COPY static/css/input.css static/css/
+COPY static/css/app.css static/css/
+COPY static/js/charts.js static/js/
+COPY static/js/passkey.js static/js/
 COPY templates templates/
 
-# Compiler Tailwind CSS (NODE_PATH expose les globals au résolveur CSS)
-RUN NODE_PATH=$(npm root -g) npx @tailwindcss/cli -i static/css/input.css -o static/css/tailwind.css --minify
+# Compiler Tailwind CSS + minifier les assets custom
+RUN NODE_PATH=$(npm root -g) npx @tailwindcss/cli -i static/css/input.css -o static/css/tailwind.css --minify \
+    && esbuild static/css/app.css --minify --outfile=static/css/app.css --allow-overwrite \
+    && esbuild static/js/charts.js --minify --outfile=static/js/charts.js --allow-overwrite \
+    && esbuild static/js/passkey.js --minify --outfile=static/js/passkey.js --allow-overwrite
 
 # ============ GO BUILD STAGE ============
 FROM golang:1.26.1-alpine AS builder

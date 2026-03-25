@@ -16,7 +16,8 @@
 //            Filler, Tooltip, Legend);
 // This would reduce the Chart.js payload to ~80 KB.
 
-const fmt = v => new Intl.NumberFormat(window.PILOT_LOCALE||'fr-FR', { style: 'currency', currency: window.PILOT_CURRENCY||'EUR', maximumFractionDigits: 0 }).format(v);
+const _fmtCurrency = new Intl.NumberFormat(window.PILOT_LOCALE||'fr-FR', { style: 'currency', currency: window.PILOT_CURRENCY||'EUR', maximumFractionDigits: 0 });
+const fmt = v => _fmtCurrency.format(v);
 const fmtAxis = v => { const c = window.PILOT_CURRENCY||'EUR'; return v >= 1e6 ? (v/1e6).toFixed(1).replace('.0','')+'M '+c : v >= 1e3 ? Math.round(v/1e3)+'k '+c : v+' '+c; };
 const getColors = () => {
     const d = document.documentElement.classList.contains('dark');
@@ -136,19 +137,24 @@ window.initPieChart = (accounts, animated = true) => {
         }
     });
     const leg = document.getElementById('chartLegend');
-    if (leg) { const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }; leg.innerHTML = accounts.map(a => '<div class="flex items-center gap-2 text-sm"><span class="w-3 h-3 rounded-full flex-shrink-0" style="background:'+esc(a.color)+'"></span><span class="text-muted-foreground font-medium">'+esc(a.name)+'</span></div>').join(''); }
+    if (leg) { const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }; leg.innerHTML = accounts.map(a => '<div class="flex items-center gap-2 text-sm"><span class="w-3 h-3 rounded-full flex-shrink-0" style="background:'+(/^#[0-9a-fA-F]{3,8}$/.test(a.color)?a.color:'#888')+'"></span><span class="text-muted-foreground font-medium">'+esc(a.name)+'</span></div>').join(''); }
     window.pieChartData = accounts;
 };
 
-// Theme observer — re-render charts on dark/light switch
+// Theme observer — fade-out, re-render, fade-in on dark/light switch
 (function() {
     let last = document.documentElement.classList.contains('dark');
     new MutationObserver(() => {
         const cur = document.documentElement.classList.contains('dark');
         if (cur !== last) {
             last = cur;
-            window.pieChartData?.length && window.initPieChart(window.pieChartData, false);
-            window._projData?.length && window.initProjectionChart(window._projData, window._projAcc);
+            const canvases = [document.getElementById('projectionCanvas'), document.getElementById('pieCanvas')].filter(Boolean);
+            canvases.forEach(c => { c.style.transition = 'opacity .2s'; c.style.opacity = '0'; });
+            setTimeout(() => {
+                window.pieChartData?.length && window.initPieChart(window.pieChartData, false);
+                window._projData?.length && window.initProjectionChart(window._projData, window._projAcc);
+                canvases.forEach(c => { c.style.opacity = '1'; });
+            }, 200);
         }
     }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 })();

@@ -160,7 +160,7 @@
                             </div>
                         </div>
 
-                        <button class="w-full btn-primary text-white py-3 rounded-xl text-sm font-bold transition-all">
+                        <button class="w-full btn-primary text-white py-3 rounded-xl text-sm font-bold">
                             {{index .T "accounts.submit"}}
                         </button>
                     </form>
@@ -184,7 +184,7 @@
                     {{template "icon-refresh" dict "Size" 18}} {{index .T "recurring.title"}}
                 </h2>
                 <button @click="openRecurringForm(null)"
-                        class="text-xs btn-primary text-white px-3 py-2 rounded-xl flex items-center gap-1 transition-all font-bold">
+                        class="text-xs btn-primary text-white px-3 py-2 rounded-xl flex items-center gap-1 font-bold">
                     {{template "icon-plus" dict "Size" 16}} {{index .T "recurring.add"}}
                 </button>
             </div>
@@ -227,7 +227,7 @@
                             <div class="flex gap-3">
                                 <label for="recurring-type" class="sr-only">{{index .T "recurring.type_expense"}}</label>
                                 <select id="recurring-type" name="type" x-model="opType"
-                                        class="w-28 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
+                                        class="w-28 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-blue-500">
                                     <option value="expense">{{index .T "recurring.type_expense"}}</option>
                                     <option value="income">{{index .T "recurring.type_income"}}</option>
                                     <option value="transfer">{{index .T "recurring.type_transfer"}}</option>
@@ -235,7 +235,7 @@
                                 <label for="recurring-account-select" class="sr-only">{{index .T "recurring.account_placeholder"}}</label>
                                 <select name="accountId" id="recurring-account-select" required
                                         x-model="accountId"
-                                        class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
+                                        class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-blue-500">
                                     <option value="">{{index .T "recurring.account_placeholder"}}</option>
                                     {{range .Accounts}}
                                     <option value="{{.ID}}">{{.Name}}</option>
@@ -249,14 +249,14 @@
                                 <label for="recurring-to-account-select" class="sr-only">{{index .T "recurring.account_placeholder"}}</label>
                                 <select name="toAccountId" id="recurring-to-account-select"
                                         x-model="toAccountId"
-                                        class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-xs outline-hidden focus:border-blue-500">
+                                        class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-blue-500">
                                     <option value="">{{index .T "recurring.account_placeholder"}}</option>
                                     {{range .Accounts}}
                                     <option value="{{.ID}}">{{.Name}}</option>
                                     {{end}}
                                 </select>
                             </div>
-                            <button class="w-full btn-primary text-white py-3 rounded-xl text-sm font-bold transition-all">
+                            <button class="w-full btn-primary text-white py-3 rounded-xl text-sm font-bold">
                                 {{index .T "recurring.submit"}}
                             </button>
                     </form>
@@ -419,7 +419,7 @@ document.addEventListener('alpine:init', () => {
         {{if .Account.IsYieldActive}}
         <div class="flex items-center gap-1 text-xs text-emerald-500 mt-0.5">
             {{template "icon-trending-up" dict "Size" 12}}
-            <span class="font-medium">
+            <span class="font-medium font-mono">
                 {{if eq .Account.YieldType "FIXED"}}{{.Account.YieldMin}}%{{else}}{{.Account.YieldMin}}-{{.Account.YieldMax}}%{{end}}
             </span>
         </div>
@@ -435,7 +435,7 @@ document.addEventListener('alpine:init', () => {
                    value="{{formatBalance .Account.Balance}}"
                    aria-label="{{index .T "accounts.balance_placeholder"}}"
                    @input="dirty = true"
-                   class="bg-transparent w-20 sm:w-24 text-right outline-hidden font-mono text-base sm:text-lg font-bold text-foreground focus:text-blue-500 focus:bg-accent hover:border-b hover:border-dashed hover:border-muted-foreground rounded-lg px-1 transition-colors cursor-text">
+                   class="bg-transparent w-24 sm:w-28 text-right outline-hidden font-mono text-base sm:text-lg font-bold text-foreground focus:text-blue-500 focus:bg-accent hover:border-b hover:border-dashed hover:border-muted-foreground rounded-lg px-1 transition-colors cursor-text">
             <span class="text-xs text-muted-foreground font-medium whitespace-nowrap">{{.Currency}}</span>
             <button aria-label="{{index .T "common.save"}}" class="text-blue-500 p-2.5 rounded-lg transition-all"
                     :class="dirty ? 'opacity-100' : 'opacity-0 pointer-events-none'">
@@ -549,6 +549,9 @@ document.addEventListener('alpine:init', () => {
     <div class="text-muted-foreground/20 mb-4">{{template "icon-refresh" dict "Size" 40}}</div>
     <p class="font-semibold text-foreground mb-1">{{index $.T "recurring.empty_title"}}</p>
     <p class="text-xs text-muted-foreground">{{index $.T "recurring.empty_subtitle"}}</p>
+    <button @click="openRecurringForm(null)" class="mt-4 text-xs btn-primary text-white px-3 py-2 rounded-xl flex items-center gap-1 font-bold mx-auto">
+        {{template "icon-plus" dict "Size" 14}} {{index $.T "recurring.add"}}
+    </button>
 </div>
 {{end}}
 {{end}}
@@ -558,37 +561,46 @@ document.addEventListener('alpine:init', () => {
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
         <!-- Income -->
         <div class="min-w-0">
-            <div class="text-xs text-muted-foreground uppercase font-bold mb-2 tracking-wider">{{index $.T "summary.income"}}</div>
+            <div class="text-xs text-muted-foreground uppercase font-semibold mb-2 tracking-wider flex items-center gap-1.5">
+                <span class="text-emerald-500">{{template "icon-trending-up" dict "Size" 14}}</span>
+                {{index $.T "summary.income"}}
+            </div>
             <div class="font-mono font-bold text-emerald-500 whitespace-nowrap">
                 <span class="text-lg sm:text-xl">+{{formatMoney .MonthlyIncome $.Currency}}</span>
                 <span class="text-xs text-muted-foreground font-medium">{{index $.T "summary.per_month"}}</span>
             </div>
-            <div class="font-mono text-sm text-emerald-500/60 whitespace-nowrap mt-0.5">
+            <div class="font-mono text-sm text-emerald-500/70 whitespace-nowrap mt-0.5">
                 +{{formatMoneyCompact (add (mult .MonthlyIncome 12) .AnnualYield) $.Currency}}{{index $.T "summary.per_year"}}
             </div>
             {{if gt (add .MonthlyYield .AnnualYield) 0.0}}
-            <div class="text-xs text-emerald-400/70 mt-1.5 font-medium whitespace-nowrap">{{index $.T "summary.yield_auto"}} +{{formatMoneyCompact (add (mult .MonthlyYield 12) .AnnualYield) $.Currency}}{{index $.T "summary.per_year"}}</div>
+            <div class="text-xs text-emerald-500/70 mt-1.5 font-medium whitespace-nowrap">{{index $.T "summary.yield_auto"}} +{{formatMoneyCompact (add (mult .MonthlyYield 12) .AnnualYield) $.Currency}}{{index $.T "summary.per_year"}}</div>
             {{end}}
         </div>
         <!-- Expenses -->
         <div class="min-w-0 border-t border-border sm:border-0 pt-3 sm:pt-0">
-            <div class="text-xs text-muted-foreground uppercase font-bold mb-2 tracking-wider">{{index $.T "summary.expenses"}}</div>
-            <div class="font-mono font-bold text-foreground whitespace-nowrap">
+            <div class="text-xs text-muted-foreground uppercase font-semibold mb-2 tracking-wider flex items-center gap-1.5">
+                <span class="text-red-400 rotate-180">{{template "icon-trending-up" dict "Size" 14}}</span>
+                {{index $.T "summary.expenses"}}
+            </div>
+            <div class="font-mono font-bold text-red-500 whitespace-nowrap">
                 <span class="text-lg sm:text-xl">-{{formatMoney .MonthlyExpenses $.Currency}}</span>
                 <span class="text-xs text-muted-foreground font-medium">{{index $.T "summary.per_month"}}</span>
             </div>
-            <div class="font-mono text-sm text-muted-foreground/60 whitespace-nowrap mt-0.5">
+            <div class="font-mono text-sm text-red-500/70 whitespace-nowrap mt-0.5">
                 -{{formatMoneyCompact (mult .MonthlyExpenses 12) $.Currency}}{{index $.T "summary.per_year"}}
             </div>
         </div>
         <!-- Net -->
         <div class="min-w-0 border-t border-border sm:border-0 pt-3 sm:pt-0">
-            <div class="text-xs text-muted-foreground uppercase font-bold mb-2 tracking-wider">{{index $.T "summary.balance"}}</div>
+            <div class="text-xs text-muted-foreground uppercase font-semibold mb-2 tracking-wider flex items-center gap-1.5">
+                <span class="text-blue-500">{{template "icon-target" dict "Size" 14}}</span>
+                {{index $.T "summary.balance"}}
+            </div>
             <div class="font-mono font-bold whitespace-nowrap {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
                 <span class="text-lg sm:text-xl">{{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney .MonthlyNet $.Currency}}</span>
                 <span class="text-xs text-muted-foreground font-medium">{{index $.T "summary.per_month"}}</span>
             </div>
-            <div class="font-mono text-sm whitespace-nowrap mt-0.5 {{if ge .MonthlyNet 0.0}}text-blue-500/50{{else}}text-red-500/50{{end}}">
+            <div class="font-mono text-sm whitespace-nowrap mt-0.5 {{if ge .MonthlyNet 0.0}}text-blue-500/70{{else}}text-red-500/70{{end}}">
                 {{if gt (add (mult .MonthlyNet 12) .AnnualYield) 0.0}}+{{end}}{{formatMoneyCompact (add (mult .MonthlyNet 12) .AnnualYield) $.Currency}}{{index $.T "summary.per_year"}}
             </div>
         </div>

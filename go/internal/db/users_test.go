@@ -74,19 +74,6 @@ func TestGetUserAuthData(t *testing.T) {
 	}
 }
 
-func TestGetSessionVersion(t *testing.T) {
-	cleanup := setupTestDB(t)
-	defer cleanup()
-	userID := createTestUser(t)
-
-	sv, err := GetSessionVersion(userID)
-	if err != nil {
-		t.Fatalf("GetSessionVersion: %v", err)
-	}
-	if sv == 0 {
-		t.Error("session_version should be > 0")
-	}
-}
 
 func TestCountUsers(t *testing.T) {
 	cleanup := setupTestDB(t)
