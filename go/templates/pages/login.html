@@ -65,7 +65,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
             <div>
                 <button type="button"
                         @click="loginWithPasskey()"
-                        class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 rounded-xl mb-6 flex items-center justify-center gap-2 transition-all">
+                        class="w-full btn-purple text-white font-bold py-3 rounded-xl mb-6 flex items-center justify-center gap-2 text-sm">
                     {{template "icon-fingerprint" dict "Size" 20}} {{index .T "login.passkey_btn"}}
                 </button>
                 <div class="relative flex py-2 items-center mb-6">
@@ -153,7 +153,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
 
             <button type="submit"
                     :disabled="submitDisabled"
-                    class="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl mt-2 flex items-center justify-center gap-2">
+                    class="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl mt-2 flex items-center justify-center gap-2 text-sm">
                 <span x-show="loading">{{index .T "login.loading"}}</span>
                 <span x-show="!loading && requires2FA">{{index .T "login.verify_btn"}}</span>
                 <span x-show="!loading && !requires2FA && isRegister">{{index .T "login.create_account_btn"}}</span>
@@ -175,13 +175,13 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
         {{end}}
     </div>
 
-    <div class="mt-8 text-center text-xs text-muted-foreground uppercase tracking-widest opacity-50">
+    <div class="mt-8 text-center text-xs text-muted-foreground uppercase tracking-wider opacity-50">
         {{index .T "login.security_note"}}
     </div>
     <div class="mt-3 flex items-center justify-center gap-4">
-        <a href="/privacy" class="text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors">{{index .T "privacy.title"}}</a>
-        <span class="text-muted-foreground/30 text-xs">·</span>
-        <a href="/legal" class="text-xs text-muted-foreground/70 hover:text-muted-foreground transition-colors">{{index .T "legal.title"}}</a>
+        <a href="/privacy" class="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2 decoration-muted-foreground/30">{{index .T "privacy.title"}}</a>
+        <span class="text-muted-foreground/40 text-xs">·</span>
+        <a href="/legal" class="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2 decoration-muted-foreground/30">{{index .T "legal.title"}}</a>
     </div>
   </div>
 </div>

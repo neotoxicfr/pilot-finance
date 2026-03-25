@@ -319,7 +319,7 @@ var staticETags = func() map[string]string {
 // Change à chaque rebuild Docker quand les assets changent.
 func computeAssetVersion() string {
 	h := md5.New()
-	for _, name := range []string{"static/css/app.css", "static/css/tailwind.css"} {
+	for _, name := range []string{"static/css/app.css", "static/css/tailwind.css", "static/js/charts.js", "static/js/passkey.js"} {
 		data, err := os.ReadFile(name)
 		if err != nil {
 			continue

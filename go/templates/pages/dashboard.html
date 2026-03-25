@@ -2,6 +2,8 @@
 <div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8"
      x-data="dashboardData">
 
+<h1 class="sr-only">Dashboard</h1>
+
 {{if not .Accounts}}
     <!-- Empty state -->
     <div class="flex flex-col items-center justify-center py-16 px-4 text-center">
@@ -19,37 +21,28 @@
 {{else}}
     <!-- KPI Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-        <div class="dashboard-card kpi-card-slate border p-6 rounded-2xl relative overflow-hidden">
-            <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
-                {{template "icon-shield-check" dict "Size" 80}}
-            </div>
-            <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">{{index .T "dashboard.net_worth"}}</p>
+        <div class="dashboard-card kpi-card-slate border p-6 rounded-2xl relative overflow-hidden sm:col-span-2 md:col-span-1">
+            <p class="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">{{index .T "dashboard.net_worth"}}</p>
             <div x-show="!ready" class="skeleton skeleton-kpi mt-1"></div>
             <div x-show="ready" x-cloak class="flex items-baseline gap-2 font-mono tracking-tight">
-                <span class="text-3xl md:text-4xl font-bold text-foreground" x-text="formatAmount(totalBalance)"></span>
-                <span class="text-lg font-medium text-muted-foreground" x-text="currency()"></span>
+                <span class="text-4xl md:text-5xl font-bold text-foreground tabular-nums" x-text="formatAmount(totalBalance)"></span>
+                <span class="text-xl font-medium text-muted-foreground" x-text="currency()"></span>
             </div>
         </div>
-        <div class="dashboard-card bg-background kpi-card-emerald border p-6 rounded-2xl relative overflow-hidden">
-            <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
-                {{template "icon-trending-up" dict "Size" 80}}
-            </div>
-            <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">{{index .T "dashboard.compound_interests"}}</p>
+        <div class="dashboard-card kpi-card-emerald border p-6 rounded-2xl relative overflow-hidden">
+            <p class="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">{{index .T "dashboard.compound_interests"}}</p>
             <div x-show="!ready" class="skeleton skeleton-kpi mt-1"></div>
             <div x-show="ready" x-cloak class="flex items-baseline gap-2 font-mono tracking-tight">
-                <span class="text-3xl md:text-4xl font-bold text-emerald-500" x-text="'+' + formatAmount(totalInterests)"></span>
-                <span class="text-lg font-medium text-emerald-500/60" x-text="currency()"></span>
+                <span class="text-3xl md:text-4xl font-bold text-emerald-500 tabular-nums" x-text="'+' + formatAmount(totalInterests)"></span>
+                <span class="text-lg font-medium text-emerald-500/70" x-text="currency()"></span>
             </div>
         </div>
-        <div class="dashboard-card bg-background kpi-card-blue border p-6 rounded-2xl relative overflow-hidden sm:col-span-2 md:col-span-1">
-            <div class="absolute top-0 right-0 p-4 opacity-5 text-foreground">
-                {{template "icon-piggybank" dict "Size" 80}}
-            </div>
-            <p class="text-xs text-muted-foreground font-bold uppercase tracking-wider mb-2">{{index .T "dashboard.projection_years"}} <span x-text="years"></span> {{index .T "dashboard.years_suffix"}}</p>
+        <div class="dashboard-card kpi-card-blue border p-6 rounded-2xl relative overflow-hidden">
+            <p class="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-2">{{index .T "dashboard.projection_years"}} <span x-text="years"></span> {{index .T "dashboard.years_suffix"}}</p>
             <div x-show="!ready" class="skeleton skeleton-kpi mt-1"></div>
             <div x-show="ready" x-cloak class="flex items-baseline gap-2 font-mono tracking-tight">
-                <span class="text-3xl md:text-4xl font-bold text-blue-500" x-text="formatAmount(projectionTotal)"></span>
-                <span class="text-lg font-medium text-blue-500/60" x-text="currency()"></span>
+                <span class="text-3xl md:text-4xl font-bold text-blue-500 tabular-nums" x-text="formatAmount(projectionTotal)"></span>
+                <span class="text-lg font-medium text-blue-500/70" x-text="currency()"></span>
             </div>
         </div>
     </div>

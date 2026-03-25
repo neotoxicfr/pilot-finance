@@ -675,15 +675,6 @@ func GetUserByID(id int64) (*User, error) {
 	return scanUser(DB.QueryRow(userSelectCols+` WHERE id = ?`, id))
 }
 
-// GetSessionVersion récupère uniquement la session_version d'un utilisateur (requête allégée)
-func GetSessionVersion(id int64) (int, error) {
-	var sv int
-	err := DB.QueryRow(`SELECT session_version FROM users WHERE id = ?`, id).Scan(&sv)
-	if err == sql.ErrNoRows {
-		return 0, nil
-	}
-	return sv, err
-}
 
 // GetUserAuthData récupère session_version et email chiffré en une seule requête.
 // Utilisé par RequireAuth pour peupler le contexte sans stocker l'email dans le JWT.
