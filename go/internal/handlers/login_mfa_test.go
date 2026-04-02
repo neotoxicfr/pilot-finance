@@ -135,7 +135,7 @@ func TestHandleLogin_2FA_NilMFASecret(t *testing.T) {
 	}
 	// Forcer MFASecret à nil via hook
 	origGetUser := hookGetUserByID
-	defer func() { hookGetUserByID = origGetUser }()
+	t.Cleanup(func() { hookGetUserByID = origGetUser })
 	hookGetUserByID = func(id int64) (*db.User, error) {
 		u, err := origGetUser(id)
 		if u != nil {
