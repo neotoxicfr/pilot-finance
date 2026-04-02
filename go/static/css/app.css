@@ -105,7 +105,7 @@ body {
 .dark ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.3); }
 
 /* Safe area for pages without nav (login, register) */
-body:not(:has(nav)) {
+body.no-nav {
     padding-top: env(safe-area-inset-top);
 }
 
@@ -441,8 +441,6 @@ dialog > .modal-panel {
 }
 .modal-panel {
     background: rgba(255,255,255,0.98);
-    backdrop-filter: blur(32px) saturate(180%);
-    -webkit-backdrop-filter: blur(32px) saturate(180%);
     box-shadow: 0 24px 48px rgba(0,0,0,.12), 0 8px 24px rgba(0,0,0,.08), inset 0 0 0 1px rgba(255,255,255,0.5);
 }
 .dark .modal-panel {

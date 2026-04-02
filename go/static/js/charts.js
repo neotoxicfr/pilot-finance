@@ -111,8 +111,7 @@ window.updateProjectionChart = (data, acc) => { window.initProjectionChart(data,
 window.initPieChart = (accounts, animated = true) => {
     const ctx = document.getElementById('pieCanvas');
     if (!ctx || typeof Chart === 'undefined') return;
-    const oldTooltip = document.getElementById('pie-tooltip');
-    if (oldTooltip) oldTooltip.style.opacity = '0';
+    document.getElementById('pie-tooltip')?.remove();
     window.pieChart?.destroy();
     if (!accounts?.length) return;
     const c = getColors(), bg = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
