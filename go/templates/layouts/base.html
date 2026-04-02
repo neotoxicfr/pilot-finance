@@ -134,7 +134,7 @@
     <script nonce="{{.Nonce}}" defer src="/static/js/sortable.min.js?v={{.AssetVer}}"></script>
     {{end}}
 </head>
-<body class="font-sans antialiased bg-background text-foreground {{block "bodyClass" .}}min-h-screen flex flex-col{{end}}" x-data="themeData">
+<body class="font-sans antialiased bg-background text-foreground {{if not .User}}no-nav {{end}}{{block "bodyClass" .}}min-h-screen flex flex-col{{end}}" x-data="themeData">
     <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[200] focus:px-4 focus:py-2 focus:bg-background focus:text-foreground focus:border focus:border-border focus:rounded-lg focus:text-sm focus:font-bold">Skip to main content</a>
     {{if .User}}
     <nav class="border-b border-border bg-background backdrop-blur-md sticky top-0 z-50">
