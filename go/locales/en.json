@@ -142,6 +142,7 @@
   "settings.confirm_password": "Confirm",
   "settings.currency_label": "Currency",
   "settings.current_password": "Current",
+  "settings.data_title": "Data",
   "settings.danger_zone": "Danger Zone",
   "settings.delete_account": "Delete my account",
   "settings.delete_account_confirm": "Confirm deletion",

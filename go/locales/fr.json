@@ -142,6 +142,7 @@
   "settings.confirm_password": "Confirmation",
   "settings.currency_label": "Devise",
   "settings.current_password": "Actuel",
+  "settings.data_title": "Données",
   "settings.danger_zone": "Zone dangereuse",
   "settings.delete_account": "Supprimer mon compte",
   "settings.delete_account_confirm": "Confirmer la suppression",

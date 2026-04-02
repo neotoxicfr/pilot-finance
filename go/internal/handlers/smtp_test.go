@@ -153,7 +153,7 @@ func TestForgotPasswordSubmit_SendEmailError(t *testing.T) {
 	hookSendPasswordReset = func(_, _, _, _ string) error {
 		return fmt.Errorf("smtp failure")
 	}
-	defer func() { hookSendPasswordReset = orig }()
+	t.Cleanup(func() { hookSendPasswordReset = orig })
 
 	rr := httptest.NewRecorder()
 	ForgotPasswordSubmit(rr, post("/forgot-password", url.Values{"email": {"senderr@example.com"}}))
@@ -172,7 +172,7 @@ func TestForgotPasswordSubmit_RandReadError(t *testing.T) {
 	hookRandRead = func(_ []byte) (int, error) {
 		return 0, fmt.Errorf("entropy error")
 	}
-	defer func() { hookRandRead = orig }()
+	t.Cleanup(func() { hookRandRead = orig })
 
 	rr := httptest.NewRecorder()
 	ForgotPasswordSubmit(rr, post("/forgot-password", url.Values{"email": {"randerr@example.com"}}))
@@ -190,7 +190,7 @@ func TestForgotPasswordSubmit_SetResetTokenError(t *testing.T) {
 	hookSetResetToken = func(_ int64, _ string, _ time.Time) error {
 		return fmt.Errorf("db error")
 	}
-	defer func() { hookSetResetToken = orig }()
+	t.Cleanup(func() { hookSetResetToken = orig })
 
 	rr := httptest.NewRecorder()
 	ForgotPasswordSubmit(rr, post("/forgot-password", url.Values{"email": {"reseterr@example.com"}}))

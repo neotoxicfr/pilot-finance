@@ -305,7 +305,7 @@ document.addEventListener('alpine:init', () => {
                             </button>
                             <button @click="enableMfa()"
                                     :disabled="mfaCode.length !== 6"
-                                    class="flex-1 btn-success text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50">
+                                    class="flex-1 btn-success text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50 disabled:cursor-not-allowed">
                                 {{index .T "settings.mfa_enable_btn"}}
                             </button>
                         </div>
@@ -397,10 +397,16 @@ document.addEventListener('alpine:init', () => {
 
             <!-- Export & Danger Zone -->
             <div x-data="dangerData">
-                <button @click="exportData()" class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border bg-background hover:bg-accent text-sm font-bold text-foreground transition-colors">
-                    {{template "icon-save" dict "Size" 16}}
-                    {{index .T "settings.export_data"}}
-                </button>
+                <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></div>
+                    <h2 class="text-lg font-bold text-foreground mb-4 flex items-center gap-2 pl-3">
+                        {{template "icon-save" dict "Size" 18}} {{index .T "settings.data_title"}}
+                    </h2>
+                    <button @click="exportData()" class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border bg-background hover:bg-accent text-sm font-bold text-foreground transition-colors">
+                        {{template "icon-save" dict "Size" 16}}
+                        {{index .T "settings.export_data"}}
+                    </button>
+                </div>
 
                 <!-- Danger Zone -->
                 <div class="dashboard-card bg-background border border-red-500/20 rounded-2xl p-6 relative overflow-hidden mt-6">
@@ -446,7 +452,7 @@ document.addEventListener('alpine:init', () => {
                     </div>
                     <div>
                         <h2 class="text-lg font-bold text-foreground">{{if .IsRegisterOpen}}{{index .T "settings.register_open"}}{{else}}{{index .T "settings.register_closed"}}{{end}}</h2>
-                        <p class="text-sm text-muted-foreground">{{index .T "settings.register_env_var"}} <code>ALLOW_REGISTER={{if .IsRegisterOpen}}true{{else}}false{{end}}</code></p>
+                        <p class="text-sm text-muted-foreground">{{index .T "settings.register_env_var"}} <code class="font-mono text-xs bg-accent px-1.5 py-0.5 rounded">ALLOW_REGISTER={{if .IsRegisterOpen}}true{{else}}false{{end}}</code></p>
                     </div>
                 </div>
             </div>

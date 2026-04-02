@@ -112,10 +112,6 @@ func TestEncryptDecrypt(t *testing.T) {
 	}
 }
 
-func TestDecryptNodeJSFormat(t *testing.T) {
-	t.Skip("Test à activer avec données Node.js réelles")
-}
-
 func TestDecryptNonEncrypted(t *testing.T) {
 	mustInit(t)
 
@@ -564,7 +560,7 @@ func TestEncrypt_NilGCM(t *testing.T) {
 	mustInit(t)
 	origGCM := gcmStandard
 	gcmStandard = nil
-	defer func() { gcmStandard = origGCM }()
+	t.Cleanup(func() { gcmStandard = origGCM })
 
 	_, err := Encrypt("test")
 	if err == nil {
@@ -578,7 +574,7 @@ func TestInit_NewGCMError(t *testing.T) {
 	cipherNewGCMFn = func(_ cipher.Block) (cipher.AEAD, error) {
 		return nil, errors.New("forced gcm error")
 	}
-	defer func() { cipherNewGCMFn = orig }()
+	t.Cleanup(func() { cipherNewGCMFn = orig })
 
 	err := Init(testEncryptionKey, testBlindIndexKey)
 	if err == nil || !strings.Contains(err.Error(), "forced gcm error") {
@@ -589,7 +585,7 @@ func TestInit_NewGCMError(t *testing.T) {
 func TestEncrypt_RandReadError(t *testing.T) {
 	mustInit(t)
 	orig := cryptoRandRead
-	defer func() { cryptoRandRead = orig }()
+	t.Cleanup(func() { cryptoRandRead = orig })
 
 	cryptoRandRead = func(_ []byte) (int, error) {
 		return 0, errors.New("forced rand error")
@@ -610,7 +606,7 @@ func TestDecrypt_NilGCM(t *testing.T) {
 	}
 	origGCM := gcmStandard
 	gcmStandard = nil
-	defer func() { gcmStandard = origGCM }()
+	t.Cleanup(func() { gcmStandard = origGCM })
 
 	_, err = Decrypt(encrypted)
 	if err == nil {
@@ -622,6 +618,7 @@ func TestInit_AESNewCipherError(t *testing.T) {
 	ResetForTest()
 
 	orig := aesNewCipherFn
+	t.Cleanup(func() { aesNewCipherFn = orig })
 	aesNewCipherFn = func(key []byte) (cipher.Block, error) {
 		return nil, errors.New("forced AES cipher error")
 	}
@@ -633,18 +630,11 @@ func TestInit_AESNewCipherError(t *testing.T) {
 	if !strings.Contains(err.Error(), "AES cipher init") {
 		t.Errorf("Init: want 'AES cipher init' error, got: %v", err)
 	}
-
-	// Restore hook and re-init so subsequent tests (including fuzz) work correctly
-	aesNewCipherFn = orig
-	ResetForTest()
-	if err := Init(testEncryptionKey, testBlindIndexKey); err != nil {
-		t.Fatalf("re-Init after AES error test: %v", err)
-	}
 }
 
 func TestHashPassword_Error(t *testing.T) {
 	orig := bcryptGenerateFn
-	defer func() { bcryptGenerateFn = orig }()
+	t.Cleanup(func() { bcryptGenerateFn = orig })
 
 	bcryptGenerateFn = func(_ []byte, _ int) ([]byte, error) {
 		return nil, errors.New("forced bcrypt error")
