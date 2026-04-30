@@ -69,8 +69,11 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Le compte destinataire n'est valide que pour les virements.
+	// Pour income/expense, on ignore toute valeur résiduelle envoyée par le formulaire
+	// (le select reste dans le DOM même quand x-show le cache).
 	var toAccountID *int64
-	if toAccountIDStr != "" {
+	if opType == "transfer" && toAccountIDStr != "" {
 		id, err := strconv.ParseInt(toAccountIDStr, 10, 64)
 		if err != nil {
 			clientError(w, ErrValidation, "Compte destinataire invalide", http.StatusBadRequest)
@@ -159,8 +162,10 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 		day = 1
 	}
 
+	// Le compte destinataire n'est valide que pour les virements.
+	// Pour income/expense, on ignore toute valeur résiduelle envoyée par le formulaire.
 	var toAccountID *int64
-	if toAccountIDStr != "" {
+	if opType == "transfer" && toAccountIDStr != "" {
 		tid, err := strconv.ParseInt(toAccountIDStr, 10, 64)
 		if err != nil {
 			clientError(w, ErrValidation, "Compte destinataire invalide", http.StatusBadRequest)
