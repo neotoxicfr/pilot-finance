@@ -227,6 +227,7 @@
                             <div class="flex gap-3">
                                 <label for="recurring-type" class="sr-only">{{index .T "recurring.type_expense"}}</label>
                                 <select id="recurring-type" name="type" x-model="opType"
+                                        @change="onOpTypeChange()"
                                         class="w-28 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-blue-500">
                                     <option value="expense">{{index .T "recurring.type_expense"}}</option>
                                     <option value="income">{{index .T "recurring.type_income"}}</option>
@@ -315,6 +316,14 @@ function accountsPage() {
         opType: 'expense',
         accountId: '',
         toAccountId: '',
+
+        onOpTypeChange() {
+            // Quand on quitte le mode "transfer", on réinitialise toAccountId
+            // pour éviter qu'une valeur résiduelle dans le select caché soit envoyée
+            if (this.opType !== 'transfer') {
+                this.toAccountId = '';
+            }
+        },
 
         openRecurringForm(recurring) {
             this.editingRecurring = recurring;
