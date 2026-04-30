@@ -788,6 +788,152 @@ func TestUpdateRecurring_IncomeNegative(t *testing.T) {
 	}
 }
 
+// recurring.go: CreateRecurring — income with toAccountId in form is ignored
+// (defends against form leak when select stays in DOM with x-show)
+func TestCreateRecurring_IncomeIgnoresToAccountID(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "crec_incignoreto@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	toID := createAcc(t, uid)
+
+	var capturedToID *int64
+	orig := hookCreateRecurring
+	hookCreateRecurring = func(userID, accountID int64, toAccountID *int64, description string, amount int64, dayOfMonth int) error {
+		capturedToID = toAccountID
+		return nil
+	}
+	t.Cleanup(func() { hookCreateRecurring = orig })
+
+	req := injectUser(post("/recurring", url.Values{
+		"description": {"Salary"},
+		"amount":      {"500"},
+		"dayOfMonth":  {"15"},
+		"type":        {"income"},
+		"accountId":   {intStr(accID)},
+		"toAccountId": {intStr(toID)}, // valeur résiduelle envoyée par le formulaire
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	CreateRecurring(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d", rr.Code)
+	}
+	if capturedToID != nil {
+		t.Errorf("toAccountID should be nil for income, got %d", *capturedToID)
+	}
+}
+
+// recurring.go: CreateRecurring — expense with toAccountId in form is ignored
+func TestCreateRecurring_ExpenseIgnoresToAccountID(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "crec_expignoreto@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	toID := createAcc(t, uid)
+
+	var capturedToID *int64
+	orig := hookCreateRecurring
+	hookCreateRecurring = func(userID, accountID int64, toAccountID *int64, description string, amount int64, dayOfMonth int) error {
+		capturedToID = toAccountID
+		return nil
+	}
+	t.Cleanup(func() { hookCreateRecurring = orig })
+
+	req := injectUser(post("/recurring", url.Values{
+		"description": {"Rent"},
+		"amount":      {"500"},
+		"dayOfMonth":  {"1"},
+		"type":        {"expense"},
+		"accountId":   {intStr(accID)},
+		"toAccountId": {intStr(toID)},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	CreateRecurring(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d", rr.Code)
+	}
+	if capturedToID != nil {
+		t.Errorf("toAccountID should be nil for expense, got %d", *capturedToID)
+	}
+}
+
+// recurring.go: UpdateRecurring — income with toAccountId in form is ignored
+// (regression test for "salary becomes transfer when re-edited")
+func TestUpdateRecurring_IncomeIgnoresToAccountID(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "updrec_incignoreto@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	toID := createAcc(t, uid)
+	recID := createRec(t, uid, accID)
+
+	var capturedToID *int64
+	orig := hookUpdateRecurring
+	hookUpdateRecurring = func(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
+		capturedToID = toAccountID
+		return nil
+	}
+	t.Cleanup(func() { hookUpdateRecurring = orig })
+
+	req := injectUser(
+		withParam(
+			post("/recurring/"+intStr(recID), url.Values{
+				"description": {"Salary"},
+				"amount":      {"500"},
+				"dayOfMonth":  {"15"},
+				"type":        {"income"},
+				"toAccountId": {intStr(toID)}, // valeur résiduelle dans le formulaire
+			}),
+			"id", intStr(recID),
+		),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	UpdateRecurring(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d", rr.Code)
+	}
+	if capturedToID != nil {
+		t.Errorf("toAccountID should be nil for income, got %d", *capturedToID)
+	}
+}
+
+// recurring.go: UpdateRecurring — transfer correctly preserves toAccountId
+func TestUpdateRecurring_TransferKeepsToAccountID(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "updrec_transferkeep@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	toID := createAcc(t, uid)
+	recID := createRec(t, uid, accID)
+
+	var capturedToID *int64
+	orig := hookUpdateRecurring
+	hookUpdateRecurring = func(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
+		capturedToID = toAccountID
+		return nil
+	}
+	t.Cleanup(func() { hookUpdateRecurring = orig })
+
+	req := injectUser(
+		withParam(
+			post("/recurring/"+intStr(recID), url.Values{
+				"description": {"Transfer"},
+				"amount":      {"500"},
+				"dayOfMonth":  {"1"},
+				"type":        {"transfer"},
+				"toAccountId": {intStr(toID)},
+			}),
+			"id", intStr(recID),
+		),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	UpdateRecurring(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d", rr.Code)
+	}
+	if capturedToID == nil || *capturedToID != toID {
+		t.Errorf("toAccountID should be %d for transfer, got %v", toID, capturedToID)
+	}
+}
+
 // recurring.go:183-187 — hookDeleteRecurring fails → 500
 func TestDeleteRecurring_DBError(t *testing.T) {
 	setupHandlerTest(t)
@@ -1280,13 +1426,15 @@ func TestUpdateRecurring_ToAccountNotOwned(t *testing.T) {
 	accID2 := createAcc(t, uid2)
 	recID := createRec(t, uid, accID)
 
+	// Note: toAccountId n'est validé que pour les virements (type=transfer).
+	// Pour income/expense, il est ignoré quel que soit son contenu.
 	idStr := intStr(recID)
 	req := injectUser(
 		withParam(post("/recurring/"+idStr, url.Values{
 			"description": {"Updated"},
 			"amount":      {"500"},
 			"dayOfMonth":  {"15"},
-			"type":        {"income"},
+			"type":        {"transfer"},
 			"toAccountId": {intStr(accID2)},
 		}), "id", idStr),
 		mu(uid, "USER"),
