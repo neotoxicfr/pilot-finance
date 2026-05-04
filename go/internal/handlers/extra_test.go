@@ -970,7 +970,7 @@ func TestChangePassword_Success(t *testing.T) {
 	uid := newUser(t, "pwdchange@example.com", "OldP@ss1!", "USER")
 
 	req := injectUser(post("/settings/password", url.Values{
-		"currentPassword": {"OldP@ss1!"},
+		"current_password": {"OldP@ss1!"},
 		"newPassword":     {"NewValidP@ssw0rd!"},
 		"confirmPassword": {"NewValidP@ssw0rd!"},
 	}), &middleware.User{ID: uid, Role: "USER", Language: "fr", Currency: "EUR", SessionVersion: 1})

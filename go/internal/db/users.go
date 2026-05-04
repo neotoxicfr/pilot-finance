@@ -43,6 +43,15 @@ func UpdatePasswordHash(userID int64, hashedPassword string) error {
 	return err
 }
 
+// IncrementSessionVersion incrémente le compteur de version de session de
+// l'utilisateur, invalidant tous les JWT émis avec une version antérieure.
+// Utilisé au logout pour empêcher la réutilisation d'un JWT exfiltré (XSS bypass,
+// malware) jusqu'à son expiration naturelle (24h).
+func IncrementSessionVersion(userID int64) error {
+	_, err := DB.Exec(`UPDATE users SET session_version = session_version + 1 WHERE id = ?`, userID)
+	return err
+}
+
 // UpdatePassword met à jour le mot de passe et invalide les sessions
 func UpdatePassword(userID int64, hashedPassword string) error {
 	_, err := DB.Exec(`

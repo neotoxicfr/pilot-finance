@@ -30,6 +30,7 @@ var (
 	hookEncryptStr               = crypto.Encrypt
 	hookDecryptStr               = crypto.Decrypt
 	hookUpdatePassword           = db.UpdatePassword
+	hookIncrementSessionVersion  = db.IncrementSessionVersion
 	hookUpdateUserPrefs          = db.UpdateUserPreferences
 	hookGenerateToken            = auth.GenerateToken
 	hookGetAccountsByUserID      = db.GetAccountsByUserID

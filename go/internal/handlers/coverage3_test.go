@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -931,6 +932,112 @@ func TestUpdateRecurring_TransferKeepsToAccountID(t *testing.T) {
 	}
 	if capturedToID == nil || *capturedToID != toID {
 		t.Errorf("toAccountID should be %d for transfer, got %v", toID, capturedToID)
+	}
+}
+
+// recurring.go — CreateRecurring : transfer happy path (couvre toAccountID = &id)
+func TestCreateRecurring_TransferSuccess(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "crec_transfer_ok@example.com", "ValidP@ss1!", "USER")
+	fromID := createAcc(t, uid)
+	toID := createAcc(t, uid)
+
+	req := injectUser(post("/recurring", url.Values{
+		"description": {"Virement"},
+		"amount":      {"500"},
+		"dayOfMonth":  {"1"},
+		"type":        {"transfer"},
+		"accountId":   {intStr(fromID)},
+		"toAccountId": {intStr(toID)},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	CreateRecurring(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d (body: %s)", rr.Code, rr.Body.String())
+	}
+}
+
+// recurring.go — UpdateRecurring : sql.ErrNoRows → 404
+func TestUpdateRecurring_NotFound(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "updrec_404@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	recID := createRec(t, uid, accID)
+
+	orig := hookUpdateRecurring
+	hookUpdateRecurring = func(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
+		return sql.ErrNoRows
+	}
+	t.Cleanup(func() { hookUpdateRecurring = orig })
+
+	req := injectUser(
+		withParam(
+			post("/recurring/"+intStr(recID), url.Values{
+				"description": {"Test"},
+				"amount":      {"100"},
+				"dayOfMonth":  {"1"},
+				"type":        {"income"},
+			}),
+			"id", intStr(recID),
+		),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	UpdateRecurring(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("want 404, got %d", rr.Code)
+	}
+}
+
+// recurring.go — CreateRecurring (mode update via id) : sql.ErrNoRows → 404
+func TestCreateRecurring_UpdateBranch_NotFound(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "createrec_404@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	recID := createRec(t, uid, accID)
+
+	orig := hookUpdateRecurring
+	hookUpdateRecurring = func(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
+		return sql.ErrNoRows
+	}
+	t.Cleanup(func() { hookUpdateRecurring = orig })
+
+	req := injectUser(post("/recurring", url.Values{
+		"id":          {intStr(recID)},
+		"description": {"Test"},
+		"amount":      {"100"},
+		"dayOfMonth":  {"1"},
+		"type":        {"income"},
+		"accountId":   {intStr(accID)},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	CreateRecurring(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("want 404, got %d", rr.Code)
+	}
+}
+
+// recurring.go — DeleteRecurring : sql.ErrNoRows → 404
+func TestDeleteRecurring_NotFound(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "delrec_404@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	recID := createRec(t, uid, accID)
+
+	orig := hookDeleteRecurring
+	hookDeleteRecurring = func(id, userID int64) error {
+		return sql.ErrNoRows
+	}
+	t.Cleanup(func() { hookDeleteRecurring = orig })
+
+	req := injectUser(
+		withParam(httptest.NewRequest(http.MethodDelete, "/recurring/"+intStr(recID), nil), "id", intStr(recID)),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	DeleteRecurring(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("want 404, got %d", rr.Code)
 	}
 }
 
