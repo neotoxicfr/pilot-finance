@@ -168,7 +168,7 @@
             </dialog>
 
             <!-- Accounts List -->
-            <div class="space-y-3" id="accounts-list" aria-live="polite">
+            <div class="space-y-3" id="accounts-list">
                 {{range $i, $v := .Accounts}}
                 {{template "account-row" dict "Account" $v "Currency" $.Currency "T" $.T "IsFirst" (eq $i 0) "IsLast" (eq $i $.AccountLastIdx)}}
                 {{else}}
@@ -266,7 +266,7 @@
 
             <!-- Recurring List -->
             <div class="dashboard-card bg-background border rounded-2xl overflow-hidden">
-                <div class="max-h-[600px] overflow-y-auto overscroll-y-none" id="recurring-list" aria-live="polite">
+                <div class="max-h-[600px] overflow-y-auto overscroll-y-none" id="recurring-list">
                     {{template "recurring-table" .}}
                 </div>
             </div>
@@ -410,14 +410,14 @@ document.addEventListener('alpine:init', () => {
         <button {{if not .IsFirst}}hx-post="/accounts/{{.Account.ID}}/move?direction=up"
                 hx-target="#accounts-list" hx-swap="innerHTML"{{end}}
                 aria-label="{{index .T "accounts.move_up"}}"
-                class="p-1 rounded transition-colors {{if .IsFirst}}text-muted-foreground opacity-30 cursor-default{{else}}text-muted-foreground active:text-foreground active:bg-accent{{end}}"
+                class="min-h-[44px] min-w-[44px] flex items-center justify-center rounded transition-colors {{if .IsFirst}}text-muted-foreground opacity-30 cursor-default{{else}}text-muted-foreground active:text-foreground active:bg-accent{{end}}"
                 {{if .IsFirst}}disabled{{end}}>
             {{template "icon-chevron-up" dict "Size" 16}}
         </button>
         <button {{if not .IsLast}}hx-post="/accounts/{{.Account.ID}}/move?direction=down"
                 hx-target="#accounts-list" hx-swap="innerHTML"{{end}}
                 aria-label="{{index .T "accounts.move_down"}}"
-                class="p-1 rounded transition-colors {{if .IsLast}}text-muted-foreground opacity-30 cursor-default{{else}}text-muted-foreground active:text-foreground active:bg-accent{{end}}"
+                class="min-h-[44px] min-w-[44px] flex items-center justify-center rounded transition-colors {{if .IsLast}}text-muted-foreground opacity-30 cursor-default{{else}}text-muted-foreground active:text-foreground active:bg-accent{{end}}"
                 {{if .IsLast}}disabled{{end}}>
             {{template "icon-chevron-down" dict "Size" 16}}
         </button>
@@ -453,22 +453,22 @@ document.addEventListener('alpine:init', () => {
         </form>
         <div class="flex items-center gap-0.5 shrink-0" x-show="!del">
             <button @click="openAccountForm({{.Account | json}})" aria-label="{{index .T "common.edit"}}"
-                    class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
+                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
                 {{template "icon-pencil" dict "Size" 14}}
             </button>
             <button @click.prevent="del = true" aria-label="{{index .T "common.delete"}}"
-                    class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                 {{template "icon-trash" dict "Size" 14}}
             </button>
         </div>
         <div class="flex items-center gap-0.5 shrink-0" x-show="del">
             <button hx-delete="/accounts/{{.Account.ID}}" hx-target="#accounts-list" hx-swap="innerHTML"
                     aria-label="{{index .T "common.confirm_delete"}}"
-                    class="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                 {{template "icon-check" dict "Size" 14}}
             </button>
             <button @click.prevent="del = false" aria-label="{{index .T "common.cancel"}}"
-                    class="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
+                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:bg-accent rounded-lg transition-colors">
                 {{template "icon-x" dict "Size" 14}}
             </button>
         </div>
@@ -530,22 +530,22 @@ document.addEventListener('alpine:init', () => {
         </div>
         <div class="flex items-center gap-0.5 shrink-0" x-show="!del">
             <button @click="openRecurringForm({{. | json}})" aria-label="{{index $.T "common.edit"}}"
-                    class="p-2 text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
+                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
                 {{template "icon-pencil" dict "Size" 14}}
             </button>
             <button @click.prevent="del = true" aria-label="{{index $.T "common.delete"}}"
-                    class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                 {{template "icon-trash" dict "Size" 14}}
             </button>
         </div>
         <div class="flex items-center gap-0.5 shrink-0" x-show="del">
             <button hx-delete="/recurring/{{.ID}}" hx-target="#recurring-list" hx-swap="innerHTML"
                     aria-label="{{index $.T "common.confirm_delete"}}"
-                    class="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
                 {{template "icon-check" dict "Size" 14}}
             </button>
             <button @click.prevent="del = false" aria-label="{{index $.T "common.cancel_delete"}}"
-                    class="p-2 text-muted-foreground hover:bg-accent rounded-lg transition-colors">
+                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:bg-accent rounded-lg transition-colors">
                 {{template "icon-x" dict "Size" 14}}
             </button>
         </div>
