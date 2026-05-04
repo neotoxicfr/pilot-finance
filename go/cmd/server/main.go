@@ -366,14 +366,48 @@ func trustedProxyMiddleware() func(http.Handler) http.Handler {
 		slog.Warn("TRUSTED_PROXIES vide : fallback chi RealIP (X-Forwarded-For accepté de toute source — usage dev uniquement)")
 		return chimw.RealIP
 	}
-	trusted := make(map[string]bool)
+	// Supporte IPs exactes ET ranges CIDR (les IPs containers Docker changent au restart).
+	trustedIPs := make(map[string]bool)
+	var trustedNets []*net.IPNet
 	for _, p := range strings.Split(proxyEnv, ",") {
-		trusted[strings.TrimSpace(p)] = true
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if strings.Contains(p, "/") {
+			_, ipnet, err := net.ParseCIDR(p)
+			if err != nil {
+				slog.Error("TRUSTED_PROXIES : CIDR invalide", "value", p, "err", err)
+				os.Exit(1)
+			}
+			trustedNets = append(trustedNets, ipnet)
+		} else {
+			if net.ParseIP(p) == nil {
+				slog.Error("TRUSTED_PROXIES : IP invalide", "value", p)
+				os.Exit(1)
+			}
+			trustedIPs[p] = true
+		}
+	}
+	isTrusted := func(host string) bool {
+		if trustedIPs[host] {
+			return true
+		}
+		ip := net.ParseIP(host)
+		if ip == nil {
+			return false
+		}
+		for _, n := range trustedNets {
+			if n.Contains(ip) {
+				return true
+			}
+		}
+		return false
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			host, _, _ := net.SplitHostPort(r.RemoteAddr)
-			if trusted[host] {
+			if isTrusted(host) {
 				if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 					parts := strings.Split(xff, ",")
 					clientIP := strings.TrimSpace(parts[0])
