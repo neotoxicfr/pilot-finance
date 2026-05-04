@@ -51,6 +51,14 @@ func getClientIP(r *http.Request) string {
 	return remoteAddr
 }
 
+// dummyPasswordHash est un hash bcrypt valide (cost 12) utilisé pour égaliser
+// le temps de réponse quand l'email saisi n'existe pas. Sans ce dummy, un attaquant
+// peut détecter la présence d'un email en mesurant la durée de la requête
+// (~100ms avec hash, ~1ms sans).
+// Le mot de passe en clair correspondant n'a aucune importance — on ne vérifie
+// jamais le résultat de la comparaison dummy.
+var dummyPasswordHash = "$2a$12$abcdefghijklmnopqrstuuQYO7c5T7C0YyJzUu/2eSoYI8.7qONXi"
+
 // HandleLogin gère la soumission du formulaire de connexion
 func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	clientIP := getClientIP(r)
@@ -145,6 +153,10 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if user == nil {
+		// Égaliser le temps de réponse : exécuter un bcrypt dummy pour empêcher
+		// la détection d'email existant via timing oracle (~100ms vs ~1ms).
+		// Le résultat est ignoré.
+		_ = hookVerifyPassword(password, dummyPasswordHash)
 		clientError(w, ErrAuthInvalid, "Identifiants incorrects", http.StatusUnauthorized)
 		return
 	}

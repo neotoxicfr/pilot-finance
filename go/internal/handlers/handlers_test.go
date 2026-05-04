@@ -65,6 +65,14 @@ func setupHandlerTest(t *testing.T) {
 	}
 	t.Cleanup(func() { hookHashPassword = origHash })
 
+	// Remplacer le dummy hash bcrypt cost 12 par un hash MinCost pour ne pas
+	// ralentir les tests qui exercent la branche "user nil" (timing oracle fix).
+	origDummy := dummyPasswordHash
+	if dummy, err := bcrypt.GenerateFromPassword([]byte("dummy"), bcrypt.MinCost); err == nil {
+		dummyPasswordHash = string(dummy)
+	}
+	t.Cleanup(func() { dummyPasswordHash = origDummy })
+
 	dir := t.TempDir()
 	if err := db.Init(db.Config{Path: dir + "/test.db"}); err != nil {
 		t.Fatalf("db.Init: %v", err)
@@ -352,7 +360,7 @@ func TestChangePassword_MissingFields(t *testing.T) {
 	uid := newUser(t, "pwd@example.com", "OldP@ss1!", "USER")
 
 	req := injectUser(post("/settings/password", url.Values{
-		"currentPassword": {""},
+		"current_password": {""},
 		"newPassword":     {""},
 	}), &middleware.User{ID: uid, Role: "USER", Language: "fr", Currency: "EUR", SessionVersion: 1})
 	rr := httptest.NewRecorder()
@@ -367,7 +375,7 @@ func TestChangePassword_WrongCurrentPassword(t *testing.T) {
 	uid := newUser(t, "pwdwrong@example.com", "OldP@ss1!", "USER")
 
 	req := injectUser(post("/settings/password", url.Values{
-		"currentPassword": {"WrongP@ss1!"},
+		"current_password": {"WrongP@ss1!"},
 		"newPassword":     {"NewValidP@ss1!!"},
 		"confirmPassword": {"NewValidP@ss1!!"},
 	}), &middleware.User{ID: uid, Role: "USER", Language: "fr", Currency: "EUR", SessionVersion: 1})
@@ -383,7 +391,7 @@ func TestChangePassword_PasswordMismatch(t *testing.T) {
 	uid := newUser(t, "pwdmatch@example.com", "OldP@ss1!", "USER")
 
 	req := injectUser(post("/settings/password", url.Values{
-		"currentPassword": {"OldP@ss1!"},
+		"current_password": {"OldP@ss1!"},
 		"newPassword":     {"NewP@ss1!"},
 		"confirmPassword": {"DifferentP@ss1!"},
 	}), &middleware.User{ID: uid, Role: "USER", Language: "fr", Currency: "EUR", SessionVersion: 1})
@@ -399,7 +407,7 @@ func TestChangePassword_WeakNewPassword(t *testing.T) {
 	uid := newUser(t, "pwdweak@example.com", "OldP@ss1!", "USER")
 
 	req := injectUser(post("/settings/password", url.Values{
-		"currentPassword": {"OldP@ss1!"},
+		"current_password": {"OldP@ss1!"},
 		"newPassword":     {"weak"},
 		"confirmPassword": {"weak"},
 	}), &middleware.User{ID: uid, Role: "USER", Language: "fr", Currency: "EUR", SessionVersion: 1})

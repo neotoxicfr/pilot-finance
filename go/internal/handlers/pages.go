@@ -74,6 +74,11 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user != nil {
 		hookLogAudit(user.ID, db.AuditLogout, getClientIP(r), r.UserAgent())
+		// Invalider tous les JWT émis pour cet utilisateur en bumpant session_version.
+		// Sans ça, un JWT exfiltré (XSS bypass, malware) reste valide 24h après logout.
+		if err := hookIncrementSessionVersion(user.ID); err != nil {
+			slog.Warn("Logout: increment session version", "err", err, "userID", user.ID)
+		}
 		// Clear session cache entry on logout
 		middleware.InvalidateSessionCache(user.ID)
 	}

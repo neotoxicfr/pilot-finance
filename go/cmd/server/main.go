@@ -355,6 +355,15 @@ func cacheStatic(next http.Handler) http.Handler {
 func trustedProxyMiddleware() func(http.Handler) http.Handler {
 	proxyEnv := os.Getenv("TRUSTED_PROXIES")
 	if proxyEnv == "" {
+		// En production, refuser de démarrer sans TRUSTED_PROXIES :
+		// chimw.RealIP fait confiance inconditionnellement à X-Forwarded-For,
+		// ce qui permet à n'importe quel attaquant de spoofer son IP et bypasser
+		// les rate limits applicatifs.
+		if os.Getenv("ENV") == "production" {
+			slog.Error("TRUSTED_PROXIES doit être défini en production (sinon X-Forwarded-For est spoofable et bypasse les rate limits)")
+			os.Exit(1)
+		}
+		slog.Warn("TRUSTED_PROXIES vide : fallback chi RealIP (X-Forwarded-For accepté de toute source — usage dev uniquement)")
 		return chimw.RealIP
 	}
 	trusted := make(map[string]bool)
