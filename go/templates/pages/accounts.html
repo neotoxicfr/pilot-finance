@@ -38,12 +38,12 @@
                         <input type="hidden" name="id" x-model="accountEditId">
                         <div class="grid grid-cols-2 gap-4">
                             <label for="account-name" class="sr-only">{{index .T "accounts.name_placeholder"}}</label>
-                            <input id="account-name" type="text" name="name" placeholder="{{index .T "accounts.name_placeholder"}}" required autofocus
+                            <input id="account-name" type="text" name="name" placeholder="{{index .T "accounts.name_hint"}}" required autofocus
                                    x-model="accountName"
                                    class="bg-accent border border-border rounded-xl p-3 text-sm w-full outline-hidden focus:border-blue-500 text-foreground">
                             <div class="relative">
                                 <label for="account-balance" class="sr-only">{{index .T "accounts.balance_placeholder"}}</label>
-                                <input id="account-balance" type="text" inputmode="decimal" name="balance" placeholder="{{index .T "accounts.balance_placeholder"}}"
+                                <input id="account-balance" type="text" inputmode="decimal" name="balance" placeholder="{{index .T "accounts.balance_hint"}}"
                                        x-model="accountBalance"
                                        class="bg-accent border border-border rounded-xl p-3 pr-12 text-sm w-full font-mono outline-hidden focus:border-blue-500 text-foreground">
                                 <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">{{.Currency}}</span>
@@ -207,19 +207,19 @@
                             <input type="hidden" name="id" x-model="recurringEditId">
                             <div class="flex flex-col sm:flex-row gap-3">
                                 <label for="recurring-desc" class="sr-only">{{index .T "recurring.label_placeholder"}}</label>
-                                <input id="recurring-desc" type="text" name="description" placeholder="{{index .T "recurring.label_placeholder"}}" required autofocus
+                                <input id="recurring-desc" type="text" name="description" placeholder="{{index .T "recurring.label_hint"}}" required autofocus
                                        x-model="recurringDescription"
                                        class="flex-1 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-blue-500">
                                 <div class="flex gap-3">
                                     <label for="recurring-amount" class="sr-only">{{index .T "recurring.amount_label"}}</label>
                                     <div class="relative flex-1 sm:w-28 sm:flex-none">
-                                        <input id="recurring-amount" type="number" step="0.01" name="amount" placeholder="{{index .T "recurring.amount_label"}}" required
+                                        <input id="recurring-amount" type="number" step="0.01" name="amount" placeholder="{{index .T "recurring.amount_hint"}}" required
                                                x-model="recurringAmount"
                                                class="w-full bg-accent border border-border text-foreground rounded-xl p-2.5 pr-12 text-sm outline-hidden font-mono focus:border-blue-500">
                                         <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">{{.Currency}}</span>
                                     </div>
                                     <label for="recurring-day" class="sr-only">{{index .T "recurring.day_placeholder"}}</label>
-                                    <input id="recurring-day" type="number" min="1" max="31" name="dayOfMonth" placeholder="{{index .T "recurring.day_placeholder"}}" required
+                                    <input id="recurring-day" type="number" min="1" max="31" name="dayOfMonth" placeholder="{{index .T "recurring.day_hint"}}" required
                                            x-model="recurringDay"
                                            class="w-14 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden text-center focus:border-blue-500">
                                 </div>
