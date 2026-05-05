@@ -31,7 +31,7 @@ test.describe('Settings', () => {
   });
 
   test('password form has required fields', async ({ page }) => {
-    await expect(page.locator('input[name="currentPassword"]')).toBeVisible();
+    await expect(page.locator('input[name="current_password"]')).toBeVisible();
     await expect(page.locator('input[name="newPassword"]')).toBeVisible();
     await expect(page.locator('input[name="confirmPassword"]')).toBeVisible();
   });

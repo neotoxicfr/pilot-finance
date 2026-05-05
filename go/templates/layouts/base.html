@@ -70,10 +70,28 @@
             };
         }
 
+        // Composant confirmation de déconnexion
+        function logoutData() {
+            return {
+                _trigger: null,
+                open() {
+                    this._trigger = document.activeElement;
+                    document.getElementById('logout-dialog').showModal();
+                },
+                close() {
+                    document.getElementById('logout-dialog').close();
+                },
+                onClose() {
+                    this.$nextTick(() => this._trigger?.focus());
+                }
+            };
+        }
+
         // Enregistrement des composants Alpine pour le build CSP (pas d'eval inline)
         document.addEventListener('alpine:init', () => {
             Alpine.data('themeData', themeData);
             Alpine.data('toastData', toastData);
+            Alpine.data('logoutData', logoutData);
         });
 
         // Theme data pour Alpine.js
@@ -136,6 +154,18 @@
 </head>
 <body class="font-sans antialiased bg-background text-foreground {{if not .User}}no-nav {{end}}{{block "bodyClass" .}}min-h-screen flex flex-col{{end}}" x-data="themeData">
     <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[200] focus:px-4 focus:py-2 focus:bg-background focus:text-foreground focus:border focus:border-border focus:rounded-lg focus:text-sm focus:font-bold">Skip to main content</a>
+    {{if and .User (not (index .User "EmailVerified"))}}
+    <div role="alert" aria-live="polite" class="w-full bg-orange-500 dark:bg-orange-600 text-white text-sm">
+        <div class="max-w-[1400px] mx-auto px-3 py-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center">
+            <span class="inline-flex items-center gap-2 font-semibold">
+                <span aria-hidden="true">{{template "icon-mail" dict "Size" 16}}</span>
+                {{index .T "verify_email.banner_text"}}
+            </span>
+            <span class="text-white/90">{{index .T "verify_email.banner_help"}}</span>
+            <a href="/settings#verify-email" class="underline underline-offset-2 font-semibold hover:text-white/90 focus:outline-none focus:ring-2 focus:ring-white/60 rounded">{{index .T "verify_email.banner_link"}}</a>
+        </div>
+    </div>
+    {{end}}
     {{if .User}}
     <nav class="border-b border-border bg-background backdrop-blur-md sticky top-0 z-50">
         <div class="max-w-[1400px] mx-auto px-2 sm:px-4 h-16 flex items-center justify-between">
@@ -165,12 +195,24 @@
                 <a href="/settings" class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-colors" aria-label="{{index .T "nav.settings"}}">
                     {{template "icon-settings" dict "Size" 20}}
                 </a>
-                <div class="h-4 w-px bg-border mx-0.5"></div>
-                <form action="/logout" method="POST">
-                    <button type="submit" class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors" aria-label="{{index .T "nav.signout"}}">
+                <div class="h-6 w-px bg-border mx-1.5"></div>
+                <div x-data="logoutData">
+                    <button type="button" @click="open()" class="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors" aria-label="{{index .T "nav.signout"}}">
                         {{template "icon-logout" dict "Size" 20}}
                     </button>
-                </form>
+                    <dialog id="logout-dialog" aria-labelledby="logout-dialog-title"
+                            @click="$event.target === $el && $el.close()"
+                            @close="onClose()">
+                        <div class="modal-panel relative border border-border rounded-2xl w-full sm:max-w-sm p-6" @click.stop>
+                            <h3 id="logout-dialog-title" class="text-base font-bold text-foreground mb-2">{{index .T "nav.logout_confirm_title"}}</h3>
+                            <p class="text-sm text-muted-foreground mb-6">{{index .T "nav.logout_confirm_text"}}</p>
+                            <form action="/logout" method="POST" class="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
+                                <button type="button" @click="close()" class="bg-accent hover:bg-border text-muted-foreground font-medium py-3 px-5 rounded-xl text-sm transition-colors">{{index .T "common.cancel"}}</button>
+                                <button type="submit" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-5 rounded-xl text-sm transition-colors">{{index .T "nav.logout_confirm_btn"}}</button>
+                            </form>
+                        </div>
+                    </dialog>
+                </div>
             </div>
         </div>
     </nav>

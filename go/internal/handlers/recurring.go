@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"database/sql"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -102,6 +104,10 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 		}
 		err = hookUpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				clientError(w, ErrNotFound, "Opération récurrente introuvable", http.StatusNotFound)
+				return
+			}
 			serverError(w, "update recurring", err)
 			return
 		}
@@ -186,6 +192,10 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 
 	err = hookUpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			clientError(w, ErrNotFound, "Opération récurrente introuvable", http.StatusNotFound)
+			return
+		}
 		serverError(w, "update recurring", err)
 		return
 	}
@@ -210,6 +220,10 @@ func DeleteRecurring(w http.ResponseWriter, r *http.Request) {
 
 	err = hookDeleteRecurring(id, user.ID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			clientError(w, ErrNotFound, "Opération récurrente introuvable", http.StatusNotFound)
+			return
+		}
 		serverError(w, "delete recurring", err)
 		return
 	}

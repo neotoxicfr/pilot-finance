@@ -1,6 +1,7 @@
 package db
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -168,21 +169,43 @@ func CreateRecurring(userID, accountID int64, toAccountID *int64, description st
 	return err
 }
 
-// UpdateRecurring met a jour une operation recurrente
+// UpdateRecurring met a jour une operation recurrente.
+// Retourne sql.ErrNoRows si l'opération n'existe pas ou n'appartient pas à l'utilisateur.
 func UpdateRecurring(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
 	amtEnc, err := crypto.EncryptCents(amount)
 	if err != nil {
 		return fmt.Errorf("encrypt amount: %w", err)
 	}
-	_, err = DB.Exec(`
+	res, err := DB.Exec(`
 		UPDATE recurring_operations SET description = ?, amount = ?, day_of_month = ?, to_account_id = ?
 		WHERE id = ? AND user_id = ?
 	`, description, amtEnc, dayOfMonth, toAccountID, id, userID)
-	return err
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("RowsAffected: %w", err)
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
-// DeleteRecurring supprime une operation recurrente
+// DeleteRecurring supprime une operation recurrente.
+// Retourne sql.ErrNoRows si l'opération n'existe pas ou n'appartient pas à l'utilisateur.
 func DeleteRecurring(id, userID int64) error {
-	_, err := DB.Exec(`DELETE FROM recurring_operations WHERE id = ? AND user_id = ?`, id, userID)
-	return err
+	res, err := DB.Exec(`DELETE FROM recurring_operations WHERE id = ? AND user_id = ?`, id, userID)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("RowsAffected: %w", err)
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }

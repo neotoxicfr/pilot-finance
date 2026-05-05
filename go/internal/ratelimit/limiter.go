@@ -40,6 +40,11 @@ var Configs = map[string]Config{
 		WindowMs:    3600000, // 1 heure
 		BlockMs:     3600000, // 1 heure
 	},
+	"verifyEmailResend": {
+		MaxAttempts: 1,
+		WindowMs:    300000, // 5 minutes
+		BlockMs:     300000, // 5 minutes
+	},
 	"twoFactor": {
 		MaxAttempts: 5,
 		WindowMs:    300000, // 5 minutes

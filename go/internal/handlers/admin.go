@@ -72,6 +72,7 @@ func AuditPage(w http.ResponseWriter, r *http.Request) {
 	totalPages := (total + auditPageSize - 1) / auditPageSize
 
 	data["Title"] = t["page.title_audit_log"]
+	data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role, "EmailVerified": user.EmailVerified}
 	data["Entries"] = rows
 	data["Page"] = page
 	data["TotalPages"] = totalPages

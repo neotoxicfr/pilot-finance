@@ -26,7 +26,7 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currentPassword := r.FormValue("currentPassword")
+	currentPassword := r.FormValue("current_password")
 	newPassword := r.FormValue("newPassword")
 	confirmPassword := r.FormValue("confirmPassword")
 

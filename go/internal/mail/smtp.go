@@ -266,3 +266,63 @@ func resetEmailTexts(lang string) resetEmailContent {
 		footer:  i18n.T(lang, "email.reset_footer"),
 	}
 }
+
+// SendVerificationEmail envoie un email de vérification d'adresse.
+// lang contrôle la langue du template ("fr" ou "en").
+func SendVerificationEmail(to, token, host, lang string) error {
+	verifyURL := fmt.Sprintf("https://%s/verify-email?token=%s", host, token)
+
+	t := verifyEmailTexts(lang)
+	body := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f1f5f9; padding: 40px; }
+        .container { max-width: 500px; margin: 0 auto; background: white; border-radius: 16px; padding: 40px; }
+        h1 { color: #0f172a; font-size: 24px; margin-bottom: 20px; }
+        p { color: #475569; line-height: 1.6; }
+        .btn { display: inline-block; background: #f97316; color: white; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; margin: 20px 0; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>%s</h1>
+        <p>%s</p>
+        <p>%s</p>
+        <a href="%s" class="btn">%s</a>
+        <p>%s</p>
+        <div class="footer">
+            <p>%s</p>
+        </div>
+    </div>
+</body>
+</html>
+`, t.title, t.intro, t.action, verifyURL, t.btn, t.ignore, t.footer)
+
+	return Send(to, t.subject, body)
+}
+
+type verifyEmailContent struct {
+	subject string
+	title   string
+	intro   string
+	action  string
+	btn     string
+	ignore  string
+	footer  string
+}
+
+func verifyEmailTexts(lang string) verifyEmailContent {
+	return verifyEmailContent{
+		subject: i18n.T(lang, "email.verify_subject"),
+		title:   i18n.T(lang, "email.verify_title"),
+		intro:   i18n.T(lang, "email.verify_intro"),
+		action:  i18n.T(lang, "email.verify_action"),
+		btn:     i18n.T(lang, "email.verify_btn"),
+		ignore:  i18n.T(lang, "email.verify_ignore"),
+		footer:  i18n.T(lang, "email.verify_footer"),
+	}
+}

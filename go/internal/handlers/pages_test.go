@@ -110,6 +110,25 @@ func TestLogout_NoUser_Redirects(t *testing.T) {
 	}
 }
 
+// Logout : si IncrementSessionVersion échoue, on log et on continue (303 quand même).
+func TestLogout_IncrementSessionVersionError(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "logoutsv@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookIncrementSessionVersion
+	hookIncrementSessionVersion = func(int64) error { return errTest }
+	t.Cleanup(func() { hookIncrementSessionVersion = orig })
+
+	req := injectUser(httptest.NewRequest(http.MethodPost, "/logout", nil),
+		&middleware.User{ID: uid, Role: "USER", Language: "fr", Currency: "EUR", SessionVersion: 1})
+	rr := httptest.NewRecorder()
+	Logout(rr, req)
+
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("want 303 (logout best-effort), got %d", rr.Code)
+	}
+}
+
 // --- Dashboard ---
 
 func TestDashboard_NoUser_Redirects(t *testing.T) {
