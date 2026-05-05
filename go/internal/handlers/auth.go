@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/hex"
 	"log/slog"
 	"net/http"
 	"os"
@@ -341,6 +342,14 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		_ = hookUpdateUserPrefs(userID, detectedLang, "EUR")
 	}
 
+	// Email de vérification (best-effort) : génère un token et l'envoie si SMTP configuré.
+	// L'échec n'empêche PAS l'inscription : l'utilisateur peut renvoyer depuis Settings.
+	if hookMailIsEnabled() {
+		if err := sendVerificationToken(userID, email, detectedLang); err != nil {
+			slog.Warn("send verification email", "err", err, "userID", userID)
+		}
+	}
+
 	// Générer le token et connecter (langue détectée depuis Accept-Language, devise par défaut)
 	token, err := hookGenerateToken(userID, role, detectedLang, "EUR", 1)
 	if err != nil {
@@ -351,6 +360,29 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	setSessionCookie(w, "session", token, 86400)
 
 	htmxRedirect(w, r, "/")
+}
+
+// sendVerificationToken génère un token aléatoire 32 bytes, stocke son hash SHA-256
+// et envoie un email contenant le token brut. Best-effort : retourne l'erreur de l'envoi.
+func sendVerificationToken(userID int64, email, lang string) error {
+	tokenBytes := make([]byte, 32)
+	if _, err := hookRandRead(tokenBytes); err != nil {
+		return err
+	}
+	token := hex.EncodeToString(tokenBytes)
+	hashed := hookHashToken(token)
+	if err := hookSetVerificationToken(userID, hashed); err != nil {
+		return err
+	}
+
+	host := os.Getenv("HOST")
+	if host == "" {
+		host = "localhost:3000"
+	}
+	if lang == "" {
+		lang = "fr"
+	}
+	return hookSendVerification(email, token, host, lang)
 }
 
 // handleFailedLogin gère un échec de connexion

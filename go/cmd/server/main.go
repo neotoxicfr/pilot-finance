@@ -192,7 +192,7 @@ func main() {
 
 	// Routes publiques sans rate limit strict
 	r.With(middleware.ValidateOrigin(host), middleware.OptionalAuth).Post("/logout", handlers.Logout)
-	r.Get("/verify-email", handlers.VerifyEmailPage)
+	r.With(middleware.OptionalAuth).Get("/verify-email", handlers.VerifyEmailPage)
 	r.With(middleware.OptionalAuth).Get("/privacy", handlers.PrivacyPage)
 	r.With(middleware.OptionalAuth).Get("/legal", handlers.LegalPage)
 
@@ -216,6 +216,7 @@ func main() {
 		r.Get("/settings", handlers.SettingsPage)
 		r.Post("/settings/password", handlers.ChangePassword)
 		r.Post("/settings/preferences", handlers.UpdatePreferences)
+		r.Post("/settings/verify-email/resend", handlers.ResendVerificationEmail)
 		exportRoute := r.With()
 		if !disableRL {
 			exportRoute = r.With(httprate.LimitByRealIP(10, time.Minute))

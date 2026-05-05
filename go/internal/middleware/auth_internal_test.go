@@ -25,8 +25,8 @@ func TestRequireAuth_DBError_Redirects(t *testing.T) {
 	restore := setupInternalAuth(t)
 	defer restore()
 
-	getUserAuthData = func(_ int64) (int, string, error) {
-		return 0, "", errors.New("db unavailable")
+	getUserAuthData = func(_ int64) (int, string, bool, error) {
+		return 0, "", false, errors.New("db unavailable")
 	}
 
 	token, err := auth.GenerateToken(1, "user", "fr", "EUR", 1)
@@ -55,8 +55,8 @@ func TestOptionalAuth_DBError_NoUserInContext(t *testing.T) {
 	restore := setupInternalAuth(t)
 	defer restore()
 
-	getUserAuthData = func(_ int64) (int, string, error) {
-		return 0, "", errors.New("db unavailable")
+	getUserAuthData = func(_ int64) (int, string, bool, error) {
+		return 0, "", false, errors.New("db unavailable")
 	}
 
 	token, err := auth.GenerateToken(1, "user", "fr", "EUR", 1)
@@ -93,9 +93,9 @@ func TestRequireAuth_SessionCacheHit(t *testing.T) {
 
 	// Track how many times getUserAuthData is called
 	callCount := 0
-	getUserAuthData = func(userID int64) (int, string, error) {
+	getUserAuthData = func(userID int64) (int, string, bool, error) {
 		callCount++
-		return 1, "encrypted-email", nil
+		return 1, "encrypted-email", true, nil
 	}
 
 	token, err := auth.GenerateToken(42, "user", "fr", "EUR", 1)

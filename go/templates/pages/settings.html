@@ -1,5 +1,44 @@
 {{define "content"}}
 <script nonce="{{.Nonce}}">
+function verifyEmailData() {
+    return {
+        sending: false,
+        sent: false,
+        error: '',
+        async resend(event) {
+            this.sending = true;
+            this.error = '';
+            this.sent = false;
+            try {
+                const res = await fetch('/settings/verify-email/resend', { method: 'POST' });
+                if (res.ok) {
+                    this.sent = true;
+                    window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: '{{index .T "verify_email.resend_success"}}' } }));
+                } else {
+                    const code = res.headers.get('X-Error-Code') || '';
+                    if (res.status === 429) this.error = '{{index .T "verify_email.resend_rate_limited"}}';
+                    else if (code === 'CONFLICT') this.error = '{{index .T "verify_email.resend_already_verified"}}';
+                    else this.error = '{{index .T "common.network_error"}}';
+                    window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.error, isError: true } }));
+                }
+            } catch (e) {
+                this.error = '{{index .T "common.network_error"}}';
+                window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.error, isError: true } }));
+            } finally {
+                this.sending = false;
+            }
+        }
+    };
+}
+
+{{if .VerifiedJustNow}}
+document.addEventListener('alpine:init', () => {
+    setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: '{{index .T "verify_email.success_toast"}}' } }));
+    }, 100);
+});
+{{end}}
+
 // Composant MFA
 function mfaData() {
     return {
@@ -117,6 +156,7 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('pwdData',    pwdData);
     Alpine.data('prefsData',  prefsData);
     Alpine.data('dangerData', dangerData);
+    Alpine.data('verifyEmailData', verifyEmailData);
 });
 </script>
 <div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8 text-foreground">
@@ -126,6 +166,29 @@ document.addEventListener('alpine:init', () => {
         <span class="text-blue-500">{{template "icon-settings" dict "Size" 32}}</span>
         <h1 class="text-2xl font-bold text-foreground">{{index .T "settings.title"}}</h1>
     </div>
+
+    {{if and .User (not (index .User "EmailVerified"))}}
+    <div id="verify-email" x-data="verifyEmailData" class="dashboard-card bg-background border border-orange-500/30 rounded-2xl p-6 relative overflow-hidden">
+        <div class="absolute left-0 top-0 bottom-0 w-1 bg-orange-500"></div>
+        <h2 class="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
+            <span class="text-orange-500">{{template "icon-mail" dict "Size" 20}}</span>
+            {{index .T "verify_email.settings_title"}}
+        </h2>
+        <p class="text-sm text-muted-foreground mb-4">{{index .T "verify_email.settings_description"}}</p>
+        {{if not .MailEnabled}}
+            <p class="text-sm text-orange-500 bg-orange-500/10 border border-orange-500/20 rounded-xl p-3">{{index .T "verify_email.mail_disabled"}}</p>
+        {{else}}
+            <button type="button" @click="resend()" :disabled="sending"
+                    class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                <span x-show="!sending">{{index .T "verify_email.resend_btn"}}</span>
+                <span x-show="sending" x-cloak>{{index .T "verify_email.resend_sending"}}</span>
+            </button>
+            <template x-if="error">
+                <p class="mt-3 text-sm text-red-500" x-text="error"></p>
+            </template>
+        {{end}}
+    </div>
+    {{end}}
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
