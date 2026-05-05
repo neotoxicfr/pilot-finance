@@ -62,7 +62,7 @@ func TestGetUserAuthData(t *testing.T) {
 	defer cleanup()
 	userID := createTestUser(t)
 
-	sv, emailEnc, err := GetUserAuthData(userID)
+	sv, emailEnc, verified, err := GetUserAuthData(userID)
 	if err != nil {
 		t.Fatalf("GetUserAuthData: %v", err)
 	}
@@ -71,6 +71,9 @@ func TestGetUserAuthData(t *testing.T) {
 	}
 	if emailEnc == "" {
 		t.Error("email_encrypted should not be empty")
+	}
+	if verified {
+		t.Error("new user should not be email-verified by default")
 	}
 }
 
@@ -117,13 +120,13 @@ func TestUpdatePassword(t *testing.T) {
 	defer cleanup()
 	userID := createTestUser(t)
 
-	sv1, _, _ := GetUserAuthData(userID)
+	sv1, _, _, _ := GetUserAuthData(userID)
 
 	if err := UpdatePassword(userID, "newhash"); err != nil {
 		t.Fatalf("UpdatePassword: %v", err)
 	}
 
-	sv2, _, _ := GetUserAuthData(userID)
+	sv2, _, _, _ := GetUserAuthData(userID)
 	if sv2 != sv1+1 {
 		t.Errorf("session_version should increment: want %d, got %d", sv1+1, sv2)
 	}

@@ -7,12 +7,14 @@ import (
 	"pilot-finance/internal/crypto"
 )
 
-// CreateUser crée un nouvel utilisateur
+// CreateUser crée un nouvel utilisateur (email non vérifié par défaut).
+// L'email reste non bloquant : un bandeau persistant + relance dans Settings
+// permet à l'utilisateur de vérifier ultérieurement.
 func CreateUser(emailEncrypted, emailBlindIndex, password, role string) (int64, error) {
 	result, err := DB.Exec(`
 		INSERT INTO users (email_encrypted, email_blind_index, password, role, created_at, email_verified, session_version)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, emailEncrypted, emailBlindIndex, password, role, time.Now().Unix(), true, 1)
+	`, emailEncrypted, emailBlindIndex, password, role, time.Now().Unix(), false, 1)
 
 	if err != nil {
 		return 0, err
@@ -166,6 +168,25 @@ func VerifyEmailByToken(hashedToken string) error {
 	}
 
 	return nil
+}
+
+// SetVerificationToken stocke le hash SHA-256 du token de vérification d'email.
+// Le token brut est envoyé par email ; seule sa version hashée transite par la DB.
+func SetVerificationToken(userID int64, hashedToken string) error {
+	_, err := DB.Exec(`UPDATE users SET verification_token = ? WHERE id = ?`, hashedToken, userID)
+	return err
+}
+
+// GetUserByVerificationToken récupère l'utilisateur dont le verification_token correspond.
+// Retourne (nil, nil) si aucun utilisateur ne correspond.
+func GetUserByVerificationToken(hashedToken string) (*User, error) {
+	return scanUser(DB.QueryRow(userSelectCols+` WHERE verification_token = ?`, hashedToken))
+}
+
+// MarkEmailVerified marque l'email comme vérifié et efface le token (idempotent).
+func MarkEmailVerified(userID int64) error {
+	_, err := DB.Exec(`UPDATE users SET email_verified = 1, verification_token = NULL WHERE id = ?`, userID)
+	return err
 }
 
 // GetAllUsers récupère tous les utilisateurs (admin)

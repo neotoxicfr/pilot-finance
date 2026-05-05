@@ -259,15 +259,15 @@ func TestSettingsPage_RenderError(t *testing.T) {
 	}
 }
 
-// pages.go:301-302 — hookVerifyEmailByToken returns non-ErrTokenInvalid → "Erreur serveur."
-func TestVerifyEmailPage_ServerError(t *testing.T) {
+// pages.go — hookGetUserByVerificationTok returns DB error → "Erreur serveur."
+func TestVerifyEmailPage_LookupError(t *testing.T) {
 	setupHandlerTest(t)
 
-	orig := hookVerifyEmailByToken
-	hookVerifyEmailByToken = func(s string) error {
-		return errTest
+	orig := hookGetUserByVerificationTok
+	hookGetUserByVerificationTok = func(s string) (*db.User, error) {
+		return nil, errTest
 	}
-	t.Cleanup(func() { hookVerifyEmailByToken = orig })
+	t.Cleanup(func() { hookGetUserByVerificationTok = orig })
 
 	req := httptest.NewRequest(http.MethodGet, "/verify-email?token=sometoken", nil)
 	rr := httptest.NewRecorder()
@@ -277,21 +277,94 @@ func TestVerifyEmailPage_ServerError(t *testing.T) {
 	}
 }
 
-// pages.go:309-312 — hookVerifyEmailByToken returns nil → Success=true
-func TestVerifyEmailPage_Success(t *testing.T) {
+// pages.go — hookGetUserByVerificationTok returns nil → token invalid
+func TestVerifyEmailPage_TokenInvalid(t *testing.T) {
 	setupHandlerTest(t)
 
-	orig := hookVerifyEmailByToken
-	hookVerifyEmailByToken = func(s string) error {
-		return nil
+	orig := hookGetUserByVerificationTok
+	hookGetUserByVerificationTok = func(s string) (*db.User, error) {
+		return nil, nil
 	}
-	t.Cleanup(func() { hookVerifyEmailByToken = orig })
+	t.Cleanup(func() { hookGetUserByVerificationTok = orig })
 
 	req := httptest.NewRequest(http.MethodGet, "/verify-email?token=sometoken", nil)
 	rr := httptest.NewRecorder()
 	VerifyEmailPage(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Errorf("want 200, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "Jeton invalide") {
+		t.Errorf("want invalid token message, got: %s", rr.Body.String())
+	}
+}
+
+// pages.go — MarkEmailVerified fails → server error rendered
+func TestVerifyEmailPage_MarkError(t *testing.T) {
+	setupHandlerTest(t)
+
+	orig := hookGetUserByVerificationTok
+	hookGetUserByVerificationTok = func(s string) (*db.User, error) {
+		return &db.User{ID: 42}, nil
+	}
+	t.Cleanup(func() { hookGetUserByVerificationTok = orig })
+
+	origMark := hookMarkEmailVerified
+	hookMarkEmailVerified = func(int64) error { return errTest }
+	t.Cleanup(func() { hookMarkEmailVerified = origMark })
+
+	req := httptest.NewRequest(http.MethodGet, "/verify-email?token=sometoken", nil)
+	rr := httptest.NewRecorder()
+	VerifyEmailPage(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d", rr.Code)
+	}
+}
+
+// pages.go — verify success without logged-in user → renders success page
+func TestVerifyEmailPage_SuccessNoUser(t *testing.T) {
+	setupHandlerTest(t)
+
+	orig := hookGetUserByVerificationTok
+	hookGetUserByVerificationTok = func(s string) (*db.User, error) {
+		return &db.User{ID: 42}, nil
+	}
+	t.Cleanup(func() { hookGetUserByVerificationTok = orig })
+
+	origMark := hookMarkEmailVerified
+	hookMarkEmailVerified = func(int64) error { return nil }
+	t.Cleanup(func() { hookMarkEmailVerified = origMark })
+
+	req := httptest.NewRequest(http.MethodGet, "/verify-email?token=sometoken", nil)
+	rr := httptest.NewRecorder()
+	VerifyEmailPage(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d", rr.Code)
+	}
+}
+
+// pages.go — verify success with logged-in user → 303 to /settings?verified=1
+func TestVerifyEmailPage_SuccessLoggedIn_Redirects(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "verify_loggedin@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookGetUserByVerificationTok
+	hookGetUserByVerificationTok = func(s string) (*db.User, error) {
+		return &db.User{ID: uid}, nil
+	}
+	t.Cleanup(func() { hookGetUserByVerificationTok = orig })
+
+	origMark := hookMarkEmailVerified
+	hookMarkEmailVerified = func(int64) error { return nil }
+	t.Cleanup(func() { hookMarkEmailVerified = origMark })
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/verify-email?token=sometoken", nil), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	VerifyEmailPage(rr, req)
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("want 303, got %d", rr.Code)
+	}
+	if loc := rr.Header().Get("Location"); loc != "/settings?verified=1" {
+		t.Errorf("Location: want /settings?verified=1, got %q", loc)
 	}
 }
 

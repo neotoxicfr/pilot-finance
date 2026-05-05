@@ -104,7 +104,7 @@ func TestRequireAuth_ValidSession_PassesUser(t *testing.T) {
 	defer setupMW(t)()
 	userID := createMWUser(t)
 
-	sv, _, err := db.GetUserAuthData(userID)
+	sv, _, _, err := db.GetUserAuthData(userID)
 	if err != nil {
 		t.Fatalf("GetUserAuthData: %v", err)
 	}
@@ -218,7 +218,7 @@ func TestOptionalAuth_ValidSession_SetsUser(t *testing.T) {
 	defer setupMW(t)()
 	userID := createMWUser(t)
 
-	sv, _, err := db.GetUserAuthData(userID)
+	sv, _, _, err := db.GetUserAuthData(userID)
 	if err != nil {
 		t.Fatalf("GetUserAuthData: %v", err)
 	}

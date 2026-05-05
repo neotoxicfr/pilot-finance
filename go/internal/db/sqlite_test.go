@@ -95,12 +95,12 @@ func TestGetUserAuthDataNotFound(t *testing.T) {
 	cleanup := setupTestDB(t)
 	defer cleanup()
 
-	sv, email, err := GetUserAuthData(999999)
+	sv, email, verified, err := GetUserAuthData(999999)
 	if err != nil {
 		t.Fatalf("expected nil error for missing user, got: %v", err)
 	}
-	if sv != 0 || email != "" {
-		t.Errorf("want zero values for missing user, got sv=%d email=%q", sv, email)
+	if sv != 0 || email != "" || verified {
+		t.Errorf("want zero values for missing user, got sv=%d email=%q verified=%v", sv, email, verified)
 	}
 }
 

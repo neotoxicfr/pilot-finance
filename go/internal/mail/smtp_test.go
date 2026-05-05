@@ -921,6 +921,40 @@ func TestSendPasswordReset_EnglishTemplate(t *testing.T) {
 	}
 }
 
+// --- SendVerificationEmail ---
+
+func TestSendVerificationEmail_MailDisabled(t *testing.T) {
+	config = nil
+	err := SendVerificationEmail("to@example.com", "tok", "example.com", "fr")
+	if err == nil {
+		t.Error("SendVerificationEmail: want error when mail disabled")
+	}
+}
+
+func TestSendVerificationEmail_EnglishTemplate(t *testing.T) {
+	config = nil
+	err := SendVerificationEmail("to@example.com", "tok", "example.com", "en")
+	if err == nil {
+		t.Error("SendVerificationEmail: want error when mail disabled")
+	}
+}
+
+// --- verifyEmailTexts ---
+
+func TestVerifyEmailTexts_French(t *testing.T) {
+	txt := verifyEmailTexts("fr")
+	if txt.subject == "" || txt.title == "" {
+		t.Error("French verify email texts should not be empty")
+	}
+}
+
+func TestVerifyEmailTexts_English(t *testing.T) {
+	txt := verifyEmailTexts("en")
+	if txt.subject != "Verify your email - Pilot Finance" {
+		t.Errorf("English subject: want 'Verify your email - Pilot Finance', got %q", txt.subject)
+	}
+}
+
 // --- resetEmailTexts ---
 
 func TestResetEmailTexts_French(t *testing.T) {
