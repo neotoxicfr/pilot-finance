@@ -464,6 +464,41 @@ dialog > .modal-panel {
     }
 }
 
+/* Mobile bottom-sheet : slide-up depuis le bas avec handle visuel */
+@media (max-width: 767px) {
+    dialog[open] {
+        align-items: flex-end;
+        padding: 0;
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    dialog[open] > .modal-panel {
+        width: 100%;
+        max-width: 100%;
+        max-height: 92vh;
+        border-radius: 1.25rem 1.25rem 0 0;
+        animation: bottomSheetIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+        padding-top: 1.5rem;
+    }
+    /* Handle visuel pour signifier le bottom-sheet */
+    dialog[open] > .modal-panel::before {
+        content: '';
+        position: absolute;
+        top: 0.5rem;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 36px;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--muted-foreground);
+        opacity: 0.3;
+    }
+    @keyframes bottomSheetIn {
+        from { transform: translateY(100%); }
+        to   { transform: translateY(0); }
+    }
+}
+
 /* Toast — safe area aware */
 .toast-container {
     bottom: max(1.5rem, calc(env(safe-area-inset-bottom) + 0.5rem));
