@@ -424,7 +424,7 @@ func TestChangePassword_UserNotInDB(t *testing.T) {
 
 	// Injecter un utilisateur avec un ID qui n'existe pas en base
 	req := injectUser(post("/settings/password", url.Values{
-		"currentPassword": {"OldP@ss1!"},
+		"current_password": {"OldP@ss1!"},
 		"newPassword":     {"NewValidP@ssw0rd!"},
 		"confirmPassword": {"NewValidP@ssw0rd!"},
 	}), mu(99999, "USER")) // ID inexistant
@@ -570,7 +570,7 @@ func TestChangePassword_Unauthorized(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	ChangePassword(rr, post("/settings/password", url.Values{
-		"currentPassword": {"OldP@ss1!"},
+		"current_password": {"OldP@ss1!"},
 		"newPassword":     {"NewValidP@ssw0rd!"},
 		"confirmPassword": {"NewValidP@ssw0rd!"},
 	}))
@@ -739,7 +739,7 @@ func TestChangePassword_EmptyFields(t *testing.T) {
 	uid := newUser(t, "pwdempty@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/settings/password", url.Values{
-		"currentPassword": {""},
+		"current_password": {""},
 		"newPassword":     {""},
 		"confirmPassword": {""},
 	}), mu(uid, "USER"))
@@ -757,7 +757,7 @@ func TestChangePassword_Mismatch(t *testing.T) {
 	uid := newUser(t, "pwdmismatch@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/settings/password", url.Values{
-		"currentPassword": {"ValidP@ss1!"},
+		"current_password": {"ValidP@ss1!"},
 		"newPassword":     {"NewP@ssw0rd!"},
 		"confirmPassword": {"DifferentP@ssw0rd!"},
 	}), mu(uid, "USER"))
@@ -775,7 +775,7 @@ func TestChangePassword_WeakPassword(t *testing.T) {
 	uid := newUser(t, "pwdweak@example.com", "ValidP@ss1!", "USER")
 
 	req := injectUser(post("/settings/password", url.Values{
-		"currentPassword": {"ValidP@ss1!"},
+		"current_password": {"ValidP@ss1!"},
 		"newPassword":     {"weak"},
 		"confirmPassword": {"weak"},
 	}), mu(uid, "USER"))
@@ -968,7 +968,7 @@ func TestChangePassword_HashError(t *testing.T) {
 	t.Cleanup(func() { hookHashPassword = orig })
 
 	req := injectUser(post("/settings/password", url.Values{
-		"currentPassword": {"ValidP@ss1!"},
+		"current_password": {"ValidP@ss1!"},
 		"newPassword":     {"NewValidP@ssw0rd!"},
 		"confirmPassword": {"NewValidP@ssw0rd!"},
 	}), mu(uid, "USER"))
@@ -990,7 +990,7 @@ func TestChangePassword_UpdatePasswordError(t *testing.T) {
 	t.Cleanup(func() { hookUpdatePassword = orig })
 
 	req := injectUser(post("/settings/password", url.Values{
-		"currentPassword": {"ValidP@ss1!"},
+		"current_password": {"ValidP@ss1!"},
 		"newPassword":     {"NewValidP@ssw0rd!"},
 		"confirmPassword": {"NewValidP@ssw0rd!"},
 	}), mu(uid, "USER"))

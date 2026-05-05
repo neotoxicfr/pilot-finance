@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -258,15 +259,15 @@ func TestSettingsPage_RenderError(t *testing.T) {
 	}
 }
 
-// pages.go:301-302 — hookVerifyEmailByToken returns non-ErrTokenInvalid → "Erreur serveur."
-func TestVerifyEmailPage_ServerError(t *testing.T) {
+// pages.go — hookGetUserByVerificationTok returns DB error → "Erreur serveur."
+func TestVerifyEmailPage_LookupError(t *testing.T) {
 	setupHandlerTest(t)
 
-	orig := hookVerifyEmailByToken
-	hookVerifyEmailByToken = func(s string) error {
-		return errTest
+	orig := hookGetUserByVerificationTok
+	hookGetUserByVerificationTok = func(s string) (*db.User, error) {
+		return nil, errTest
 	}
-	t.Cleanup(func() { hookVerifyEmailByToken = orig })
+	t.Cleanup(func() { hookGetUserByVerificationTok = orig })
 
 	req := httptest.NewRequest(http.MethodGet, "/verify-email?token=sometoken", nil)
 	rr := httptest.NewRecorder()
@@ -276,21 +277,94 @@ func TestVerifyEmailPage_ServerError(t *testing.T) {
 	}
 }
 
-// pages.go:309-312 — hookVerifyEmailByToken returns nil → Success=true
-func TestVerifyEmailPage_Success(t *testing.T) {
+// pages.go — hookGetUserByVerificationTok returns nil → token invalid
+func TestVerifyEmailPage_TokenInvalid(t *testing.T) {
 	setupHandlerTest(t)
 
-	orig := hookVerifyEmailByToken
-	hookVerifyEmailByToken = func(s string) error {
-		return nil
+	orig := hookGetUserByVerificationTok
+	hookGetUserByVerificationTok = func(s string) (*db.User, error) {
+		return nil, nil
 	}
-	t.Cleanup(func() { hookVerifyEmailByToken = orig })
+	t.Cleanup(func() { hookGetUserByVerificationTok = orig })
 
 	req := httptest.NewRequest(http.MethodGet, "/verify-email?token=sometoken", nil)
 	rr := httptest.NewRecorder()
 	VerifyEmailPage(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Errorf("want 200, got %d", rr.Code)
+	}
+	if !strings.Contains(rr.Body.String(), "Jeton invalide") {
+		t.Errorf("want invalid token message, got: %s", rr.Body.String())
+	}
+}
+
+// pages.go — MarkEmailVerified fails → server error rendered
+func TestVerifyEmailPage_MarkError(t *testing.T) {
+	setupHandlerTest(t)
+
+	orig := hookGetUserByVerificationTok
+	hookGetUserByVerificationTok = func(s string) (*db.User, error) {
+		return &db.User{ID: 42}, nil
+	}
+	t.Cleanup(func() { hookGetUserByVerificationTok = orig })
+
+	origMark := hookMarkEmailVerified
+	hookMarkEmailVerified = func(int64) error { return errTest }
+	t.Cleanup(func() { hookMarkEmailVerified = origMark })
+
+	req := httptest.NewRequest(http.MethodGet, "/verify-email?token=sometoken", nil)
+	rr := httptest.NewRecorder()
+	VerifyEmailPage(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d", rr.Code)
+	}
+}
+
+// pages.go — verify success without logged-in user → renders success page
+func TestVerifyEmailPage_SuccessNoUser(t *testing.T) {
+	setupHandlerTest(t)
+
+	orig := hookGetUserByVerificationTok
+	hookGetUserByVerificationTok = func(s string) (*db.User, error) {
+		return &db.User{ID: 42}, nil
+	}
+	t.Cleanup(func() { hookGetUserByVerificationTok = orig })
+
+	origMark := hookMarkEmailVerified
+	hookMarkEmailVerified = func(int64) error { return nil }
+	t.Cleanup(func() { hookMarkEmailVerified = origMark })
+
+	req := httptest.NewRequest(http.MethodGet, "/verify-email?token=sometoken", nil)
+	rr := httptest.NewRecorder()
+	VerifyEmailPage(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d", rr.Code)
+	}
+}
+
+// pages.go — verify success with logged-in user → 303 to /settings?verified=1
+func TestVerifyEmailPage_SuccessLoggedIn_Redirects(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "verify_loggedin@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookGetUserByVerificationTok
+	hookGetUserByVerificationTok = func(s string) (*db.User, error) {
+		return &db.User{ID: uid}, nil
+	}
+	t.Cleanup(func() { hookGetUserByVerificationTok = orig })
+
+	origMark := hookMarkEmailVerified
+	hookMarkEmailVerified = func(int64) error { return nil }
+	t.Cleanup(func() { hookMarkEmailVerified = origMark })
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/verify-email?token=sometoken", nil), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	VerifyEmailPage(rr, req)
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("want 303, got %d", rr.Code)
+	}
+	if loc := rr.Header().Get("Location"); loc != "/settings?verified=1" {
+		t.Errorf("Location: want /settings?verified=1, got %q", loc)
 	}
 }
 
@@ -931,6 +1005,112 @@ func TestUpdateRecurring_TransferKeepsToAccountID(t *testing.T) {
 	}
 	if capturedToID == nil || *capturedToID != toID {
 		t.Errorf("toAccountID should be %d for transfer, got %v", toID, capturedToID)
+	}
+}
+
+// recurring.go — CreateRecurring : transfer happy path (couvre toAccountID = &id)
+func TestCreateRecurring_TransferSuccess(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "crec_transfer_ok@example.com", "ValidP@ss1!", "USER")
+	fromID := createAcc(t, uid)
+	toID := createAcc(t, uid)
+
+	req := injectUser(post("/recurring", url.Values{
+		"description": {"Virement"},
+		"amount":      {"500"},
+		"dayOfMonth":  {"1"},
+		"type":        {"transfer"},
+		"accountId":   {intStr(fromID)},
+		"toAccountId": {intStr(toID)},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	CreateRecurring(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d (body: %s)", rr.Code, rr.Body.String())
+	}
+}
+
+// recurring.go — UpdateRecurring : sql.ErrNoRows → 404
+func TestUpdateRecurring_NotFound(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "updrec_404@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	recID := createRec(t, uid, accID)
+
+	orig := hookUpdateRecurring
+	hookUpdateRecurring = func(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
+		return sql.ErrNoRows
+	}
+	t.Cleanup(func() { hookUpdateRecurring = orig })
+
+	req := injectUser(
+		withParam(
+			post("/recurring/"+intStr(recID), url.Values{
+				"description": {"Test"},
+				"amount":      {"100"},
+				"dayOfMonth":  {"1"},
+				"type":        {"income"},
+			}),
+			"id", intStr(recID),
+		),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	UpdateRecurring(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("want 404, got %d", rr.Code)
+	}
+}
+
+// recurring.go — CreateRecurring (mode update via id) : sql.ErrNoRows → 404
+func TestCreateRecurring_UpdateBranch_NotFound(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "createrec_404@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	recID := createRec(t, uid, accID)
+
+	orig := hookUpdateRecurring
+	hookUpdateRecurring = func(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
+		return sql.ErrNoRows
+	}
+	t.Cleanup(func() { hookUpdateRecurring = orig })
+
+	req := injectUser(post("/recurring", url.Values{
+		"id":          {intStr(recID)},
+		"description": {"Test"},
+		"amount":      {"100"},
+		"dayOfMonth":  {"1"},
+		"type":        {"income"},
+		"accountId":   {intStr(accID)},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	CreateRecurring(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("want 404, got %d", rr.Code)
+	}
+}
+
+// recurring.go — DeleteRecurring : sql.ErrNoRows → 404
+func TestDeleteRecurring_NotFound(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "delrec_404@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	recID := createRec(t, uid, accID)
+
+	orig := hookDeleteRecurring
+	hookDeleteRecurring = func(id, userID int64) error {
+		return sql.ErrNoRows
+	}
+	t.Cleanup(func() { hookDeleteRecurring = orig })
+
+	req := injectUser(
+		withParam(httptest.NewRequest(http.MethodDelete, "/recurring/"+intStr(recID), nil), "id", intStr(recID)),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	DeleteRecurring(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("want 404, got %d", rr.Code)
 	}
 }
 

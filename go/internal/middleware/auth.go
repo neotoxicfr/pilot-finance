@@ -16,6 +16,7 @@ import (
 type sessionCacheEntry struct {
 	sessionVersion int
 	emailEncrypted string
+	emailVerified  bool
 	expiresAt      time.Time
 }
 
@@ -40,6 +41,7 @@ type User struct {
 	SessionVersion int
 	Language       string
 	Currency       string
+	EmailVerified  bool
 }
 
 // clearSessionCookie supprime le cookie de session
@@ -76,6 +78,7 @@ func RequireAuth(next http.Handler) http.Handler {
 		// Try the session cache first (30s TTL to reduce DB queries)
 		var sv int
 		var emailEncrypted string
+		var emailVerified bool
 		cacheHit := false
 
 		if cached, ok := sessionCache.Load(claims.UserID); ok {
@@ -83,6 +86,7 @@ func RequireAuth(next http.Handler) http.Handler {
 			if time.Now().Before(entry.expiresAt) {
 				sv = entry.sessionVersion
 				emailEncrypted = entry.emailEncrypted
+				emailVerified = entry.emailVerified
 				cacheHit = true
 			}
 		}
@@ -90,7 +94,7 @@ func RequireAuth(next http.Handler) http.Handler {
 		if !cacheHit {
 			// Cache miss or expired: query DB and update cache
 			var dbErr error
-			sv, emailEncrypted, dbErr = getUserAuthData(claims.UserID)
+			sv, emailEncrypted, emailVerified, dbErr = getUserAuthData(claims.UserID)
 			if dbErr != nil {
 				http.Redirect(w, r, "/login", http.StatusSeeOther)
 				return
@@ -98,6 +102,7 @@ func RequireAuth(next http.Handler) http.Handler {
 			sessionCache.Store(claims.UserID, sessionCacheEntry{
 				sessionVersion: sv,
 				emailEncrypted: emailEncrypted,
+				emailVerified:  emailVerified,
 				expiresAt:      time.Now().Add(sessionCacheTTL),
 			})
 		}
@@ -119,6 +124,7 @@ func RequireAuth(next http.Handler) http.Handler {
 			SessionVersion: claims.SessionVersion,
 			Language:       claims.Language,
 			Currency:       claims.Currency,
+			EmailVerified:  emailVerified,
 		}
 		ctx := context.WithValue(r.Context(), UserContextKey, user)
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -148,15 +154,17 @@ func OptionalAuth(next http.Handler) http.Handler {
 
 		var sv int
 		var emailEncrypted string
+		var emailVerified bool
 		if cached, ok := sessionCache.Load(claims.UserID); ok {
 			entry := cached.(sessionCacheEntry)
 			if time.Now().Before(entry.expiresAt) {
 				sv = entry.sessionVersion
 				emailEncrypted = entry.emailEncrypted
+				emailVerified = entry.emailVerified
 			}
 		}
 		if emailEncrypted == "" {
-			sv, emailEncrypted, err = getUserAuthData(claims.UserID)
+			sv, emailEncrypted, emailVerified, err = getUserAuthData(claims.UserID)
 			if err != nil {
 				next.ServeHTTP(w, r)
 				return
@@ -164,6 +172,7 @@ func OptionalAuth(next http.Handler) http.Handler {
 			sessionCache.Store(claims.UserID, sessionCacheEntry{
 				sessionVersion: sv,
 				emailEncrypted: emailEncrypted,
+				emailVerified:  emailVerified,
 				expiresAt:      time.Now().Add(sessionCacheTTL),
 			})
 		}
@@ -180,6 +189,7 @@ func OptionalAuth(next http.Handler) http.Handler {
 			SessionVersion: claims.SessionVersion,
 			Language:       claims.Language,
 			Currency:       claims.Currency,
+			EmailVerified:  emailVerified,
 		}
 		ctx := context.WithValue(r.Context(), UserContextKey, user)
 		next.ServeHTTP(w, r.WithContext(ctx))

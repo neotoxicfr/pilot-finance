@@ -7,7 +7,7 @@ FROM node:25-alpine AS css
 WORKDIR /app
 
 # Installer Tailwind CSS v4 (framework + CLI) + esbuild pour minification
-RUN npm install -g tailwindcss@4.2.2 @tailwindcss/cli@4.2.2 esbuild@0.27.5
+RUN npm install -g tailwindcss@4.2.4 @tailwindcss/cli@4.2.4 esbuild@0.28.0
 
 # Copier les fichiers nécessaires pour la compilation CSS
 COPY static/css/input.css static/css/

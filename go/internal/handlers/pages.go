@@ -74,6 +74,11 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user != nil {
 		hookLogAudit(user.ID, db.AuditLogout, getClientIP(r), r.UserAgent())
+		// Invalider tous les JWT émis pour cet utilisateur en bumpant session_version.
+		// Sans ça, un JWT exfiltré (XSS bypass, malware) reste valide 24h après logout.
+		if err := hookIncrementSessionVersion(user.ID); err != nil {
+			slog.Warn("Logout: increment session version", "err", err, "userID", user.ID)
+		}
 		// Clear session cache entry on logout
 		middleware.InvalidateSessionCache(user.ID)
 	}
@@ -134,7 +139,7 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 
 	data := baseData(r, user)
 	data["Title"] = "Dashboard"
-	data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
+	data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role, "EmailVerified": user.EmailVerified}
 	data["Accounts"] = accounts
 	data["HasAccounts"] = len(accounts) > 0
 	data["AccountColors"] = accountColors
@@ -181,7 +186,7 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 
 	data := baseData(r, user)
 	data["Title"] = "Comptes"
-	data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
+	data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role, "EmailVerified": user.EmailVerified}
 	data["Accounts"] = accounts
 	data["AccountLastIdx"] = len(accounts) - 1
 	data["Recurrings"] = recurringData
@@ -219,13 +224,20 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 
 	data := baseData(r, user)
 	data["Title"] = "Paramètres"
-	data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
+	data["User"] = map[string]interface{}{
+		"ID":            user.ID,
+		"Email":         user.Email,
+		"Role":          user.Role,
+		"EmailVerified": user.EmailVerified,
+	}
 	data["MFAEnabled"] = mfaEnabled
 	data["PasskeysEnabled"] = os.Getenv("HOST") != ""
 	data["Passkeys"] = []interface{}{}
 	data["IsAdmin"] = isAdmin
 	data["IsRegisterOpen"] = os.Getenv("ALLOW_REGISTER") == "true"
 	data["Users"] = []interface{}{}
+	data["MailEnabled"] = hookMailIsEnabled()
+	data["VerifiedJustNow"] = r.URL.Query().Get("verified") == "1"
 
 	passkeys, err := hookGetAuthenticatorsByUserID(user.ID)
 	if err != nil {
@@ -261,11 +273,14 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// VerifyEmailPage verifie l'email avec le token
+// VerifyEmailPage verifie l'email avec le token. Si succès et utilisateur connecté,
+// redirige vers /settings?verified=1 pour afficher un toast ; sinon, rend la page
+// verify-email.html (cas non connecté → propose lien retour login).
 func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
 
-	data := baseData(r, nil)
+	user := middleware.GetUser(r)
+	data := baseData(r, user)
 	t := data["T"].(map[string]string)
 	data["Title"] = t["page.title_verify_email"]
 	data["Success"] = false
@@ -278,24 +293,42 @@ func VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Hasher le token pour la recherche
 	hashedToken := hookHashToken(token)
 
-	// Verifier le token
-	err := hookVerifyEmailByToken(hashedToken)
+	// Lookup l'utilisateur par token pour pouvoir invalider son cache de session.
+	tokenUser, err := hookGetUserByVerificationTok(hashedToken)
 	if err != nil {
-		if err == db.ErrTokenInvalid {
-			data["Error"] = t["verify.token_invalid"]
-		} else {
-			data["Error"] = t["verify.server_error"]
-		}
+		slog.Error("verify email lookup", "err", err)
+		data["Error"] = t["verify.server_error"]
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		hookRender(w, "verify-email.html", data) //nolint:errcheck
+		return
+	}
+	if tokenUser == nil {
+		data["Error"] = t["verify.token_invalid"]
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		hookRender(w, "verify-email.html", data) //nolint:errcheck
 		return
 	}
 
-	data["Success"] = true
+	if err := hookMarkEmailVerified(tokenUser.ID); err != nil {
+		slog.Error("mark email verified", "err", err, "userID", tokenUser.ID)
+		data["Error"] = t["verify.server_error"]
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		hookRender(w, "verify-email.html", data) //nolint:errcheck
+		return
+	}
 
+	// Invalider le cache de session pour que EmailVerified soit rafraîchi immédiatement
+	hookInvalidateSessionCache(tokenUser.ID)
+
+	// Si l'utilisateur est connecté, rediriger vers Settings avec un toast
+	if user != nil {
+		http.Redirect(w, r, "/settings?verified=1", http.StatusSeeOther)
+		return
+	}
+
+	data["Success"] = true
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	hookRender(w, "verify-email.html", data) //nolint:errcheck
 }
@@ -307,7 +340,7 @@ func PrivacyPage(w http.ResponseWriter, r *http.Request) {
 	t := data["T"].(map[string]string)
 	data["Title"] = t["page.title_privacy"]
 	if user != nil {
-		data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
+		data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role, "EmailVerified": user.EmailVerified}
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "privacy.html", data); err != nil {
@@ -322,7 +355,7 @@ func LegalPage(w http.ResponseWriter, r *http.Request) {
 	t := data["T"].(map[string]string)
 	data["Title"] = t["page.title_legal"]
 	if user != nil {
-		data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role}
+		data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role, "EmailVerified": user.EmailVerified}
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "legal.html", data); err != nil {

@@ -30,6 +30,7 @@ var (
 	hookEncryptStr               = crypto.Encrypt
 	hookDecryptStr               = crypto.Decrypt
 	hookUpdatePassword           = db.UpdatePassword
+	hookIncrementSessionVersion  = db.IncrementSessionVersion
 	hookUpdateUserPrefs          = db.UpdateUserPreferences
 	hookGenerateToken            = auth.GenerateToken
 	hookGetAccountsByUserID      = db.GetAccountsByUserID
@@ -61,7 +62,9 @@ var (
 	hookCreateRecurring          = db.CreateRecurring
 	hookUpdateRecurring          = db.UpdateRecurring
 	hookDeleteRecurring          = db.DeleteRecurring
-	hookVerifyEmailByToken       = db.VerifyEmailByToken
+	hookSetVerificationToken     = db.SetVerificationToken
+	hookGetUserByVerificationTok = db.GetUserByVerificationToken
+	hookMarkEmailVerified        = db.MarkEmailVerified
 
 	// --- db: audit, login, reset, passkeys ---
 	hookLogAudit                 = db.LogAudit
@@ -101,6 +104,7 @@ var (
 	// --- mail ---
 	hookMailIsEnabled     = mail.IsEnabled
 	hookSendPasswordReset = mail.SendPasswordReset
+	hookSendVerification  = mail.SendVerificationEmail
 
 	// --- ratelimit ---
 	hookRateLimitCheck = ratelimit.Check

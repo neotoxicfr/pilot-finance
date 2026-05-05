@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/hex"
 	"log/slog"
 	"net/http"
 	"os"
@@ -50,6 +51,14 @@ func getClientIP(r *http.Request) string {
 	}
 	return remoteAddr
 }
+
+// dummyPasswordHash est un hash bcrypt valide (cost 12) utilisé pour égaliser
+// le temps de réponse quand l'email saisi n'existe pas. Sans ce dummy, un attaquant
+// peut détecter la présence d'un email en mesurant la durée de la requête
+// (~100ms avec hash, ~1ms sans).
+// Le mot de passe en clair correspondant n'a aucune importance — on ne vérifie
+// jamais le résultat de la comparaison dummy.
+var dummyPasswordHash = "$2a$12$abcdefghijklmnopqrstuuQYO7c5T7C0YyJzUu/2eSoYI8.7qONXi"
 
 // HandleLogin gère la soumission du formulaire de connexion
 func HandleLogin(w http.ResponseWriter, r *http.Request) {
@@ -145,6 +154,10 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if user == nil {
+		// Égaliser le temps de réponse : exécuter un bcrypt dummy pour empêcher
+		// la détection d'email existant via timing oracle (~100ms vs ~1ms).
+		// Le résultat est ignoré.
+		_ = hookVerifyPassword(password, dummyPasswordHash)
 		clientError(w, ErrAuthInvalid, "Identifiants incorrects", http.StatusUnauthorized)
 		return
 	}
@@ -329,6 +342,14 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		_ = hookUpdateUserPrefs(userID, detectedLang, "EUR")
 	}
 
+	// Email de vérification (best-effort) : génère un token et l'envoie si SMTP configuré.
+	// L'échec n'empêche PAS l'inscription : l'utilisateur peut renvoyer depuis Settings.
+	if hookMailIsEnabled() {
+		if err := sendVerificationToken(userID, email, detectedLang); err != nil {
+			slog.Warn("send verification email", "err", err, "userID", userID)
+		}
+	}
+
 	// Générer le token et connecter (langue détectée depuis Accept-Language, devise par défaut)
 	token, err := hookGenerateToken(userID, role, detectedLang, "EUR", 1)
 	if err != nil {
@@ -339,6 +360,29 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	setSessionCookie(w, "session", token, 86400)
 
 	htmxRedirect(w, r, "/")
+}
+
+// sendVerificationToken génère un token aléatoire 32 bytes, stocke son hash SHA-256
+// et envoie un email contenant le token brut. Best-effort : retourne l'erreur de l'envoi.
+func sendVerificationToken(userID int64, email, lang string) error {
+	tokenBytes := make([]byte, 32)
+	if _, err := hookRandRead(tokenBytes); err != nil {
+		return err
+	}
+	token := hex.EncodeToString(tokenBytes)
+	hashed := hookHashToken(token)
+	if err := hookSetVerificationToken(userID, hashed); err != nil {
+		return err
+	}
+
+	host := os.Getenv("HOST")
+	if host == "" {
+		host = "localhost:3000"
+	}
+	if lang == "" {
+		lang = "fr"
+	}
+	return hookSendVerification(email, token, host, lang)
 }
 
 // handleFailedLogin gère un échec de connexion
