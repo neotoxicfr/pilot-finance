@@ -2,7 +2,7 @@
 # Image finale: ~8MB (scratch + UPX)
 
 # ============ CSS BUILD STAGE ============
-FROM node:25-alpine AS css
+FROM node:26-alpine AS css
 
 WORKDIR /app
 
