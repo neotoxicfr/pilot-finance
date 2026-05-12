@@ -2,7 +2,7 @@
 # Image finale: ~8MB (scratch + UPX)
 
 # ============ CSS BUILD STAGE ============
-FROM node:25-alpine AS css
+FROM node:26-alpine AS css
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ RUN NODE_PATH=$(npm root -g) npx @tailwindcss/cli -i static/css/input.css -o sta
     && esbuild static/js/passkey.js --minify --outfile=static/js/passkey.js --allow-overwrite
 
 # ============ GO BUILD STAGE ============
-FROM golang:1.26.2-alpine AS builder
+FROM golang:1.26.3-alpine AS builder
 
 ARG TARGETARCH
 ARG VERSION=dev
