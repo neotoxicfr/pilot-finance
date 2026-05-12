@@ -2,12 +2,12 @@
 # Image finale: ~8MB (scratch + UPX)
 
 # ============ CSS BUILD STAGE ============
-FROM node:25-alpine AS css
+FROM node:26-alpine AS css
 
 WORKDIR /app
 
 # Installer Tailwind CSS v4 (framework + CLI) + esbuild pour minification
-RUN npm install -g tailwindcss@4.2.4 @tailwindcss/cli@4.2.4 esbuild@0.28.0
+RUN npm install -g tailwindcss@4.3.0 @tailwindcss/cli@4.3.0 esbuild@0.28.0
 
 # Copier les fichiers nécessaires pour la compilation CSS
 COPY static/css/input.css static/css/
@@ -23,7 +23,7 @@ RUN NODE_PATH=$(npm root -g) npx @tailwindcss/cli -i static/css/input.css -o sta
     && esbuild static/js/passkey.js --minify --outfile=static/js/passkey.js --allow-overwrite
 
 # ============ GO BUILD STAGE ============
-FROM golang:1.26.2-alpine AS builder
+FROM golang:1.26.3-alpine AS builder
 
 ARG TARGETARCH
 ARG VERSION=dev
