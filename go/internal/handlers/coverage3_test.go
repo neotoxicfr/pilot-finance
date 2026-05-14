@@ -1443,9 +1443,11 @@ func TestRenamePasskey_TooLongName(t *testing.T) {
 	}
 }
 
-// ── password_reset.go — ResetPasswordSubmit clear token error ───────────────
+// ── password_reset.go — atomic UpdatePasswordAndClearResetToken success path ──
+// Vérifie qu'après un reset valide, le token est effacé et le mot de passe
+// est mis à jour en une seule transaction (M4 fix).
 
-func TestResetPasswordSubmit_ClearTokenError(t *testing.T) {
+func TestResetPasswordSubmit_AtomicSuccess(t *testing.T) {
 	setupHandlerTest(t)
 	uid := newUser(t, "clrtok@example.com", "ValidP@ss1!", "USER")
 
@@ -1455,10 +1457,6 @@ func TestResetPasswordSubmit_ClearTokenError(t *testing.T) {
 		t.Fatalf("SetResetToken: %v", err)
 	}
 
-	orig := hookClearResetToken
-	hookClearResetToken = func(int64) error { return errTest }
-	t.Cleanup(func() { hookClearResetToken = orig })
-
 	rr := httptest.NewRecorder()
 	ResetPasswordSubmit(rr, post("/reset-password", url.Values{
 		"token":           {rawToken},
@@ -1467,6 +1465,15 @@ func TestResetPasswordSubmit_ClearTokenError(t *testing.T) {
 	}))
 	if rr.Code != http.StatusSeeOther {
 		t.Errorf("want 303, got %d", rr.Code)
+	}
+
+	// Le token doit être effacé (lookup retourne nil) → atomic
+	user, err := db.GetUserByResetToken(hashed)
+	if err != nil {
+		t.Fatalf("GetUserByResetToken: %v", err)
+	}
+	if user != nil {
+		t.Error("reset token should be cleared after successful reset")
 	}
 }
 

@@ -12,7 +12,10 @@ import (
 	"pilot-finance/internal/middleware"
 )
 
-// MFASetup retourne le secret et le QR code pour configurer le 2FA
+// MFASetup retourne le QR code pour configurer le 2FA et stocke le secret
+// dans un cookie signé HS256 (mfa_setup, 5 min). Le secret n'est PLUS exposé
+// dans la réponse JSON (M3 fix : empêche le client de choisir un secret
+// arbitraire au moment du /enable).
 func MFASetup(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
@@ -40,13 +43,22 @@ func MFASetup(w http.ResponseWriter, r *http.Request) {
 	}
 	qrDataURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
 
+	// Signer le secret dans un cookie HS256 — il n'est PAS renvoyé au client.
+	mfaToken, err := hookGenerateMFASetupToken(user.ID, secret)
+	if err != nil {
+		slog.Error("generate MFA setup token", "err", err)
+		jsonError(w, ErrInternal, "Erreur serveur", http.StatusInternalServerError)
+		return
+	}
+	setSessionCookie(w, "mfa_setup", mfaToken, 300) // 5 minutes
+
 	jsonSuccess(w, map[string]string{
-		"secret":   secret,
 		"imageUrl": qrDataURI,
 	})
 }
 
-// MFAEnable active le 2FA apres verification du code
+// MFAEnable active le 2FA après vérification du code TOTP. Le secret est lu
+// depuis le cookie `mfa_setup` signé (M3 fix), pas depuis le body.
 func MFAEnable(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
@@ -55,8 +67,7 @@ func MFAEnable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Secret string `json:"secret"`
-		Code   string `json:"code"`
+		Code string `json:"code"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -64,14 +75,31 @@ func MFAEnable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verifier le code
-	if !hookValidateTOTP(req.Secret, req.Code) {
+	// Lire le secret depuis le cookie signé posé par MFASetup
+	cookie, err := r.Cookie("mfa_setup")
+	if err != nil {
+		jsonError(w, ErrAuthInvalid, "Session de configuration MFA expirée", http.StatusBadRequest)
+		return
+	}
+	tokenUserID, secret, err := hookValidateMFASetupToken(cookie.Value)
+	if err != nil {
+		jsonError(w, ErrAuthInvalid, "Session de configuration MFA invalide", http.StatusBadRequest)
+		return
+	}
+	// Le cookie doit appartenir à l'utilisateur courant
+	if tokenUserID != user.ID {
+		jsonError(w, ErrAuthInvalid, "Session de configuration MFA invalide", http.StatusBadRequest)
+		return
+	}
+
+	// Verifier le code TOTP contre le secret côté serveur
+	if !hookValidateTOTP(secret, req.Code) {
 		jsonError(w, ErrAuthInvalid, "Code invalide", http.StatusBadRequest)
 		return
 	}
 
 	// Chiffrer et sauvegarder le secret
-	encryptedSecret, err := hookEncryptStr(req.Secret)
+	encryptedSecret, err := hookEncryptStr(secret)
 	if err != nil {
 		jsonError(w, ErrEncryption, "Erreur serveur", http.StatusInternalServerError)
 		return
@@ -81,6 +109,9 @@ func MFAEnable(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, ErrInternal, "Erreur sauvegarde", http.StatusInternalServerError)
 		return
 	}
+
+	// Effacer le cookie de setup (single-use)
+	clearCookie(w, "mfa_setup")
 
 	hookLogAudit(user.ID, db.AuditMFAEnable, getClientIP(r), r.UserAgent())
 

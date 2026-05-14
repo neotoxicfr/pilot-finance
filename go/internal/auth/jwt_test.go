@@ -133,6 +133,58 @@ func TestValidatePending2FAToken_ExpiredToken(t *testing.T) {
 	}
 }
 
+// --- MFASetup token (M3 fix) ---
+
+func TestGenerateAndValidateMFASetupToken_RoundTrip(t *testing.T) {
+	token, err := auth.GenerateMFASetupToken(42, "JBSWY3DPEHPK3PXP")
+	if err != nil {
+		t.Fatalf("GenerateMFASetupToken: %v", err)
+	}
+	if token == "" {
+		t.Fatal("want non-empty token")
+	}
+	uid, sec, err := auth.ValidateMFASetupToken(token)
+	if err != nil {
+		t.Fatalf("ValidateMFASetupToken: %v", err)
+	}
+	if uid != 42 {
+		t.Errorf("want uid 42, got %d", uid)
+	}
+	if sec != "JBSWY3DPEHPK3PXP" {
+		t.Errorf("want secret JBSWY3DPEHPK3PXP, got %q", sec)
+	}
+}
+
+func TestValidateMFASetupToken_Invalid(t *testing.T) {
+	_, _, err := auth.ValidateMFASetupToken("garbage")
+	if err == nil {
+		t.Error("want error for invalid MFA setup token")
+	}
+}
+
+func TestValidateMFASetupToken_WrongAlgorithm(t *testing.T) {
+	_, _, err := auth.ValidateMFASetupToken("eyJhbGciOiJub25lIn0.eyJ1aWQiOjF9.")
+	if err == nil {
+		t.Error("want error for none-algorithm MFA setup token")
+	}
+}
+
+func TestValidateMFASetupToken_Expired(t *testing.T) {
+	claims := &jwt.RegisteredClaims{
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(-10 * time.Minute)),
+		IssuedAt:  jwt.NewNumericDate(time.Now().Add(-15 * time.Minute)),
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := tok.SignedString([]byte(testJWTSecret))
+	if err != nil {
+		t.Fatalf("SignedString: %v", err)
+	}
+	_, _, err = auth.ValidateMFASetupToken(signed)
+	if err == nil {
+		t.Error("want error for expired MFA setup token")
+	}
+}
+
 func TestGenerateToken_MultipleUsers_Independent(t *testing.T) {
 	tok1, _ := auth.GenerateToken(1, "user", "fr", "EUR", 1)
 	tok2, _ := auth.GenerateToken(2, "ADMIN", "en", "USD", 3)

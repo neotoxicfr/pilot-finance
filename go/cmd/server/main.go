@@ -144,7 +144,7 @@ func main() {
 	// pour que chi les applique aux handlers d'erreur
 	r.Use(trustedProxyMiddleware())
 	r.Use(chimw.RequestID)
-	r.Use(chimw.Logger)
+	r.Use(middleware.SanitizedLogger)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Compress(5))
 	r.Use(metrics.Middleware)
@@ -432,7 +432,7 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
 		w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
-		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
 		w.Header().Set("Cache-Control", "no-store")
 
 		// Les routes /api/ retournent du JSON : pas de CSP HTML ni de nonce
