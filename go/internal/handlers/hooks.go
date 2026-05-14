@@ -25,7 +25,6 @@ import (
 var (
 	hookCountUsers               = db.CountUsers
 	hookGetUserByBlindIndex      = db.GetUserByBlindIndex
-	hookCreateUser               = db.CreateUser
 	hookCreateUserAtomic         = db.CreateUserAtomic
 	hookHashPassword             = crypto.HashPassword
 	hookEncryptStr               = crypto.Encrypt
@@ -77,7 +76,6 @@ var (
 	hookGetAuthenticatorsByUserID   = db.GetAuthenticatorsByUserID
 	hookSetResetToken               = db.SetResetToken
 	hookGetUserByResetToken         = db.GetUserByResetToken
-	hookClearResetToken             = db.ClearResetToken
 	hookUpdatePasswordAndClearReset = db.UpdatePasswordAndClearResetToken
 	hookGetAuthByCredentialID       = db.GetAuthenticatorByCredentialID
 	hookCreateAuthenticator         = db.CreateAuthenticator
