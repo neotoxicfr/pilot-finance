@@ -83,7 +83,15 @@ func setupHandlerTest(t *testing.T) {
 	if err := templates.Init(filepath.Join(root, "templates")); err != nil {
 		t.Fatalf("templates.Init: %v", err)
 	}
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(func() {
+		// Drain in-flight async writes (audit log + forgot-password) before
+		// closing the DB. Sans ça, le -race detector + Linux SQLite peut
+		// avoir un handle ouvert qui empêche TempDir cleanup ("directory
+		// not empty"). Cf. M5 (forgot async) + M6 (audit async).
+		db.FlushAuditLog()
+		FlushForgotPassword()
+		db.Close()
+	})
 }
 
 // newUser crée un utilisateur de test et retourne son ID.
