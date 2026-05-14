@@ -840,12 +840,15 @@ func TestMFASetup_Success(t *testing.T) {
 	if !strings.HasPrefix(resp["imageUrl"], "data:image/png;base64,") {
 		t.Errorf("imageUrl should be a PNG data URI, got %q", resp["imageUrl"][:min(len(resp["imageUrl"]), 30)])
 	}
-	// Le cookie mfa_setup doit avoir été posé
+	// Le cookie mfa_setup doit avoir été posé avec Path scoping (L4 fix)
 	cookies := rr.Result().Cookies()
 	foundMFACookie := false
 	for _, c := range cookies {
 		if c.Name == "mfa_setup" && c.Value != "" {
 			foundMFACookie = true
+			if c.Path != "/settings/mfa" {
+				t.Errorf("mfa_setup cookie Path: want /settings/mfa, got %q (L4 fix)", c.Path)
+			}
 		}
 	}
 	if !foundMFACookie {

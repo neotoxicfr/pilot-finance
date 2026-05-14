@@ -17,13 +17,13 @@ type User struct {
 	EmailEncrypted      string     `json:"-"`
 	EmailBlindIndex     string     `json:"-"`
 	Password            string     `json:"-"`
-	Role                string     `json:"role"`
+	Role                string     `json:"-"`
 	CreatedAt           time.Time  `json:"created_at"`
 	EmailVerified       bool       `json:"email_verified"`
 	VerificationToken   *string    `json:"-"`
 	ResetToken          *string    `json:"-"`
 	ResetTokenExpiry    *time.Time `json:"-"`
-	MFAEnabled          bool       `json:"mfa_enabled"`
+	MFAEnabled          bool       `json:"-"`
 	MFASecret           *string    `json:"-"`
 	FailedLoginAttempts int        `json:"-"`
 	LockUntil           *time.Time `json:"-"`

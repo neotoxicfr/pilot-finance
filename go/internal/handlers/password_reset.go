@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"pilot-finance/internal/i18n"
@@ -22,10 +23,23 @@ func ForgotPasswordPage(w http.ResponseWriter, r *http.Request) {
 	hookRender(w, "forgot-password.html", data) //nolint:errcheck
 }
 
+// forgotPasswordWG suit les goroutines de reset-password en vol pour les tests
+// (synchronisation déterministe) et pour un éventuel drain au shutdown.
+var forgotPasswordWG sync.WaitGroup
+
+// FlushForgotPassword attend que toutes les tâches forgot-password en vol
+// soient terminées. Utilisé par les tests pour synchroniser sur la goroutine
+// background (timing-oracle hardening, M5).
+func FlushForgotPassword() {
+	forgotPasswordWG.Wait()
+}
+
 // ForgotPasswordSubmit traite la demande de reinitialisation.
-// M2 fix : exécute le travail crypto (rand + hashToken) même quand l'email
-// n'existe pas pour égaliser le temps de réponse, et envoie l'email en
-// goroutine pour ne pas exposer la durée du SMTP.
+// M5 fix : toute la chaîne (lookup user, génération token, INSERT DB, SMTP)
+// est exécutée APRÈS l'envoi de la réponse, dans une goroutine background.
+// La latence du handler est donc constante (~1ms) quelle que soit l'existence
+// de l'email : impossible pour un attaquant de distinguer "user existe" vs
+// "user inconnu" via un timing oracle, même résiduel (~1-5ms d'UPDATE DB).
 func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	if !hookMailIsEnabled() {
 		clientError(w, ErrDisabled, "Feature disabled", http.StatusBadRequest)
@@ -47,62 +61,63 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	renderSuccess := func() {
-		data := baseData(r, nil)
-		t := data["T"].(map[string]string)
-		data["Title"] = t["forgot.title"]
-		data["MailEnabled"] = true
-		data["Success"] = true
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		hookRender(w, "forgot-password.html", data) //nolint:errcheck
+	host := os.Getenv("HOST")
+	if host == "" {
+		host = "localhost:3000"
 	}
 
-	// Chercher l'utilisateur
-	blindIndex := hookComputeBlindIndex(email)
-	user, err := hookGetUserByBlindIndex(blindIndex)
+	// Capturer les données nécessaires AVANT la goroutine (r ne doit pas être
+	// utilisé après la fin du handler — son contexte sera annulé).
+	forgotPasswordWG.Add(1)
+	go func(email, host string) {
+		defer forgotPasswordWG.Done()
+		processForgotPassword(email, host)
+	}(email, host)
 
-	// Toujours générer 32 bytes aléatoires + dérivation HMAC pour égaliser
-	// les temps user-existe vs user-absent (timing oracle).
+	// Réponse immédiate : latence constante, indistinguable du chemin user-absent.
+	data := baseData(r, nil)
+	t := data["T"].(map[string]string)
+	data["Title"] = t["forgot.title"]
+	data["MailEnabled"] = true
+	data["Success"] = true
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	hookRender(w, "forgot-password.html", data) //nolint:errcheck
+}
+
+// processForgotPassword effectue le travail effectif (lookup + token + email).
+// Découpé en fonction privée pour permettre le test isolé (sans timing) et
+// surtout pour s'exécuter en background.
+func processForgotPassword(email, host string) {
+	// Toujours payer le coût crypto pour équilibrer le travail CPU même si
+	// la réponse est déjà envoyée — défense en profondeur côté logs/metrics.
 	tokenBytes := make([]byte, 32)
 	if _, rerr := hookRandRead(tokenBytes); rerr != nil {
-		// Si le rand échoue côté serveur, garder réponse générique.
 		slog.Error("forgot password: rand read", "err", rerr)
-		renderSuccess()
 		return
 	}
 	token := hex.EncodeToString(tokenBytes)
 	hashedToken := hookHashToken(token)
 
+	blindIndex := hookComputeBlindIndex(email)
+	user, err := hookGetUserByBlindIndex(blindIndex)
 	if err != nil || user == nil {
-		// User inconnu : on a déjà payé le coût crypto. Réponse identique.
-		renderSuccess()
+		// User inconnu : rien à faire, on a déjà payé le coût crypto.
 		return
 	}
 
-	// Sauvegarder le token avec expiration 1h
 	expiry := time.Now().Add(1 * time.Hour)
 	if err := hookSetResetToken(user.ID, hashedToken, expiry); err != nil {
-		serverError(w, "set reset token", err)
+		slog.Error("forgot password: set reset token", "err", err)
 		return
 	}
 
-	// Envoyer l'email en arrière-plan pour ne pas exposer la durée du SMTP
-	// (timing oracle distinct du chemin user-absent). Les erreurs sont loggées.
-	host := os.Getenv("HOST")
-	if host == "" {
-		host = "localhost:3000"
-	}
 	lang := user.Language
 	if lang == "" {
 		lang = "fr"
 	}
-	go func(email, token, host, lang string) {
-		if err := hookSendPasswordReset(email, token, host, lang); err != nil {
-			slog.Warn("send password reset email", "err", err)
-		}
-	}(email, token, host, lang)
-
-	renderSuccess()
+	if err := hookSendPasswordReset(email, token, host, lang); err != nil {
+		slog.Warn("send password reset email", "err", err)
+	}
 }
 
 // ResetPasswordPage affiche la page de reinitialisation

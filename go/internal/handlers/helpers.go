@@ -66,10 +66,19 @@ func serverError(w http.ResponseWriter, context string, err error) {
 
 // setSessionCookie pose un cookie de session avec les flags de sécurité appropriés
 func setSessionCookie(w http.ResponseWriter, name, value string, maxAge int) {
+	setScopedCookie(w, name, value, maxAge, "/")
+}
+
+// setScopedCookie pose un cookie de session limité à un Path donné. Utilisé
+// pour les cookies qui ne sont pertinents que sur une sous-arborescence
+// (mfa_setup → /settings/mfa, passkey_* → /api/passkey) afin de réduire la
+// surface d'exfiltration et d'éviter de les envoyer sur toutes les requêtes.
+// path doit être non-vide (utiliser "/" pour cookies globaux).
+func setScopedCookie(w http.ResponseWriter, name, value string, maxAge int, path string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     name,
 		Value:    value,
-		Path:     "/",
+		Path:     path,
 		MaxAge:   maxAge,
 		HttpOnly: true,
 		Secure:   true,
@@ -79,10 +88,17 @@ func setSessionCookie(w http.ResponseWriter, name, value string, maxAge int) {
 
 // clearCookie supprime un cookie en le posant avec MaxAge=-1
 func clearCookie(w http.ResponseWriter, name string) {
+	clearScopedCookie(w, name, "/")
+}
+
+// clearScopedCookie supprime un cookie posé avec un Path spécifique. Le Path
+// du cookie d'effacement DOIT correspondre à celui du cookie d'origine,
+// sinon le navigateur n'efface pas l'entrée. path doit être non-vide.
+func clearScopedCookie(w http.ResponseWriter, name, path string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     name,
 		Value:    "",
-		Path:     "/",
+		Path:     path,
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   true,

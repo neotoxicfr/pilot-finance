@@ -595,6 +595,7 @@ func TestForgotPasswordSubmit_RateLimited(t *testing.T) {
 	if rr.Code != http.StatusTooManyRequests {
 		t.Errorf("want 429 (rate limited), got %d", rr.Code)
 	}
+	FlushForgotPassword() // M5 : drain les goroutines des 3 premiers appels
 }
 
 // password_reset.go:53-62 — user not found → render success page (don't reveal existence)
@@ -610,6 +611,7 @@ func TestForgotPasswordSubmit_UserNotFound(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Errorf("want 200 (user not found silently), got %d", rr.Code)
 	}
+	FlushForgotPassword() // M5 : drain la goroutine background
 }
 
 // ── recurring.go ─────────────────────────────────────────────────────────────
@@ -1208,6 +1210,9 @@ func TestMethodNotAllowed_Renders(t *testing.T) {
 	MethodNotAllowed(rr, httptest.NewRequest(http.MethodGet, "/bad", nil))
 	if rr.Code != http.StatusMethodNotAllowed {
 		t.Errorf("want 405, got %d", rr.Code)
+	}
+	if got := rr.Header().Get("X-Error-Code"); got != ErrMethodNotAllowed {
+		t.Errorf("X-Error-Code: want %q, got %q", ErrMethodNotAllowed, got)
 	}
 }
 

@@ -135,6 +135,7 @@ func TestGetAuditLogPageZero(t *testing.T) {
 	userID := createTestUser(t)
 
 	LogAudit(userID, AuditLoginSuccess, "127.0.0.1", "go-test")
+	FlushAuditLog() // M6 : LogAudit est async
 
 	// page=0 should be treated as page=1
 	entries, err := GetAuditLog(0, 50)
