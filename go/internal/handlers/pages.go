@@ -94,17 +94,16 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accounts, err := hookGetAccountsByUserID(user.ID)
-	if err != nil {
-		serverError(w, "get accounts", err)
+	accounts, recurrings, accErr, recErr := loadAccountsAndRecurring(user.ID)
+	if accErr != nil {
+		serverError(w, "get accounts", accErr)
 		return
 	}
-
-	decryptAccountNames(accounts)
-	recurrings, recErr := hookGetRecurringByUserID(user.ID)
 	if recErr != nil {
 		slog.Warn("Dashboard: recurring", "err", recErr, "userID", user.ID)
 	}
+
+	decryptAccountNames(accounts)
 
 	// Calculer les projections avec interets composes et opérations récurrentes
 	years := 5
@@ -165,13 +164,12 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lang, _ := userLocale(user)
-	accounts, accErr := hookGetAccountsByUserID(user.ID)
+	accounts, recurrings, accErr, recErr := loadAccountsAndRecurring(user.ID)
 	if accErr != nil {
 		slog.Warn("AccountsPage: accounts", "err", accErr, "userID", user.ID)
 	}
-	recurrings, recErr2 := hookGetRecurringByUserID(user.ID)
-	if recErr2 != nil {
-		slog.Warn("AccountsPage: recurring", "err", recErr2, "userID", user.ID)
+	if recErr != nil {
+		slog.Warn("AccountsPage: recurring", "err", recErr, "userID", user.ID)
 	}
 
 	decryptAccountNames(accounts)

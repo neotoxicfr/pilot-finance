@@ -23,8 +23,46 @@ type sessionCacheEntry struct {
 const sessionCacheTTL = 30 * time.Second
 
 var (
-	sessionCache   sync.Map // map[int64]sessionCacheEntry keyed by userID
+	sessionCache sync.Map // map[int64]sessionCacheEntry keyed by userID
+
+	// sessionCacheCleanupInterval — injectable pour les tests.
+	sessionCacheCleanupInterval = 5 * time.Minute
 )
+
+// sessionCacheStopCh is used by tests to stop the cleanup goroutine.
+var sessionCacheStopCh = make(chan struct{})
+
+func init() {
+	go sessionCacheCleanupLoop()
+}
+
+// sessionCacheCleanupLoop purge périodiquement les entrées expirées pour
+// éviter une croissance non bornée de la map sur des serveurs long-running.
+// H1 fix : sans ça, chaque userID utilisé reste indéfiniment en mémoire.
+func sessionCacheCleanupLoop() {
+	ticker := time.NewTicker(sessionCacheCleanupInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			PurgeExpiredSessionCache()
+		case <-sessionCacheStopCh:
+			return
+		}
+	}
+}
+
+// PurgeExpiredSessionCache supprime les entrées expirées de la session cache.
+// Appelée périodiquement par sessionCacheCleanupLoop ; exposée pour les tests.
+func PurgeExpiredSessionCache() {
+	now := time.Now()
+	sessionCache.Range(func(key, value any) bool {
+		if entry, ok := value.(sessionCacheEntry); ok && entry.expiresAt.Before(now) {
+			sessionCache.Delete(key)
+		}
+		return true
+	})
+}
 
 type contextKey string
 
