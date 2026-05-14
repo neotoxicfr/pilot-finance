@@ -50,7 +50,9 @@ func MFASetup(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, ErrInternal, "Erreur serveur", http.StatusInternalServerError)
 		return
 	}
-	setSessionCookie(w, "mfa_setup", mfaToken, 300) // 5 minutes
+	// L4 fix : cookie limité à /settings/mfa pour réduire la surface
+	// d'exfiltration du secret TOTP (claim "sec" dans le JWT).
+	setScopedCookie(w, "mfa_setup", mfaToken, 300, "/settings/mfa") // 5 minutes
 
 	jsonSuccess(w, map[string]string{
 		"imageUrl": qrDataURI,
@@ -110,8 +112,9 @@ func MFAEnable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Effacer le cookie de setup (single-use)
-	clearCookie(w, "mfa_setup")
+	// Effacer le cookie de setup (single-use). Le Path doit matcher
+	// celui posé par MFASetup pour que le navigateur efface l'entrée.
+	clearScopedCookie(w, "mfa_setup", "/settings/mfa")
 
 	hookLogAudit(user.ID, db.AuditMFAEnable, getClientIP(r), r.UserAgent())
 

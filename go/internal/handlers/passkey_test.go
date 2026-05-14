@@ -42,6 +42,19 @@ func TestPasskeyRegistrationStart_Success(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Errorf("want 200, got %d (body: %s)", rr.Code, rr.Body.String())
 	}
+	// L3 fix : passkey_challenge cookie doit être scopé à /api/passkey
+	found := false
+	for _, c := range rr.Result().Cookies() {
+		if c.Name == "passkey_challenge" {
+			found = true
+			if c.Path != "/api/passkey" {
+				t.Errorf("passkey_challenge Path: want /api/passkey, got %q (L3 fix)", c.Path)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected passkey_challenge cookie")
+	}
 }
 
 // --- PasskeyRegistrationFinish ---
@@ -113,6 +126,19 @@ func TestPasskeyLoginStart_Success(t *testing.T) {
 	PasskeyLoginStart(rr, httptest.NewRequest(http.MethodGet, "/api/passkey/auth/start", nil))
 	if rr.Code != http.StatusOK {
 		t.Errorf("want 200, got %d (body: %s)", rr.Code, rr.Body.String())
+	}
+	// L3 fix : passkey_auth_challenge cookie doit être scopé à /api/passkey
+	found := false
+	for _, c := range rr.Result().Cookies() {
+		if c.Name == "passkey_auth_challenge" {
+			found = true
+			if c.Path != "/api/passkey" {
+				t.Errorf("passkey_auth_challenge Path: want /api/passkey, got %q (L3 fix)", c.Path)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected passkey_auth_challenge cookie")
 	}
 }
 

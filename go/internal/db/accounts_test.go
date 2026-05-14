@@ -227,6 +227,7 @@ func TestDeleteUserAndData(t *testing.T) {
 	accounts, _ := GetAccountsByUserID(userID)
 	CreateRecurring(userID, accounts[0].ID, nil, "Sal", 200000, 1)
 	LogAudit(userID, "TEST", "127.0.0.1", "go-test")
+	FlushAuditLog() // M6 : LogAudit est async — synchroniser avant DeleteUserAndData
 
 	if err := DeleteUserAndData(userID); err != nil {
 		t.Fatalf("DeleteUserAndData: %v", err)

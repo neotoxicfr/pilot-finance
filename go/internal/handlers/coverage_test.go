@@ -353,6 +353,7 @@ func TestAuditPage_WithEntries(t *testing.T) {
 	db.LogAudit(uid, db.AuditLoginSuccess, "127.0.0.1", "test-agent")
 	db.LogAudit(uid, db.AuditPasswordChange, "127.0.0.1", "test-agent")
 	db.LogAudit(uid, "UNKNOWN_ACTION", "127.0.0.1", "test-agent")
+	db.FlushAuditLog() // M6 : LogAudit est async
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/admin/audit", nil), mu(uid, "ADMIN"))
 	rr := httptest.NewRecorder()
@@ -677,6 +678,7 @@ func TestAuditPage_OrphanEntry(t *testing.T) {
 
 	// Entrée d'audit pour un user inexistant → emailCache ne trouve pas → fallback ID string
 	db.LogAudit(99999, db.AuditLoginSuccess, "10.0.0.1", "test-agent")
+	db.FlushAuditLog() // M6 : LogAudit est async
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/admin/audit", nil), mu(uid, "ADMIN"))
 	rr := httptest.NewRecorder()

@@ -15,6 +15,7 @@ func TestGetAuditLogByUserID_ReturnsOnlyUserEntries(t *testing.T) {
 	LogAudit(userID, AuditLogout, "1.2.3.4", "agent/1.0")
 	// Different user — should not appear in results
 	LogAudit(99999, AuditLoginFail, "5.6.7.8", "other/1.0")
+	FlushAuditLog() // M6 : LogAudit est async
 
 	entries, err := GetAuditLogByUserID(userID)
 	if err != nil {
@@ -49,7 +50,10 @@ func TestGetAuditLogByUserID_OrderDesc(t *testing.T) {
 	userID := createTestUser(t)
 
 	LogAudit(userID, AuditLoginSuccess, "1.2.3.4", "agent")
+	// Différer pour garantir un ordre strictement DESC (timestamp seconde).
+	time.Sleep(1100 * time.Millisecond)
 	LogAudit(userID, AuditLogout, "1.2.3.4", "agent")
+	FlushAuditLog() // M6 : LogAudit est async
 
 	entries, err := GetAuditLogByUserID(userID)
 	if err != nil {
@@ -76,6 +80,7 @@ func TestPurgeAuditLog_RemovesOldEntries(t *testing.T) {
 
 	// Insérer une entrée récente
 	LogAudit(userID, AuditLogout, "1.2.3.4", "agent")
+	FlushAuditLog() // M6 : LogAudit est async
 
 	count, _ := CountAuditLog()
 	if count != 2 {
@@ -102,6 +107,7 @@ func TestPurgeAuditLog_NoOldEntries(t *testing.T) {
 	userID := createTestUser(t)
 
 	LogAudit(userID, AuditLoginSuccess, "1.2.3.4", "agent")
+	FlushAuditLog() // M6 : LogAudit est async
 
 	deleted, err := PurgeAuditLog(90)
 	if err != nil {
@@ -118,6 +124,7 @@ func TestLogAudit_EncryptsIPAndUserAgent(t *testing.T) {
 	userID := createTestUser(t)
 
 	LogAudit(userID, AuditLoginSuccess, "192.168.1.42", "Mozilla/5.0 (X11; Linux)")
+	FlushAuditLog() // M6 : LogAudit est async
 
 	// Vérifier que les valeurs en BDD sont chiffrées (contiennent ":")
 	var rawIP, rawUA string

@@ -287,6 +287,8 @@ func main() {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		slog.Error("shutdown", "err", err)
 	}
+	// M6 : drain les écritures audit en vol avant de quitter (fire-and-forget).
+	db.FlushAuditLog()
 	slog.Info("serveur arrêté proprement")
 }
 
@@ -412,14 +414,32 @@ func trustedProxyMiddleware() func(http.Handler) http.Handler {
 				if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 					parts := strings.Split(xff, ",")
 					clientIP := strings.TrimSpace(parts[0])
-					r.RemoteAddr = clientIP + ":0"
+					r.RemoteAddr = formatRemoteAddr(clientIP)
 				} else if xri := r.Header.Get("X-Real-IP"); xri != "" {
-					r.RemoteAddr = strings.TrimSpace(xri) + ":0"
+					r.RemoteAddr = formatRemoteAddr(strings.TrimSpace(xri))
 				}
 			}
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// formatRemoteAddr formate une IP en host:port pour r.RemoteAddr.
+// Les IPv6 sans brackets ("::1") sont entourées de [ ] pour que
+// net.SplitHostPort puisse les parser correctement downstream.
+func formatRemoteAddr(ip string) string {
+	if ip == "" {
+		return ":0"
+	}
+	// Si déjà bracketé ([...]), garder tel quel
+	if strings.HasPrefix(ip, "[") {
+		return ip + ":0"
+	}
+	// IPv6 = contient ":" et n'est pas bracketé → ajouter brackets
+	if strings.Contains(ip, ":") {
+		return "[" + ip + "]:0"
+	}
+	return ip + ":0"
 }
 
 // securityHeaders génère un nonce par requête et l'intègre dans la CSP.

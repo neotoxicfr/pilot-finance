@@ -108,4 +108,5 @@ func TestLogAudit_ClosedDB(t *testing.T) {
 	setupClosedDB(t)
 	// fire-and-forget: should NOT panic, just slog.Warn the error
 	LogAudit(1, AuditLoginSuccess, "127.0.0.1", "test-agent")
+	FlushAuditLog() // M6 : LogAudit est async — attendre que la goroutine finisse
 }
