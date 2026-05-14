@@ -23,6 +23,51 @@ func CreateUser(emailEncrypted, emailBlindIndex, password, role string) (int64, 
 	return result.LastInsertId()
 }
 
+// CreateUserAtomic crée un utilisateur en assignant le rôle ADMIN si et
+// seulement s'il n'existe pas encore d'admin, sinon USER. La logique se fait
+// en une seule transaction SQL pour éviter la fenêtre TOCTOU entre
+// CountUsers() et CreateUser() (L2 fix : deux inscriptions concurrentes ne
+// peuvent plus créer deux admins).
+//
+// Retourne l'ID créé et le rôle effectivement assigné.
+func CreateUserAtomic(emailEncrypted, emailBlindIndex, password string) (int64, string, error) {
+	tx, err := DB.Begin()
+	if err != nil {
+		return 0, "", err
+	}
+	defer tx.Rollback()
+
+	// SELECT EXISTS dans la même transaction → sérialise l'attribution ADMIN.
+	// SQLite est single-writer (BEGIN IMMEDIATE/EXCLUSIVE pris implicitement
+	// au premier write), donc deux INSERT concurrents seront sérialisés.
+	var adminCount int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM users WHERE role = 'ADMIN'`).Scan(&adminCount); err != nil {
+		return 0, "", err
+	}
+
+	role := "USER"
+	if adminCount == 0 {
+		role = "ADMIN"
+	}
+
+	res, err := tx.Exec(`
+		INSERT INTO users (email_encrypted, email_blind_index, password, role, created_at, email_verified, session_version)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, emailEncrypted, emailBlindIndex, password, role, time.Now().Unix(), false, 1)
+	if err != nil {
+		return 0, "", err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, "", err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, "", err
+	}
+	return id, role, nil
+}
+
 // UpdateLoginAttempts met à jour les tentatives de connexion
 func UpdateLoginAttempts(userID int64, attempts int, lockUntil *time.Time) error {
 	var lockTime *int64
@@ -62,6 +107,31 @@ func UpdatePassword(userID int64, hashedPassword string) error {
 	`, hashedPassword, userID)
 
 	return err
+}
+
+// UpdatePasswordAndClearResetToken applique le nouveau hash, incrémente la
+// session_version (invalide les JWT existants) ET efface le reset_token dans
+// la même transaction. Évite la fenêtre où le token resterait réutilisable
+// si le ClearResetToken échouait après un UpdatePassword réussi.
+func UpdatePasswordAndClearResetToken(userID int64, hashedPassword string) error {
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`
+		UPDATE users
+		SET password = ?,
+		    session_version = session_version + 1,
+		    reset_token = NULL,
+		    reset_token_expiry = NULL
+		WHERE id = ?
+	`, hashedPassword, userID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // EnableMFA active le 2FA pour un utilisateur

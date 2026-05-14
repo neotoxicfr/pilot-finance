@@ -15,6 +15,7 @@ import (
 	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
 
+	"pilot-finance/internal/auth"
 	"pilot-finance/internal/crypto"
 	"pilot-finance/internal/db"
 )
@@ -352,6 +353,7 @@ func TestAuditPage_WithEntries(t *testing.T) {
 	db.LogAudit(uid, db.AuditLoginSuccess, "127.0.0.1", "test-agent")
 	db.LogAudit(uid, db.AuditPasswordChange, "127.0.0.1", "test-agent")
 	db.LogAudit(uid, "UNKNOWN_ACTION", "127.0.0.1", "test-agent")
+	db.FlushAuditLog() // M6 : LogAudit est async
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/admin/audit", nil), mu(uid, "ADMIN"))
 	rr := httptest.NewRecorder()
@@ -676,6 +678,7 @@ func TestAuditPage_OrphanEntry(t *testing.T) {
 
 	// Entrée d'audit pour un user inexistant → emailCache ne trouve pas → fallback ID string
 	db.LogAudit(99999, db.AuditLoginSuccess, "10.0.0.1", "test-agent")
+	db.FlushAuditLog() // M6 : LogAudit est async
 
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/admin/audit", nil), mu(uid, "ADMIN"))
 	rr := httptest.NewRecorder()
@@ -861,11 +864,14 @@ func TestHandleRegister_RateLimit(t *testing.T) {
 	}
 }
 
-// --- HandleRegister : db.CountUsers error → 500 ---
+// --- HandleRegister : ALLOW_REGISTER=false et CountUsers error → 403 ---
+// L2 fix : on n'utilise plus CountUsers pour décider du rôle ; cette branche
+// reste utile pour bloquer l'inscription après le premier admin quand
+// ALLOW_REGISTER n'est pas activé.
 
 func TestHandleRegister_CountUsersError(t *testing.T) {
 	setupHandlerTest(t)
-	t.Setenv("ALLOW_REGISTER", "true")
+	// ALLOW_REGISTER absent → branche CountUsers prise pour décider 403
 	orig := hookCountUsers
 	hookCountUsers = func() (int, error) { return 0, errTest }
 	t.Cleanup(func() { hookCountUsers = orig })
@@ -876,8 +882,8 @@ func TestHandleRegister_CountUsersError(t *testing.T) {
 		"password":        {"ValidP@ssw0rd!"},
 		"confirmPassword": {"ValidP@ssw0rd!"},
 	}))
-	if rr.Code != http.StatusInternalServerError {
-		t.Errorf("want 500, got %d", rr.Code)
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("want 403 (registration disabled on CountUsers error), got %d", rr.Code)
 	}
 }
 
@@ -938,13 +944,13 @@ func TestHandleRegister_EncryptError(t *testing.T) {
 	}
 }
 
-// --- HandleRegister : db.CreateUser error → 500 ---
+// --- HandleRegister : db.CreateUserAtomic error → 500 ---
 
 func TestHandleRegister_CreateUserError(t *testing.T) {
 	setupHandlerTest(t)
-	orig := hookCreateUser
-	hookCreateUser = func(string, string, string, string) (int64, error) { return 0, errTest }
-	t.Cleanup(func() { hookCreateUser = orig })
+	orig := hookCreateUserAtomic
+	hookCreateUserAtomic = func(string, string, string) (int64, string, error) { return 0, "", errTest }
+	t.Cleanup(func() { hookCreateUserAtomic = orig })
 
 	rr := httptest.NewRecorder()
 	HandleRegister(rr, post("/register", url.Values{
@@ -1128,11 +1134,13 @@ func TestMFAEnable_EncryptError(t *testing.T) {
 	hookEncryptStr = func(string) (string, error) { return "", errTest }
 	t.Cleanup(func() { hookEncryptStr = orig })
 
-	body, _ := json.Marshal(map[string]string{"secret": secret, "code": code})
+	mfaTok, _ := auth.GenerateMFASetupToken(uid, secret)
+	body, _ := json.Marshal(map[string]string{"code": code})
 	req := injectUser(
 		httptest.NewRequest(http.MethodPost, "/api/mfa/enable", bytes.NewReader(body)),
 		mu(uid, "USER"),
 	)
+	req.AddCookie(&http.Cookie{Name: "mfa_setup", Value: mfaTok})
 	rr := httptest.NewRecorder()
 	MFAEnable(rr, req)
 	var resp map[string]string
@@ -1155,17 +1163,37 @@ func TestMFAEnable_EnableMFAError(t *testing.T) {
 	hookEnableMFA = func(int64, string) error { return errTest }
 	t.Cleanup(func() { hookEnableMFA = orig })
 
-	body, _ := json.Marshal(map[string]string{"secret": secret, "code": code2})
+	mfaTok, _ := auth.GenerateMFASetupToken(uid, secret)
+	body, _ := json.Marshal(map[string]string{"code": code2})
 	req := injectUser(
 		httptest.NewRequest(http.MethodPost, "/api/mfa/enable", bytes.NewReader(body)),
 		mu(uid, "USER"),
 	)
+	req.AddCookie(&http.Cookie{Name: "mfa_setup", Value: mfaTok})
 	rr := httptest.NewRecorder()
 	MFAEnable(rr, req)
 	var resp map[string]string
 	json.NewDecoder(rr.Body).Decode(&resp)
 	if resp["error"] == "" {
 		t.Error("want error in response, got none")
+	}
+}
+
+// --- MFASetup : hookGenerateMFASetupToken error → 500 (M3 fix coverage) ---
+
+func TestMFASetup_GenerateMFASetupTokenError(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "mfasetuptokerr@example.com", "ValidP@ss1!", "USER")
+
+	orig := hookGenerateMFASetupToken
+	hookGenerateMFASetupToken = func(int64, string) (string, error) { return "", errTest }
+	t.Cleanup(func() { hookGenerateMFASetupToken = orig })
+
+	req := injectUser(httptest.NewRequest(http.MethodGet, "/settings/mfa/setup", nil), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	MFASetup(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
 	}
 }
 
@@ -1464,7 +1492,7 @@ func TestResetPasswordSubmit_HashError(t *testing.T) {
 	}
 }
 
-// --- ResetPasswordSubmit : db.UpdatePassword error → 500 ---
+// --- ResetPasswordSubmit : db.UpdatePasswordAndClearResetToken error → 500 ---
 
 func TestResetPasswordSubmit_UpdatePasswordError(t *testing.T) {
 	setupHandlerTest(t)
@@ -1474,9 +1502,9 @@ func TestResetPasswordSubmit_UpdatePasswordError(t *testing.T) {
 	hashedToken := crypto.HashToken(rawToken)
 	db.SetResetToken(uid, hashedToken, time.Now().Add(time.Hour))
 
-	orig := hookUpdatePassword
-	hookUpdatePassword = func(int64, string) error { return errTest }
-	t.Cleanup(func() { hookUpdatePassword = orig })
+	orig := hookUpdatePasswordAndClearReset
+	hookUpdatePasswordAndClearReset = func(int64, string) error { return errTest }
+	t.Cleanup(func() { hookUpdatePasswordAndClearReset = orig })
 
 	req := post("/reset-password", url.Values{
 		"token":           {rawToken},

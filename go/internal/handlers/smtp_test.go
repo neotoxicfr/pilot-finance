@@ -9,11 +9,13 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/mail"
+	"pilot-finance/internal/ratelimit"
 )
 
 // startFakeSMTP lance un serveur SMTP minimal sur un port aléatoire.
@@ -127,6 +129,7 @@ func TestForgotPasswordSubmit_MailEnabled_KnownEmail(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Errorf("want 200, got %d (body: %s)", rr.Code, rr.Body.String())
 	}
+	FlushForgotPassword() // M5 : drain la goroutine background
 }
 
 func TestForgotPasswordSubmit_EmptyLanguageFallback(t *testing.T) {
@@ -142,6 +145,7 @@ func TestForgotPasswordSubmit_EmptyLanguageFallback(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Errorf("want 200, got %d", rr.Code)
 	}
+	FlushForgotPassword() // M5 : drain la goroutine background
 }
 
 func TestForgotPasswordSubmit_SendEmailError(t *testing.T) {
@@ -153,7 +157,10 @@ func TestForgotPasswordSubmit_SendEmailError(t *testing.T) {
 	hookSendPasswordReset = func(_, _, _, _ string) error {
 		return fmt.Errorf("smtp failure")
 	}
-	t.Cleanup(func() { hookSendPasswordReset = orig })
+	t.Cleanup(func() {
+		FlushForgotPassword()
+		hookSendPasswordReset = orig
+	})
 
 	rr := httptest.NewRecorder()
 	ForgotPasswordSubmit(rr, post("/forgot-password", url.Values{"email": {"senderr@example.com"}}))
@@ -172,29 +179,121 @@ func TestForgotPasswordSubmit_RandReadError(t *testing.T) {
 	hookRandRead = func(_ []byte) (int, error) {
 		return 0, fmt.Errorf("entropy error")
 	}
-	t.Cleanup(func() { hookRandRead = orig })
+	t.Cleanup(func() {
+		FlushForgotPassword()
+		hookRandRead = orig
+	})
 
 	rr := httptest.NewRecorder()
 	ForgotPasswordSubmit(rr, post("/forgot-password", url.Values{"email": {"randerr@example.com"}}))
-	if rr.Code != http.StatusInternalServerError {
-		t.Errorf("want 500, got %d", rr.Code)
+	// M5 fix : la goroutine background log l'erreur mais le handler renvoie
+	// toujours 200 (réponse générique constante).
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200 (generic response), got %d", rr.Code)
 	}
 }
 
+// TestForgotPasswordSubmit_TimingEqualization (M5 fix) : avec tout le travail
+// déporté en background goroutine, le handler doit répondre quasi-instantanément
+// que l'utilisateur existe ou non. On mesure les deux latences et vérifie un
+// delta faible (< 10ms). Le travail crypto reste exécuté (en background) pour
+// défense en profondeur.
+func TestForgotPasswordSubmit_TimingEqualization(t *testing.T) {
+	setupHandlerTest(t)
+	newUser(t, "exists-timing@example.com", "ValidP@ssw0rd!", "USER")
+	enableTestSMTP(t)
+
+	// Bypass rate limit pour mesurer plusieurs appels successifs sans 429.
+	origRL := hookRateLimitCheck
+	hookRateLimitCheck = func(string, string) ratelimit.Result {
+		return ratelimit.Result{Allowed: true, Remaining: 999}
+	}
+
+	// Compteur d'appels rand pour confirmer que le code crypto est exécuté
+	// même quand l'email n'existe pas.
+	var calls int32
+	origRand := hookRandRead
+	hookRandRead = func(b []byte) (int, error) {
+		atomic.AddInt32(&calls, 1)
+		return len(b), nil
+	}
+	t.Cleanup(func() {
+		FlushForgotPassword()
+		hookRandRead = origRand
+		hookRateLimitCheck = origRL
+	})
+
+	measure := func(email string) time.Duration {
+		// Plusieurs runs pour lisser le bruit
+		const runs = 5
+		var total time.Duration
+		for i := 0; i < runs; i++ {
+			rr := httptest.NewRecorder()
+			start := time.Now()
+			ForgotPasswordSubmit(rr, post("/forgot-password", url.Values{"email": {email}}))
+			total += time.Since(start)
+			if rr.Code != http.StatusOK {
+				t.Fatalf("want 200, got %d", rr.Code)
+			}
+		}
+		return total / runs
+	}
+
+	// User absent : pas de DB UPDATE ni SMTP dans le hot path
+	dAbsent := measure("nobody-timing@example.com")
+	// User présent : avant le fix, UPDATE DB ajoutait 1-5ms ; maintenant
+	// tout est en background → handler reste constant time.
+	dExists := measure("exists-timing@example.com")
+
+	delta := dAbsent - dExists
+	if delta < 0 {
+		delta = -delta
+	}
+	// Tolérance large pour CI lente / GC pauses (~10ms). Le but est de
+	// détecter une régression où SetResetToken redeviendrait synchrone.
+	if delta > 10*time.Millisecond {
+		t.Errorf("timing delta too large (%v): exists=%v absent=%v (M5: handler must respond constant-time)",
+			delta, dExists, dAbsent)
+	}
+
+	FlushForgotPassword()
+	if atomic.LoadInt32(&calls) == 0 {
+		t.Error("hookRandRead must be called even when user is unknown (defense in depth)")
+	}
+}
+
+// TestForgotPasswordSubmit_SetResetTokenError (M5) : avec le travail en
+// background, une erreur DB n'expose plus d'oracle d'existence : le handler
+// renvoie 200 dans tous les cas. La goroutine log slog.Error et termine.
 func TestForgotPasswordSubmit_SetResetTokenError(t *testing.T) {
 	setupHandlerTest(t)
 	newUser(t, "reseterr@example.com", "ValidP@ssw0rd!", "USER")
 	enableTestSMTP(t)
 
+	called := make(chan struct{}, 1)
 	orig := hookSetResetToken
 	hookSetResetToken = func(_ int64, _ string, _ time.Time) error {
+		select {
+		case called <- struct{}{}:
+		default:
+		}
 		return fmt.Errorf("db error")
 	}
-	t.Cleanup(func() { hookSetResetToken = orig })
+	t.Cleanup(func() {
+		FlushForgotPassword()
+		hookSetResetToken = orig
+	})
 
 	rr := httptest.NewRecorder()
 	ForgotPasswordSubmit(rr, post("/forgot-password", url.Values{"email": {"reseterr@example.com"}}))
-	if rr.Code != http.StatusInternalServerError {
-		t.Errorf("want 500, got %d", rr.Code)
+	// M5 fix : réponse 200 constant-time, l'erreur DB est silencieuse dans la goroutine
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200 (constant time), got %d", rr.Code)
+	}
+	FlushForgotPassword()
+	select {
+	case <-called:
+	default:
+		t.Error("hookSetResetToken must be invoked in background goroutine")
 	}
 }

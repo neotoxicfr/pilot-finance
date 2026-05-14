@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -101,6 +102,36 @@ func TestSecurityHeaders_HTML_HasCSP(t *testing.T) {
 	}
 	if !strings.Contains(csp, "default-src 'none'") {
 		t.Errorf("CSP should have default-src none, got: %q", csp)
+	}
+}
+
+// --- formatRemoteAddr (L5 fix: IPv6 sans brackets) ---
+
+func TestFormatRemoteAddr(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"empty", "", ":0"},
+		{"ipv4", "1.2.3.4", "1.2.3.4:0"},
+		{"ipv6_loopback", "::1", "[::1]:0"},
+		{"ipv6_full", "2001:db8::1", "[2001:db8::1]:0"},
+		{"ipv6_already_bracketed", "[::1]", "[::1]:0"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := formatRemoteAddr(tc.in)
+			if got != tc.want {
+				t.Errorf("formatRemoteAddr(%q): want %q, got %q", tc.in, tc.want, got)
+			}
+			// Doit pouvoir être re-parsé par net.SplitHostPort (sauf cas empty)
+			if tc.in != "" {
+				if _, _, err := net.SplitHostPort(got); err != nil {
+					t.Errorf("net.SplitHostPort(%q) failed: %v", got, err)
+				}
+			}
+		})
 	}
 }
 

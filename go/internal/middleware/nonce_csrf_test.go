@@ -238,3 +238,99 @@ func TestValidateOrigin_POST_ProductionRejectsHTTP(t *testing.T) {
 		t.Errorf("production should reject HTTP origin, got %d", rr.Code)
 	}
 }
+
+// --- C1 regression tests: prefix-matching bypass on Origin/Referer ---
+
+func TestValidateOrigin_RejectsSubdomainExtension(t *testing.T) {
+	// https://pilot.neotoxic.net.evil.com must NOT match expected host pilot.neotoxic.net
+	mw := middleware.ValidateOrigin("pilot.neotoxic.net")
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.Header.Set("Origin", "https://pilot.neotoxic.net.evil.com")
+	rr := httptest.NewRecorder()
+	mw(passThroughHandler).ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("subdomain-extension origin must be rejected, got %d", rr.Code)
+	}
+}
+
+func TestValidateOrigin_RejectsTLDExtension(t *testing.T) {
+	// https://pilot.neotoxic.network must NOT match pilot.neotoxic.net
+	mw := middleware.ValidateOrigin("pilot.neotoxic.net")
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.Header.Set("Origin", "https://pilot.neotoxic.network")
+	rr := httptest.NewRecorder()
+	mw(passThroughHandler).ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("TLD-extension origin must be rejected, got %d", rr.Code)
+	}
+}
+
+func TestValidateOrigin_RejectsArbitrarySuffix(t *testing.T) {
+	// https://pilot.neotoxic.netanything must NOT match pilot.neotoxic.net
+	mw := middleware.ValidateOrigin("pilot.neotoxic.net")
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.Header.Set("Origin", "https://pilot.neotoxic.netanything")
+	rr := httptest.NewRecorder()
+	mw(passThroughHandler).ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("arbitrary suffix origin must be rejected, got %d", rr.Code)
+	}
+}
+
+func TestValidateOrigin_AcceptsLegitimate(t *testing.T) {
+	mw := middleware.ValidateOrigin("pilot.neotoxic.net")
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.Header.Set("Origin", "https://pilot.neotoxic.net")
+	rr := httptest.NewRecorder()
+	mw(passThroughHandler).ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("legitimate origin must be accepted, got %d", rr.Code)
+	}
+}
+
+func TestValidateOrigin_AcceptsLegitimateRefererWithPath(t *testing.T) {
+	mw := middleware.ValidateOrigin("pilot.neotoxic.net")
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.Header.Set("Referer", "https://pilot.neotoxic.net/foo/bar?x=1")
+	rr := httptest.NewRecorder()
+	mw(passThroughHandler).ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("legitimate referer with path must be accepted, got %d", rr.Code)
+	}
+}
+
+func TestValidateOrigin_RejectsHTTPInProduction(t *testing.T) {
+	// http://pilot.neotoxic.net must be rejected when host is configured
+	mw := middleware.ValidateOrigin("pilot.neotoxic.net")
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.Header.Set("Origin", "http://pilot.neotoxic.net")
+	rr := httptest.NewRecorder()
+	mw(passThroughHandler).ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("http origin in production must be rejected, got %d", rr.Code)
+	}
+}
+
+func TestValidateOrigin_RejectsRefererSubdomainExtension(t *testing.T) {
+	// Same C1 bypass via Referer
+	mw := middleware.ValidateOrigin("pilot.neotoxic.net")
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	req.Header.Set("Referer", "https://pilot.neotoxic.net.evil.com/page")
+	rr := httptest.NewRecorder()
+	mw(passThroughHandler).ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("subdomain-extension referer must be rejected, got %d", rr.Code)
+	}
+}
+
+func TestValidateOrigin_RejectsMalformedOrigin(t *testing.T) {
+	mw := middleware.ValidateOrigin("pilot.neotoxic.net")
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	// Origin without scheme or host (url.Parse succeeds but Host is empty)
+	req.Header.Set("Origin", "garbage")
+	rr := httptest.NewRecorder()
+	mw(passThroughHandler).ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("malformed origin must be rejected, got %d", rr.Code)
+	}
+}

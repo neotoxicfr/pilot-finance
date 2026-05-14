@@ -500,13 +500,23 @@ func runMigrations(dbPath string) {
 		}},
 	}
 
-	for _, m := range migrations {
-		var count int
-		if err := DB.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE name = ?`, m.Name).Scan(&count); err != nil {
-			slog.Warn("migration: impossible de vérifier schema_migrations", "name", m.Name, "err", err)
-			continue
+	// Charger en une seule requête la liste des migrations déjà appliquées
+	// (perf M3 : évite N round-trips DB au démarrage).
+	appliedSet := make(map[string]bool)
+	if rows, err := DB.Query(`SELECT name FROM schema_migrations`); err == nil {
+		for rows.Next() {
+			var name string
+			if err := rows.Scan(&name); err == nil {
+				appliedSet[name] = true
+			}
 		}
-		if count > 0 {
+		rows.Close()
+	} else {
+		slog.Warn("migration: lecture schema_migrations échouée", "err", err)
+	}
+
+	for _, m := range migrations {
+		if appliedSet[m.Name] {
 			continue
 		}
 

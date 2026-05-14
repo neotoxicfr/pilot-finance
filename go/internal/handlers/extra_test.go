@@ -833,11 +833,26 @@ func TestMFASetup_Success(t *testing.T) {
 	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if resp["secret"] == "" {
-		t.Error("response should contain non-empty 'secret'")
+	// M3 fix : le secret ne doit plus être exposé dans la réponse JSON.
+	if _, exposed := resp["secret"]; exposed {
+		t.Error("response must NOT contain 'secret' (server-side cookie now)")
 	}
 	if !strings.HasPrefix(resp["imageUrl"], "data:image/png;base64,") {
 		t.Errorf("imageUrl should be a PNG data URI, got %q", resp["imageUrl"][:min(len(resp["imageUrl"]), 30)])
+	}
+	// Le cookie mfa_setup doit avoir été posé avec Path scoping (L4 fix)
+	cookies := rr.Result().Cookies()
+	foundMFACookie := false
+	for _, c := range cookies {
+		if c.Name == "mfa_setup" && c.Value != "" {
+			foundMFACookie = true
+			if c.Path != "/settings/mfa" {
+				t.Errorf("mfa_setup cookie Path: want /settings/mfa, got %q (L4 fix)", c.Path)
+			}
+		}
+	}
+	if !foundMFACookie {
+		t.Error("expected mfa_setup cookie to be set")
 	}
 }
 
@@ -846,7 +861,7 @@ func TestMFASetup_Success(t *testing.T) {
 func TestMFAEnable_Unauthorized(t *testing.T) {
 	setupHandlerTest(t)
 
-	body := bytes.NewBufferString(`{"secret":"TESTSECRET","code":"123456"}`)
+	body := bytes.NewBufferString(`{"code":"123456"}`)
 	rr := httptest.NewRecorder()
 	MFAEnable(rr, httptest.NewRequest(http.MethodPost, "/api/mfa/enable", body))
 	if rr.Code != http.StatusUnauthorized {
@@ -876,6 +891,81 @@ func TestMFAEnable_InvalidBody(t *testing.T) {
 	}
 }
 
+// mfaSetupCookie generates a valid mfa_setup cookie value (signed JWT) for tests.
+func mfaSetupCookie(t *testing.T, userID int64, secret string) *http.Cookie {
+	t.Helper()
+	tok, err := auth.GenerateMFASetupToken(userID, secret)
+	if err != nil {
+		t.Fatalf("GenerateMFASetupToken: %v", err)
+	}
+	return &http.Cookie{Name: "mfa_setup", Value: tok}
+}
+
+func TestMFAEnable_MissingSetupCookie(t *testing.T) {
+	// Sans cookie mfa_setup, l'appel /enable doit échouer (M3 fix).
+	setupHandlerTest(t)
+	uid := newUser(t, "mfanocookie@example.com", "ValidP@ss1!", "USER")
+
+	body, _ := json.Marshal(map[string]string{"code": "123456"})
+	req := injectUser(
+		httptest.NewRequest(http.MethodPost, "/api/mfa/enable", bytes.NewReader(body)),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	MFAEnable(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 without mfa_setup cookie, got %d", rr.Code)
+	}
+}
+
+func TestMFAEnable_TamperedSetupCookie(t *testing.T) {
+	// Cookie signé invalide → rejet (M3 fix).
+	setupHandlerTest(t)
+	uid := newUser(t, "mfatamper@example.com", "ValidP@ss1!", "USER")
+
+	body, _ := json.Marshal(map[string]string{"code": "123456"})
+	req := injectUser(
+		httptest.NewRequest(http.MethodPost, "/api/mfa/enable", bytes.NewReader(body)),
+		mu(uid, "USER"),
+	)
+	req.AddCookie(&http.Cookie{Name: "mfa_setup", Value: "garbage.not.a.jwt"})
+	rr := httptest.NewRecorder()
+	MFAEnable(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 for tampered cookie, got %d", rr.Code)
+	}
+}
+
+func TestMFAEnable_CookieFromDifferentUser(t *testing.T) {
+	// Un cookie mfa_setup signé pour user A ne doit pas permettre l'enable
+	// pour user B (M3 fix : empêche un attaquant qui se serait procuré un
+	// cookie de réutiliser le secret pour activer MFA sur un autre compte).
+	setupHandlerTest(t)
+	uidA := newUser(t, "mfauserA@example.com", "ValidP@ss1!", "USER")
+	uidB := newUser(t, "mfauserB@example.com", "ValidP@ss1!", "USER")
+
+	secret, err := auth.GenerateTOTPSecret()
+	if err != nil {
+		t.Fatalf("GenerateTOTPSecret: %v", err)
+	}
+	code, _ := totp.GenerateCode(secret, time.Now())
+
+	body, _ := json.Marshal(map[string]string{"code": code})
+	req := injectUser(
+		httptest.NewRequest(http.MethodPost, "/api/mfa/enable", bytes.NewReader(body)),
+		mu(uidB, "USER"),
+	)
+	req.AddCookie(mfaSetupCookie(t, uidA, secret))
+	rr := httptest.NewRecorder()
+	MFAEnable(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 for cross-user cookie, got %d", rr.Code)
+	}
+}
+
 func TestMFAEnable_InvalidCode(t *testing.T) {
 	setupHandlerTest(t)
 	uid := newUser(t, "mfacode@example.com", "ValidP@ss1!", "USER")
@@ -885,11 +975,12 @@ func TestMFAEnable_InvalidCode(t *testing.T) {
 		t.Fatalf("GenerateTOTPSecret: %v", err)
 	}
 
-	body, _ := json.Marshal(map[string]string{"secret": secret, "code": "000000"})
+	body, _ := json.Marshal(map[string]string{"code": "000000"})
 	req := injectUser(
 		httptest.NewRequest(http.MethodPost, "/api/mfa/enable", bytes.NewReader(body)),
 		mu(uid, "USER"),
 	)
+	req.AddCookie(mfaSetupCookie(t, uid, secret))
 	rr := httptest.NewRecorder()
 	MFAEnable(rr, req)
 
@@ -913,11 +1004,12 @@ func TestMFAEnable_Success(t *testing.T) {
 		t.Fatalf("GenerateCode: %v", err)
 	}
 
-	body, _ := json.Marshal(map[string]string{"secret": secret, "code": code})
+	body, _ := json.Marshal(map[string]string{"code": code})
 	req := injectUser(
 		httptest.NewRequest(http.MethodPost, "/api/mfa/enable", bytes.NewReader(body)),
 		mu(uid, "USER"),
 	)
+	req.AddCookie(mfaSetupCookie(t, uid, secret))
 	rr := httptest.NewRecorder()
 	MFAEnable(rr, req)
 

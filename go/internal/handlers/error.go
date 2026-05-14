@@ -23,7 +23,7 @@ func MethodNotAllowed(w http.ResponseWriter, r *http.Request) {
 	data := baseData(r, user)
 	data["Title"] = "405"
 	data["Code"] = "405"
-	w.Header().Set("X-Error-Code", ErrForbidden)
+	w.Header().Set("X-Error-Code", ErrMethodNotAllowed)
 	w.WriteHeader(http.StatusMethodNotAllowed)
 	hookRender(w, "error.html", data) //nolint:errcheck
 }

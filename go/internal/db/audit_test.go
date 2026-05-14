@@ -9,6 +9,7 @@ func TestLogAndGetAuditLog(t *testing.T) {
 
 	LogAudit(userID, AuditLoginSuccess, "127.0.0.1", "go-test/1.0")
 	LogAudit(userID, AuditLogout, "127.0.0.1", "go-test/1.0")
+	FlushAuditLog() // M6 : LogAudit est async
 
 	entries, err := GetAuditLog(1, 50)
 	if err != nil {
@@ -39,6 +40,7 @@ func TestCountAuditLog(t *testing.T) {
 
 	LogAudit(userID, AuditAccountCreate, "192.168.1.1", "Mozilla/5.0")
 	LogAudit(userID, AuditAccountDelete, "192.168.1.1", "Mozilla/5.0")
+	FlushAuditLog() // M6 : LogAudit est async
 
 	count, _ = CountAuditLog()
 	if count != 2 {
@@ -54,6 +56,7 @@ func TestAuditLogPagination(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		LogAudit(userID, AuditLoginSuccess, "127.0.0.1", "agent")
 	}
+	FlushAuditLog() // M6 : LogAudit est async
 
 	page1, err := GetAuditLog(1, 3)
 	if err != nil {
