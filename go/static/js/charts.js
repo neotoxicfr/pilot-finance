@@ -67,7 +67,7 @@ window.initProjectionChart = (data, acc) => {
     window._projData = data; window._projAcc = acc;
     const ctx = document.getElementById('projectionCanvas');
     if (!ctx || typeof Chart === 'undefined') return;
-    window.projectionChart?.destroy();
+    if (window.projectionChart) { clearTimeout(window.projectionChart._ttTimer); window.projectionChart.destroy(); }
     if (!data?.length) {
         const noDataText = ctx.dataset.nodata || 'No data';
         ctx.parentElement.innerHTML = '<div class="h-full flex items-center justify-center text-muted-foreground">'+noDataText+'</div>';
@@ -112,7 +112,7 @@ window.initPieChart = (accounts, animated = true) => {
     const ctx = document.getElementById('pieCanvas');
     if (!ctx || typeof Chart === 'undefined') return;
     document.getElementById('pie-tooltip')?.remove();
-    window.pieChart?.destroy();
+    if (window.pieChart) { clearTimeout(window.pieChart._ttTimer); window.pieChart.destroy(); }
     if (!accounts?.length) return;
     const c = getColors(), bg = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
     window.pieChart = new Chart(ctx, {
