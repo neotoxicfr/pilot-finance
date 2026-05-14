@@ -45,6 +45,7 @@ COPY --from=css /app/static/css/tailwind.css static/css/tailwind.css
 
 # Build + compress
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
+    -trimpath \
     -ldflags="-s -w -X main.Version=${VERSION}" \
     -o /server ./cmd/server \
     && upx --best --lzma /server
