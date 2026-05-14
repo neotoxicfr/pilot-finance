@@ -149,17 +149,11 @@ func TestRequireAuth_SessionCacheHit(t *testing.T) {
 // dédiée avec un intervalle court, dépose une entrée expirée, attend un tick,
 // et vérifie qu'elle est purgée. Couvre la branche ticker.C du select.
 func TestSessionCacheCleanupLoop_TickerPurges(t *testing.T) {
-	origInterval := sessionCacheCleanupInterval
-	origStop := sessionCacheStopCh
-	sessionCacheCleanupInterval = 20 * time.Millisecond
-	sessionCacheStopCh = make(chan struct{})
-	defer func() {
-		close(sessionCacheStopCh)
-		sessionCacheCleanupInterval = origInterval
-		sessionCacheStopCh = origStop
-	}()
+	// Stop channel local pour éviter toute race sur le globaux (-race detector).
+	stop := make(chan struct{})
+	defer close(stop)
 
-	go sessionCacheCleanupLoop()
+	go sessionCacheCleanupLoop(stop, 20*time.Millisecond)
 
 	sessionCache.Store(int64(2001), sessionCacheEntry{
 		sessionVersion: 1,
