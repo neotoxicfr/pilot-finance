@@ -10,8 +10,8 @@ import (
 	"io"
 	"time"
 
-	qrcode "github.com/skip2/go-qrcode"
 	"github.com/go-webauthn/webauthn/protocol"
+	qrcode "github.com/skip2/go-qrcode"
 
 	"pilot-finance/internal/auth"
 	"pilot-finance/internal/crypto"
@@ -25,7 +25,7 @@ import (
 var (
 	hookCountUsers               = db.CountUsers
 	hookGetUserByBlindIndex      = db.GetUserByBlindIndex
-	hookCreateUser               = db.CreateUser
+	hookCreateUserAtomic         = db.CreateUserAtomic
 	hookHashPassword             = crypto.HashPassword
 	hookEncryptStr               = crypto.Encrypt
 	hookDecryptStr               = crypto.Decrypt
@@ -43,6 +43,8 @@ var (
 	hookGetUserByID              = db.GetUserByID
 	hookValidatePending2FAToken  = auth.ValidatePending2FAToken
 	hookGeneratePending2FAToken  = auth.GeneratePending2FAToken
+	hookGenerateMFASetupToken    = auth.GenerateMFASetupToken
+	hookValidateMFASetupToken    = auth.ValidateMFASetupToken
 	hookUpdateAccountWithYield   = db.UpdateAccountWithYield
 	hookCreateAccountWithYield   = db.CreateAccountWithYield
 	hookDeleteAccount            = db.DeleteAccount
@@ -67,17 +69,17 @@ var (
 	hookMarkEmailVerified        = db.MarkEmailVerified
 
 	// --- db: audit, login, reset, passkeys ---
-	hookLogAudit                 = db.LogAudit
-	hookUpdateLoginAttempts      = db.UpdateLoginAttempts
-	hookUpdatePasswordHash       = db.UpdatePasswordHash
-	hookGetAuditLogByUserID      = db.GetAuditLogByUserID
-	hookGetAuthenticatorsByUserID = db.GetAuthenticatorsByUserID
-	hookSetResetToken            = db.SetResetToken
-	hookGetUserByResetToken      = db.GetUserByResetToken
-	hookClearResetToken          = db.ClearResetToken
-	hookGetAuthByCredentialID    = db.GetAuthenticatorByCredentialID
-	hookCreateAuthenticator      = db.CreateAuthenticator
-	hookPingDB                   = func(ctx context.Context) error {
+	hookLogAudit                    = db.LogAudit
+	hookUpdateLoginAttempts         = db.UpdateLoginAttempts
+	hookUpdatePasswordHash          = db.UpdatePasswordHash
+	hookGetAuditLogByUserID         = db.GetAuditLogByUserID
+	hookGetAuthenticatorsByUserID   = db.GetAuthenticatorsByUserID
+	hookSetResetToken               = db.SetResetToken
+	hookGetUserByResetToken         = db.GetUserByResetToken
+	hookUpdatePasswordAndClearReset = db.UpdatePasswordAndClearResetToken
+	hookGetAuthByCredentialID       = db.GetAuthenticatorByCredentialID
+	hookCreateAuthenticator         = db.CreateAuthenticator
+	hookPingDB                      = func(ctx context.Context) error {
 		pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
 		return db.DB.PingContext(pingCtx)
@@ -91,9 +93,9 @@ var (
 	hookHashToken         = crypto.HashToken
 
 	// --- auth: TOTP, passkeys ---
-	hookValidateTOTP      = auth.ValidateTOTP
-	hookGenerateTOTPURI   = auth.GenerateTOTPURI
-	hookBeginRegistration = auth.BeginRegistration
+	hookValidateTOTP       = auth.ValidateTOTP
+	hookGenerateTOTPURI    = auth.GenerateTOTPURI
+	hookBeginRegistration  = auth.BeginRegistration
 	hookFinishRegistration = auth.FinishRegistration
 	hookBeginLogin         = auth.BeginLogin
 	hookFinishLogin        = auth.FinishLogin

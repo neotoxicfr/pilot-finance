@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/hex"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -31,13 +32,11 @@ func htmxRedirect(w http.ResponseWriter, r *http.Request, url string) {
 // The X-Forwarded-For / X-Real-IP fallbacks are kept for environments behind a
 // trusted proxy that sets these headers.
 func getClientIP(r *http.Request) string {
-	// Prefer RemoteAddr as primary (set by chi RealIP middleware when behind trusted proxy)
+	// Prefer RemoteAddr as primary (set by chi RealIP middleware when behind trusted proxy).
+	// net.SplitHostPort gère correctement les adresses IPv6 ("[::1]:1234") et IPv4 ("1.2.3.4:5").
 	remoteAddr := r.RemoteAddr
-	// Strip port if present (e.g. "1.2.3.4:12345" -> "1.2.3.4")
-	if idx := strings.LastIndex(remoteAddr, ":"); idx != -1 {
-		if !strings.Contains(remoteAddr, "]") || strings.LastIndex(remoteAddr, ":") > strings.LastIndex(remoteAddr, "]") {
-			remoteAddr = remoteAddr[:idx]
-		}
+	if host, _, err := net.SplitHostPort(remoteAddr); err == nil {
+		remoteAddr = host
 	}
 	if remoteAddr != "" && remoteAddr != "127.0.0.1" && remoteAddr != "::1" {
 		return remoteAddr
@@ -289,15 +288,6 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Vérifier si c'est le premier utilisateur
-	userCount, err := hookCountUsers()
-	if err != nil {
-		serverError(w, "count users", err)
-		return
-	}
-
-	isFirstUser := userCount == 0
-
 	// Vérifier si l'email existe déjà
 	blindIndex := hookComputeBlindIndex(email)
 	existingUser, err := hookGetUserByBlindIndex(blindIndex)
@@ -325,13 +315,10 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Créer l'utilisateur
-	role := "USER"
-	if isFirstUser {
-		role = "ADMIN"
-	}
-
-	userID, err := hookCreateUser(encryptedEmail, blindIndex, hashedPassword, role)
+	// Créer l'utilisateur en assignant le rôle ADMIN dans la même transaction
+	// si aucun admin n'existe encore (L2 fix : sérialise l'attribution ADMIN
+	// même sous deux inscriptions concurrentes).
+	userID, role, err := hookCreateUserAtomic(encryptedEmail, blindIndex, hashedPassword)
 	if err != nil {
 		serverError(w, "create user", err)
 		return

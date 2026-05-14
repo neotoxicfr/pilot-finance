@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"pilot-finance/internal/auth"
 )
@@ -142,4 +143,60 @@ func TestRequireAuth_SessionCacheHit(t *testing.T) {
 
 	// Clean up
 	InvalidateSessionCache(42)
+}
+
+// TestSessionCacheCleanupLoop_TickerPurges (H1 fix) : démarre une goroutine
+// dédiée avec un intervalle court, dépose une entrée expirée, attend un tick,
+// et vérifie qu'elle est purgée. Couvre la branche ticker.C du select.
+func TestSessionCacheCleanupLoop_TickerPurges(t *testing.T) {
+	// Stop channel local pour éviter toute race sur le globaux (-race detector).
+	stop := make(chan struct{})
+	defer close(stop)
+
+	go sessionCacheCleanupLoop(stop, 20*time.Millisecond)
+
+	sessionCache.Store(int64(2001), sessionCacheEntry{
+		sessionVersion: 1,
+		emailEncrypted: "z",
+		emailVerified:  true,
+		expiresAt:      time.Now().Add(-1 * time.Hour),
+	})
+
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if _, ok := sessionCache.Load(int64(2001)); !ok {
+			return // purged
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Error("ticker did not purge expired entry within deadline")
+}
+
+// TestPurgeExpiredSessionCache_RemovesExpired (H1 fix) : vérifie que la
+// fonction de purge supprime les entrées expirées et conserve les valides.
+func TestPurgeExpiredSessionCache_RemovesExpired(t *testing.T) {
+	// Entrée déjà expirée
+	sessionCache.Store(int64(1001), sessionCacheEntry{
+		sessionVersion: 1,
+		emailEncrypted: "x",
+		emailVerified:  true,
+		expiresAt:      time.Now().Add(-1 * time.Hour),
+	})
+	// Entrée encore valide
+	sessionCache.Store(int64(1002), sessionCacheEntry{
+		sessionVersion: 1,
+		emailEncrypted: "y",
+		emailVerified:  true,
+		expiresAt:      time.Now().Add(1 * time.Hour),
+	})
+
+	PurgeExpiredSessionCache()
+
+	if _, ok := sessionCache.Load(int64(1001)); ok {
+		t.Error("expired entry should have been purged")
+	}
+	if _, ok := sessionCache.Load(int64(1002)); !ok {
+		t.Error("valid entry should still be present")
+	}
+	sessionCache.Delete(int64(1002))
 }

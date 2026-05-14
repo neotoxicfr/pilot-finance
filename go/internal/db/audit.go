@@ -41,23 +41,40 @@ type AuditEntry struct {
 	CreatedAt time.Time
 }
 
-// LogAudit enregistre une action dans le journal d'audit (fire-and-forget).
+// auditWG suit les écritures audit en vol pour FlushAuditLog au shutdown.
+var auditWG sync.WaitGroup
+
+// LogAudit enregistre une action dans le journal d'audit (vraie fire-and-forget).
+// M6 fix : 2 chiffrements AES + 1 INSERT exécutés en goroutine pour ne pas
+// bloquer le handler appelant (~2-5ms gagnés par action sensible). Le timestamp
+// est capturé synchronement pour préserver l'ordre logique des événements.
 // IP et UserAgent sont chiffrés AES-256-GCM avant stockage.
 func LogAudit(userID int64, action, ip, userAgent string) {
-	ipEnc, err := crypto.Encrypt(ip)
-	if err != nil {
-		slog.Warn("audit log: encrypt ip failed", "err", err)
-		ipEnc = ip
-	}
-	uaEnc, err := crypto.Encrypt(userAgent)
-	if err != nil {
-		slog.Warn("audit log: encrypt user_agent failed", "err", err)
-		uaEnc = userAgent
-	}
-	if _, err := DB.Exec(`INSERT INTO audit_log (user_id, action, ip, user_agent, created_at) VALUES (?, ?, ?, ?, ?)`,
-		userID, action, ipEnc, uaEnc, time.Now().Unix()); err != nil {
-		slog.Warn("audit log insert failed", "action", action, "userID", userID, "err", err)
-	}
+	createdAt := time.Now().Unix()
+	auditWG.Add(1)
+	go func() {
+		defer auditWG.Done()
+		ipEnc, err := crypto.Encrypt(ip)
+		if err != nil {
+			slog.Warn("audit log: encrypt ip failed", "err", err)
+			ipEnc = ip
+		}
+		uaEnc, err := crypto.Encrypt(userAgent)
+		if err != nil {
+			slog.Warn("audit log: encrypt user_agent failed", "err", err)
+			uaEnc = userAgent
+		}
+		if _, err := DB.Exec(`INSERT INTO audit_log (user_id, action, ip, user_agent, created_at) VALUES (?, ?, ?, ?, ?)`,
+			userID, action, ipEnc, uaEnc, createdAt); err != nil {
+			slog.Warn("audit log insert failed", "action", action, "userID", userID, "err", err)
+		}
+	}()
+}
+
+// FlushAuditLog attend que toutes les écritures audit en vol soient terminées.
+// À appeler pendant le shutdown gracieux pour ne pas perdre d'entrées en cours.
+func FlushAuditLog() {
+	auditWG.Wait()
 }
 
 // GetAuditLogByUserID retourne toutes les entrées d'audit d'un utilisateur (export GDPR).

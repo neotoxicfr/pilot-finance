@@ -63,7 +63,9 @@ func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setSessionCookie(w, "passkey_challenge", sessionData, 300) // 5 minutes
+	// L3 fix : limiter au sous-arbre /api/passkey — réduit la surface
+	// d'exfiltration et évite d'envoyer le challenge sur toutes les requêtes.
+	setScopedCookie(w, "passkey_challenge", sessionData, 300, "/api/passkey") // 5 minutes
 
 	jsonSuccess(w, options)
 }
@@ -124,7 +126,7 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clearCookie(w, "passkey_challenge")
+	clearScopedCookie(w, "passkey_challenge", "/api/passkey")
 
 	hookLogAudit(user.ID, db.AuditPasskeyAdd, getClientIP(r), r.UserAgent())
 
@@ -139,7 +141,8 @@ func PasskeyLoginStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setSessionCookie(w, "passkey_auth_challenge", sessionData, 300) // 5 minutes
+	// L3 fix : scope /api/passkey (le challenge n'est lu que par /api/passkey/login/finish).
+	setScopedCookie(w, "passkey_auth_challenge", sessionData, 300, "/api/passkey") // 5 minutes
 
 	jsonSuccess(w, options)
 }
@@ -241,7 +244,7 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clearCookie(w, "passkey_auth_challenge")
+	clearScopedCookie(w, "passkey_auth_challenge", "/api/passkey")
 	setSessionCookie(w, "session", token, 86400) // 24 heures
 
 	hookRateLimitReset(clientIP, "login")

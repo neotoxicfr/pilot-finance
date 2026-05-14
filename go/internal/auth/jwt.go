@@ -114,3 +114,48 @@ func ValidatePending2FAToken(tokenString string) (int64, error) {
 
 	return claims.UserID, nil
 }
+
+// MFASetupClaims pour les tokens temporaires d'enrôlement MFA. Stocke le
+// secret TOTP côté serveur (cookie signé HS256) pour éviter qu'un client
+// malveillant n'envoie un secret de son choix au moment du /enable.
+type MFASetupClaims struct {
+	UserID int64  `json:"uid"`
+	Secret string `json:"sec"`
+	jwt.RegisteredClaims
+}
+
+// GenerateMFASetupToken signe un cookie contenant le secret TOTP fraîchement
+// généré pour l'utilisateur. Expire en 5 minutes.
+func GenerateMFASetupToken(userID int64, secret string) (string, error) {
+	claims := &MFASetupClaims{
+		UserID: userID,
+		Secret: secret,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(jwtSecret)
+}
+
+// ValidateMFASetupToken vérifie le cookie et retourne (userID, secret) si valide.
+func ValidateMFASetupToken(tokenString string) (int64, string, error) {
+	token, err := parseWithClaimsFn(tokenString, &MFASetupClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, ErrInvalidToken
+		}
+		return jwtSecret, nil
+	})
+
+	if err != nil {
+		return 0, "", ErrInvalidToken
+	}
+
+	claims, ok := token.Claims.(*MFASetupClaims)
+	if !ok || !token.Valid {
+		return 0, "", ErrInvalidToken
+	}
+
+	return claims.UserID, claims.Secret, nil
+}

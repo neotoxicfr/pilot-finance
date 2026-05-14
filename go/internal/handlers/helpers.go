@@ -5,11 +5,35 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"sync"
 
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/projection"
 )
+
+// loadAccountsAndRecurring récupère comptes et opérations récurrentes en
+// parallèle (H2 perf). Sur SQLite, deux requêtes read peuvent s'exécuter
+// concurremment ; en sériel on observe une latence cumulative. Les erreurs
+// sont retournées séparément pour que les handlers puissent traiter chaque
+// échec différemment (compte critique vs récurrent non-bloquant).
+func loadAccountsAndRecurring(userID int64) ([]db.Account, []db.RecurringOperation, error, error) {
+	var accs []db.Account
+	var recs []db.RecurringOperation
+	var accErr, recErr error
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		accs, accErr = hookGetAccountsByUserID(userID)
+	}()
+	go func() {
+		defer wg.Done()
+		recs, recErr = hookGetRecurringByUserID(userID)
+	}()
+	wg.Wait()
+	return accs, recs, accErr, recErr
+}
 
 // parseFormAny parses form data from the request body for any HTTP method.
 // Go's ParseForm only reads the body for POST/PUT/PATCH; this extends it to DELETE.
@@ -42,10 +66,19 @@ func serverError(w http.ResponseWriter, context string, err error) {
 
 // setSessionCookie pose un cookie de session avec les flags de sécurité appropriés
 func setSessionCookie(w http.ResponseWriter, name, value string, maxAge int) {
+	setScopedCookie(w, name, value, maxAge, "/")
+}
+
+// setScopedCookie pose un cookie de session limité à un Path donné. Utilisé
+// pour les cookies qui ne sont pertinents que sur une sous-arborescence
+// (mfa_setup → /settings/mfa, passkey_* → /api/passkey) afin de réduire la
+// surface d'exfiltration et d'éviter de les envoyer sur toutes les requêtes.
+// path doit être non-vide (utiliser "/" pour cookies globaux).
+func setScopedCookie(w http.ResponseWriter, name, value string, maxAge int, path string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     name,
 		Value:    value,
-		Path:     "/",
+		Path:     path,
 		MaxAge:   maxAge,
 		HttpOnly: true,
 		Secure:   true,
@@ -55,10 +88,17 @@ func setSessionCookie(w http.ResponseWriter, name, value string, maxAge int) {
 
 // clearCookie supprime un cookie en le posant avec MaxAge=-1
 func clearCookie(w http.ResponseWriter, name string) {
+	clearScopedCookie(w, name, "/")
+}
+
+// clearScopedCookie supprime un cookie posé avec un Path spécifique. Le Path
+// du cookie d'effacement DOIT correspondre à celui du cookie d'origine,
+// sinon le navigateur n'efface pas l'entrée. path doit être non-vide.
+func clearScopedCookie(w http.ResponseWriter, name, path string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     name,
 		Value:    "",
-		Path:     "/",
+		Path:     path,
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   true,
