@@ -37,3 +37,19 @@ func TestValidatePending2FAToken_TokenInvalid(t *testing.T) {
 		t.Errorf("want ErrInvalidToken, got %v", err)
 	}
 }
+
+// TestValidateMFASetupToken_TokenInvalid covers the !ok || !token.Valid branch
+// in ValidateMFASetupToken (M3 fix).
+func TestValidateMFASetupToken_TokenInvalid(t *testing.T) {
+	orig := parseWithClaimsFn
+	defer func() { parseWithClaimsFn = orig }()
+
+	parseWithClaimsFn = func(_ string, _ jwt.Claims, _ jwt.Keyfunc, _ ...jwt.ParserOption) (*jwt.Token, error) {
+		return &jwt.Token{Valid: false, Claims: &MFASetupClaims{}}, nil
+	}
+
+	_, _, err := ValidateMFASetupToken("any-token")
+	if !errors.Is(err, ErrInvalidToken) {
+		t.Errorf("want ErrInvalidToken, got %v", err)
+	}
+}

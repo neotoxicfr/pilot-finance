@@ -55,10 +55,12 @@ function mfaData() {
                 .catch(() => { this.mfaLoading = false; this.mfaError = '{{index .T "common.network_error"}}'; });
         },
         enableMfa() {
+            // Le secret est désormais stocké côté serveur dans un cookie signé
+            // (mfa_setup), posé par /settings/mfa/setup. On n'envoie que le code.
             fetch('/settings/mfa/enable', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ secret: this.mfaSetup.secret, code: this.mfaCode })
+                body: JSON.stringify({ code: this.mfaCode })
             }).then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); }).then(d => {
                 if (d.error) this.mfaError = d.error;
                 else location.reload();

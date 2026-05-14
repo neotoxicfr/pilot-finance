@@ -1,7 +1,10 @@
 package db
 
 import (
+	"strconv"
+	"sync"
 	"testing"
+	"time"
 
 	"pilot-finance/internal/crypto"
 )
@@ -129,6 +132,105 @@ func TestUpdatePassword(t *testing.T) {
 	sv2, _, _, _ := GetUserAuthData(userID)
 	if sv2 != sv1+1 {
 		t.Errorf("session_version should increment: want %d, got %d", sv1+1, sv2)
+	}
+}
+
+func TestCreateUserAtomic_FirstUserGetsAdmin(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+
+	id, role, err := CreateUserAtomic("enc1", "bi1", "hash")
+	if err != nil {
+		t.Fatalf("CreateUserAtomic: %v", err)
+	}
+	if id == 0 {
+		t.Error("want non-zero id")
+	}
+	if role != "ADMIN" {
+		t.Errorf("first user should be ADMIN, got %q", role)
+	}
+}
+
+func TestCreateUserAtomic_SubsequentUsersAreNotAdmin(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+
+	if _, _, err := CreateUserAtomic("enc1", "bi1", "hash"); err != nil {
+		t.Fatalf("first user: %v", err)
+	}
+	_, role, err := CreateUserAtomic("enc2", "bi2", "hash")
+	if err != nil {
+		t.Fatalf("second user: %v", err)
+	}
+	if role != "USER" {
+		t.Errorf("second user should be USER, got %q", role)
+	}
+}
+
+// TestCreateUserAtomic_NoDoubleAdminUnderConcurrency (L2 fix) : exécute
+// plusieurs inscriptions en parallèle et vérifie qu'un seul ADMIN est créé.
+func TestCreateUserAtomic_NoDoubleAdminUnderConcurrency(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+
+	const n = 8
+	var wg sync.WaitGroup
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		i := i
+		go func() {
+			defer wg.Done()
+			emailEnc := "enc-concurrent-" + strconv.Itoa(i)
+			bi := "bi-concurrent-" + strconv.Itoa(i)
+			_, _, _ = CreateUserAtomic(emailEnc, bi, "hash")
+		}()
+	}
+	wg.Wait()
+
+	var admins int
+	if err := DB.QueryRow(`SELECT COUNT(*) FROM users WHERE role = 'ADMIN'`).Scan(&admins); err != nil {
+		t.Fatalf("count admins: %v", err)
+	}
+	if admins != 1 {
+		t.Errorf("want exactly 1 admin under concurrency, got %d", admins)
+	}
+}
+
+func TestUpdatePasswordAndClearResetToken_Atomic(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+	userID := createTestUser(t)
+
+	// Pose un reset token
+	if err := SetResetToken(userID, "hashedtok", time.Now().Add(time.Hour)); err != nil {
+		t.Fatalf("SetResetToken: %v", err)
+	}
+
+	sv1, _, _, _ := GetUserAuthData(userID)
+
+	if err := UpdatePasswordAndClearResetToken(userID, "newhashv2"); err != nil {
+		t.Fatalf("UpdatePasswordAndClearResetToken: %v", err)
+	}
+
+	// session_version doit avoir été bumpé
+	sv2, _, _, _ := GetUserAuthData(userID)
+	if sv2 != sv1+1 {
+		t.Errorf("session_version: want %d, got %d", sv1+1, sv2)
+	}
+
+	// reset_token doit être null → lookup retourne nil
+	user, err := GetUserByResetToken("hashedtok")
+	if err != nil {
+		t.Fatalf("GetUserByResetToken: %v", err)
+	}
+	if user != nil {
+		t.Error("reset_token should be cleared atomically")
+	}
+
+	// password doit avoir été mis à jour
+	u, _ := GetUserByID(userID)
+	if u.Password != "newhashv2" {
+		t.Errorf("password not updated: got %q", u.Password)
 	}
 }
 

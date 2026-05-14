@@ -22,7 +22,10 @@ func ForgotPasswordPage(w http.ResponseWriter, r *http.Request) {
 	hookRender(w, "forgot-password.html", data) //nolint:errcheck
 }
 
-// ForgotPasswordSubmit traite la demande de reinitialisation
+// ForgotPasswordSubmit traite la demande de reinitialisation.
+// M2 fix : exécute le travail crypto (rand + hashToken) même quand l'email
+// n'existe pas pour égaliser le temps de réponse, et envoie l'email en
+// goroutine pour ne pas exposer la durée du SMTP.
 func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	if !hookMailIsEnabled() {
 		clientError(w, ErrDisabled, "Feature disabled", http.StatusBadRequest)
@@ -44,11 +47,7 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Chercher l'utilisateur
-	blindIndex := hookComputeBlindIndex(email)
-	user, err := hookGetUserByBlindIndex(blindIndex)
-	if err != nil || user == nil {
-		// Ne pas reveler si l'email existe ou non
+	renderSuccess := func() {
 		data := baseData(r, nil)
 		t := data["T"].(map[string]string)
 		data["Title"] = t["forgot.title"]
@@ -56,17 +55,29 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 		data["Success"] = true
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		hookRender(w, "forgot-password.html", data) //nolint:errcheck
-		return
 	}
 
-	// Generer un token
+	// Chercher l'utilisateur
+	blindIndex := hookComputeBlindIndex(email)
+	user, err := hookGetUserByBlindIndex(blindIndex)
+
+	// Toujours générer 32 bytes aléatoires + dérivation HMAC pour égaliser
+	// les temps user-existe vs user-absent (timing oracle).
 	tokenBytes := make([]byte, 32)
-	if _, err := hookRandRead(tokenBytes); err != nil {
-		serverError(w, "generate token", err)
+	if _, rerr := hookRandRead(tokenBytes); rerr != nil {
+		// Si le rand échoue côté serveur, garder réponse générique.
+		slog.Error("forgot password: rand read", "err", rerr)
+		renderSuccess()
 		return
 	}
 	token := hex.EncodeToString(tokenBytes)
 	hashedToken := hookHashToken(token)
+
+	if err != nil || user == nil {
+		// User inconnu : on a déjà payé le coût crypto. Réponse identique.
+		renderSuccess()
+		return
+	}
 
 	// Sauvegarder le token avec expiration 1h
 	expiry := time.Now().Add(1 * time.Hour)
@@ -75,7 +86,8 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Envoyer l'email
+	// Envoyer l'email en arrière-plan pour ne pas exposer la durée du SMTP
+	// (timing oracle distinct du chemin user-absent). Les erreurs sont loggées.
 	host := os.Getenv("HOST")
 	if host == "" {
 		host = "localhost:3000"
@@ -84,17 +96,13 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	if lang == "" {
 		lang = "fr"
 	}
-	if err := hookSendPasswordReset(email, token, host, lang); err != nil {
-		slog.Warn("send password reset email", "err", err)
-	}
+	go func(email, token, host, lang string) {
+		if err := hookSendPasswordReset(email, token, host, lang); err != nil {
+			slog.Warn("send password reset email", "err", err)
+		}
+	}(email, token, host, lang)
 
-	data := baseData(r, nil)
-	t := data["T"].(map[string]string)
-	data["Title"] = t["forgot.title"]
-	data["MailEnabled"] = true
-	data["Success"] = true
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	hookRender(w, "forgot-password.html", data) //nolint:errcheck
+	renderSuccess()
 }
 
 // ResetPasswordPage affiche la page de reinitialisation
@@ -190,19 +198,16 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Mettre a jour le mot de passe
-	if err := hookUpdatePassword(user.ID, hashedPassword); err != nil {
-		serverError(w, "update password", err)
+	// Mettre à jour le mot de passe ET effacer le reset token dans la MÊME
+	// transaction. Évite la fenêtre où le token resterait valide en DB si
+	// l'effacement échouait après un update réussi.
+	if err := hookUpdatePasswordAndClearReset(user.ID, hashedPassword); err != nil {
+		serverError(w, "update password and clear reset token", err)
 		return
 	}
 
 	// Invalidate session cache so stolen tokens are rejected immediately
 	hookInvalidateSessionCache(user.ID)
-
-	// Effacer le token
-	if err := hookClearResetToken(user.ID); err != nil {
-		slog.Error("clearResetToken failed", "err", err, "userID", user.ID)
-	}
 
 	// Rediriger vers login avec message de succes
 	http.Redirect(w, r, "/login?reset=success", http.StatusSeeOther)

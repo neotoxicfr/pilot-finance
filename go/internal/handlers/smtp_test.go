@@ -176,8 +176,37 @@ func TestForgotPasswordSubmit_RandReadError(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	ForgotPasswordSubmit(rr, post("/forgot-password", url.Values{"email": {"randerr@example.com"}}))
-	if rr.Code != http.StatusInternalServerError {
-		t.Errorf("want 500, got %d", rr.Code)
+	// M2 fix : avec le travail crypto fait avant la branche user-existe, un
+	// échec rand renvoie maintenant 200 (réponse générique) pour ne pas révéler
+	// l'existence de l'utilisateur via un timing/status oracle.
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200 (generic response), got %d", rr.Code)
+	}
+}
+
+// TestForgotPasswordSubmit_TimingEqualization (M2 fix) : vérifie que la branche
+// "user inconnu" exécute bien rand+hashToken pour égaliser le temps.
+func TestForgotPasswordSubmit_TimingEqualization(t *testing.T) {
+	setupHandlerTest(t)
+	enableTestSMTP(t)
+
+	// Compteur d'appels rand pour confirmer que le code crypto est exécuté
+	// même quand l'email n'existe pas.
+	calls := 0
+	orig := hookRandRead
+	hookRandRead = func(b []byte) (int, error) {
+		calls++
+		return len(b), nil
+	}
+	t.Cleanup(func() { hookRandRead = orig })
+
+	rr := httptest.NewRecorder()
+	ForgotPasswordSubmit(rr, post("/forgot-password", url.Values{"email": {"unknown@example.com"}}))
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d", rr.Code)
+	}
+	if calls == 0 {
+		t.Error("hookRandRead must be called even when user is unknown (M2 timing equalization)")
 	}
 }
 

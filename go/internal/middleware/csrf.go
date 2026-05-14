@@ -3,6 +3,7 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -35,17 +36,21 @@ func ValidateOrigin(host string) func(http.Handler) http.Handler {
 					}
 				}
 
-				// Build expected origin prefixes (support both http and https for localhost/dev)
-				expectedHTTPS := "https://" + effectiveHost
-				expectedHTTP := "http://" + effectiveHost
-
+				// Strict origin matching via net/url to defeat prefix-bypass
+				// attacks like https://pilot.neotoxic.net.evil.com or
+				// https://pilot.neotoxic.network where a HasPrefix check would
+				// falsely accept the value.
 				matchesOrigin := func(value string) bool {
-					if host != "" {
-						// Production: only allow HTTPS
-						return strings.HasPrefix(value, expectedHTTPS)
+					u, err := url.Parse(value)
+					if err != nil || u.Host == "" {
+						return false
 					}
-					// Dev fallback: allow both HTTP and HTTPS
-					return strings.HasPrefix(value, expectedHTTPS) || strings.HasPrefix(value, expectedHTTP)
+					if host != "" {
+						// Production: only allow HTTPS and exact host match
+						return u.Scheme == "https" && u.Host == effectiveHost
+					}
+					// Dev fallback: allow both HTTP and HTTPS, exact host match
+					return (u.Scheme == "https" || u.Scheme == "http") && u.Host == effectiveHost
 				}
 
 				if origin := r.Header.Get("Origin"); origin != "" {
