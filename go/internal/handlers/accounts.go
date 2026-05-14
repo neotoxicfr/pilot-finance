@@ -350,14 +350,13 @@ func ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 	lang, currency := userLocale(user)
 
-	accounts, err := hookGetAccountsByUserID(user.ID)
-	if err != nil {
-		serverError(w, "renderAccountsList: accounts", err)
+	accounts, recurrings, accErr, recErr := loadAccountsAndRecurring(user.ID)
+	if accErr != nil {
+		serverError(w, "renderAccountsList: accounts", accErr)
 		return
 	}
-	recurrings, err := hookGetRecurringByUserID(user.ID)
-	if err != nil {
-		serverError(w, "renderAccountsList: recurring", err)
+	if recErr != nil {
+		serverError(w, "renderAccountsList: recurring", recErr)
 		return
 	}
 

@@ -5,11 +5,35 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"sync"
 
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/projection"
 )
+
+// loadAccountsAndRecurring récupère comptes et opérations récurrentes en
+// parallèle (H2 perf). Sur SQLite, deux requêtes read peuvent s'exécuter
+// concurremment ; en sériel on observe une latence cumulative. Les erreurs
+// sont retournées séparément pour que les handlers puissent traiter chaque
+// échec différemment (compte critique vs récurrent non-bloquant).
+func loadAccountsAndRecurring(userID int64) ([]db.Account, []db.RecurringOperation, error, error) {
+	var accs []db.Account
+	var recs []db.RecurringOperation
+	var accErr, recErr error
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		accs, accErr = hookGetAccountsByUserID(userID)
+	}()
+	go func() {
+		defer wg.Done()
+		recs, recErr = hookGetRecurringByUserID(userID)
+	}()
+	wg.Wait()
+	return accs, recs, accErr, recErr
+}
 
 // parseFormAny parses form data from the request body for any HTTP method.
 // Go's ParseForm only reads the body for POST/PUT/PATCH; this extends it to DELETE.

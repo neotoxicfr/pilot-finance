@@ -32,20 +32,17 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 		years = parsed
 	}
 
-	// Recuperer les comptes
-	accounts, err := hookGetAccountsByUserID(user.ID)
-	if err != nil {
-		serverError(w, "get accounts", err)
+	// Récupère comptes et récurrents en parallèle (H2 perf)
+	accounts, recurrings, accErr, recErr := loadAccountsAndRecurring(user.ID)
+	if accErr != nil {
+		serverError(w, "get accounts", accErr)
 		return
 	}
-
-	decryptAccountNames(accounts)
-
-	// Recuperer les operations recurrentes pour la projection et le resume mensuel
-	recurrings, recErr := hookGetRecurringByUserID(user.ID)
 	if recErr != nil {
 		slog.Warn("DashboardAPI: recurring", "err", recErr, "userID", user.ID)
 	}
+
+	decryptAccountNames(accounts)
 
 	// Calculer les projections
 	data := projection.Calculate(accounts, recurrings, years, user.Language)
@@ -125,6 +122,13 @@ func RecurringAPI(w http.ResponseWriter, r *http.Request) {
 	recurrings, err := hookGetRecurringByUserID(user.ID)
 	if err != nil {
 		serverError(w, "get recurrings", err)
+		return
+	}
+
+	// Early return : si aucun récurrent, pas besoin de fetch+décrypter les
+	// comptes (H3 perf : économise une requête DB + N déchiffrements AES).
+	if len(recurrings) == 0 {
+		jsonSuccess(w, []any{})
 		return
 	}
 
