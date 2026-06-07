@@ -211,11 +211,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		setSessionCookie(w, "pending_2fa", pendingToken, 300) // 5 minutes
 
 		// Rendre la page login avec le formulaire 2FA visible et les traductions correctes
-		data := baseData(r, nil)
-		data["Title"] = "Connexion"
-		data["CanRegister"] = os.Getenv("ALLOW_REGISTER") == "true"
-		data["CanUsePasskeys"] = os.Getenv("HOST") != ""
-		data["MailEnabled"] = os.Getenv("SMTP_HOST") != ""
+		data := loginPageData(r)
 		data["Requires2FA"] = true
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		hookRender(w, "login.html", data) //nolint:errcheck

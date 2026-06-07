@@ -1856,3 +1856,79 @@ func TestCreateRecurring_DescriptionTooLong(t *testing.T) {
 		t.Errorf("want 400 (description too long), got %d", rr.Code)
 	}
 }
+
+// recurring.go parseRecurringForm — UpdateRecurring now rejects an empty
+// description (previously it could blank the field). → 400
+func TestUpdateRecurring_EmptyDescription(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "updrec_empty@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	recID := createRec(t, uid, accID)
+
+	req := injectUser(
+		withParam(
+			post("/recurring/"+intStr(recID), url.Values{
+				"description": {""},
+				"amount":      {"100"},
+				"dayOfMonth":  {"1"},
+				"type":        {"income"},
+			}),
+			"id", intStr(recID),
+		),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	UpdateRecurring(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (empty description), got %d", rr.Code)
+	}
+}
+
+// recurring.go parseRecurringForm — UpdateRecurring now rejects a description
+// longer than 500 runes (previously unchecked on update). → 400
+func TestUpdateRecurring_DescriptionTooLong(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "updrec_long@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+	recID := createRec(t, uid, accID)
+
+	req := injectUser(
+		withParam(
+			post("/recurring/"+intStr(recID), url.Values{
+				"description": {strings.Repeat("a", 501)},
+				"amount":      {"100"},
+				"dayOfMonth":  {"1"},
+				"type":        {"income"},
+			}),
+			"id", intStr(recID),
+		),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	UpdateRecurring(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400 (description too long), got %d", rr.Code)
+	}
+}
+
+// settings.go ChangePassword — hookGetSessionVersion error path: the password is
+// still updated (200) but no new cookie is re-issued. Covers the svErr != nil branch.
+func TestChangePassword_GetSessionVersionError(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "pwd_sverr@example.com", "OldP@ss1!", "USER")
+
+	orig := hookGetSessionVersion
+	hookGetSessionVersion = func(int64) (int, error) { return 0, errTest }
+	t.Cleanup(func() { hookGetSessionVersion = orig })
+
+	req := injectUser(post("/settings/password", url.Values{
+		"current_password": {"OldP@ss1!"},
+		"newPassword":      {"NewValidP@ssw0rd!"},
+		"confirmPassword":  {"NewValidP@ssw0rd!"},
+	}), mu(uid, "USER"))
+	rr := httptest.NewRecorder()
+	ChangePassword(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200 (password changed despite session-version read error), got %d", rr.Code)
+	}
+}

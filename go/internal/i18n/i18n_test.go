@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -83,6 +84,34 @@ func TestLoad_SkipsNonJSONFiles(t *testing.T) {
 
 	if err := Load(dir); err != nil {
 		t.Fatalf("Load: %v", err)
+	}
+}
+
+// TestLoad_MissingFallbackFr couvre le contrôle post-chargement : si "fr"
+// est absent (seul en.json présent), Load doit renvoyer une erreur claire.
+func TestLoad_MissingFallbackFr(t *testing.T) {
+	resetTranslations()
+	dir := t.TempDir()
+	writeLangFile(t, dir, "en", `{"hello":"Hello"}`)
+
+	err := Load(dir)
+	if err == nil {
+		t.Fatal("want error when fallback 'fr' is missing")
+	}
+	if !strings.Contains(err.Error(), "fallback 'fr'") {
+		t.Errorf("want fallback error, got %v", err)
+	}
+}
+
+// TestLoad_EmptyFallbackFr couvre le cas où fr.json existe mais est un objet vide.
+func TestLoad_EmptyFallbackFr(t *testing.T) {
+	resetTranslations()
+	dir := t.TempDir()
+	writeLangFile(t, dir, "fr", `{}`)
+
+	err := Load(dir)
+	if err == nil {
+		t.Fatal("want error when fallback 'fr' is empty")
 	}
 }
 

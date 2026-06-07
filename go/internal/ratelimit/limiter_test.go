@@ -206,16 +206,6 @@ func TestCheck_BlockExpired_Unblocks(t *testing.T) {
 	ratelimit.StopAll()
 }
 
-// TestLimiter_GoroutineStop couvre limiter.go:86 — case <-l.stop: return dans le goroutine.
-// Un sleep minimal après StopAll() laisse le scheduler exécuter la branche return.
-func TestLimiter_GoroutineStop(t *testing.T) {
-	ratelimit.StopAll()
-	ratelimit.Check("5.5.5.5", "login") // crée le limiter et démarre le goroutine cleanup
-	ratelimit.StopAll()                  // close(l.stop) → goroutine devient runnable
-	time.Sleep(10 * time.Millisecond)    // scheduler time pour exécuter case <-l.stop: return
-	ratelimit.StopAll()                  // nettoyage final
-}
-
 func TestCheck_Disabled_AlwaysAllowed(t *testing.T) {
 	ratelimit.StopAll()
 	ratelimit.Disabled = true

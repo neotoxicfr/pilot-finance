@@ -62,6 +62,24 @@ func Init(templatesDir string) error {
 		return err
 	}
 
+	// Lire chaque fichier de base une seule fois (au lieu d'une fois par page).
+	// On conserve l'ordre des fichiers via baseFiles pour un parsing déterministe.
+	type baseTemplate struct {
+		name    string
+		content string
+	}
+	baseContents := make([]baseTemplate, 0, len(baseFiles))
+	for _, baseFile := range baseFiles {
+		content, err := osReadFile(baseFile)
+		if err != nil {
+			return fmt.Errorf("erreur lecture %s: %v", baseFile, err)
+		}
+		baseContents = append(baseContents, baseTemplate{
+			name:    filepath.Base(baseFile),
+			content: string(content),
+		})
+	}
+
 	// Pour chaque page, créer un template combiné
 	for _, pageFile := range pageFiles {
 		pageName := filepath.Base(pageFile)
@@ -69,16 +87,10 @@ func Init(templatesDir string) error {
 		// Créer un nouveau template avec les fonctions
 		tmpl := template.New("").Funcs(FuncMap)
 
-		// Parser tous les fichiers de base
-		for _, baseFile := range baseFiles {
-			content, err := osReadFile(baseFile)
-			if err != nil {
-				return fmt.Errorf("erreur lecture %s: %v", baseFile, err)
-			}
-			baseName := filepath.Base(baseFile)
-			_, err = tmpl.New(baseName).Parse(string(content))
-			if err != nil {
-				return fmt.Errorf("erreur parsing %s: %v", baseName, err)
+		// Parser tous les fichiers de base depuis le cache
+		for _, base := range baseContents {
+			if _, err := tmpl.New(base.name).Parse(base.content); err != nil {
+				return fmt.Errorf("erreur parsing %s: %v", base.name, err)
 			}
 		}
 
@@ -247,10 +259,14 @@ func dict(values ...interface{}) map[string]interface{} {
 	return d
 }
 
-// orFunc retourne la premiere valeur non-nulle (variadic)
+// orFunc retourne la première valeur "truthy" (variadic).
+// Sont considérés comme falsy : nil, "", false, et les zéros numériques
+// (int, int64, float64). Un type switch est nécessaire car une comparaison
+// directe `v != 0` compare contre une constante int et ne détecte donc pas
+// int64(0) ni float64(0).
 func orFunc(values ...interface{}) interface{} {
 	for _, v := range values {
-		if v != nil && v != "" && v != 0 && v != false {
+		if isTruthy(v) {
 			return v
 		}
 	}
@@ -258,6 +274,26 @@ func orFunc(values ...interface{}) interface{} {
 		return values[len(values)-1]
 	}
 	return nil
+}
+
+// isTruthy retourne false pour nil, "", false et les zéros numériques.
+func isTruthy(v interface{}) bool {
+	switch n := v.(type) {
+	case nil:
+		return false
+	case string:
+		return n != ""
+	case bool:
+		return n
+	case int:
+		return n != 0
+	case int64:
+		return n != 0
+	case float64:
+		return n != 0
+	default:
+		return true
+	}
 }
 
 // toJSON convertit une valeur en JSON (SetEscapeHTML explicite pour clarifier l'intention)

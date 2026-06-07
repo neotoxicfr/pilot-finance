@@ -49,11 +49,19 @@ func TestGetAuditLogByUserID_OrderDesc(t *testing.T) {
 	defer cleanup()
 	userID := createTestUser(t)
 
-	LogAudit(userID, AuditLoginSuccess, "1.2.3.4", "agent")
-	// Différer pour garantir un ordre strictement DESC (timestamp seconde).
-	time.Sleep(1100 * time.Millisecond)
-	LogAudit(userID, AuditLogout, "1.2.3.4", "agent")
-	FlushAuditLog() // M6 : LogAudit est async
+	// Insérer deux entrées avec des created_at explicites (pattern direct INSERT)
+	// pour garantir un ordre strictement DESC sans dépendre d'un time.Sleep.
+	now := time.Now().Unix()
+	older := now - 60
+	newer := now
+	if _, err := DB.Exec(`INSERT INTO audit_log (user_id, action, ip, user_agent, created_at) VALUES (?, ?, ?, ?, ?)`,
+		userID, AuditLoginSuccess, "1.2.3.4", "agent", older); err != nil {
+		t.Fatalf("insert older entry: %v", err)
+	}
+	if _, err := DB.Exec(`INSERT INTO audit_log (user_id, action, ip, user_agent, created_at) VALUES (?, ?, ?, ?, ?)`,
+		userID, AuditLogout, "1.2.3.4", "agent", newer); err != nil {
+		t.Fatalf("insert newer entry: %v", err)
+	}
 
 	entries, err := GetAuditLogByUserID(userID)
 	if err != nil {
@@ -171,11 +179,21 @@ func TestStartAuditRotation_StopsOnCancel(t *testing.T) {
 	cleanup := setupTestDB(t)
 	defer cleanup()
 
+	// Observer l'arrêt de la goroutine via le hook de test plutôt qu'un sleep.
+	stopped := make(chan struct{})
+	auditRotationStopped = func() { close(stopped) }
+	defer func() { auditRotationStopped = nil }()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	StartAuditRotation(ctx)
 
-	// Cancel immédiatement — la goroutine doit s'arrêter proprement
+	// Cancel immédiatement — la goroutine doit s'arrêter proprement et signaler.
 	cancel()
-	// Pas de deadlock ni panic = succès
-	time.Sleep(10 * time.Millisecond)
+
+	select {
+	case <-stopped:
+		// Arrêt propre confirmé.
+	case <-time.After(2 * time.Second):
+		t.Fatal("audit rotation goroutine did not stop within timeout after cancel")
+	}
 }

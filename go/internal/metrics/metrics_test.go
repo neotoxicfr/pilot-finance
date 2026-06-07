@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"database/sql"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -49,6 +50,46 @@ func TestInit(t *testing.T) {
 	if !called {
 		t.Error("getDB function should be callable")
 	}
+}
+
+// TestInit_DoubleInit vérifie qu'un second appel à Init ne panique pas
+// (les collectors déjà enregistrés déclenchent AlreadyRegisteredError, ignoré).
+func TestInit_DoubleInit(t *testing.T) {
+	for _, c := range collectors {
+		prometheus.Unregister(c)
+	}
+	defer func() {
+		getDB = nil
+		for _, c := range collectors {
+			prometheus.Unregister(c)
+		}
+	}()
+
+	Init(func() *sql.DB { return nil })
+	// Second appel : ne doit pas paniquer.
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("double Init paniqued: %v", r)
+		}
+	}()
+	Init(func() *sql.DB { return nil })
+}
+
+// TestInit_RegisterFatalError vérifie qu'une erreur d'enregistrement
+// autre que AlreadyRegisteredError provoque bien un panic.
+func TestInit_RegisterFatalError(t *testing.T) {
+	orig := registerFn
+	defer func() { registerFn = orig }()
+	registerFn = func(_ prometheus.Collector) error {
+		return errors.New("boom")
+	}
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("Init should panic on non-AlreadyRegistered error")
+		}
+	}()
+	Init(func() *sql.DB { return nil })
 }
 
 // --- Handler ---

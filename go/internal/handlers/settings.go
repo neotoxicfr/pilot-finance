@@ -74,14 +74,14 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Invalidate session cache so the new session_version takes effect immediately
-	middleware.InvalidateSessionCache(user.ID)
+	hookInvalidateSessionCache(user.ID)
 
 	hookLogAudit(user.ID, db.AuditPasswordChange, getClientIP(r), r.UserAgent())
 
-	// Re-issue JWT with new session version
-	dbUser, dbErr := hookGetUserByID(user.ID)
-	if dbErr == nil && dbUser != nil {
-		if token, err := hookGenerateToken(user.ID, user.Role, user.Language, user.Currency, dbUser.SessionVersion); err == nil {
+	// Re-issue JWT with new session version. UpdatePassword a déjà bumpé la
+	// session_version ; on relit uniquement ce compteur (pas tout l'utilisateur).
+	if sv, svErr := hookGetSessionVersion(user.ID); svErr == nil {
+		if token, err := hookGenerateToken(user.ID, user.Role, user.Language, user.Currency, sv); err == nil {
 			setSessionCookie(w, "session", token, 86400)
 		}
 	}

@@ -191,81 +191,96 @@ func TestGetUserByResetTokenWithLock(t *testing.T) {
 	}
 }
 
-// --- decryptAccountRow error branches ---
+// --- GetAccountsByUserID inline decryption error branches ---
+//
+// These tests insert an account row directly, then corrupt one encrypted
+// column at a time so that the matching DecryptX call inside the scan loop
+// fails. They replace the former decryptAccountRow unit tests after the
+// pass-2 errgroup decryption was folded into the scan loop.
 
-// TestDecryptAccountRow_BalanceError covers the early-return on balance decrypt failure.
-func TestDecryptAccountRow_BalanceError(t *testing.T) {
-	raw := rawAccount{
-		acc:         Account{ID: 1},
-		balanceRaw:  "CORRUPTED-BALANCE",
-		yieldMinRaw: "0",
-		yieldMaxRaw: "0",
-		reinvestRaw: "0",
+// insertAccountRaw inserts a single account row with the provided already-encoded
+// column values, bypassing the encrypting CreateAccountWithYield helper so that a
+// corrupted ciphertext can be planted for error-path coverage.
+func insertAccountRaw(t *testing.T, userID int64, balance, yieldMin, yieldMax, reinvest string) {
+	t.Helper()
+	_, err := DB.Exec(`
+		INSERT INTO accounts (user_id, name, balance, color, position, updated_at, is_yield_active, yield_type, yield_min, yield_max, reinvestment_rate, target_account_id, payout_frequency)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, userID, "acc", balance, "#fff", 0, time.Now().Unix(), false, "FIXED", yieldMin, yieldMax, reinvest, nil, "MONTHLY")
+	if err != nil {
+		t.Fatalf("insertAccountRaw: %v", err)
 	}
-	var dst Account
-	if err := decryptAccountRow(&dst, raw); err == nil {
+}
+
+func TestGetAccountsByUserID_BalanceDecryptError(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+	userID := createTestUser(t)
+
+	insertAccountRaw(t, userID, "CORRUPTED-BALANCE",
+		encryptTestFloat(t, 0), encryptTestFloat(t, 0), encryptTestInt(t, 0))
+
+	if _, err := GetAccountsByUserID(userID); err == nil {
 		t.Error("want error for corrupted balance")
 	}
 }
 
-// TestDecryptAccountRow_YieldMinError covers the yieldMin decrypt error branch.
-func TestDecryptAccountRow_YieldMinError(t *testing.T) {
+func TestGetAccountsByUserID_YieldMinDecryptError(t *testing.T) {
 	cleanup := setupTestDB(t)
 	defer cleanup()
+	userID := createTestUser(t)
 
-	// Use a real encrypted balance so that passes, but corrupt yieldMin
-	validBalance := encryptTestFloat(t, 100.0)
-	raw := rawAccount{
-		acc:         Account{ID: 2},
-		balanceRaw:  validBalance,
-		yieldMinRaw: "CORRUPTED-YIELD-MIN",
-		yieldMaxRaw: "0",
-		reinvestRaw: "0",
-	}
-	var dst Account
-	if err := decryptAccountRow(&dst, raw); err == nil {
+	insertAccountRaw(t, userID, encryptTestCents(t, 100),
+		"CORRUPTED-YIELD-MIN", encryptTestFloat(t, 0), encryptTestInt(t, 0))
+
+	if _, err := GetAccountsByUserID(userID); err == nil {
 		t.Error("want error for corrupted yieldMin")
 	}
 }
 
-// TestDecryptAccountRow_YieldMaxError covers the yieldMax decrypt error branch.
-func TestDecryptAccountRow_YieldMaxError(t *testing.T) {
+func TestGetAccountsByUserID_YieldMaxDecryptError(t *testing.T) {
 	cleanup := setupTestDB(t)
 	defer cleanup()
+	userID := createTestUser(t)
 
-	validBalance := encryptTestFloat(t, 100.0)
-	validYieldMin := encryptTestFloat(t, 1.5)
-	raw := rawAccount{
-		acc:         Account{ID: 3},
-		balanceRaw:  validBalance,
-		yieldMinRaw: validYieldMin,
-		yieldMaxRaw: "CORRUPTED-YIELD-MAX",
-		reinvestRaw: "0",
-	}
-	var dst Account
-	if err := decryptAccountRow(&dst, raw); err == nil {
+	insertAccountRaw(t, userID, encryptTestCents(t, 100),
+		encryptTestFloat(t, 1.5), "CORRUPTED-YIELD-MAX", encryptTestInt(t, 0))
+
+	if _, err := GetAccountsByUserID(userID); err == nil {
 		t.Error("want error for corrupted yieldMax")
 	}
 }
 
-// TestDecryptAccountRow_ReinvestmentRateError covers the reinvestmentRate decrypt error branch.
-func TestDecryptAccountRow_ReinvestmentRateError(t *testing.T) {
+func TestGetAccountsByUserID_ReinvestmentRateDecryptError(t *testing.T) {
 	cleanup := setupTestDB(t)
 	defer cleanup()
+	userID := createTestUser(t)
 
-	validBalance := encryptTestFloat(t, 100.0)
-	validYieldMin := encryptTestFloat(t, 1.5)
-	validYieldMax := encryptTestFloat(t, 3.0)
-	raw := rawAccount{
-		acc:         Account{ID: 4},
-		balanceRaw:  validBalance,
-		yieldMinRaw: validYieldMin,
-		yieldMaxRaw: validYieldMax,
-		reinvestRaw: "CORRUPTED-REINVEST",
-	}
-	var dst Account
-	if err := decryptAccountRow(&dst, raw); err == nil {
+	insertAccountRaw(t, userID, encryptTestCents(t, 100),
+		encryptTestFloat(t, 1.5), encryptTestFloat(t, 3.0), "CORRUPTED-REINVEST")
+
+	if _, err := GetAccountsByUserID(userID); err == nil {
 		t.Error("want error for corrupted reinvestmentRate")
+	}
+}
+
+// TestGetRecurringByUserID_AmountDecryptError covers the inline amount decrypt
+// error branch in GetRecurringByUserID.
+func TestGetRecurringByUserID_AmountDecryptError(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+	userID := createTestUser(t)
+
+	_, err := DB.Exec(`
+		INSERT INTO recurring_operations (user_id, account_id, to_account_id, description, amount, day_of_month, is_active)
+		VALUES (?, ?, ?, ?, ?, ?, 1)
+	`, userID, 1, nil, "desc", "CORRUPTED-AMOUNT", 1)
+	if err != nil {
+		t.Fatalf("insert recurring raw: %v", err)
+	}
+
+	if _, err := GetRecurringByUserID(userID); err == nil {
+		t.Error("want error for corrupted recurring amount")
 	}
 }
 
@@ -275,6 +290,26 @@ func encryptTestFloat(t *testing.T, f float64) string {
 	s, err := crypto.EncryptFloat(f)
 	if err != nil {
 		t.Fatalf("encryptTestFloat(%v): %v", f, err)
+	}
+	return s
+}
+
+// encryptTestInt is a helper that encrypts an int for DB error-path tests.
+func encryptTestInt(t *testing.T, n int) string {
+	t.Helper()
+	s, err := crypto.EncryptInt(n)
+	if err != nil {
+		t.Fatalf("encryptTestInt(%v): %v", n, err)
+	}
+	return s
+}
+
+// encryptTestCents is a helper that encrypts a centime amount for DB error-path tests.
+func encryptTestCents(t *testing.T, cents int64) string {
+	t.Helper()
+	s, err := crypto.EncryptCents(cents)
+	if err != nil {
+		t.Fatalf("encryptTestCents(%v): %v", cents, err)
 	}
 	return s
 }

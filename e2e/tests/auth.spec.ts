@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { TEST_USER, login, logout } from './helpers';
+import { TEST_USER, login, logout, registerUser } from './helpers';
 
 test.describe('Authentication', () => {
   test('health endpoint returns OK', async ({ request }) => {
@@ -25,7 +25,12 @@ test.describe('Authentication', () => {
   });
 
   test('logout redirects to login', async ({ page }) => {
-    await page.goto('/');
+    // Use a throwaway account: logging out bumps the user's session_version
+    // (IncrementSessionVersion), which would invalidate the shared storageState
+    // JWT and break every subsequent test in this serial, single-worker suite.
+    await page.context().clearCookies();
+    const email = `e2e-logout-${Date.now()}@test.local`;
+    await registerUser(page, email, TEST_USER.password);
     await logout(page);
     await expect(page).toHaveURL('/login');
   });
