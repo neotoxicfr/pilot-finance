@@ -22,7 +22,7 @@
 
             <!-- Account Form Modal -->
             <dialog id="account-dialog" aria-labelledby="account-dialog-title"
-                    @close="editingAccount = null; $nextTick(() => this._accountTrigger?.focus())"
+                    @close="onAccountDialogClose()"
                     @click="$event.target === $el && $el.close()">
                 <div class="modal-panel relative border border-border rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5" @click.stop>
                     <button @click="closeAccountDialog()" aria-label="{{index .T "common.close"}}"
@@ -188,7 +188,7 @@
 
             <!-- Recurring Form Modal -->
             <dialog id="recurring-dialog" aria-labelledby="recurring-dialog-title"
-                    @close="editingRecurring = null; $nextTick(() => this._recurringTrigger?.focus())"
+                    @close="onRecurringDialogClose()"
                     @click="$event.target === $el && $el.close()">
                 <div class="modal-panel relative border border-border rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-y-auto p-5" @click.stop>
                     <button @click="closeRecurringDialog()" aria-label="{{index .T "common.close"}}"
@@ -364,6 +364,8 @@ function accountsPage() {
 
         closeAccountDialog()  { document.getElementById('account-dialog').close(); },
         closeRecurringDialog() { document.getElementById('recurring-dialog').close(); },
+        onAccountDialogClose()   { this.editingAccount = null; this.$nextTick(() => this._accountTrigger?.focus()); },
+        onRecurringDialogClose() { this.editingRecurring = null; this.$nextTick(() => this._recurringTrigger?.focus()); },
 
         init() {
             this.$nextTick(() => this.initSortable());
