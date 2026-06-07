@@ -87,6 +87,9 @@ function passkeyData() {
         },
         closeRenameDialog() {
             document.getElementById('passkey-rename-dialog').close();
+        },
+        onRenameDialogClose() {
+            this.renameId = null;
             this.$nextTick(() => this._renameTrigger?.focus());
         },
         submitRename() {
@@ -426,7 +429,7 @@ document.addEventListener('alpine:init', () => {
                 <!-- Modal renommage passkey -->
                 <dialog id="passkey-rename-dialog" aria-labelledby="passkey-rename-title"
                         @click="$event.target === $el && $el.close()"
-                        @close="renameId = null">
+                        @close="onRenameDialogClose()">
                     <div class="modal-panel rounded-2xl p-6 w-full max-w-sm shadow-2xl" @click.stop>
                         <h3 id="passkey-rename-title" class="text-lg font-bold text-foreground mb-4">{{index .T "settings.passkey_rename_title"}}</h3>
                         <label for="passkey-rename-input" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.passkey_name_prompt"}}</label>

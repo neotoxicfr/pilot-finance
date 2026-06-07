@@ -135,7 +135,23 @@
             };
         }
     </script>
-    <script nonce="{{.Nonce}}">window.PILOT_LOCALE="{{.Locale}}";window.PILOT_CURRENCY="{{.Currency}}";</script>
+    <script nonce="{{.Nonce}}">window.PILOT_LOCALE="{{.Locale}}";window.PILOT_CURRENCY="{{.Currency}}";
+        // Shared money formatters — single source of truth for dashboard.html and charts.js.
+        // compact() mirrors Go's formatMoneyCompact (k/M tiers, incl. the 10k tier) so axis
+        // labels and the pie-center value stay in sync. currency() is the full localized format.
+        window.PILOT_FMT = {
+            _cur() { return window.PILOT_CURRENCY || 'EUR'; },
+            _ccy: new Intl.NumberFormat(window.PILOT_LOCALE || 'fr-FR', { style: 'currency', currency: window.PILOT_CURRENCY || 'EUR', maximumFractionDigits: 0 }),
+            currency(value) { return this._ccy.format(value); },
+            compact(value) {
+                const c = this._cur();
+                if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M ' + c;
+                if (value >= 10000) return Math.round(value / 1000) + 'k ' + c;
+                if (value >= 1000) return (value / 1000).toFixed(1) + 'k ' + c;
+                return Math.round(value) + ' ' + c;
+            }
+        };
+    </script>
     <link rel="stylesheet" href="/static/css/tailwind.css?v={{.AssetVer}}">
     <link rel="stylesheet" href="/static/css/app.css?v={{.AssetVer}}">
     <script nonce="{{.Nonce}}" defer src="/static/js/htmx.min.js?v={{.AssetVer}}"></script>
