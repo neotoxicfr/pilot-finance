@@ -9,14 +9,14 @@ import (
 func TestTrustedProxy_ProdNoProxies_Error(t *testing.T) {
 	mw, err := TrustedProxy("", true)
 	if err == nil || mw != nil {
-		t.Fatalf("expected error in production with empty TRUSTED_PROXIES, got mw=%v err=%v", mw, err)
+		t.Fatalf("expected (nil mw, error) in prod with empty TRUSTED_PROXIES; mwNil=%t err=%v", mw == nil, err)
 	}
 }
 
 func TestTrustedProxy_DevNoProxies_FallsBackToRealIP(t *testing.T) {
 	mw, err := TrustedProxy("", false)
 	if err != nil || mw == nil {
-		t.Fatalf("dev fallback should return a middleware, got mw=%v err=%v", mw, err)
+		t.Fatalf("dev fallback should return a non-nil middleware and nil err; mwNil=%t err=%v", mw == nil, err)
 	}
 }
 
