@@ -249,6 +249,25 @@ func TestDecryptLegacy16ByteNonce(t *testing.T) {
 	}
 }
 
+// TestDecryptLegacy16ByteNonce_GCMError covers the error branch of the legacy
+// 16-byte path: NewGCMWithNonceSize never fails for a valid block+size in prod,
+// so inject a failing factory to exercise it (matches the package's hook pattern).
+func TestDecryptLegacy16ByteNonce_GCMError(t *testing.T) {
+	mustInit(t)
+	orig := cipherNewGCMWithNonceSizeFn
+	t.Cleanup(func() { cipherNewGCMWithNonceSizeFn = orig })
+	cipherNewGCMWithNonceSizeFn = func(cipher.Block, int) (cipher.AEAD, error) {
+		return nil, errors.New("forced gcm error")
+	}
+	// A well-formed entry with a 16-byte IV (32 hex chars) reaches the case 16 branch.
+	iv := strings.Repeat("ab", 16)
+	tag := strings.Repeat("cd", 16)
+	ct := strings.Repeat("ef", 8)
+	if _, err := Decrypt(iv + ":" + tag + ":" + ct); err == nil {
+		t.Fatal("expected error from injected NewGCMWithNonceSize failure")
+	}
+}
+
 func TestComputeBlindIndex(t *testing.T) {
 	mustInit(t)
 

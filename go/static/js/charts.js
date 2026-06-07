@@ -16,10 +16,9 @@
 //            Filler, Tooltip, Legend);
 // This would reduce the Chart.js payload to ~80 KB.
 
-// Money formatting comes from the shared window.PILOT_FMT (defined in base.html)
-// so axis labels and the pie-center compact value stay in sync with dashboard.html.
-const fmt = v => window.PILOT_FMT.currency(v);
-const fmtAxis = v => window.PILOT_FMT.compact(v);
+const _fmtCurrency = new Intl.NumberFormat(window.PILOT_LOCALE||'fr-FR', { style: 'currency', currency: window.PILOT_CURRENCY||'EUR', maximumFractionDigits: 0 });
+const fmt = v => _fmtCurrency.format(v);
+const fmtAxis = v => { const c = window.PILOT_CURRENCY||'EUR'; return v >= 1e6 ? (v/1e6).toFixed(1).replace('.0','')+'M '+c : v >= 1e3 ? Math.round(v/1e3)+'k '+c : v+' '+c; };
 const getColors = () => {
     const d = document.documentElement.classList.contains('dark');
     return { isDark: d, grid: d ? 'rgba(148,163,184,.1)' : 'rgba(100,116,139,.1)', text: d ? '#94a3b8' : '#64748b', tipBg: d ? '#1e293b' : '#fff', tipTitle: d ? '#f1f5f9' : '#0f172a', tipBody: d ? '#cbd5e1' : '#475569', tipBorder: d ? '#334155' : '#e2e8f0' };

@@ -111,7 +111,6 @@ function dashboardData() {
     const initial = initialEl ? JSON.parse(initialEl.textContent) : {};
 
     return {
-        _initial: initial,
         ready: false,
         years: initial.years || 5,
         totalBalance: 0,
@@ -133,7 +132,11 @@ function dashboardData() {
         },
 
         formatMoneyCompact(value) {
-            return window.PILOT_FMT.compact(value);
+            const currency = window.PILOT_CURRENCY || 'EUR';
+            if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M ' + currency;
+            if (value >= 10000) return Math.round(value / 1000) + 'k ' + currency;
+            if (value >= 1000) return (value / 1000).toFixed(1) + 'k ' + currency;
+            return Math.round(value) + ' ' + currency;
         },
 
         debouncedUpdate() {
@@ -169,7 +172,9 @@ function dashboardData() {
         },
 
         init() {
-            const initial = this._initial;
+            const el = document.getElementById('initial-data');
+            if (!el) return;
+            const initial = JSON.parse(el.textContent);
             this.countUp(initial.totalBalance || 0, v => this.totalBalance = v);
             this.countUp(initial.totalInterests || 0, v => this.totalInterests = v);
             this.countUp(initial.projectionTotal || 0, v => this.projectionTotal = v);

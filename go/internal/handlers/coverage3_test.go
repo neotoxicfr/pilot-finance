@@ -507,6 +507,37 @@ func TestPasskeyLoginFinish_ClosureUserError(t *testing.T) {
 	}
 }
 
+// passkey.go: closure — hookGetAuthByCredentialID returns a real error → propagated (line 171-173).
+// (GetAuthenticatorByCredentialID now returns (nil,nil) for not-found, so this real-error
+// branch needs its own test to stay covered.)
+func TestPasskeyLoginFinish_ClosureAuthError(t *testing.T) {
+	setupHandlerTest(t)
+
+	origGetAuth := hookGetAuthByCredentialID
+	t.Cleanup(func() { hookGetAuthByCredentialID = origGetAuth })
+	hookGetAuthByCredentialID = func(string) (*db.Authenticator, error) {
+		return nil, errTest
+	}
+
+	origFinish := hookFinishLogin
+	t.Cleanup(func() { hookFinishLogin = origFinish })
+	hookFinishLogin = func(s string, r *http.Request, h func([]byte, []byte) (webauthn.User, error)) (*auth.PasskeyUser, *webauthn.Credential, error) {
+		_, err := h([]byte("any-cred"), nil)
+		if err != nil {
+			return nil, nil, err
+		}
+		return nil, nil, errTest
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/passkey/auth/finish", nil)
+	req.AddCookie(&http.Cookie{Name: "passkey_auth_challenge", Value: "dummysession"})
+	rr := httptest.NewRecorder()
+	PasskeyLoginFinish(rr, req)
+	if rr.Code != http.StatusUnauthorized {
+		t.Errorf("want 401, got %d", rr.Code)
+	}
+}
+
 // passkey.go: closure — hookGetAuthByCredentialID returns (nil, nil) → error "authenticator not found"
 func TestPasskeyLoginFinish_ClosureAuthNil(t *testing.T) {
 	setupHandlerTest(t)

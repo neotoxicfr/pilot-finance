@@ -3,7 +3,7 @@ package projection
 import (
 	"fmt"
 	"math"
-	"sort"
+	"slices"
 	"time"
 
 	"pilot-finance/internal/db"
@@ -68,7 +68,7 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 		sortedIDs = append(sortedIDs, acc.ID)
 	}
 	// Ordre stable pour toutes les itérations dépendantes de l'ordre (déterminisme).
-	sort.Slice(sortedIDs, func(i, j int) bool { return sortedIDs[i] < sortedIDs[j] })
+	slices.Sort(sortedIDs)
 
 	// Trois scénarios : balances et accumulateurs annuels indépendants
 	type scenario struct {
@@ -188,7 +188,7 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 				for targetID := range scens[s].annualAccum {
 					targetIDs = append(targetIDs, targetID)
 				}
-				sort.Slice(targetIDs, func(i, j int) bool { return targetIDs[i] < targetIDs[j] })
+				slices.Sort(targetIDs)
 				for _, targetID := range targetIDs {
 					scens[s].balances[targetID] += scens[s].annualAccum[targetID]
 				}
