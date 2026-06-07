@@ -31,12 +31,10 @@ type DashboardData struct {
 // Trois scénarios parallèles : pessimiste (yieldMin), moyen (avg), optimiste (yieldMax).
 // Pour les comptes FIXED, les trois scénarios sont identiques.
 //
-// Modèle de précision : contrairement au reste de l'application qui stocke les
-// montants en int64 centimes, la projection accumule délibérément les soldes en
-// float64 euros. L'invariant int64-centimes est volontairement relâché sur tout
-// l'horizon de projection : la composition mois-par-mois des intérêts produit des
-// fractions de centime, et la projection est une estimation prospective (affichée
-// arrondie) plutôt qu'un registre comptable exact. Ce choix est assumé.
+// Modèle de précision : les soldes sont accumulés en int64 centimes (cohérent
+// avec le reste de l'application), et l'intérêt mensuel est arrondi au centime à
+// chaque itération. Les totaux ne sont convertis et arrondis à l'euro qu'à la
+// sortie — YearData/DashboardData restent en float64 euros pour l'affichage.
 //
 // Granularité temporelle : la simulation est purement mensuelle. Le champ
 // DayOfMonth des opérations récurrentes n'est PAS pris en compte / proraté : toute
@@ -53,9 +51,9 @@ type DashboardData struct {
 // désormais une tranche d'IDs triée (sortedIDs), ce qui rend le résultat
 // reproductible d'une exécution à l'autre.
 func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years int, lang string) DashboardData {
-	var totalBalance float64
+	var totalBalanceCents int64
 	for _, acc := range accounts {
-		totalBalance += float64(acc.Balance) / 100.0
+		totalBalanceCents += acc.Balance
 	}
 
 	accountByID := make(map[int64]*db.Account)
@@ -70,20 +68,20 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 	// Ordre stable pour toutes les itérations dépendantes de l'ordre (déterminisme).
 	slices.Sort(sortedIDs)
 
-	// Trois scénarios : balances et accumulateurs annuels indépendants
+	// Trois scénarios : balances et accumulateurs annuels indépendants (centimes int64)
 	type scenario struct {
-		balances    map[int64]float64
-		annualAccum map[int64]float64
+		balances    map[int64]int64
+		annualAccum map[int64]int64
 	}
 	scens := [3]scenario{
-		{balances: make(map[int64]float64), annualAccum: make(map[int64]float64)},
-		{balances: make(map[int64]float64), annualAccum: make(map[int64]float64)},
-		{balances: make(map[int64]float64), annualAccum: make(map[int64]float64)},
+		{balances: make(map[int64]int64), annualAccum: make(map[int64]int64)},
+		{balances: make(map[int64]int64), annualAccum: make(map[int64]int64)},
+		{balances: make(map[int64]int64), annualAccum: make(map[int64]int64)},
 	}
 	for i := range accounts {
 		acc := &accounts[i]
 		for s := range scens {
-			scens[s].balances[acc.ID] = float64(acc.Balance) / 100.0
+			scens[s].balances[acc.ID] = acc.Balance
 		}
 	}
 
@@ -114,16 +112,17 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 	// Les données par compte utilisent le scénario avg (index 1).
 	createYearData := func(index int, name string) YearData {
 		yd := YearData{Year: index, Name: name, Accounts: make(map[string]float64)}
+		var minC, avgC, maxC int64
 		for _, id := range sortedIDs {
 			bal := scens[1].balances[id]
-			yd.Accounts[nameByID[id]] = math.Round(bal)
-			yd.TotalAvg += bal
-			yd.TotalMin += scens[0].balances[id]
-			yd.TotalMax += scens[2].balances[id]
+			yd.Accounts[nameByID[id]] = math.Round(float64(bal) / 100.0)
+			avgC += bal
+			minC += scens[0].balances[id]
+			maxC += scens[2].balances[id]
 		}
-		yd.TotalMin = math.Round(yd.TotalMin)
-		yd.TotalAvg = math.Round(yd.TotalAvg)
-		yd.TotalMax = math.Round(yd.TotalMax)
+		yd.TotalMin = math.Round(float64(minC) / 100.0)
+		yd.TotalAvg = math.Round(float64(avgC) / 100.0)
+		yd.TotalMax = math.Round(float64(maxC) / 100.0)
 		return yd
 	}
 
@@ -137,7 +136,10 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 		// 1. Opérations récurrentes : identiques pour les trois scénarios
 		for _, rec := range recurrings {
 			if rec.ToAccountID != nil {
-				amt := math.Abs(float64(rec.Amount) / 100.0)
+				amt := rec.Amount
+				if amt < 0 {
+					amt = -amt
+				}
 				for s := range scens {
 					if _, ok := scens[s].balances[rec.AccountID]; ok {
 						scens[s].balances[rec.AccountID] -= amt
@@ -147,10 +149,9 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 					}
 				}
 			} else {
-				recAmt := float64(rec.Amount) / 100.0
 				for s := range scens {
 					if _, ok := scens[s].balances[rec.AccountID]; ok {
-						scens[s].balances[rec.AccountID] += recAmt
+						scens[s].balances[rec.AccountID] += rec.Amount
 					}
 				}
 			}
@@ -167,8 +168,9 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 			reinvest := float64(acc.ReinvestmentRate) / 100
 			for s := range scens {
 				currentBal := scens[s].balances[id]
-				monthlyInterest := currentBal * scenRate(acc, s)
-				reinvested := monthlyInterest * reinvest
+				// Intérêt mensuel arrondi au centime (les soldes restent en int64 centimes).
+				monthlyInterest := int64(math.Round(float64(currentBal) * scenRate(acc, s)))
+				reinvested := int64(math.Round(float64(monthlyInterest) * reinvest))
 				scens[s].balances[id] = currentBal + reinvested
 				payout := monthlyInterest - reinvested
 				if payout > 0 && acc.TargetAccountID != nil {
@@ -192,7 +194,7 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 				for _, targetID := range targetIDs {
 					scens[s].balances[targetID] += scens[s].annualAccum[targetID]
 				}
-				scens[s].annualAccum = make(map[int64]float64)
+				scens[s].annualAccum = make(map[int64]int64)
 			}
 		}
 
@@ -204,16 +206,16 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 		}
 	}
 
-	var finalTotal float64
+	var finalTotalCents int64
 	for _, id := range sortedIDs {
-		finalTotal += scens[1].balances[id]
+		finalTotalCents += scens[1].balances[id]
 	}
 
 	return DashboardData{
 		Accounts:       accounts,
 		Projection:     projection,
-		TotalInterests: math.Round(finalTotal - totalBalance),
-		TotalBalance:   totalBalance,
+		TotalInterests: math.Round(float64(finalTotalCents-totalBalanceCents) / 100.0),
+		TotalBalance:   float64(totalBalanceCents) / 100.0,
 	}
 }
 
