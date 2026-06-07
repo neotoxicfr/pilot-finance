@@ -38,6 +38,8 @@ jobs:
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
           echo "Coverage: ${COVERAGE}%"
           if [ "$(echo "$COVERAGE < 100.0" | bc -l)" -eq 1 ]; then
+            # Surface the exact under-covered functions so failures are actionable.
+            go tool cover -func=coverage.out | awk '$1 != "total:" && $3 != "100.0%" {print "::warning::UNCOVERED "$1" "$2" "$3}'
             echo "::error::Coverage ${COVERAGE}% is below 100% threshold"
             exit 1
           fi
