@@ -52,7 +52,7 @@
                         <div>
                             <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "accounts.color_label"}}</label>
                             <div class="flex flex-wrap gap-2 mb-3">
-                                <template x-for="c in ['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#10b981','#14b8a6','#06b6d4','#0ea5e9','#3b82f6','#6366f1','#8b5cf6','#a855f7','#d946ef','#ec4899','#f43f5e','#64748b']">
+                                <template x-for="c in colorPalette">
                                     <button type="button" @click="selectedColor = c"
                                             :aria-label="colorName(c)" :aria-pressed="selectedColor === c ? 'true' : 'false'"
                                             :class="selectedColor === c ? 'ring-2 ring-foreground scale-110' : 'opacity-60 hover:opacity-100'"
@@ -273,6 +273,9 @@ function accountsPage() {
         accountName: '',
         accountBalance: '',
         selectedColor: '#3b82f6',
+        // Defined in component data (not an inline array literal) because the Alpine
+        // CSP build cannot evaluate array literals inside x-for expressions.
+        colorPalette: ['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#22c55e','#10b981','#14b8a6','#06b6d4','#0ea5e9','#3b82f6','#6366f1','#8b5cf6','#a855f7','#d946ef','#ec4899','#f43f5e','#64748b'],
         isYieldActive: false,
         yieldType: 'FIXED',
         yieldMin: '',
