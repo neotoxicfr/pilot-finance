@@ -50,10 +50,11 @@ func ResetForTest() {
 
 // Hooks injectables pour les tests (permettent de couvrir les branches d'erreur impossibles en prod).
 var (
-	aesNewCipherFn   = aes.NewCipher
-	cipherNewGCMFn   = cipher.NewGCM
-	cryptoRandRead   = rand.Read
-	bcryptGenerateFn = bcrypt.GenerateFromPassword
+	aesNewCipherFn              = aes.NewCipher
+	cipherNewGCMFn              = cipher.NewGCM
+	cipherNewGCMWithNonceSizeFn = cipher.NewGCMWithNonceSize
+	cryptoRandRead              = rand.Read
+	bcryptGenerateFn            = bcrypt.GenerateFromPassword
 )
 
 // Init initialise les clés de chiffrement et pré-calcule le cipher block AES.
@@ -164,7 +165,7 @@ func Decrypt(encrypted string) (string, error) {
 		// Legacy Node.js ciphertexts used a 16-byte GCM nonce. Only this documented
 		// legacy size is accepted — any other length is rejected to avoid using an
 		// attacker-influenced nonce size.
-		gcm, err = cipher.NewGCMWithNonceSize(cipherBlock, len(iv))
+		gcm, err = cipherNewGCMWithNonceSizeFn(cipherBlock, len(iv))
 		if err != nil {
 			return "", err
 		}
