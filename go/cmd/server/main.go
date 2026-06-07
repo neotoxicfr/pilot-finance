@@ -280,13 +280,15 @@ func main() {
 
 	<-ctx.Done()
 	slog.Info("arrêt en cours")
-	ratelimit.StopAll()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		slog.Error("shutdown", "err", err)
 	}
+	// Stop rate-limiter background workers only after in-flight requests have
+	// drained (server.Shutdown above), since handlers may still touch limiters.
+	ratelimit.StopAll()
 	// M6 : drain les écritures audit en vol avant de quitter (fire-and-forget).
 	db.FlushAuditLog()
 	slog.Info("serveur arrêté proprement")
@@ -367,6 +369,7 @@ func trustedProxyMiddleware() func(http.Handler) http.Handler {
 			os.Exit(1)
 		}
 		slog.Warn("TRUSTED_PROXIES vide : fallback chi RealIP (X-Forwarded-For accepté de toute source — usage dev uniquement)")
+		//nolint:staticcheck // SA1019: fallback dev-only ; la prod refuse de démarrer sans TRUSTED_PROXIES (os.Exit ci-dessus) et utilise le middleware proxy custom plus bas. chi v5.3.0 déprécie RealIP pour l'IP-spoofing, déjà documenté/maîtrisé ici.
 		return chimw.RealIP
 	}
 	// Supporte IPs exactes ET ranges CIDR (les IPs containers Docker changent au restart).

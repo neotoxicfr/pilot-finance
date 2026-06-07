@@ -127,21 +127,22 @@ func TestDecryptNonEncrypted(t *testing.T) {
 
 func TestDecryptWrongPartCount(t *testing.T) {
 	mustInit(t)
-	// 2 parts → not 3 → return as-is, no error
-	result, err := Decrypt("a:b")
-	if err != nil {
-		t.Fatalf("2-part string: unexpected error: %v", err)
+	// A string that contains ':' but is not the 3-part format is malformed
+	// ciphertext: it must fail closed with ErrDecryption (not echo the input).
+	cases := []string{
+		"a:b",     // 2 parts
+		"a:b:c:d", // 4 parts
 	}
-	if result != "a:b" {
-		t.Errorf("want 'a:b', got %q", result)
-	}
-	// 4 parts → not 3 → return as-is, no error
-	result, err = Decrypt("a:b:c:d")
-	if err != nil {
-		t.Fatalf("4-part string: unexpected error: %v", err)
-	}
-	if result != "a:b:c:d" {
-		t.Errorf("want 'a:b:c:d', got %q", result)
+	for _, in := range cases {
+		t.Run(in, func(t *testing.T) {
+			result, err := Decrypt(in)
+			if !errors.Is(err, ErrDecryption) {
+				t.Errorf("Decrypt(%q): want ErrDecryption, got result=%q err=%v", in, result, err)
+			}
+			if result != "" {
+				t.Errorf("Decrypt(%q): want empty result, got %q", in, result)
+			}
+		})
 	}
 }
 
@@ -174,10 +175,22 @@ func TestDecryptBadHexCiphertext(t *testing.T) {
 
 func TestDecryptZeroLengthIV(t *testing.T) {
 	mustInit(t)
-	// Empty IV → len=0 → NewGCMWithNonceSize(block, 0) returns error (nonce cannot be zero length)
+	// Empty IV → len(iv)==0 → not an accepted nonce size (12 or 16) → ErrDecryption.
 	_, err := Decrypt(":aabbccddeeff001122334455aabbccdd:aabb")
-	if err == nil {
-		t.Error("zero-length IV should return an error")
+	if !errors.Is(err, ErrDecryption) {
+		t.Errorf("zero-length IV: want ErrDecryption, got %v", err)
+	}
+}
+
+func TestDecryptUnsupportedNonceSize(t *testing.T) {
+	mustInit(t)
+	// IV of an unsupported length (13 bytes = 26 hex chars) must be rejected with
+	// ErrDecryption instead of being fed to NewGCMWithNonceSize with an
+	// attacker-influenced nonce size.
+	thirteenByteIV := strings.Repeat("ab", 13)
+	_, err := Decrypt(thirteenByteIV + ":aabbccddeeff001122334455aabbccdd:aabb")
+	if !errors.Is(err, ErrDecryption) {
+		t.Errorf("13-byte IV: want ErrDecryption, got %v", err)
 	}
 }
 

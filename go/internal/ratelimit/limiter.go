@@ -74,12 +74,37 @@ var (
 	limiters = make(map[string]*Limiter)
 	mu       sync.Mutex
 
+	// stopped indique que StopAll a été appelé : on est dans la fenêtre de drainage
+	// du shutdown. Pendant cette période, getLimiter retourne un limiter utilisable
+	// mais ne démarre PAS de goroutine de nettoyage (sinon elle fuiterait : son canal
+	// stop ne serait jamais fermé). Remis à false par Start (redémarrage légitime).
+	// Protégé par mu.
+	stopped bool
+
 	// Disabled désactive globalement le rate limiting (tests E2E).
 	Disabled bool
 )
 
 // limiterCleanupInterval est la durée entre deux nettoyages ; injectable dans les tests.
 var limiterCleanupInterval = 5 * time.Minute
+
+// hookCleanupRan, s'il est non nil, est appelé après chaque exécution de l.cleanup()
+// par la goroutine périodique. Utilisé uniquement par les tests pour observer que le
+// nettoyage a réellement tourné.
+var hookCleanupRan func()
+
+// hookGoroutineStopped, s'il est non nil, est appelé lorsque la goroutine de nettoyage
+// se termine (réception sur l.stop). Utilisé uniquement par les tests.
+var hookGoroutineStopped func()
+
+// Start réautorise le démarrage des goroutines de nettoyage après un StopAll.
+// En production le serveur démarre dans un process neuf et n'a pas besoin de l'appeler ;
+// les tests l'utilisent pour réactiver le nettoyage périodique après StopAll.
+func Start() {
+	mu.Lock()
+	defer mu.Unlock()
+	stopped = false
+}
 
 // getLimiter retourne le limiter pour une action donnée
 func getLimiter(action string) *Limiter {
@@ -96,16 +121,32 @@ func getLimiter(action string) *Limiter {
 	}
 	limiters[action] = l
 
-	// Nettoyage périodique — capturer la valeur avant la goroutine pour éviter la race
+	// Si StopAll a déjà été appelé (fenêtre de drainage du shutdown), on retourne un
+	// limiter fonctionnel mais on ne démarre AUCUNE goroutine : elle serait orpheline
+	// (son canal stop ne serait jamais fermé) et fuiterait.
+	if stopped {
+		return l
+	}
+
+	// Nettoyage périodique — capturer les valeurs avant la goroutine pour éviter toute
+	// data race avec les tests qui réécrivent ces variables après le démarrage.
 	interval := limiterCleanupInterval
+	onCleanup := hookCleanupRan
+	onStop := hookGoroutineStopped
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				l.cleanup()
+				l.cleanup(action)
+				if onCleanup != nil {
+					onCleanup()
+				}
 			case <-l.stop:
+				if onStop != nil {
+					onStop()
+				}
 				return
 			}
 		}
@@ -114,16 +155,30 @@ func getLimiter(action string) *Limiter {
 	return l
 }
 
-func (l *Limiter) cleanup() {
+// cleanupConfigs expose les configs pour le calcul de l'expiration des blocages ;
+// indirection pour permettre aux tests d'injecter des configs déterministes.
+var cleanupConfigs = func() map[string]Config { return Configs }
+
+func (l *Limiter) cleanup(action string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	cfg, hasCfg := cleanupConfigs()[action]
+
 	now := time.Now().UnixMilli()
 	for key, att := range l.attempts {
-		// Supprimer les entrées expirées (plus de 2 heures)
-		if now-att.firstTry > 7200000 {
-			delete(l.attempts, key)
+		// La fenêtre doit être expirée (plus de 2 heures depuis le premier essai).
+		// firstTry n'est pas mis à jour quand une entrée passe à l'état bloqué, donc on
+		// vérifie aussi qu'aucun blocage actif n'est en cours : une entrée bloquée (ou
+		// tout juste débloquée) ne doit pas être évincée tant que son blocage court.
+		if now-att.firstTry <= 7200000 {
+			continue
 		}
+		if att.blockedAt > 0 && hasCfg && now < att.blockedAt+cfg.BlockMs {
+			// Blocage encore actif → ne pas évincer.
+			continue
+		}
+		delete(l.attempts, key)
 	}
 }
 
@@ -218,6 +273,8 @@ func StopAll() {
 		close(l.stop)
 	}
 	limiters = make(map[string]*Limiter)
+	// Empêcher getLimiter de relancer des goroutines orphelines pendant le drainage.
+	stopped = true
 }
 
 // Reset réinitialise le compteur pour un identifiant

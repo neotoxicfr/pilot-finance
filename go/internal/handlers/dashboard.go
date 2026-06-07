@@ -49,16 +49,7 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 	summary := projection.CalculateMonthlySummary(recurrings, accounts)
 
 	// Preparer les donnees pour les graphiques
-	pieData := make([]map[string]interface{}, 0)
-	for _, acc := range accounts {
-		if acc.Balance > 0 {
-			pieData = append(pieData, map[string]interface{}{
-				"name":  acc.Name,
-				"value": float64(acc.Balance) / 100.0,
-				"color": acc.Color,
-			})
-		}
-	}
+	pieData := buildPieData(accounts)
 
 	// Preparer les donnees de projection pour le graphique
 	projectionData := make([]map[string]interface{}, len(data.Projection))
@@ -73,10 +64,7 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var projectionTotal float64
-	if len(data.Projection) > 0 {
-		projectionTotal = data.Projection[len(data.Projection)-1].TotalAvg
-	}
+	projectionTotal := lastProjectionTotal(data.Projection)
 
 	response := map[string]interface{}{
 		"accounts":        accounts,

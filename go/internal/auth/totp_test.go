@@ -103,3 +103,35 @@ func TestValidateTOTP_WrongLength(t *testing.T) {
 		t.Error("3-digit code should be rejected (needs 6)")
 	}
 }
+
+// TestValidateTOTP_PreviousWindow pins the Skew:1 tolerance: a code generated
+// for the previous 30s window (now-30s) must still be accepted.
+func TestValidateTOTP_PreviousWindow(t *testing.T) {
+	secret, err := auth.GenerateTOTPSecret()
+	if err != nil {
+		t.Fatalf("GenerateTOTPSecret: %v", err)
+	}
+	code, err := totp.GenerateCode(secret, time.Now().Add(-30*time.Second))
+	if err != nil {
+		t.Fatalf("GenerateCode: %v", err)
+	}
+	if !auth.ValidateTOTP(secret, code) {
+		t.Error("code from previous window (now-30s) should be accepted with Skew:1")
+	}
+}
+
+// TestValidateTOTP_FarOutWindow pins that a code from far outside the tolerance
+// window (now-120s, i.e. 4 windows back) is rejected.
+func TestValidateTOTP_FarOutWindow(t *testing.T) {
+	secret, err := auth.GenerateTOTPSecret()
+	if err != nil {
+		t.Fatalf("GenerateTOTPSecret: %v", err)
+	}
+	code, err := totp.GenerateCode(secret, time.Now().Add(-120*time.Second))
+	if err != nil {
+		t.Fatalf("GenerateCode: %v", err)
+	}
+	if auth.ValidateTOTP(secret, code) {
+		t.Error("code from far-out window (now-120s) should be rejected")
+	}
+}

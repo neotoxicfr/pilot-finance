@@ -24,8 +24,8 @@ func TestGetUserByID(t *testing.T) {
 	if user.ID != userID {
 		t.Errorf("ID: want %d, got %d", userID, user.ID)
 	}
-	if user.Role != "user" {
-		t.Errorf("role: want user, got %q", user.Role)
+	if user.Role != "USER" {
+		t.Errorf("role: want USER, got %q", user.Role)
 	}
 }
 
@@ -80,6 +80,42 @@ func TestGetUserAuthData(t *testing.T) {
 	}
 }
 
+
+func TestGetSessionVersion(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+	userID := createTestUser(t)
+
+	sv, err := GetSessionVersion(userID)
+	if err != nil {
+		t.Fatalf("GetSessionVersion: %v", err)
+	}
+	if sv != 1 {
+		t.Errorf("session_version: want 1 for new user, got %d", sv)
+	}
+
+	// Après incrément, la version doit refléter la nouvelle valeur.
+	if err := IncrementSessionVersion(userID); err != nil {
+		t.Fatalf("IncrementSessionVersion: %v", err)
+	}
+	sv, err = GetSessionVersion(userID)
+	if err != nil {
+		t.Fatalf("GetSessionVersion after increment: %v", err)
+	}
+	if sv != 2 {
+		t.Errorf("session_version: want 2 after increment, got %d", sv)
+	}
+}
+
+func TestGetSessionVersion_NotFound(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+
+	// Utilisateur inexistant → sql.ErrNoRows (signature inchangée, erreur brute).
+	if _, err := GetSessionVersion(999999); err == nil {
+		t.Error("want error for missing user")
+	}
+}
 
 func TestCountUsers(t *testing.T) {
 	cleanup := setupTestDB(t)

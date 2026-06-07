@@ -40,9 +40,13 @@ export async function login(page: Page, email: string, password: string) {
   ]);
 }
 
-/** Logout via POST form in nav */
+/** Logout via the confirmation dialog in nav */
 export async function logout(page: Page) {
-  await page.locator('form[action="/logout"] button').click();
+  // Logout is gated behind a confirmation dialog (<dialog id="logout-dialog">).
+  // Open it via the nav opener button, then submit the POST form inside.
+  await page.locator('nav [x-data="logoutData"] > button').click();
+  await expect(page.locator('dialog#logout-dialog')).toBeVisible({ timeout: 3000 });
+  await page.locator('dialog#logout-dialog form[action="/logout"] button[type="submit"]').click();
   await page.waitForURL('/login', { timeout: 5000 });
 }
 

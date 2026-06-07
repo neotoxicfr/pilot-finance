@@ -3,6 +3,8 @@ package db
 import (
 	"testing"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"pilot-finance/internal/crypto"
 )
 
@@ -35,7 +37,11 @@ func createTestUser(t *testing.T) int64 {
 		t.Fatalf("crypto.Encrypt: %v", err)
 	}
 	emailBI := crypto.ComputeBlindIndex("test@example.com")
-	id, err := CreateUser(emailEnc, emailBI, "testhash", "user")
+	hash, err := bcrypt.GenerateFromPassword([]byte("test-password"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("bcrypt.GenerateFromPassword: %v", err)
+	}
+	id, err := CreateUser(emailEnc, emailBI, string(hash), "USER")
 	if err != nil {
 		t.Fatalf("CreateUser: %v", err)
 	}

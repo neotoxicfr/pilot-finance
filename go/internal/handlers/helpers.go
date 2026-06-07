@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"pilot-finance/internal/db"
+	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/projection"
 )
@@ -203,6 +204,66 @@ func buildRecurringData(payouts []projection.YieldPayout, recs []db.RecurringOpe
 		})
 	}
 	return result
+}
+
+// accountsComputed regroupe les données dérivées partagées par renderAccountsList
+// et renderRecurringTable : comptes déchiffrés, totaux du summary et liste des
+// opérations récurrentes prêtes pour les templates.
+type accountsComputed struct {
+	accounts      []db.Account
+	summary       summaryTotals
+	recurringData []map[string]interface{}
+}
+
+// computeAccountsSummary déchiffre les noms de comptes, calcule les yield payouts,
+// le summary et la liste récurrente. Les comptes/récurrents doivent déjà être chargés.
+func computeAccountsSummary(lang string, accounts []db.Account, recurrings []db.RecurringOperation) accountsComputed {
+	decryptAccountNames(accounts)
+	accountMap := buildAccountMap(accounts)
+
+	yieldPayouts := projection.CalculateYieldPayouts(accounts, accountMap)
+	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
+	s := calculateSummary(yieldPayouts, recurrings)
+	recurringData := buildRecurringData(yieldPayouts, recurrings, accountMap, interestPrefix)
+
+	return accountsComputed{accounts: accounts, summary: s, recurringData: recurringData}
+}
+
+// renderSummaryCardOOB rend la carte de résumé en fragment OOB (id + hx-swap-oob
+// inclus dans le template "summary-card-oob").
+func renderSummaryCardOOB(w io.Writer, lang, currency string, s summaryTotals) {
+	hookRenderPartial(w, "accounts.html", "summary-card-oob", map[string]interface{}{ //nolint:errcheck
+		"T":               i18n.Map(lang),
+		"MonthlyIncome":   s.MonthlyIncome,
+		"MonthlyExpenses": s.MonthlyExpenses,
+		"MonthlyNet":      s.MonthlyIncome - s.MonthlyExpenses,
+		"MonthlyYield":    s.MonthlyYield,
+		"AnnualYield":     s.AnnualYield,
+		"Currency":        currency,
+	})
+}
+
+// buildPieData construit les données du graphique camembert (comptes au solde positif).
+func buildPieData(accounts []db.Account) []map[string]interface{} {
+	pieData := make([]map[string]interface{}, 0)
+	for _, acc := range accounts {
+		if acc.Balance > 0 {
+			pieData = append(pieData, map[string]interface{}{
+				"name":  acc.Name,
+				"value": float64(acc.Balance) / 100.0,
+				"color": acc.Color,
+			})
+		}
+	}
+	return pieData
+}
+
+// lastProjectionTotal retourne le TotalAvg de la dernière année de projection (0 si vide).
+func lastProjectionTotal(proj []projection.YearData) float64 {
+	if len(proj) > 0 {
+		return proj[len(proj)-1].TotalAvg
+	}
+	return 0
 }
 
 // userLocale extrait la langue et la devise de l'utilisateur avec leurs valeurs par défaut

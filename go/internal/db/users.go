@@ -68,6 +68,15 @@ func CreateUserAtomic(emailEncrypted, emailBlindIndex, password string) (int64, 
 	return id, role, nil
 }
 
+// GetSessionVersion récupère la session_version d'un utilisateur en une requête
+// légère. Utilisé par le middleware d'authentification pour valider rapidement
+// qu'un JWT n'a pas été invalidé (logout, changement de mot de passe, MFA).
+func GetSessionVersion(id int64) (int, error) {
+	var sessionVersion int
+	err := DB.QueryRow(`SELECT session_version FROM users WHERE id = ?`, id).Scan(&sessionVersion)
+	return sessionVersion, err
+}
+
 // UpdateLoginAttempts met à jour les tentatives de connexion
 func UpdateLoginAttempts(userID int64, attempts int, lockUntil *time.Time) error {
 	var lockTime *int64
