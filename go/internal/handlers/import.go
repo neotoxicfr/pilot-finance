@@ -59,7 +59,9 @@ func parseBalancesCSV(rd io.Reader) ([]balanceUpdate, []int) {
 	}
 	firstLine, _, _ := strings.Cut(string(data), "\n")
 	comma := ','
-	if strings.Count(firstLine, ";") > strings.Count(firstLine, ",") {
+	// Le ';' gagne dès qu'il est présent et au moins aussi fréquent que la
+	// virgule : un CSV français "nom;1 234,56" a autant de ';' que de ','.
+	if n := strings.Count(firstLine, ";"); n > 0 && n >= strings.Count(firstLine, ",") {
 		comma = ';'
 	}
 	cr := csv.NewReader(strings.NewReader(string(data)))
