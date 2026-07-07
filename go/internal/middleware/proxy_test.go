@@ -79,6 +79,32 @@ func TestTrustedProxy_Forwarding(t *testing.T) {
 	}
 }
 
+func TestClientIPKey(t *testing.T) {
+	cases := []struct {
+		name       string
+		remoteAddr string
+		want       string
+	}{
+		{"IPv4 host:port", "1.2.3.4:5000", "1.2.3.4"},
+		{"IPv4 sans port", "1.2.3.4", "1.2.3.4"},
+		{"IPv6 bracketé regroupé par /64", "[2001:db8:1:2:3:4:5:6]:5000", "2001:db8:1:2::"},
+		{"vide", "", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req.RemoteAddr = tc.remoteAddr
+			got, err := ClientIPKey(req)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("ClientIPKey(%q): want %q, got %q", tc.remoteAddr, tc.want, got)
+			}
+		})
+	}
+}
+
 func TestFormatRemoteAddr(t *testing.T) {
 	cases := map[string]string{
 		"":            ":0",
