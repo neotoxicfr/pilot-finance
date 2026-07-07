@@ -155,7 +155,7 @@ func main() {
 	r.Use(middleware.SecurityHeaders)
 	r.Use(middleware.MaxBodySize)
 	if !disableRL {
-		r.Use(httprate.LimitByRealIP(120, time.Minute)) // 120 req/min global
+		r.Use(httprate.LimitBy(120, time.Minute, middleware.ClientIPKey)) // 120 req/min global
 	}
 
 	r.NotFound(handlers.NotFound)
@@ -179,7 +179,7 @@ func main() {
 	// Routes auth avec rate limit (10 req/min anti-bruteforce, humain = ~1 essai/6s)
 	r.Group(func(r chi.Router) {
 		if !disableRL {
-			r.Use(httprate.LimitByRealIP(10, time.Minute))
+			r.Use(httprate.LimitBy(10, time.Minute, middleware.ClientIPKey))
 		}
 
 		r.Get("/login", handlers.LoginPage)
@@ -223,7 +223,7 @@ func main() {
 		r.Post("/settings/verify-email/resend", handlers.ResendVerificationEmail)
 		exportRoute := r.With()
 		if !disableRL {
-			exportRoute = r.With(httprate.LimitByRealIP(10, time.Minute))
+			exportRoute = r.With(httprate.LimitBy(10, time.Minute, middleware.ClientIPKey))
 		}
 		exportRoute.Get("/settings/export", handlers.ExportData)
 		r.Delete("/settings/account", handlers.DeleteSelfAccount)

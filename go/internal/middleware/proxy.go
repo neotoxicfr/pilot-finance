@@ -8,7 +8,22 @@ import (
 	"strings"
 
 	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/httprate"
 )
+
+// ClientIPKey est une httprate.KeyFunc : elle dérive la clé de rate-limit de
+// r.RemoteAddr, que TrustedProxy (installé en amont) a déjà résolu vers l'IP
+// client réelle — donc non falsifiable via X-Forwarded-For par un pair non
+// approuvé. CanonicalizeIP regroupe les clients IPv6 par /64 (un client SLAAC
+// contrôle tout son /64 et pourrait sinon tourner dedans pour vider le bucket).
+func ClientIPKey(r *http.Request) (string, error) {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		// RemoteAddr sans port (tests, connexions exotiques) : utiliser tel quel.
+		host = r.RemoteAddr
+	}
+	return httprate.CanonicalizeIP(host), nil
+}
 
 // TrustedProxy construit le middleware de résolution d'IP client.
 //
