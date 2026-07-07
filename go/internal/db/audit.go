@@ -26,6 +26,7 @@ const (
 	AuditAccountCreate = "ACCOUNT_CREATE"
 	AuditAccountUpdate = "ACCOUNT_UPDATE"
 	AuditAccountDelete = "ACCOUNT_DELETE"
+	AuditImportBalances     = "IMPORT_BALANCES"
 	AuditGDPRExport         = "GDPR_EXPORT"
 	AuditGDPRDelete         = "GDPR_DELETE"
 	AuditAdminDeleteUser    = "ADMIN_DELETE_USER"

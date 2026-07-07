@@ -130,6 +130,37 @@ function pwdData() {
 function dangerData() {
     return {
         selfDeleteConfirm: false,
+        importMsg: '',
+        importErrMsg: '',
+        triggerImport() {
+            document.getElementById('import-file').click();
+        },
+        importBalances(event) {
+            var input = event.target;
+            if (!input.files || !input.files.length) return;
+            this.importMsg = '';
+            this.importErrMsg = '';
+            var fd = new FormData();
+            fd.append('file', input.files[0]);
+            input.value = '';
+            fetch('/settings/import', { method: 'POST', body: fd })
+                .then(function(r) {
+                    if (!r.ok) throw new Error(r.statusText);
+                    return r.json();
+                })
+                .then(d => {
+                    var parts = ['{{index .T "settings.import_success"}}'.replace('{n}', d.updated)];
+                    if (d.unknown && d.unknown.length) parts.push('{{index .T "settings.import_unknown"}}'.replace('{list}', d.unknown.join(', ')));
+                    if (d.ambiguous && d.ambiguous.length) parts.push('{{index .T "settings.import_ambiguous"}}'.replace('{list}', d.ambiguous.join(', ')));
+                    if (d.invalid_lines && d.invalid_lines.length) parts.push('{{index .T "settings.import_invalid_lines"}}'.replace('{list}', d.invalid_lines.join(', ')));
+                    this.importMsg = parts.join(' — ');
+                    window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.importMsg } }));
+                })
+                .catch(() => {
+                    this.importErrMsg = '{{index .T "settings.import_error"}}';
+                    window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.importErrMsg, isError: true } }));
+                });
+        },
         exportData() {
             fetch('/settings/export')
                 .then(function(r) {
@@ -474,6 +505,14 @@ document.addEventListener('alpine:init', () => {
                         {{template "icon-save" dict "Size" 16}}
                         {{index .T "settings.export_data"}}
                     </button>
+                    <input type="file" id="import-file" accept=".csv,text/csv" class="hidden" @change="importBalances($event)">
+                    <button @click="triggerImport()" class="w-full mt-3 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border bg-background hover:bg-accent text-sm font-bold text-foreground transition-colors">
+                        {{template "icon-refresh" dict "Size" 16}}
+                        {{index .T "settings.import_data"}}
+                    </button>
+                    <p class="text-xs text-foreground/70 mt-2">{{index .T "settings.import_hint"}}</p>
+                    <p x-show="importMsg" x-text="importMsg" class="text-sm mt-2 text-emerald-600"></p>
+                    <p x-show="importErrMsg" x-text="importErrMsg" class="text-sm mt-2 text-red-500"></p>
                 </div>
 
                 <!-- Danger Zone -->
