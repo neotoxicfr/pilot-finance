@@ -226,6 +226,7 @@ func main() {
 			exportRoute = r.With(httprate.LimitBy(10, time.Minute, middleware.ClientIPKey))
 		}
 		exportRoute.Get("/settings/export", handlers.ExportData)
+		exportRoute.Post("/settings/import", handlers.ImportBalances)
 		r.Delete("/settings/account", handlers.DeleteSelfAccount)
 
 		// Routes MFA
