@@ -51,7 +51,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
     && upx --best --lzma /server
 
 # Copier les certificats CA et timezone depuis alpine
-FROM alpine:3.23 AS certs
+FROM alpine:3.24 AS certs
 RUN apk add --no-cache ca-certificates tzdata
 
 # ============ PRODUCTION STAGE ============
