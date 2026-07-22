@@ -26,6 +26,7 @@ const (
 	AuditAccountCreate = "ACCOUNT_CREATE"
 	AuditAccountUpdate = "ACCOUNT_UPDATE"
 	AuditAccountDelete = "ACCOUNT_DELETE"
+	AuditImportBalances     = "IMPORT_BALANCES"
 	AuditGDPRExport         = "GDPR_EXPORT"
 	AuditGDPRDelete         = "GDPR_DELETE"
 	AuditAdminDeleteUser    = "ADMIN_DELETE_USER"
@@ -44,31 +45,76 @@ type AuditEntry struct {
 // auditWG suit les écritures audit en vol pour FlushAuditLog au shutdown.
 var auditWG sync.WaitGroup
 
+// auditWriteConcurrency borne le nombre de goroutines d'écriture audit afin de
+// ne pas saturer le pool de 10 connexions sous une rafale d'évènements.
+const auditWriteConcurrency = 8
+
+// auditJob représente une écriture audit à effectuer par le worker pool.
+type auditJob struct {
+	userID    int64
+	action    string
+	ip        string
+	userAgent string
+	createdAt int64
+}
+
+// auditQueue est le canal tamponné alimentant le worker pool. Initialisé
+// paresseusement par startAuditWorkers (via sync.Once) au premier LogAudit.
+var (
+	auditQueue chan auditJob
+	auditOnce  sync.Once
+)
+
+// startAuditWorkers démarre un pool fixe de workers consommant auditQueue.
+// Appelé paresseusement et une seule fois.
+func startAuditWorkers() {
+	auditQueue = make(chan auditJob, 256)
+	for i := 0; i < auditWriteConcurrency; i++ {
+		go func() {
+			for job := range auditQueue {
+				writeAuditEntry(job)
+				auditWG.Done()
+			}
+		}()
+	}
+}
+
+// writeAuditEntry chiffre IP/UserAgent et insère une entrée d'audit.
+func writeAuditEntry(job auditJob) {
+	ipEnc, err := crypto.Encrypt(job.ip)
+	if err != nil {
+		slog.Warn("audit log: encrypt ip failed", "err", err)
+		ipEnc = job.ip
+	}
+	uaEnc, err := crypto.Encrypt(job.userAgent)
+	if err != nil {
+		slog.Warn("audit log: encrypt user_agent failed", "err", err)
+		uaEnc = job.userAgent
+	}
+	if _, err := DB.Exec(`INSERT INTO audit_log (user_id, action, ip, user_agent, created_at) VALUES (?, ?, ?, ?, ?)`,
+		job.userID, job.action, ipEnc, uaEnc, job.createdAt); err != nil {
+		slog.Warn("audit log insert failed", "action", job.action, "userID", job.userID, "err", err)
+	}
+}
+
 // LogAudit enregistre une action dans le journal d'audit (vraie fire-and-forget).
-// M6 fix : 2 chiffrements AES + 1 INSERT exécutés en goroutine pour ne pas
-// bloquer le handler appelant (~2-5ms gagnés par action sensible). Le timestamp
-// est capturé synchronement pour préserver l'ordre logique des événements.
-// IP et UserAgent sont chiffrés AES-256-GCM avant stockage.
+// M6 fix : 2 chiffrements AES + 1 INSERT exécutés hors du handler appelant pour
+// ne pas le bloquer (~2-5ms gagnés par action sensible). Le travail est confié à
+// un pool de workers borné (auditWriteConcurrency) afin de ne pas saturer le pool
+// de connexions sous une rafale d'évènements. Le timestamp est capturé de manière
+// synchrone pour préserver l'ordre logique des événements. IP et UserAgent sont
+// chiffrés AES-256-GCM avant stockage.
 func LogAudit(userID int64, action, ip, userAgent string) {
+	auditOnce.Do(startAuditWorkers)
 	createdAt := time.Now().Unix()
 	auditWG.Add(1)
-	go func() {
-		defer auditWG.Done()
-		ipEnc, err := crypto.Encrypt(ip)
-		if err != nil {
-			slog.Warn("audit log: encrypt ip failed", "err", err)
-			ipEnc = ip
-		}
-		uaEnc, err := crypto.Encrypt(userAgent)
-		if err != nil {
-			slog.Warn("audit log: encrypt user_agent failed", "err", err)
-			uaEnc = userAgent
-		}
-		if _, err := DB.Exec(`INSERT INTO audit_log (user_id, action, ip, user_agent, created_at) VALUES (?, ?, ?, ?, ?)`,
-			userID, action, ipEnc, uaEnc, createdAt); err != nil {
-			slog.Warn("audit log insert failed", "action", action, "userID", userID, "err", err)
-		}
-	}()
+	auditQueue <- auditJob{
+		userID:    userID,
+		action:    action,
+		ip:        ip,
+		userAgent: userAgent,
+		createdAt: createdAt,
+	}
 }
 
 // FlushAuditLog attend que toutes les écritures audit en vol soient terminées.
@@ -194,6 +240,11 @@ func PurgeAuditLog(retentionDays int) (int64, error) {
 	return result.RowsAffected()
 }
 
+// auditRotationStopped est un hook de test (nil en production) appelé lorsque la
+// goroutine de rotation se termine sur annulation du contexte. Permet aux tests
+// d'observer l'arrêt propre sans dépendre d'un time.Sleep ni changer l'API.
+var auditRotationStopped func()
+
 // StartAuditRotation lance une goroutine qui purge les entrées d'audit
 // plus anciennes que 90 jours, toutes les 24h.
 func StartAuditRotation(ctx context.Context) {
@@ -209,6 +260,9 @@ func StartAuditRotation(ctx context.Context) {
 	go func() {
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()
+		if auditRotationStopped != nil {
+			defer auditRotationStopped()
+		}
 		for {
 			select {
 			case <-ctx.Done():

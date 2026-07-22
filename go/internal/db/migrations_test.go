@@ -50,7 +50,9 @@ func TestMigrationIdempotency(t *testing.T) {
 	}
 
 	// Second run — all migrations already applied, count must not grow.
-	runMigrations("")
+	if err := runMigrations(""); err != nil {
+		t.Fatalf("runMigrations (second run): %v", err)
+	}
 
 	var count2 int
 	DB.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&count2)

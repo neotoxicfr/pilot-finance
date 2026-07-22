@@ -96,6 +96,51 @@ func clearSessionCookie(w http.ResponseWriter) {
 	})
 }
 
+// loadSessionData resolves the auth data for a user, going through the session
+// cache first (30s TTL) and falling back to the DB on a miss/expiry.
+//
+// Return contract (shared by RequireAuth and OptionalAuth so both apply
+// identical cache semantics):
+//   - hit:   a live cache entry was used (no DB query was issued).
+//   - found: the user exists. A valid user always has sessionVersion >= 1
+//     (the column defaults to 1), so getUserAuthData returning (0,"",false,nil)
+//     means "user not found / deleted" — that phantom row is NOT cached and
+//     found is false.
+//   - err:   a real DB error occurred (distinct from "user not found").
+//
+// When found is false, the returned entry is the zero value and must not be
+// trusted; callers must treat it as "user gone" explicitly.
+func loadSessionData(userID int64) (entry sessionCacheEntry, hit, found bool, err error) {
+	if cached, ok := sessionCache.Load(userID); ok {
+		cachedEntry := cached.(sessionCacheEntry)
+		if time.Now().Before(cachedEntry.expiresAt) {
+			// Only live entries for real users are ever stored (see below),
+			// so a cache hit is always a valid, found user.
+			return cachedEntry, true, true, nil
+		}
+	}
+
+	sv, emailEncrypted, emailVerified, dbErr := getUserAuthData(userID)
+	if dbErr != nil {
+		return sessionCacheEntry{}, false, false, dbErr
+	}
+	// sessionVersion == 0 is impossible for a real row (DEFAULT 1); it is the
+	// sentinel getUserAuthData returns for sql.ErrNoRows. Surface "user gone"
+	// distinctly and never cache the phantom sv=0/email="" row.
+	if sv < 1 {
+		return sessionCacheEntry{}, false, false, nil
+	}
+
+	entry = sessionCacheEntry{
+		sessionVersion: sv,
+		emailEncrypted: emailEncrypted,
+		emailVerified:  emailVerified,
+		expiresAt:      time.Now().Add(sessionCacheTTL),
+	}
+	sessionCache.Store(userID, entry)
+	return entry, false, true, nil
+}
+
 // RequireAuth vérifie que l'utilisateur est authentifié.
 // Uses an in-memory cache (30s TTL) to avoid querying the DB on every request.
 func RequireAuth(next http.Handler) http.Handler {
@@ -114,47 +159,21 @@ func RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		// Try the session cache first (30s TTL to reduce DB queries)
-		var sv int
-		var emailEncrypted string
-		var emailVerified bool
-		cacheHit := false
-
-		if cached, ok := sessionCache.Load(claims.UserID); ok {
-			entry := cached.(sessionCacheEntry)
-			if time.Now().Before(entry.expiresAt) {
-				sv = entry.sessionVersion
-				emailEncrypted = entry.emailEncrypted
-				emailVerified = entry.emailVerified
-				cacheHit = true
-			}
+		entry, _, found, dbErr := loadSessionData(claims.UserID)
+		if dbErr != nil {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
 		}
-
-		if !cacheHit {
-			// Cache miss or expired: query DB and update cache
-			var dbErr error
-			sv, emailEncrypted, emailVerified, dbErr = getUserAuthData(claims.UserID)
-			if dbErr != nil {
-				http.Redirect(w, r, "/login", http.StatusSeeOther)
-				return
-			}
-			sessionCache.Store(claims.UserID, sessionCacheEntry{
-				sessionVersion: sv,
-				emailEncrypted: emailEncrypted,
-				emailVerified:  emailVerified,
-				expiresAt:      time.Now().Add(sessionCacheTTL),
-			})
-		}
-
-		if sv != claims.SessionVersion {
-			// Session invalidée (changement de mot de passe) ou utilisateur introuvable (sv==0)
+		if !found || entry.sessionVersion != claims.SessionVersion {
+			// Utilisateur introuvable (supprimé) ou session invalidée
+			// (changement de mot de passe). Dans les deux cas on déconnecte.
 			InvalidateSessionCache(claims.UserID)
 			clearSessionCookie(w)
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
 
-		email, _ := crypto.Decrypt(emailEncrypted)
+		email, _ := crypto.Decrypt(entry.emailEncrypted)
 
 		user := &User{
 			ID:             claims.UserID,
@@ -163,7 +182,7 @@ func RequireAuth(next http.Handler) http.Handler {
 			SessionVersion: claims.SessionVersion,
 			Language:       claims.Language,
 			Currency:       claims.Currency,
-			EmailVerified:  emailVerified,
+			EmailVerified:  entry.emailVerified,
 		}
 		ctx := context.WithValue(r.Context(), UserContextKey, user)
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -191,36 +210,14 @@ func OptionalAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		var sv int
-		var emailEncrypted string
-		var emailVerified bool
-		if cached, ok := sessionCache.Load(claims.UserID); ok {
-			entry := cached.(sessionCacheEntry)
-			if time.Now().Before(entry.expiresAt) {
-				sv = entry.sessionVersion
-				emailEncrypted = entry.emailEncrypted
-				emailVerified = entry.emailVerified
-			}
-		}
-		if emailEncrypted == "" {
-			sv, emailEncrypted, emailVerified, err = getUserAuthData(claims.UserID)
-			if err != nil {
-				next.ServeHTTP(w, r)
-				return
-			}
-			sessionCache.Store(claims.UserID, sessionCacheEntry{
-				sessionVersion: sv,
-				emailEncrypted: emailEncrypted,
-				emailVerified:  emailVerified,
-				expiresAt:      time.Now().Add(sessionCacheTTL),
-			})
-		}
-
-		if sv != claims.SessionVersion {
+		entry, _, found, dbErr := loadSessionData(claims.UserID)
+		if dbErr != nil || !found || entry.sessionVersion != claims.SessionVersion {
+			// DB error, utilisateur introuvable (supprimé) ou session
+			// invalidée : on continue sans utilisateur dans le contexte.
 			next.ServeHTTP(w, r)
 			return
 		}
-		email, _ := crypto.Decrypt(emailEncrypted)
+		email, _ := crypto.Decrypt(entry.emailEncrypted)
 		user := &User{
 			ID:             claims.UserID,
 			Email:          email,
@@ -228,7 +225,7 @@ func OptionalAuth(next http.Handler) http.Handler {
 			SessionVersion: claims.SessionVersion,
 			Language:       claims.Language,
 			Currency:       claims.Currency,
-			EmailVerified:  emailVerified,
+			EmailVerified:  entry.emailVerified,
 		}
 		ctx := context.WithValue(r.Context(), UserContextKey, user)
 		next.ServeHTTP(w, r.WithContext(ctx))

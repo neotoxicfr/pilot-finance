@@ -8,12 +8,20 @@ import (
 	"path/filepath"
 )
 
+// translations contient toutes les traductions chargées, indexées par langue.
+//
+// Contrat de concurrence : Load() doit être appelé exactement une fois au
+// démarrage, AVANT que le serveur HTTP n'accepte des requêtes. Une fois Load()
+// terminé, la map n'est plus jamais mutée ; T() et Map() ne font que la lire.
+// Cette séquence "load-once-before-serve" rend les lectures concurrentes sûres
+// sans verrou. Ne pas appeler Load() en cours de service.
 var translations = map[string]map[string]string{}
 
 // readFileFn est injectable pour les tests (couvre la branche d'erreur os.ReadFile).
 var readFileFn = os.ReadFile
 
-// Load charge les fichiers de traduction depuis le dossier locales
+// Load charge les fichiers de traduction depuis le dossier locales.
+// Voir le contrat de concurrence documenté sur translations.
 func Load(localesDir string) error {
 	entries, err := os.ReadDir(localesDir)
 	if err != nil {
@@ -39,6 +47,14 @@ func Load(localesDir string) error {
 		}
 
 		translations[lang] = m
+	}
+
+	// La langue de fallback "fr" doit être chargée et non vide, sinon T()
+	// renverrait systématiquement les clés brutes pour les traductions
+	// manquantes — révélateur d'un déploiement incomplet (locales/fr.json
+	// absent ou vide).
+	if len(translations["fr"]) == 0 {
+		return fmt.Errorf("i18n: langue de fallback 'fr' absente ou vide dans %s", localesDir)
 	}
 
 	return nil

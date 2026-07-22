@@ -1,32 +1,18 @@
 package main
 
 import (
-	"net"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
-
-	"pilot-finance/internal/middleware"
 )
 
 func okHandler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// --- maxBodySize ---
-
-func TestMaxBodySize_PassesThrough(t *testing.T) {
-	handler := maxBodySize(http.HandlerFunc(okHandler))
-	req := httptest.NewRequest(http.MethodPost, "/test", nil)
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-	if rr.Code != http.StatusOK {
-		t.Errorf("maxBodySize: want 200, got %d", rr.Code)
-	}
-}
-
 // --- cacheStatic ---
+// (MaxBodySize, SecurityHeaders et TrustedProxy/formatRemoteAddr ont été déplacés
+// dans internal/middleware et y sont testés ; cacheStatic reste ici.)
 
 func TestCacheStatic_JS_LongCache(t *testing.T) {
 	handler := cacheStatic(http.HandlerFunc(okHandler))
@@ -58,97 +44,5 @@ func TestCacheStatic_Image_ShortCache(t *testing.T) {
 	want := "public, max-age=2592000"
 	if got := rr.Header().Get("Cache-Control"); got != want {
 		t.Errorf("image Cache-Control: want %q, got %q", want, got)
-	}
-}
-
-// --- securityHeaders ---
-
-func TestSecurityHeaders_API_NoCSP(t *testing.T) {
-	handler := securityHeaders(http.HandlerFunc(okHandler))
-	req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	if got := rr.Header().Get("Content-Security-Policy"); got != "" {
-		t.Errorf("API route should have no CSP, got %q", got)
-	}
-	if got := rr.Header().Get("X-Frame-Options"); got != "DENY" {
-		t.Errorf("X-Frame-Options: want DENY, got %q", got)
-	}
-	if got := rr.Header().Get("X-Content-Type-Options"); got != "nosniff" {
-		t.Errorf("X-Content-Type-Options: want nosniff, got %q", got)
-	}
-}
-
-func TestSecurityHeaders_HTML_HasCSP(t *testing.T) {
-	handler := securityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Verify nonce is in context
-		nonce := middleware.GetNonce(r)
-		if nonce == "" {
-			t.Error("nonce should be set in context for HTML routes")
-		}
-		w.WriteHeader(http.StatusOK)
-	}))
-	req := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	csp := rr.Header().Get("Content-Security-Policy")
-	if csp == "" {
-		t.Error("HTML route should have CSP header")
-	}
-	if !strings.Contains(csp, "nonce-") {
-		t.Errorf("CSP should contain nonce, got: %q", csp)
-	}
-	if !strings.Contains(csp, "default-src 'none'") {
-		t.Errorf("CSP should have default-src none, got: %q", csp)
-	}
-}
-
-// --- formatRemoteAddr (L5 fix: IPv6 sans brackets) ---
-
-func TestFormatRemoteAddr(t *testing.T) {
-	cases := []struct {
-		name string
-		in   string
-		want string
-	}{
-		{"empty", "", ":0"},
-		{"ipv4", "1.2.3.4", "1.2.3.4:0"},
-		{"ipv6_loopback", "::1", "[::1]:0"},
-		{"ipv6_full", "2001:db8::1", "[2001:db8::1]:0"},
-		{"ipv6_already_bracketed", "[::1]", "[::1]:0"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got := formatRemoteAddr(tc.in)
-			if got != tc.want {
-				t.Errorf("formatRemoteAddr(%q): want %q, got %q", tc.in, tc.want, got)
-			}
-			// Doit pouvoir être re-parsé par net.SplitHostPort (sauf cas empty)
-			if tc.in != "" {
-				if _, _, err := net.SplitHostPort(got); err != nil {
-					t.Errorf("net.SplitHostPort(%q) failed: %v", got, err)
-				}
-			}
-		})
-	}
-}
-
-func TestSecurityHeaders_CommonHeaders(t *testing.T) {
-	handler := securityHeaders(http.HandlerFunc(okHandler))
-	req := httptest.NewRequest(http.MethodGet, "/page", nil)
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-
-	checks := map[string]string{
-		"Referrer-Policy":              "strict-origin-when-cross-origin",
-		"Cross-Origin-Resource-Policy": "same-origin",
-		"Cache-Control":                "no-store",
-	}
-	for header, want := range checks {
-		if got := rr.Header().Get(header); got != want {
-			t.Errorf("%s: want %q, got %q", header, want, got)
-		}
 	}
 }

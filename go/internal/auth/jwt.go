@@ -50,27 +50,42 @@ func GenerateToken(userID int64, role, language, currency string, sessionVersion
 	return token.SignedString(jwtSecret)
 }
 
-// ValidateToken valide un token JWT et retourne les claims
-func ValidateToken(tokenString string) (*Claims, error) {
-	token, err := parseWithClaimsFn(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+// parseClaims factorise la logique commune aux trois validateurs : appel du
+// hook injectable parseWithClaimsFn, pin de l'algorithme HMAC dans la keyfunc,
+// et vérification !ok || !token.Valid. Le type concret des claims est passé par
+// l'appelant (Go 1.26 generics). En cas d'échec, l'erreur brute de parsing est
+// remontée telle quelle (ErrInvalidToken pour la keyfunc, jwt.ErrTokenExpired
+// pour un token expiré) afin que les appelants conservent leur sémantique.
+func parseClaims[T jwt.Claims](tokenString string, claims T) (T, error) {
+	token, err := parseWithClaimsFn(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, ErrInvalidToken
 		}
 		return jwtSecret, nil
 	})
+	if err != nil {
+		var zero T
+		return zero, err
+	}
 
+	parsed, ok := token.Claims.(T)
+	if !ok || !token.Valid {
+		var zero T
+		return zero, ErrInvalidToken
+	}
+
+	return parsed, nil
+}
+
+// ValidateToken valide un token JWT et retourne les claims
+func ValidateToken(tokenString string) (*Claims, error) {
+	claims, err := parseClaims(tokenString, &Claims{})
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
 			return nil, ErrExpiredToken
 		}
 		return nil, ErrInvalidToken
 	}
-
-	claims, ok := token.Claims.(*Claims)
-	if !ok || !token.Valid {
-		return nil, ErrInvalidToken
-	}
-
 	return claims, nil
 }
 
@@ -96,22 +111,10 @@ func GeneratePending2FAToken(userID int64) (string, error) {
 
 // ValidatePending2FAToken valide un token temporaire 2FA
 func ValidatePending2FAToken(tokenString string) (int64, error) {
-	token, err := parseWithClaimsFn(tokenString, &Pending2FAClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, ErrInvalidToken
-		}
-		return jwtSecret, nil
-	})
-
+	claims, err := parseClaims(tokenString, &Pending2FAClaims{})
 	if err != nil {
 		return 0, ErrInvalidToken
 	}
-
-	claims, ok := token.Claims.(*Pending2FAClaims)
-	if !ok || !token.Valid {
-		return 0, ErrInvalidToken
-	}
-
 	return claims.UserID, nil
 }
 
@@ -141,21 +144,9 @@ func GenerateMFASetupToken(userID int64, secret string) (string, error) {
 
 // ValidateMFASetupToken vérifie le cookie et retourne (userID, secret) si valide.
 func ValidateMFASetupToken(tokenString string) (int64, string, error) {
-	token, err := parseWithClaimsFn(tokenString, &MFASetupClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, ErrInvalidToken
-		}
-		return jwtSecret, nil
-	})
-
+	claims, err := parseClaims(tokenString, &MFASetupClaims{})
 	if err != nil {
 		return 0, "", ErrInvalidToken
 	}
-
-	claims, ok := token.Claims.(*MFASetupClaims)
-	if !ok || !token.Valid {
-		return 0, "", ErrInvalidToken
-	}
-
 	return claims.UserID, claims.Secret, nil
 }

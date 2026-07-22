@@ -209,6 +209,50 @@ func TestOrFunc_Variadic(t *testing.T) {
 	}
 }
 
+// TestOrFunc_Int64Zero vérifie qu'int64(0) est traité comme falsy.
+func TestOrFunc_Int64Zero(t *testing.T) {
+	if got := orFunc(int64(0), "fallback"); got != "fallback" {
+		t.Errorf("orFunc(int64(0), fallback): want 'fallback', got %v", got)
+	}
+}
+
+// TestOrFunc_Float64Zero vérifie que float64(0) est traité comme falsy.
+func TestOrFunc_Float64Zero(t *testing.T) {
+	if got := orFunc(float64(0), "fallback"); got != "fallback" {
+		t.Errorf("orFunc(float64(0), fallback): want 'fallback', got %v", got)
+	}
+}
+
+// TestOrFunc_NonZeroNumerics vérifie que les nombres non nuls sont truthy.
+func TestOrFunc_NonZeroNumerics(t *testing.T) {
+	if got := orFunc(int64(5), "fallback"); got != int64(5) {
+		t.Errorf("orFunc(int64(5)): want int64(5), got %v", got)
+	}
+	if got := orFunc(float64(2.5), "fallback"); got != float64(2.5) {
+		t.Errorf("orFunc(float64(2.5)): want 2.5, got %v", got)
+	}
+	if got := orFunc(7, "fallback"); got != 7 {
+		t.Errorf("orFunc(int 7): want 7, got %v", got)
+	}
+}
+
+// TestOrFunc_BoolTrue vérifie que true est truthy.
+func TestOrFunc_BoolTrue(t *testing.T) {
+	if got := orFunc(true, "fallback"); got != true {
+		t.Errorf("orFunc(true): want true, got %v", got)
+	}
+}
+
+// TestOrFunc_DefaultTypeTruthy vérifie qu'un type non géré (ex. slice) est truthy.
+func TestOrFunc_DefaultTypeTruthy(t *testing.T) {
+	val := []string{"x"}
+	got := orFunc(val, "fallback")
+	gotSlice, ok := got.([]string)
+	if !ok || len(gotSlice) != 1 || gotSlice[0] != "x" {
+		t.Errorf("orFunc(slice): want the slice returned, got %v", got)
+	}
+}
+
 // --- Init, Render, RenderPartial ---
 
 func TestInit_ValidDir(t *testing.T) {

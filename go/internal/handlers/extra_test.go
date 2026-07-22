@@ -81,23 +81,34 @@ func TestHtmxRedirect_HTMX(t *testing.T) {
 
 // --- getClientIP ---
 
-func TestGetClientIP_XForwardedFor(t *testing.T) {
-	// When RemoteAddr is localhost, getClientIP falls back to X-Forwarded-For
+func TestGetClientIP_HeadersIgnoredWithoutTrustedProxy(t *testing.T) {
+	// Sans middleware TrustedProxy, les en-têtes proxy (spoofables) sont ignorés :
+	// getClientIP retombe sur l'hôte de RemoteAddr.
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.RemoteAddr = "127.0.0.1:1234"
 	req.Header.Set("X-Forwarded-For", "1.2.3.4, 5.6.7.8")
-	if ip := getClientIP(req); ip != "1.2.3.4" {
-		t.Errorf("want 1.2.3.4, got %q", ip)
+	req.Header.Set("X-Real-IP", "9.10.11.12")
+	if ip := getClientIP(req); ip != "127.0.0.1" {
+		t.Errorf("want 127.0.0.1, got %q", ip)
 	}
 }
 
-func TestGetClientIP_XRealIP(t *testing.T) {
-	// When RemoteAddr is localhost, getClientIP falls back to X-Real-IP
+func TestGetClientIP_FromTrustedProxyContext(t *testing.T) {
+	// Avec TrustedProxy en amont, getClientIP lit l'IP résolue dans le contexte.
+	mw, err := middleware.TrustedProxy("127.0.0.1", false)
+	if err != nil {
+		t.Fatalf("TrustedProxy: %v", err)
+	}
+	var got string
+	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = getClientIP(r)
+	}))
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.RemoteAddr = "127.0.0.1:1234"
-	req.Header.Set("X-Real-IP", "9.10.11.12")
-	if ip := getClientIP(req); ip != "9.10.11.12" {
-		t.Errorf("want 9.10.11.12, got %q", ip)
+	req.Header.Set("X-Forwarded-For", "9.10.11.12")
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+	if got != "9.10.11.12" {
+		t.Errorf("want 9.10.11.12 (résolue par TrustedProxy), got %q", got)
 	}
 }
 

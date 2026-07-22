@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/hex"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -12,6 +11,7 @@ import (
 
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/i18n"
+	"pilot-finance/internal/middleware"
 )
 
 // htmxRedirect envoie HX-Redirect pour les requêtes HTMX (navigation complète),
@@ -25,30 +25,12 @@ func htmxRedirect(w http.ResponseWriter, r *http.Request, url string) {
 	http.Redirect(w, r, url, http.StatusSeeOther)
 }
 
-// getClientIP extrait l'IP du client.
-// Note: X-Forwarded-For and X-Real-IP are spoofable by clients unless a trusted
-// reverse proxy strips/overwrites them. chi's RealIP middleware (applied globally)
-// already processes these headers, so r.RemoteAddr is used as the primary source.
-// The X-Forwarded-For / X-Real-IP fallbacks are kept for environments behind a
-// trusted proxy that sets these headers.
+// getClientIP extrait l'IP du client, résolue par le middleware TrustedProxy
+// (contexte chi ClientIPFrom*) avec repli sur l'hôte de r.RemoteAddr.
+// X-Forwarded-For / X-Real-IP ne sont plus lus ici : seul TrustedProxy les
+// honore, et uniquement quand le pair direct est dans l'allowlist.
 func getClientIP(r *http.Request) string {
-	// Prefer RemoteAddr as primary (set by chi RealIP middleware when behind trusted proxy).
-	// net.SplitHostPort gère correctement les adresses IPv6 ("[::1]:1234") et IPv4 ("1.2.3.4:5").
-	remoteAddr := r.RemoteAddr
-	if host, _, err := net.SplitHostPort(remoteAddr); err == nil {
-		remoteAddr = host
-	}
-	if remoteAddr != "" && remoteAddr != "127.0.0.1" && remoteAddr != "::1" {
-		return remoteAddr
-	}
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		parts := strings.Split(xff, ",")
-		return strings.TrimSpace(parts[0])
-	}
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
-	}
-	return remoteAddr
+	return middleware.ClientIP(r)
 }
 
 // dummyPasswordHash est un hash bcrypt valide (cost 12) utilisé pour égaliser
@@ -211,11 +193,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		setSessionCookie(w, "pending_2fa", pendingToken, 300) // 5 minutes
 
 		// Rendre la page login avec le formulaire 2FA visible et les traductions correctes
-		data := baseData(r, nil)
-		data["Title"] = "Connexion"
-		data["CanRegister"] = os.Getenv("ALLOW_REGISTER") == "true"
-		data["CanUsePasskeys"] = os.Getenv("HOST") != ""
-		data["MailEnabled"] = os.Getenv("SMTP_HOST") != ""
+		data := loginPageData(r)
 		data["Requires2FA"] = true
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		hookRender(w, "login.html", data) //nolint:errcheck

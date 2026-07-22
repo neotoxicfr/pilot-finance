@@ -23,7 +23,7 @@ RUN NODE_PATH=$(npm root -g) npx @tailwindcss/cli -i static/css/input.css -o sta
     && esbuild static/js/passkey.js --minify --outfile=static/js/passkey.js --allow-overwrite
 
 # ============ GO BUILD STAGE ============
-FROM golang:1.26.3-alpine AS builder
+FROM golang:1.26.5-alpine AS builder
 
 ARG TARGETARCH
 ARG VERSION=dev
@@ -51,7 +51,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
     && upx --best --lzma /server
 
 # Copier les certificats CA et timezone depuis alpine
-FROM alpine:3.23 AS certs
+FROM alpine:3.24 AS certs
 RUN apk add --no-cache ca-certificates tzdata
 
 # ============ PRODUCTION STAGE ============

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -142,16 +141,21 @@ func main() {
 
 	// Middlewares globaux — doivent être déclarés AVANT NotFound/MethodNotAllowed
 	// pour que chi les applique aux handlers d'erreur
-	r.Use(trustedProxyMiddleware())
+	tp, err := middleware.TrustedProxy(os.Getenv("TRUSTED_PROXIES"), os.Getenv("ENV") == "production")
+	if err != nil {
+		slog.Error("trusted proxies", "err", err)
+		os.Exit(1)
+	}
+	r.Use(tp)
 	r.Use(chimw.RequestID)
 	r.Use(middleware.SanitizedLogger)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Compress(5))
 	r.Use(metrics.Middleware)
-	r.Use(securityHeaders)
-	r.Use(maxBodySize)
+	r.Use(middleware.SecurityHeaders)
+	r.Use(middleware.MaxBodySize)
 	if !disableRL {
-		r.Use(httprate.LimitByRealIP(120, time.Minute)) // 120 req/min global
+		r.Use(httprate.LimitBy(120, time.Minute, middleware.ClientIPKey)) // 120 req/min global
 	}
 
 	r.NotFound(handlers.NotFound)
@@ -175,7 +179,7 @@ func main() {
 	// Routes auth avec rate limit (10 req/min anti-bruteforce, humain = ~1 essai/6s)
 	r.Group(func(r chi.Router) {
 		if !disableRL {
-			r.Use(httprate.LimitByRealIP(10, time.Minute))
+			r.Use(httprate.LimitBy(10, time.Minute, middleware.ClientIPKey))
 		}
 
 		r.Get("/login", handlers.LoginPage)
@@ -219,9 +223,10 @@ func main() {
 		r.Post("/settings/verify-email/resend", handlers.ResendVerificationEmail)
 		exportRoute := r.With()
 		if !disableRL {
-			exportRoute = r.With(httprate.LimitByRealIP(10, time.Minute))
+			exportRoute = r.With(httprate.LimitBy(10, time.Minute, middleware.ClientIPKey))
 		}
 		exportRoute.Get("/settings/export", handlers.ExportData)
+		exportRoute.Post("/settings/import", handlers.ImportBalances)
 		r.Delete("/settings/account", handlers.DeleteSelfAccount)
 
 		// Routes MFA
@@ -280,24 +285,18 @@ func main() {
 
 	<-ctx.Done()
 	slog.Info("arrêt en cours")
-	ratelimit.StopAll()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		slog.Error("shutdown", "err", err)
 	}
+	// Stop rate-limiter background workers only after in-flight requests have
+	// drained (server.Shutdown above), since handlers may still touch limiters.
+	ratelimit.StopAll()
 	// M6 : drain les écritures audit en vol avant de quitter (fire-and-forget).
 	db.FlushAuditLog()
 	slog.Info("serveur arrêté proprement")
-}
-
-// maxBodySize limite la taille du body HTTP à 1MB pour prévenir les attaques DoS
-func maxBodySize(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1MB
-		next.ServeHTTP(w, r)
-	})
 }
 
 // staticETags calcule les ETag au démarrage pour chaque fichier statique
@@ -355,133 +354,6 @@ func cacheStatic(next http.Handler) http.Handler {
 	})
 }
 
-func trustedProxyMiddleware() func(http.Handler) http.Handler {
-	proxyEnv := os.Getenv("TRUSTED_PROXIES")
-	if proxyEnv == "" {
-		// En production, refuser de démarrer sans TRUSTED_PROXIES :
-		// chimw.RealIP fait confiance inconditionnellement à X-Forwarded-For,
-		// ce qui permet à n'importe quel attaquant de spoofer son IP et bypasser
-		// les rate limits applicatifs.
-		if os.Getenv("ENV") == "production" {
-			slog.Error("TRUSTED_PROXIES doit être défini en production (sinon X-Forwarded-For est spoofable et bypasse les rate limits)")
-			os.Exit(1)
-		}
-		slog.Warn("TRUSTED_PROXIES vide : fallback chi RealIP (X-Forwarded-For accepté de toute source — usage dev uniquement)")
-		return chimw.RealIP
-	}
-	// Supporte IPs exactes ET ranges CIDR (les IPs containers Docker changent au restart).
-	trustedIPs := make(map[string]bool)
-	var trustedNets []*net.IPNet
-	for _, p := range strings.Split(proxyEnv, ",") {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			continue
-		}
-		if strings.Contains(p, "/") {
-			_, ipnet, err := net.ParseCIDR(p)
-			if err != nil {
-				slog.Error("TRUSTED_PROXIES : CIDR invalide", "value", p, "err", err)
-				os.Exit(1)
-			}
-			trustedNets = append(trustedNets, ipnet)
-		} else {
-			if net.ParseIP(p) == nil {
-				slog.Error("TRUSTED_PROXIES : IP invalide", "value", p)
-				os.Exit(1)
-			}
-			trustedIPs[p] = true
-		}
-	}
-	isTrusted := func(host string) bool {
-		if trustedIPs[host] {
-			return true
-		}
-		ip := net.ParseIP(host)
-		if ip == nil {
-			return false
-		}
-		for _, n := range trustedNets {
-			if n.Contains(ip) {
-				return true
-			}
-		}
-		return false
-	}
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			host, _, _ := net.SplitHostPort(r.RemoteAddr)
-			if isTrusted(host) {
-				if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-					parts := strings.Split(xff, ",")
-					clientIP := strings.TrimSpace(parts[0])
-					r.RemoteAddr = formatRemoteAddr(clientIP)
-				} else if xri := r.Header.Get("X-Real-IP"); xri != "" {
-					r.RemoteAddr = formatRemoteAddr(strings.TrimSpace(xri))
-				}
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-// formatRemoteAddr formate une IP en host:port pour r.RemoteAddr.
-// Les IPv6 sans brackets ("::1") sont entourées de [ ] pour que
-// net.SplitHostPort puisse les parser correctement downstream.
-func formatRemoteAddr(ip string) string {
-	if ip == "" {
-		return ":0"
-	}
-	// Si déjà bracketé ([...]), garder tel quel
-	if strings.HasPrefix(ip, "[") {
-		return ip + ":0"
-	}
-	// IPv6 = contient ":" et n'est pas bracketé → ajouter brackets
-	if strings.Contains(ip, ":") {
-		return "[" + ip + "]:0"
-	}
-	return ip + ":0"
-}
-
-// securityHeaders génère un nonce par requête et l'intègre dans la CSP.
-// Pour les routes /api/ (JSON), le nonce et la CSP HTML ne sont pas nécessaires.
-func securityHeaders(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Headers communs à toutes les routes
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("X-Frame-Options", "DENY")
-		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
-		w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
-		w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
-		w.Header().Set("Cache-Control", "no-store")
-
-		// Les routes /api/ retournent du JSON : pas de CSP HTML ni de nonce
-		if strings.HasPrefix(r.URL.Path, "/api/") {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		nonce := middleware.GenerateNonce()
-		r = r.WithContext(middleware.WithNonce(r.Context(), nonce))
-
-		// Reporting-Endpoints (moderne, remplace report-uri deprecated)
-		w.Header().Set("Reporting-Endpoints", `csp-endpoint="/api/csp-report"`)
-
-		w.Header().Set("Content-Security-Policy",
-			"default-src 'none'; "+
-				"script-src 'self' 'nonce-"+nonce+"' 'strict-dynamic'; "+
-				"style-src 'self' 'unsafe-inline'; "+ // unsafe-inline requis par Tailwind CSS v4 (styles inline générés)
-				"img-src 'self' blob: data:; "+
-				"font-src 'self'; "+
-				"connect-src 'self'; "+
-				"manifest-src 'self'; "+
-				"object-src 'none'; "+
-				"frame-ancestors 'none'; "+
-				"base-uri 'self'; "+
-				"form-action 'self'; "+
-				"report-uri /api/csp-report; "+
-				"report-to csp-endpoint")
-
-		next.ServeHTTP(w, r)
-	})
-}
+// computeAssetVersion et cacheStatic restent ici : plomberie d'assets liée au
+// dossier "static" et calculée au démarrage. Les middlewares de sécurité
+// (TrustedProxy, SecurityHeaders, MaxBodySize) sont dans internal/middleware.

@@ -57,7 +57,12 @@ func Init() error {
 
 	port := 587
 	if p := os.Getenv("SMTP_PORT"); p != "" {
-		port, _ = strconv.Atoi(p)
+		parsed, err := strconv.Atoi(p)
+		if err != nil || parsed <= 0 || parsed > 65535 {
+			config = nil // Mail désactivé : port invalide
+			return fmt.Errorf("mail: SMTP_PORT invalide %q (attendu un entier entre 1 et 65535)", p)
+		}
+		port = parsed
 	}
 
 	config = &Config{
