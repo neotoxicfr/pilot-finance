@@ -6,7 +6,9 @@ import (
 	"encoding/base32"
 	"fmt"
 	"net/url"
+	"time"
 
+	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 )
 
@@ -44,8 +46,17 @@ func GenerateTOTPURI(secret, email string) string {
 	)
 }
 
-// ValidateTOTP vérifie un code TOTP
+// ValidateTOTP vérifie un code TOTP. Les paramètres de validation sont rendus
+// explicites (totp.ValidateCustom) pour rester alignés sur GenerateTOTPURI :
+// période 30s, 6 chiffres, SHA1. Skew:1 (±1 fenêtre) est le défaut pquerna déjà
+// en vigueur — la tolérance d'une fenêtre couvre la dérive d'horloge.
 func ValidateTOTP(secret, code string) bool {
-	return totp.Validate(code, secret)
+	valid, _ := totp.ValidateCustom(code, secret, time.Now(), totp.ValidateOpts{
+		Period:    totpPeriod,
+		Skew:      1,
+		Digits:    otp.DigitsSix,
+		Algorithm: otp.AlgorithmSHA1,
+	})
+	return valid
 }
 

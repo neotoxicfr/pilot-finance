@@ -477,6 +477,15 @@ dialog > .modal-panel {
 @media (max-width: 767px) {
     dialog[open] {
         align-items: flex-end;
+        /* Fill the viewport so the flex-end bottom-sheet panel anchors to the
+           bottom edge and its overflow-y-auto scroll reaches the submit button
+           (otherwise the default centered <dialog> lets the panel spill below
+           the fold and the submit button's click point falls off-screen). */
+        width: 100vw;
+        max-width: 100vw;
+        height: 100dvh;
+        max-height: 100dvh;
+        margin: 0;
         padding: 0;
         padding-bottom: env(safe-area-inset-bottom);
     }

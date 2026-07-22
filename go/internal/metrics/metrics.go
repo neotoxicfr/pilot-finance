@@ -81,11 +81,22 @@ var collectors = []prometheus.Collector{
 	dbWaitDuration,
 }
 
+// registerFn est une variable de fonction pour faciliter les tests.
+var registerFn = prometheus.Register
+
 // Init enregistre les métriques dans le registre par défaut et configure l'accès DB.
+// Idempotent : un double appel ne panique pas (les collectors déjà enregistrés sont ignorés).
 func Init(dbFunc func() *sql.DB) {
 	getDB = dbFunc
 	for _, c := range collectors {
-		prometheus.MustRegister(c)
+		if err := registerFn(c); err != nil {
+			// Un collector déjà enregistré (re-Init) n'est pas une erreur fatale.
+			if _, ok := err.(prometheus.AlreadyRegisteredError); ok {
+				continue
+			}
+			// Toute autre erreur d'enregistrement indique un bug de configuration.
+			panic(err)
+		}
 	}
 }
 

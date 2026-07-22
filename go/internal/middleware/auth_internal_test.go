@@ -145,6 +145,114 @@ func TestRequireAuth_SessionCacheHit(t *testing.T) {
 	InvalidateSessionCache(42)
 }
 
+// TestRequireAuth_DeletedUser_RedirectsAndDoesNotCache couvre la branche
+// "utilisateur introuvable" (sv < 1) du helper loadSessionData via RequireAuth.
+// getUserAuthData renvoie le sentinel (0,"",false,nil) que GetUserAuthData
+// produit pour sql.ErrNoRows. On vérifie : redirection /login ET absence de
+// mise en cache du phantom row (un second appel re-interroge la DB).
+func TestRequireAuth_DeletedUser_RedirectsAndDoesNotCache(t *testing.T) {
+	restore := setupInternalAuth(t)
+	defer restore()
+
+	const deletedUserID int64 = 7001
+	InvalidateSessionCache(deletedUserID)
+
+	callCount := 0
+	getUserAuthData = func(_ int64) (int, string, bool, error) {
+		callCount++
+		return 0, "", false, nil // sentinel ErrNoRows : utilisateur supprimé
+	}
+
+	token, err := auth.GenerateToken(deletedUserID, "user", "fr", "EUR", 1)
+	if err != nil {
+		t.Fatalf("GenerateToken: %v", err)
+	}
+
+	doReq := func() *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+		req.AddCookie(&http.Cookie{Name: "session", Value: token})
+		rr := httptest.NewRecorder()
+		RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})).ServeHTTP(rr, req)
+		return rr
+	}
+
+	rr1 := doReq()
+	if rr1.Code != http.StatusSeeOther {
+		t.Errorf("first request: want 303 for deleted user, got %d", rr1.Code)
+	}
+	if loc := rr1.Header().Get("Location"); loc != "/login" {
+		t.Errorf("want redirect to /login, got %s", loc)
+	}
+	if callCount != 1 {
+		t.Fatalf("first request: want 1 DB call, got %d", callCount)
+	}
+
+	// Le phantom row ne doit PAS avoir été caché : le 2e appel doit re-interroger.
+	if _, ok := sessionCache.Load(deletedUserID); ok {
+		t.Error("deleted-user phantom row must not be cached")
+	}
+	rr2 := doReq()
+	if rr2.Code != http.StatusSeeOther {
+		t.Errorf("second request: want 303 for deleted user, got %d", rr2.Code)
+	}
+	if callCount != 2 {
+		t.Errorf("second request: want 2 DB calls (no caching of not-found), got %d", callCount)
+	}
+
+	InvalidateSessionCache(deletedUserID)
+}
+
+// TestOptionalAuth_DeletedUser_NoUserInContext couvre la branche
+// "utilisateur introuvable" (sv < 1) via OptionalAuth : aucune mise en cache,
+// aucun utilisateur dans le contexte, statut 200.
+func TestOptionalAuth_DeletedUser_NoUserInContext(t *testing.T) {
+	restore := setupInternalAuth(t)
+	defer restore()
+
+	const deletedUserID int64 = 7002
+	InvalidateSessionCache(deletedUserID)
+
+	callCount := 0
+	getUserAuthData = func(_ int64) (int, string, bool, error) {
+		callCount++
+		return 0, "", false, nil // sentinel ErrNoRows
+	}
+
+	token, err := auth.GenerateToken(deletedUserID, "user", "fr", "EUR", 1)
+	if err != nil {
+		t.Fatalf("GenerateToken: %v", err)
+	}
+
+	var gotUser *User
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUser = GetUser(r)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: token})
+	rr := httptest.NewRecorder()
+
+	OptionalAuth(handler).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("want 200, got %d", rr.Code)
+	}
+	if gotUser != nil {
+		t.Error("user should be nil for deleted user")
+	}
+	if _, ok := sessionCache.Load(deletedUserID); ok {
+		t.Error("deleted-user phantom row must not be cached in OptionalAuth")
+	}
+	if callCount != 1 {
+		t.Errorf("want 1 DB call, got %d", callCount)
+	}
+
+	InvalidateSessionCache(deletedUserID)
+}
+
 // TestSessionCacheCleanupLoop_TickerPurges (H1 fix) : démarre une goroutine
 // dédiée avec un intervalle court, dépose une entrée expirée, attend un tick,
 // et vérifie qu'elle est purgée. Couvre la branche ticker.C du select.

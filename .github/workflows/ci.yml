@@ -16,10 +16,10 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Set up Go
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go/go.mod
           cache-dependency-path: go/go.sum
@@ -38,6 +38,8 @@ jobs:
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
           echo "Coverage: ${COVERAGE}%"
           if [ "$(echo "$COVERAGE < 100.0" | bc -l)" -eq 1 ]; then
+            # Surface the exact under-covered functions so failures are actionable.
+            go tool cover -func=coverage.out | awk '$1 != "total:" && $3 != "100.0%" {print "::warning::UNCOVERED "$1" "$2" "$3}'
             echo "::error::Coverage ${COVERAGE}% is below 100% threshold"
             exit 1
           fi
@@ -49,7 +51,7 @@ jobs:
           path: go/coverage.out
 
       - name: Lint
-        uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           version: latest
           working-directory: go
@@ -67,7 +69,7 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0

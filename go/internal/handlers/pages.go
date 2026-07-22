@@ -35,13 +35,21 @@ func baseData(r *http.Request, user *middleware.User) map[string]interface{} {
 	}
 }
 
-// LoginPage affiche la page de connexion
-func LoginPage(w http.ResponseWriter, r *http.Request) {
+// loginPageData construit le bloc de données commun à la page de connexion
+// (i18n, options d'inscription/passkeys/mail). Réutilisé par LoginPage et par
+// la branche 2FA de HandleLogin.
+func loginPageData(r *http.Request) map[string]interface{} {
 	data := baseData(r, nil)
 	data["Title"] = "Connexion"
 	data["CanRegister"] = os.Getenv("ALLOW_REGISTER") == "true"
 	data["CanUsePasskeys"] = os.Getenv("HOST") != ""
 	data["MailEnabled"] = os.Getenv("SMTP_HOST") != ""
+	return data
+}
+
+// LoginPage affiche la page de connexion
+func LoginPage(w http.ResponseWriter, r *http.Request) {
+	data := loginPageData(r)
 	data["ResetSuccess"] = r.URL.Query().Get("reset") == "success"
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -80,7 +88,7 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("Logout: increment session version", "err", err, "userID", user.ID)
 		}
 		// Clear session cache entry on logout
-		middleware.InvalidateSessionCache(user.ID)
+		hookInvalidateSessionCache(user.ID)
 	}
 	clearCookie(w, "session")
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -110,22 +118,10 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 	projData := projection.Calculate(accounts, recurrings, years, user.Language)
 
 	// Donnees pour le graphique camembert
-	var pieData []map[string]interface{}
-	for _, acc := range accounts {
-		if acc.Balance > 0 {
-			pieData = append(pieData, map[string]interface{}{
-				"name":  acc.Name,
-				"value": float64(acc.Balance) / 100.0,
-				"color": acc.Color,
-			})
-		}
-	}
+	pieData := buildPieData(accounts)
 
 	// Projection finale (annee N)
-	var projectionTotal float64
-	if len(projData.Projection) > 0 {
-		projectionTotal = projData.Projection[len(projData.Projection)-1].TotalAvg
-	}
+	projectionTotal := lastProjectionTotal(projData.Projection)
 
 	// Preparer la liste des comptes avec couleurs pour le graphique
 	accountColors := make([]map[string]interface{}, 0)

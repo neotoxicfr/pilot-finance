@@ -41,6 +41,7 @@ var (
 	hookDeleteUserAndData        = db.DeleteUserAndData
 	hookGetAllUsers              = db.GetAllUsers
 	hookGetUserByID              = db.GetUserByID
+	hookGetSessionVersion        = db.GetSessionVersion
 	hookValidatePending2FAToken  = auth.ValidatePending2FAToken
 	hookGeneratePending2FAToken  = auth.GeneratePending2FAToken
 	hookGenerateMFASetupToken    = auth.GenerateMFASetupToken

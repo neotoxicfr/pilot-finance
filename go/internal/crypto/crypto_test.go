@@ -127,21 +127,22 @@ func TestDecryptNonEncrypted(t *testing.T) {
 
 func TestDecryptWrongPartCount(t *testing.T) {
 	mustInit(t)
-	// 2 parts → not 3 → return as-is, no error
-	result, err := Decrypt("a:b")
-	if err != nil {
-		t.Fatalf("2-part string: unexpected error: %v", err)
+	// A string that contains ':' but is not the 3-part format is malformed
+	// ciphertext: it must fail closed with ErrDecryption (not echo the input).
+	cases := []string{
+		"a:b",     // 2 parts
+		"a:b:c:d", // 4 parts
 	}
-	if result != "a:b" {
-		t.Errorf("want 'a:b', got %q", result)
-	}
-	// 4 parts → not 3 → return as-is, no error
-	result, err = Decrypt("a:b:c:d")
-	if err != nil {
-		t.Fatalf("4-part string: unexpected error: %v", err)
-	}
-	if result != "a:b:c:d" {
-		t.Errorf("want 'a:b:c:d', got %q", result)
+	for _, in := range cases {
+		t.Run(in, func(t *testing.T) {
+			result, err := Decrypt(in)
+			if !errors.Is(err, ErrDecryption) {
+				t.Errorf("Decrypt(%q): want ErrDecryption, got result=%q err=%v", in, result, err)
+			}
+			if result != "" {
+				t.Errorf("Decrypt(%q): want empty result, got %q", in, result)
+			}
+		})
 	}
 }
 
@@ -174,10 +175,22 @@ func TestDecryptBadHexCiphertext(t *testing.T) {
 
 func TestDecryptZeroLengthIV(t *testing.T) {
 	mustInit(t)
-	// Empty IV → len=0 → NewGCMWithNonceSize(block, 0) returns error (nonce cannot be zero length)
+	// Empty IV → len(iv)==0 → not an accepted nonce size (12 or 16) → ErrDecryption.
 	_, err := Decrypt(":aabbccddeeff001122334455aabbccdd:aabb")
-	if err == nil {
-		t.Error("zero-length IV should return an error")
+	if !errors.Is(err, ErrDecryption) {
+		t.Errorf("zero-length IV: want ErrDecryption, got %v", err)
+	}
+}
+
+func TestDecryptUnsupportedNonceSize(t *testing.T) {
+	mustInit(t)
+	// IV of an unsupported length (13 bytes = 26 hex chars) must be rejected with
+	// ErrDecryption instead of being fed to NewGCMWithNonceSize with an
+	// attacker-influenced nonce size.
+	thirteenByteIV := strings.Repeat("ab", 13)
+	_, err := Decrypt(thirteenByteIV + ":aabbccddeeff001122334455aabbccdd:aabb")
+	if !errors.Is(err, ErrDecryption) {
+		t.Errorf("13-byte IV: want ErrDecryption, got %v", err)
 	}
 }
 
@@ -233,6 +246,25 @@ func TestDecryptLegacy16ByteNonce(t *testing.T) {
 	}
 	if result != plaintext {
 		t.Errorf("want %q, got %q", plaintext, result)
+	}
+}
+
+// TestDecryptLegacy16ByteNonce_GCMError covers the error branch of the legacy
+// 16-byte path: NewGCMWithNonceSize never fails for a valid block+size in prod,
+// so inject a failing factory to exercise it (matches the package's hook pattern).
+func TestDecryptLegacy16ByteNonce_GCMError(t *testing.T) {
+	mustInit(t)
+	orig := cipherNewGCMWithNonceSizeFn
+	t.Cleanup(func() { cipherNewGCMWithNonceSizeFn = orig })
+	cipherNewGCMWithNonceSizeFn = func(cipher.Block, int) (cipher.AEAD, error) {
+		return nil, errors.New("forced gcm error")
+	}
+	// A well-formed entry with a 16-byte IV (32 hex chars) reaches the case 16 branch.
+	iv := strings.Repeat("ab", 16)
+	tag := strings.Repeat("cd", 16)
+	ct := strings.Repeat("ef", 8)
+	if _, err := Decrypt(iv + ":" + tag + ":" + ct); err == nil {
+		t.Fatal("expected error from injected NewGCMWithNonceSize failure")
 	}
 }
 

@@ -71,7 +71,7 @@ func CSPReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(body) > 0 && json.Valid(body) {
-		slog.Warn("csp-violation", "report", string(body), "ip", r.RemoteAddr, "ua", r.UserAgent())
+		slog.Warn("csp-violation", "report", string(body), "ip", getClientIP(r), "ua", r.UserAgent())
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

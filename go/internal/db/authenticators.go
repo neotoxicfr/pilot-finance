@@ -1,5 +1,7 @@
 package db
 
+import "database/sql"
+
 // CreateAuthenticator crée une nouvelle passkey
 func CreateAuthenticator(credentialID, publicKey string, counter int, deviceType string, backedUp, backupEligible bool, transports string, userID int64) error {
 	_, err := DB.Exec(`
@@ -13,8 +15,8 @@ func CreateAuthenticator(credentialID, publicKey string, counter int, deviceType
 // GetAuthenticatorsByUserID récupère toutes les passkeys d'un utilisateur
 func GetAuthenticatorsByUserID(userID int64) ([]Authenticator, error) {
 	rows, err := DB.Query(`
-		SELECT id, credential_id, credential_public_key, counter, credential_device_type,
-		       credential_backed_up, backup_eligible, transports, user_id, name
+		SELECT id, credential_id, credential_public_key, counter, COALESCE(credential_device_type, ''),
+		       credential_backed_up, backup_eligible, COALESCE(transports, ''), user_id, COALESCE(name, '')
 		FROM authenticators WHERE user_id = ?
 	`, userID)
 	if err != nil {
@@ -43,8 +45,8 @@ func GetAuthenticatorsByUserID(userID int64) ([]Authenticator, error) {
 func GetAuthenticatorByCredentialID(credentialID string) (*Authenticator, error) {
 	var a Authenticator
 	err := DB.QueryRow(`
-		SELECT id, credential_id, credential_public_key, counter, credential_device_type,
-		       credential_backed_up, backup_eligible, transports, user_id, name
+		SELECT id, credential_id, credential_public_key, counter, COALESCE(credential_device_type, ''),
+		       credential_backed_up, backup_eligible, COALESCE(transports, ''), user_id, COALESCE(name, '')
 		FROM authenticators WHERE credential_id = ?
 	`, credentialID).Scan(
 		&a.ID, &a.CredentialID, &a.CredentialPublicKey, &a.Counter,
@@ -52,6 +54,9 @@ func GetAuthenticatorByCredentialID(credentialID string) (*Authenticator, error)
 		&a.Transports, &a.UserID, &a.Name,
 	)
 
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}

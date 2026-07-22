@@ -50,10 +50,11 @@ func ResetForTest() {
 
 // Hooks injectables pour les tests (permettent de couvrir les branches d'erreur impossibles en prod).
 var (
-	aesNewCipherFn   = aes.NewCipher
-	cipherNewGCMFn   = cipher.NewGCM
-	cryptoRandRead   = rand.Read
-	bcryptGenerateFn = bcrypt.GenerateFromPassword
+	aesNewCipherFn              = aes.NewCipher
+	cipherNewGCMFn              = cipher.NewGCM
+	cipherNewGCMWithNonceSizeFn = cipher.NewGCMWithNonceSize
+	cryptoRandRead              = rand.Read
+	bcryptGenerateFn            = bcrypt.GenerateFromPassword
 )
 
 // Init initialise les clés de chiffrement et pré-calcule le cipher block AES.
@@ -131,8 +132,10 @@ func Decrypt(encrypted string) (string, error) {
 
 	parts := strings.Split(encrypted, ":")
 	if len(parts) != 3 {
-		slog.Warn("crypto.Decrypt: malformed ciphertext (expected 3 parts), returning as plaintext", "parts", len(parts))
-		return encrypted, nil
+		// Has a ':' separator but not the expected 3-part format: this is malformed
+		// ciphertext, not legacy plaintext. Fail closed instead of echoing the input.
+		slog.Warn("crypto.Decrypt: malformed ciphertext (expected 3 parts)", "parts", len(parts))
+		return "", ErrDecryption
 	}
 
 	iv, err := hex.DecodeString(parts[0])
@@ -155,17 +158,25 @@ func Decrypt(encrypted string) (string, error) {
 		return "", ErrDecryption
 	}
 	var gcm cipher.AEAD
-	if len(iv) == 12 {
+	switch len(iv) {
+	case 12:
 		gcm = gcmStandard
-	} else {
-		gcm, err = cipher.NewGCMWithNonceSize(cipherBlock, len(iv))
+	case 16:
+		// Legacy Node.js ciphertexts used a 16-byte GCM nonce. Only this documented
+		// legacy size is accepted — any other length is rejected to avoid using an
+		// attacker-influenced nonce size.
+		gcm, err = cipherNewGCMWithNonceSizeFn(cipherBlock, len(iv))
 		if err != nil {
 			return "", err
 		}
+	default:
+		return "", ErrDecryption
 	}
 
 	// Reconstituer ciphertext + tag pour GCM Open
-	ciphertextWithTag := append(ciphertext, authTag...)
+	ciphertextWithTag := make([]byte, 0, len(ciphertext)+len(authTag))
+	ciphertextWithTag = append(ciphertextWithTag, ciphertext...)
+	ciphertextWithTag = append(ciphertextWithTag, authTag...)
 
 	plaintext, err := gcm.Open(nil, iv, ciphertextWithTag, nil)
 	if err != nil {

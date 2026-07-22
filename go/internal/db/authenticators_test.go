@@ -46,6 +46,20 @@ func TestGetAuthenticatorByCredentialID(t *testing.T) {
 	}
 }
 
+func TestGetAuthenticatorByCredentialID_NotFound(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+
+	// Aucun authenticator → (nil, nil) comme scanUser / GetUserAuthData.
+	a, err := GetAuthenticatorByCredentialID("does-not-exist")
+	if err != nil {
+		t.Fatalf("want nil error for missing credential, got: %v", err)
+	}
+	if a != nil {
+		t.Errorf("want nil authenticator for missing credential, got %+v", a)
+	}
+}
+
 func TestUpdateAuthenticatorCounter(t *testing.T) {
 	cleanup := setupTestDB(t)
 	defer cleanup()

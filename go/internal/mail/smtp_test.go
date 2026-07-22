@@ -140,6 +140,41 @@ func TestInit_WithCustomPort(t *testing.T) {
 	}
 }
 
+func TestInit_MalformedPort(t *testing.T) {
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("SMTP_PORT", "not-a-number")
+	t.Setenv("SMTP_USER", "user@example.com")
+	t.Setenv("SMTP_FROM", "from@example.com")
+	defer func() { config = nil }()
+
+	err := Init()
+	if err == nil {
+		t.Fatal("Init: want error for malformed SMTP_PORT")
+	}
+	if !strings.Contains(err.Error(), "SMTP_PORT invalide") {
+		t.Errorf("Init: want SMTP_PORT error, got %v", err)
+	}
+	if config != nil {
+		t.Error("config should be nil when SMTP_PORT is invalid")
+	}
+}
+
+func TestInit_OutOfRangePort(t *testing.T) {
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("SMTP_PORT", "70000")
+	t.Setenv("SMTP_USER", "user@example.com")
+	t.Setenv("SMTP_FROM", "from@example.com")
+	defer func() { config = nil }()
+
+	err := Init()
+	if err == nil {
+		t.Fatal("Init: want error for out-of-range SMTP_PORT")
+	}
+	if config != nil {
+		t.Error("config should be nil when SMTP_PORT is out of range")
+	}
+}
+
 func TestInit_FromFallsBackToUsername(t *testing.T) {
 	t.Setenv("SMTP_HOST", "smtp.example.com")
 	t.Setenv("SMTP_USER", "auto@example.com")

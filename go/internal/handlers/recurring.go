@@ -10,8 +10,88 @@ import (
 
 	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
-	"pilot-finance/internal/projection"
 )
+
+// recurringForm regroupe les champs validés d'une opération récurrente,
+// communs à la création et à la mise à jour.
+type recurringForm struct {
+	encryptedDesc string
+	amount        int64 // déjà ajusté selon le signe du type
+	day           int
+	toAccountID   *int64
+}
+
+// parseRecurringForm lit et valide les champs partagés par CreateRecurring et
+// UpdateRecurring : description (non vide, ≤500 runes, chiffrée), montant (parse
+// + ajustement de signe selon le type), jour du mois (clampé 1-31) et compte
+// destinataire (ownership vérifié pour les virements). En cas d'erreur cliente,
+// la réponse est déjà écrite sur w et ok vaut false.
+func parseRecurringForm(w http.ResponseWriter, r *http.Request, user *middleware.User) (recurringForm, bool) {
+	var f recurringForm
+
+	description := r.FormValue("description")
+	amountStr := r.FormValue("amount")
+	dayStr := r.FormValue("dayOfMonth")
+	opType := r.FormValue("type")
+	toAccountIDStr := r.FormValue("toAccountId")
+
+	if description == "" || amountStr == "" {
+		clientError(w, ErrValidation, "Champs requis manquants", http.StatusBadRequest)
+		return f, false
+	}
+	if len([]rune(description)) > 500 {
+		clientError(w, ErrValidation, "Description trop longue (max 500)", http.StatusBadRequest)
+		return f, false
+	}
+
+	// Chiffrer la description
+	encryptedDesc, err := hookEncryptStr(description)
+	if err != nil {
+		clientError(w, ErrEncryption, "Erreur chiffrement", http.StatusInternalServerError)
+		return f, false
+	}
+
+	amount, err := parseCents(amountStr)
+	if err != nil {
+		clientError(w, ErrValidation, "Montant invalide", http.StatusBadRequest)
+		return f, false
+	}
+
+	day, _ := strconv.Atoi(dayStr)
+	if day < 1 || day > 31 {
+		day = 1
+	}
+
+	// Le compte destinataire n'est valide que pour les virements.
+	// Pour income/expense, on ignore toute valeur résiduelle envoyée par le formulaire
+	// (le select reste dans le DOM même quand x-show le cache).
+	var toAccountID *int64
+	if opType == "transfer" && toAccountIDStr != "" {
+		id, err := strconv.ParseInt(toAccountIDStr, 10, 64)
+		if err != nil {
+			clientError(w, ErrValidation, "Compte destinataire invalide", http.StatusBadRequest)
+			return f, false
+		}
+		if ok, err := hookAccountBelongsToUser(id, user.ID); err != nil || !ok {
+			clientError(w, ErrValidation, "Compte destinataire invalide", http.StatusBadRequest)
+			return f, false
+		}
+		toAccountID = &id
+	}
+
+	// Ajuster le signe selon le type
+	if opType == "expense" && amount > 0 {
+		amount = -amount
+	} else if opType == "income" && amount < 0 {
+		amount = -amount
+	}
+
+	f.encryptedDesc = encryptedDesc
+	f.amount = amount
+	f.day = day
+	f.toAccountID = toAccountID
+	return f, true
+}
 
 // CreateRecurring cree ou met a jour une operation recurrente
 func CreateRecurring(w http.ResponseWriter, r *http.Request) {
@@ -27,38 +107,16 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 	}
 
 	idStr := r.FormValue("id")
-	description := r.FormValue("description")
-	amountStr := r.FormValue("amount")
-	dayStr := r.FormValue("dayOfMonth")
-	opType := r.FormValue("type")
 	accountIDStr := r.FormValue("accountId")
-	toAccountIDStr := r.FormValue("toAccountId")
 
-	if description == "" || amountStr == "" || accountIDStr == "" {
+	if accountIDStr == "" {
 		clientError(w, ErrValidation, "Champs requis manquants", http.StatusBadRequest)
 		return
 	}
-	if len([]rune(description)) > 500 {
-		clientError(w, ErrValidation, "Description trop longue (max 500)", http.StatusBadRequest)
-		return
-	}
 
-	// Chiffrer la description
-	encryptedDesc, err := hookEncryptStr(description)
-	if err != nil {
-		clientError(w, ErrEncryption, "Erreur chiffrement", http.StatusInternalServerError)
+	f, ok := parseRecurringForm(w, r, user)
+	if !ok {
 		return
-	}
-
-	amount, err := parseCents(amountStr)
-	if err != nil {
-		clientError(w, ErrValidation, "Montant invalide", http.StatusBadRequest)
-		return
-	}
-
-	day, _ := strconv.Atoi(dayStr)
-	if day < 1 || day > 31 {
-		day = 1
 	}
 
 	accountID, err := strconv.ParseInt(accountIDStr, 10, 64)
@@ -71,30 +129,6 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Le compte destinataire n'est valide que pour les virements.
-	// Pour income/expense, on ignore toute valeur résiduelle envoyée par le formulaire
-	// (le select reste dans le DOM même quand x-show le cache).
-	var toAccountID *int64
-	if opType == "transfer" && toAccountIDStr != "" {
-		id, err := strconv.ParseInt(toAccountIDStr, 10, 64)
-		if err != nil {
-			clientError(w, ErrValidation, "Compte destinataire invalide", http.StatusBadRequest)
-			return
-		}
-		if ok, err := hookAccountBelongsToUser(id, user.ID); err != nil || !ok {
-			clientError(w, ErrValidation, "Compte destinataire invalide", http.StatusBadRequest)
-			return
-		}
-		toAccountID = &id
-	}
-
-	// Ajuster le signe selon le type
-	if opType == "expense" && amount > 0 {
-		amount = -amount
-	} else if opType == "income" && amount < 0 {
-		amount = -amount
-	}
-
 	// Si un ID est fourni, c'est une mise a jour
 	if idStr != "" {
 		id, err := strconv.ParseInt(idStr, 10, 64)
@@ -102,7 +136,7 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 			clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
 			return
 		}
-		err = hookUpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
+		err = hookUpdateRecurring(id, user.ID, f.encryptedDesc, f.amount, f.day, f.toAccountID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				clientError(w, ErrNotFound, "Opération récurrente introuvable", http.StatusNotFound)
@@ -113,7 +147,7 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		// Creation
-		err = hookCreateRecurring(user.ID, accountID, toAccountID, encryptedDesc, amount, day)
+		err = hookCreateRecurring(user.ID, accountID, f.toAccountID, f.encryptedDesc, f.amount, f.day)
 		if err != nil {
 			serverError(w, "create recurring", err)
 			return
@@ -144,53 +178,12 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	description := r.FormValue("description")
-	amountStr := r.FormValue("amount")
-	dayStr := r.FormValue("dayOfMonth")
-	opType := r.FormValue("type")
-	toAccountIDStr := r.FormValue("toAccountId")
-
-	// Chiffrer la description
-	encryptedDesc, encErr := hookEncryptStr(description)
-	if encErr != nil {
-		clientError(w, ErrEncryption, "Erreur chiffrement", http.StatusInternalServerError)
+	f, ok := parseRecurringForm(w, r, user)
+	if !ok {
 		return
 	}
 
-	amount, err := parseCents(amountStr)
-	if err != nil {
-		clientError(w, ErrValidation, "Montant invalide", http.StatusBadRequest)
-		return
-	}
-
-	day, _ := strconv.Atoi(dayStr)
-	if day < 1 || day > 31 {
-		day = 1
-	}
-
-	// Le compte destinataire n'est valide que pour les virements.
-	// Pour income/expense, on ignore toute valeur résiduelle envoyée par le formulaire.
-	var toAccountID *int64
-	if opType == "transfer" && toAccountIDStr != "" {
-		tid, err := strconv.ParseInt(toAccountIDStr, 10, 64)
-		if err != nil {
-			clientError(w, ErrValidation, "Compte destinataire invalide", http.StatusBadRequest)
-			return
-		}
-		if ok, err := hookAccountBelongsToUser(tid, user.ID); err != nil || !ok {
-			clientError(w, ErrValidation, "Compte destinataire invalide", http.StatusBadRequest)
-			return
-		}
-		toAccountID = &tid
-	}
-
-	if opType == "expense" && amount > 0 {
-		amount = -amount
-	} else if opType == "income" && amount < 0 {
-		amount = -amount
-	}
-
-	err = hookUpdateRecurring(id, user.ID, encryptedDesc, amount, day, toAccountID)
+	err = hookUpdateRecurring(id, user.ID, f.encryptedDesc, f.amount, f.day, f.toAccountID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			clientError(w, ErrNotFound, "Opération récurrente introuvable", http.StatusNotFound)
@@ -246,32 +239,15 @@ func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
 		return
 	}
 
-	decryptAccountNames(accounts)
-	accountMap := buildAccountMap(accounts)
-
-	yieldPayouts := projection.CalculateYieldPayouts(accounts, accountMap)
-	interestPrefix := i18n.T(lang, "recurring.interest_prefix")
-	s := calculateSummary(yieldPayouts, recurrings)
-
-	recurringData := buildRecurringData(yieldPayouts, recurrings, accountMap, interestPrefix)
+	computed := computeAccountsSummary(lang, accounts, recurrings)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	hookRenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{ //nolint:errcheck
-		"Recurrings": recurringData,
+		"Recurrings": computed.recurringData,
 		"Currency":   currency,
 		"T":          i18n.Map(lang),
 	})
 
 	// OOB: Rendre le summary card
-	w.Write([]byte(`<div id="summary-card" hx-swap-oob="innerHTML">`)) //nolint:errcheck
-	hookRenderPartial(w, "accounts.html", "summary-card", map[string]interface{}{ //nolint:errcheck
-		"T":               i18n.Map(lang),
-		"MonthlyIncome":   s.MonthlyIncome,
-		"MonthlyExpenses": s.MonthlyExpenses,
-		"MonthlyNet":      s.MonthlyIncome - s.MonthlyExpenses,
-		"MonthlyYield":    s.MonthlyYield,
-		"AnnualYield":     s.AnnualYield,
-		"Currency":        currency,
-	})
-	w.Write([]byte(`</div>`)) //nolint:errcheck
+	renderSummaryCardOOB(w, lang, currency, computed.summary)
 }

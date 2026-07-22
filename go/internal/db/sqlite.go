@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"pilot-finance/internal/crypto"
-	"golang.org/x/sync/errgroup"
 
 	_ "modernc.org/sqlite"
 )
@@ -74,7 +73,9 @@ func initDB(cfg Config) error {
 	}
 
 	// Migrations automatiques versionnées
-	runMigrations(cfg.Path)
+	if err := runMigrations(cfg.Path); err != nil {
+		return fmt.Errorf("migrations: %w", err)
+	}
 
 	// WAL checkpoint au démarrage
 	if _, err := DB.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
@@ -138,10 +139,12 @@ type migration struct {
 // runMigrations exécute les migrations de schéma de manière versionnée.
 // Chaque migration est enregistrée dans schema_migrations ; les migrations déjà
 // appliquées sont ignorées. dbPath est utilisé pour le backup avant migrations Go.
-func runMigrations(dbPath string) {
+// Retourne une erreur fatale si l'état des migrations ne peut être lu ou si une
+// migration échoue avec une erreur non idempotente : l'appelant doit alors
+// interrompre le démarrage plutôt que de servir une base au schéma incertain.
+func runMigrations(dbPath string) error {
 	if _, err := DB.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at INTEGER NOT NULL)`); err != nil {
-		slog.Error("schema_migrations: création impossible", "err", err)
-		return
+		return fmt.Errorf("schema_migrations: création impossible: %w", err)
 	}
 
 	migrations := []migration{
@@ -455,7 +458,7 @@ func runMigrations(dbPath string) {
 				`INSERT INTO accounts_new SELECT * FROM accounts`,
 				`DROP TABLE accounts`,
 				`ALTER TABLE accounts_new RENAME TO accounts`,
-				`CREATE INDEX idx_accounts_user_id ON accounts(user_id, position)`,
+				`CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id, position)`,
 
 				`CREATE TABLE recurring_operations_new (
 					id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -471,7 +474,7 @@ func runMigrations(dbPath string) {
 				`INSERT INTO recurring_operations_new SELECT * FROM recurring_operations`,
 				`DROP TABLE recurring_operations`,
 				`ALTER TABLE recurring_operations_new RENAME TO recurring_operations`,
-				`CREATE INDEX idx_recurring_user_id ON recurring_operations(user_id, day_of_month)`,
+				`CREATE INDEX IF NOT EXISTS idx_recurring_user_id ON recurring_operations(user_id, day_of_month)`,
 
 				`CREATE TABLE authenticators_new (
 					id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -501,19 +504,28 @@ func runMigrations(dbPath string) {
 	}
 
 	// Charger en une seule requête la liste des migrations déjà appliquées
-	// (perf M3 : évite N round-trips DB au démarrage).
+	// (perf M3 : évite N round-trips DB au démarrage). Un échec de lecture est
+	// fatal : on ne doit pas repartir d'un appliedSet vide et risquer de
+	// re-rejouer des migrations destructrices (013 DROP/RENAME) sur une base
+	// déjà migrée.
 	appliedSet := make(map[string]bool)
-	if rows, err := DB.Query(`SELECT name FROM schema_migrations`); err == nil {
-		for rows.Next() {
-			var name string
-			if err := rows.Scan(&name); err == nil {
-				appliedSet[name] = true
-			}
-		}
-		rows.Close()
-	} else {
-		slog.Warn("migration: lecture schema_migrations échouée", "err", err)
+	rows, err := DB.Query(`SELECT name FROM schema_migrations`)
+	if err != nil {
+		return fmt.Errorf("migration: lecture schema_migrations échouée: %w", err)
 	}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			rows.Close()
+			return fmt.Errorf("migration: scan schema_migrations échoué: %w", err)
+		}
+		appliedSet[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("migration: itération schema_migrations échouée: %w", err)
+	}
+	rows.Close()
 
 	for _, m := range migrations {
 		if appliedSet[m.Name] {
@@ -528,22 +540,25 @@ func runMigrations(dbPath string) {
 		}
 
 		if applyErr != nil {
+			// Les erreurs idempotentes ("already exists" / "duplicate column name")
+			// signifient que l'objet existe déjà : on enregistre la migration comme
+			// appliquée. Toute autre erreur est fatale — un enregistrement silencieux
+			// laisserait la base dans un état incohérent (cf. migration 013 partielle).
 			msg := applyErr.Error()
 			if !strings.Contains(msg, "already exists") && !strings.Contains(msg, "duplicate column name") {
-				slog.Warn("migration échouée", "name", m.Name, "err", applyErr)
-				continue
+				return fmt.Errorf("migration %q échouée: %w", m.Name, applyErr)
 			}
 		}
 
 		if _, err := DB.Exec(`INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)`, m.Name, time.Now().Unix()); err != nil {
-			slog.Warn("schema_migrations: enregistrement impossible", "name", m.Name, "err", err)
-		} else {
-			slog.Info("migration appliquée", "name", m.Name)
+			return fmt.Errorf("schema_migrations: enregistrement de %q impossible: %w", m.Name, err)
 		}
+		slog.Info("migration appliquée", "name", m.Name)
 	}
 
 	// Auto-test : vérifier que toutes les migrations attendues sont bien appliquées
 	verifyMigrations(migrations)
+	return nil
 }
 
 // verifyMigrations vérifie que toutes les migrations attendues sont présentes dans schema_migrations.
@@ -698,39 +713,12 @@ func GetUserAuthData(id int64) (sessionVersion int, emailEncrypted string, email
 	return
 }
 
-// rawAccount contient les données brutes d'un compte avant déchiffrement.
-type rawAccount struct {
-	acc          Account
-	balanceRaw   string
-	yieldMinRaw  string
-	yieldMaxRaw  string
-	reinvestRaw  string
-}
-
-// decryptAccountRow déchiffre les champs numériques d'un rawAccount vers un Account.
-func decryptAccountRow(dst *Account, raw rawAccount) error {
-	*dst = raw.acc
-	var err error
-	if dst.Balance, err = crypto.DecryptCents(raw.balanceRaw); err != nil {
-		return fmt.Errorf("decrypt balance id=%d: %w", dst.ID, err)
-	}
-	if dst.YieldMin, err = crypto.DecryptFloat(raw.yieldMinRaw); err != nil {
-		return fmt.Errorf("decrypt yield_min id=%d: %w", dst.ID, err)
-	}
-	if dst.YieldMax, err = crypto.DecryptFloat(raw.yieldMaxRaw); err != nil {
-		return fmt.Errorf("decrypt yield_max id=%d: %w", dst.ID, err)
-	}
-	if dst.ReinvestmentRate, err = crypto.DecryptInt(raw.reinvestRaw); err != nil {
-		return fmt.Errorf("decrypt reinvestment_rate id=%d: %w", dst.ID, err)
-	}
-	return nil
-}
-
 // GetAccountsByUserID récupère tous les comptes d'un utilisateur.
-// Le déchiffrement des champs numériques est parallélisé via errgroup.
+// Le déchiffrement des champs numériques est effectué directement dans la boucle
+// de scan (le déchiffrement AES-GCM est négligeable face à l'I/O DB).
 func GetAccountsByUserID(userID int64) ([]Account, error) {
 	rows, err := DB.Query(`
-		SELECT id, user_id, name, balance, color, position, updated_at,
+		SELECT id, user_id, name, balance, COALESCE(color, ''), position, updated_at,
 		       is_yield_active, yield_type, yield_min, yield_max,
 		       yield_frequency, payout_frequency, last_yield_date,
 		       reinvestment_rate, target_account_id
@@ -741,72 +729,67 @@ func GetAccountsByUserID(userID int64) ([]Account, error) {
 	}
 	defer rows.Close()
 
-	// Passe 1 : scan séquentiel des lignes SQL (driver non thread-safe)
-	var raws []rawAccount
+	var accounts []Account
 	for rows.Next() {
-		var r rawAccount
+		var acc Account
+		var balanceRaw, yieldMinRaw, yieldMaxRaw, reinvestRaw string
 		var updatedAt, lastYieldDate sql.NullInt64
 		var targetAccountID sql.NullInt64
 		var yieldType, yieldFreq, payoutFreq sql.NullString
 
 		if err := rows.Scan(
-			&r.acc.ID, &r.acc.UserID, &r.acc.Name, &r.balanceRaw, &r.acc.Color, &r.acc.Position,
-			&updatedAt, &r.acc.IsYieldActive, &yieldType, &r.yieldMinRaw, &r.yieldMaxRaw,
-			&yieldFreq, &payoutFreq, &lastYieldDate, &r.reinvestRaw, &targetAccountID,
+			&acc.ID, &acc.UserID, &acc.Name, &balanceRaw, &acc.Color, &acc.Position,
+			&updatedAt, &acc.IsYieldActive, &yieldType, &yieldMinRaw, &yieldMaxRaw,
+			&yieldFreq, &payoutFreq, &lastYieldDate, &reinvestRaw, &targetAccountID,
 		); err != nil {
 			return nil, err
 		}
 		if updatedAt.Valid {
-			r.acc.UpdatedAt = time.Unix(updatedAt.Int64, 0)
+			acc.UpdatedAt = time.Unix(updatedAt.Int64, 0)
 		}
 		if lastYieldDate.Valid {
 			t := time.Unix(lastYieldDate.Int64, 0)
-			r.acc.LastYieldDate = &t
+			acc.LastYieldDate = &t
 		}
 		if targetAccountID.Valid {
-			r.acc.TargetAccountID = &targetAccountID.Int64
+			acc.TargetAccountID = &targetAccountID.Int64
 		}
 		if yieldType.Valid {
-			r.acc.YieldType = yieldType.String
+			acc.YieldType = yieldType.String
 		}
 		if yieldFreq.Valid {
-			r.acc.YieldFrequency = yieldFreq.String
+			acc.YieldFrequency = yieldFreq.String
 		}
 		if payoutFreq.Valid {
-			r.acc.PayoutFrequency = payoutFreq.String
+			acc.PayoutFrequency = payoutFreq.String
 		}
-		raws = append(raws, r)
+
+		if acc.Balance, err = crypto.DecryptCents(balanceRaw); err != nil {
+			return nil, fmt.Errorf("decrypt balance id=%d: %w", acc.ID, err)
+		}
+		if acc.YieldMin, err = crypto.DecryptFloat(yieldMinRaw); err != nil {
+			return nil, fmt.Errorf("decrypt yield_min id=%d: %w", acc.ID, err)
+		}
+		if acc.YieldMax, err = crypto.DecryptFloat(yieldMaxRaw); err != nil {
+			return nil, fmt.Errorf("decrypt yield_max id=%d: %w", acc.ID, err)
+		}
+		if acc.ReinvestmentRate, err = crypto.DecryptInt(reinvestRaw); err != nil {
+			return nil, fmt.Errorf("decrypt reinvestment_rate id=%d: %w", acc.ID, err)
+		}
+
+		accounts = append(accounts, acc)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	// Passe 2 : déchiffrement parallèle des champs numériques
-	accounts := make([]Account, len(raws))
-	g := new(errgroup.Group)
-	for i := range raws {
-		i := i
-		g.Go(func() error {
-			return decryptAccountRow(&accounts[i], raws[i])
-		})
-	}
-	if err := g.Wait(); err != nil {
 		return nil, err
 	}
 	return accounts, nil
 }
 
-// rawRecurring contient les données brutes d'une opération récurrente avant déchiffrement.
-type rawRecurring struct {
-	op        RecurringOperation
-	amountRaw string
-}
-
 // GetRecurringByUserID récupère toutes les opérations récurrentes d'un utilisateur.
-// Le déchiffrement du montant est parallélisé via errgroup.
+// Le déchiffrement du montant est effectué directement dans la boucle de scan.
 func GetRecurringByUserID(userID int64) ([]RecurringOperation, error) {
 	rows, err := DB.Query(`
-		SELECT id, user_id, account_id, to_account_id, amount, description,
+		SELECT id, user_id, account_id, to_account_id, amount, COALESCE(description, ''),
 		       day_of_month, last_run_date, is_active
 		FROM recurring_operations WHERE user_id = ? ORDER BY day_of_month ASC
 	`, userID)
@@ -815,45 +798,33 @@ func GetRecurringByUserID(userID int64) ([]RecurringOperation, error) {
 	}
 	defer rows.Close()
 
-	// Passe 1 : scan séquentiel
-	var raws []rawRecurring
+	var ops []RecurringOperation
 	for rows.Next() {
-		var r rawRecurring
+		var op RecurringOperation
+		var amountRaw string
 		var toAccountID sql.NullInt64
 		var lastRunDate sql.NullInt64
 
 		if err := rows.Scan(
-			&r.op.ID, &r.op.UserID, &r.op.AccountID, &toAccountID, &r.amountRaw,
-			&r.op.Description, &r.op.DayOfMonth, &lastRunDate, &r.op.IsActive,
+			&op.ID, &op.UserID, &op.AccountID, &toAccountID, &amountRaw,
+			&op.Description, &op.DayOfMonth, &lastRunDate, &op.IsActive,
 		); err != nil {
 			return nil, err
 		}
 		if toAccountID.Valid {
-			r.op.ToAccountID = &toAccountID.Int64
+			op.ToAccountID = &toAccountID.Int64
 		}
 		if lastRunDate.Valid {
 			t := time.Unix(lastRunDate.Int64, 0)
-			r.op.LastRunDate = &t
+			op.LastRunDate = &t
 		}
-		raws = append(raws, r)
+		if op.Amount, err = crypto.DecryptCents(amountRaw); err != nil {
+			return nil, err
+		}
+
+		ops = append(ops, op)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	// Passe 2 : déchiffrement parallèle des montants
-	ops := make([]RecurringOperation, len(raws))
-	g := new(errgroup.Group)
-	for i := range raws {
-		i := i
-		g.Go(func() error {
-			ops[i] = raws[i].op
-			var err error
-			ops[i].Amount, err = crypto.DecryptCents(raws[i].amountRaw)
-			return err
-		})
-	}
-	if err := g.Wait(); err != nil {
 		return nil, err
 	}
 	return ops, nil

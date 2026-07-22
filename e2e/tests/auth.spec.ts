@@ -28,6 +28,12 @@ test.describe('Authentication', () => {
     await page.goto('/');
     await logout(page);
     await expect(page).toHaveURL('/login');
+    // Logout bumps session_version, invalidating the saved JWT. Re-authenticate
+    // the shared user and refresh storageState so later serial tests stay logged
+    // in — without registering throwaway users (which would pollute the admin
+    // user-management list that TEST_USER, the first/admin user, can see).
+    await login(page, TEST_USER.email, TEST_USER.password);
+    await page.context().storageState({ path: 'e2e/.auth/user.json' });
   });
 
   test('login with registered account', async ({ page }) => {

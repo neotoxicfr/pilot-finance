@@ -9,7 +9,8 @@ test.describe('Navigation & Layout', () => {
     await expect(nav.locator('a[href="/"]').first()).toBeVisible();
     await expect(nav.locator('a[href="/accounts"]')).toBeVisible();
     await expect(nav.locator('a[href="/settings"]')).toBeVisible();
-    await expect(nav.locator('form[action="/logout"] button')).toBeVisible();
+    // Logout is now behind a confirmation dialog — assert the opener button, not the (hidden) form submit.
+    await expect(nav.locator('[x-data="logoutData"] > button')).toBeVisible();
   });
 
   test('active nav item has aria-current', async ({ page }) => {
