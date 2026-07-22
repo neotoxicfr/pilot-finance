@@ -271,10 +271,19 @@ func TestGetRecurringByUserID_AmountDecryptError(t *testing.T) {
 	defer cleanup()
 	userID := createTestUser(t)
 
-	_, err := DB.Exec(`
+	// La contrainte FK sur account_id est appliquée (modernc/sqlite ≥ 1.54) :
+	// référencer un compte réel plutôt qu'un ID arbitraire.
+	insertAccountRaw(t, userID, encryptTestCents(t, 100),
+		encryptTestFloat(t, 0), encryptTestFloat(t, 0), encryptTestInt(t, 0))
+	accs, err := GetAccountsByUserID(userID)
+	if err != nil || len(accs) == 0 {
+		t.Fatalf("GetAccountsByUserID: err=%v len=%d", err, len(accs))
+	}
+
+	_, err = DB.Exec(`
 		INSERT INTO recurring_operations (user_id, account_id, to_account_id, description, amount, day_of_month, is_active)
 		VALUES (?, ?, ?, ?, ?, ?, 1)
-	`, userID, 1, nil, "desc", "CORRUPTED-AMOUNT", 1)
+	`, userID, accs[0].ID, nil, "desc", "CORRUPTED-AMOUNT", 1)
 	if err != nil {
 		t.Fatalf("insert recurring raw: %v", err)
 	}
