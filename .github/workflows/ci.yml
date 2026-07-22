@@ -32,6 +32,13 @@ jobs:
         working-directory: go
         run: go test -race -timeout 600s -coverprofile=coverage.out $(go list ./... | grep -v -E '/cmd/|/db$')
 
+      # /cmd/ et /db sont exclus du seuil de couverture mais leurs tests doivent
+      # tourner à chaque push — sinon une régression db (ex. FK appliquées par le
+      # bump modernc/sqlite 1.54) n'apparaît qu'au build Docker du tag de release.
+      - name: Run cmd and db tests (no coverage requirement)
+        working-directory: go
+        run: go test -race -timeout 600s ./cmd/... ./internal/db
+
       - name: Enforce coverage threshold
         working-directory: go
         run: |
