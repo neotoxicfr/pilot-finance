@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	qrcode "github.com/skip2/go-qrcode"
 	"github.com/go-webauthn/webauthn/webauthn"
+	qrcode "github.com/skip2/go-qrcode"
 
 	"golang.org/x/crypto/bcrypt"
 
