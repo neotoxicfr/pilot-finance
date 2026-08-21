@@ -52,6 +52,7 @@ var (
 	hookAccountBelongsToUser     = db.AccountBelongsToUser
 	hookCountAccountsByUserID    = db.CountAccountsByUserID
 	hookUpdateAccountBalance     = db.UpdateAccountBalance
+	hookUpdateAccountBalancesTx  = db.UpdateAccountBalancesTx
 	hookSwapAccountPositions     = db.SwapAccountPositions
 	hookGetAuditLog              = db.GetAuditLog
 	hookCountAuditLog            = db.CountAuditLog

@@ -585,7 +585,8 @@ func TestHandleRegister_GenerateTokenError(t *testing.T) {
 
 // ── dashboard.go ─────────────────────────────────────────────────────────────
 
-// dashboard.go:42 — hookGetRecurringByUserID error (log warning, continue) → 200
+// dashboard.go — hookGetRecurringByUserID error → 500 (audit FIN-11 : projection
+// amputée de ses récurrentes = donnée critique, on échoue bruyamment).
 func TestDashboardAPI_RecurringError(t *testing.T) {
 	setupHandlerTest(t)
 	uid := newUser(t, "dash_rec_err@example.com", "ValidP@ss1!", "USER")
@@ -597,12 +598,8 @@ func TestDashboardAPI_RecurringError(t *testing.T) {
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/api/dashboard", nil), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
 	DashboardAPI(rr, req)
-	if rr.Code != http.StatusOK {
-		t.Errorf("want 200 (recurring error non-fatal), got %d", rr.Code)
-	}
-	var resp map[string]interface{}
-	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
-		t.Fatalf("decode: %v", err)
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500 (recurring error fatal), got %d", rr.Code)
 	}
 }
 
@@ -687,7 +684,8 @@ func TestMFASetup_SecretError(t *testing.T) {
 
 // ── pages.go ─────────────────────────────────────────────────────────────────
 
-// pages.go:164 — hookGetAccountsByUserID error in AccountsPage (log+continue)
+// pages.go — hookGetAccountsByUserID error in AccountsPage → 500 (audit FIN-17 :
+// donnée critique, pas de liste vide trompeuse).
 func TestAccountsPage_GetAccountsError(t *testing.T) {
 	setupHandlerTest(t)
 	uid := newUser(t, "accpage_acc_err@example.com", "ValidP@ss1!", "USER")
@@ -699,13 +697,12 @@ func TestAccountsPage_GetAccountsError(t *testing.T) {
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/accounts", nil), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
 	AccountsPage(rr, req)
-	// Error is logged but page still renders
-	if rr.Code == http.StatusInternalServerError {
-		t.Errorf("AccountsPage accounts error should be non-fatal, but got 500")
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500 (accounts error fatal), got %d", rr.Code)
 	}
 }
 
-// pages.go:168 — hookGetRecurringByUserID error in AccountsPage (log+continue)
+// pages.go — hookGetRecurringByUserID error in AccountsPage → 500 (audit FIN-17).
 func TestAccountsPage_GetRecurringError(t *testing.T) {
 	setupHandlerTest(t)
 	uid := newUser(t, "accpage_rec_err@example.com", "ValidP@ss1!", "USER")
@@ -717,8 +714,8 @@ func TestAccountsPage_GetRecurringError(t *testing.T) {
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/accounts", nil), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
 	AccountsPage(rr, req)
-	if rr.Code == http.StatusInternalServerError {
-		t.Errorf("AccountsPage recurring error should be non-fatal, but got 500")
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500 (recurring error fatal), got %d", rr.Code)
 	}
 }
 

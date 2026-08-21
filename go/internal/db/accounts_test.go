@@ -168,14 +168,17 @@ func TestUpdateRecurring(t *testing.T) {
 	userID := createTestUser(t)
 
 	CreateAccountWithYield(userID, "Acc", 100000, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
+	CreateAccountWithYield(userID, "Acc2", 100000, "#111", 1, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
 	accounts, _ := GetAccountsByUserID(userID)
 	accID := accounts[0].ID
+	accID2 := accounts[1].ID
 
 	CreateRecurring(userID, accID, nil, "Old", 10000, 1)
 	recs, _ := GetRecurringByUserID(userID)
 	recID := recs[0].ID
 
-	if err := UpdateRecurring(recID, userID, "New", 20000, 15, nil); err != nil {
+	// accountID=0 : le compte source reste inchangé (chemin PUT).
+	if err := UpdateRecurring(recID, userID, 0, "New", 20000, 15, nil); err != nil {
 		t.Fatalf("UpdateRecurring: %v", err)
 	}
 
@@ -188,6 +191,18 @@ func TestUpdateRecurring(t *testing.T) {
 	}
 	if recs[0].DayOfMonth != 15 {
 		t.Errorf("day_of_month: want 15, got %d", recs[0].DayOfMonth)
+	}
+	if recs[0].AccountID != accID {
+		t.Errorf("account inchangé attendu %d, got %d", accID, recs[0].AccountID)
+	}
+
+	// accountID>0 : le compte source est mis à jour (audit FIN-3).
+	if err := UpdateRecurring(recID, userID, accID2, "New", 20000, 15, nil); err != nil {
+		t.Fatalf("UpdateRecurring (change account): %v", err)
+	}
+	recs, _ = GetRecurringByUserID(userID)
+	if recs[0].AccountID != accID2 {
+		t.Errorf("account: want %d, got %d", accID2, recs[0].AccountID)
 	}
 }
 

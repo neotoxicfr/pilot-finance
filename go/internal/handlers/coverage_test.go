@@ -1571,6 +1571,34 @@ func TestParseCents_InvalidString(t *testing.T) {
 	}
 }
 
+// audit FIN-1 : NaN/±Inf/dépassements rejetés.
+func TestParseCents_RejectsNonFiniteAndOverflow(t *testing.T) {
+	for _, s := range []string{"NaN", "Inf", "-Inf", "1e300", "-1e300", "1e15", "-1e15"} {
+		if _, err := parseCents(s); err == nil {
+			t.Errorf("parseCents(%q): want error, got nil", s)
+		}
+	}
+	// Juste sous la borne : accepté.
+	if _, err := parseCents("99999999999.99"); err != nil {
+		t.Errorf("parseCents borne haute: %v", err)
+	}
+}
+
+// audit FIN-1 : parseRate rejette NaN/±Inf/magnitude excessive, borne le reste.
+func TestParseRate(t *testing.T) {
+	if got, err := parseRate(""); err != nil || got != 0 {
+		t.Errorf("parseRate empty: got %v, %v", got, err)
+	}
+	if got, err := parseRate("3.5"); err != nil || got != 3.5 {
+		t.Errorf("parseRate 3.5: got %v, %v", got, err)
+	}
+	for _, s := range []string{"NaN", "Inf", "-Inf", "1001", "-1001", "notanumber"} {
+		if _, err := parseRate(s); err == nil {
+			t.Errorf("parseRate(%q): want error, got nil", s)
+		}
+	}
+}
+
 // --- detectLanguage ---
 
 func TestDetectLanguage_EmptyHeader(t *testing.T) {

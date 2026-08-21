@@ -150,7 +150,8 @@ func TestLoginPage_RenderError(t *testing.T) {
 }
 
 // pages.go:99-102 — hookGetRecurringByUserID warning in Dashboard → 200
-func TestDashboard_RecurringWarning(t *testing.T) {
+// audit FIN-11 : erreur de chargement des récurrentes sur la page dashboard → 500.
+func TestDashboard_RecurringError(t *testing.T) {
 	setupHandlerTest(t)
 	uid := newUser(t, "dash_recwarn@example.com", "ValidP@ss1!", "USER")
 
@@ -163,8 +164,8 @@ func TestDashboard_RecurringWarning(t *testing.T) {
 	req := injectUser(httptest.NewRequest(http.MethodGet, "/", nil), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
 	Dashboard(rr, req)
-	if rr.Code != http.StatusOK {
-		t.Errorf("want 200 (recurring error is non-fatal), got %d: %s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500 (recurring error fatal), got %d", rr.Code)
 	}
 }
 
@@ -716,7 +717,7 @@ func TestCreateRecurring_UpdateDBError(t *testing.T) {
 	recID := createRec(t, uid, accID)
 
 	orig := hookUpdateRecurring
-	hookUpdateRecurring = func(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
+	hookUpdateRecurring = func(id, userID, accountID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
 		return errTest
 	}
 	t.Cleanup(func() { hookUpdateRecurring = orig })
@@ -819,7 +820,7 @@ func TestUpdateRecurring_DBError(t *testing.T) {
 	recID := createRec(t, uid, accID)
 
 	orig := hookUpdateRecurring
-	hookUpdateRecurring = func(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
+	hookUpdateRecurring = func(id, userID, accountID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
 		return errTest
 	}
 	t.Cleanup(func() { hookUpdateRecurring = orig })
@@ -973,7 +974,7 @@ func TestUpdateRecurring_IncomeIgnoresToAccountID(t *testing.T) {
 
 	var capturedToID *int64
 	orig := hookUpdateRecurring
-	hookUpdateRecurring = func(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
+	hookUpdateRecurring = func(id, userID, accountID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
 		capturedToID = toAccountID
 		return nil
 	}
@@ -1012,7 +1013,7 @@ func TestUpdateRecurring_TransferKeepsToAccountID(t *testing.T) {
 
 	var capturedToID *int64
 	orig := hookUpdateRecurring
-	hookUpdateRecurring = func(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
+	hookUpdateRecurring = func(id, userID, accountID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
 		capturedToID = toAccountID
 		return nil
 	}
@@ -1071,7 +1072,7 @@ func TestUpdateRecurring_NotFound(t *testing.T) {
 	recID := createRec(t, uid, accID)
 
 	orig := hookUpdateRecurring
-	hookUpdateRecurring = func(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
+	hookUpdateRecurring = func(id, userID, accountID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
 		return sql.ErrNoRows
 	}
 	t.Cleanup(func() { hookUpdateRecurring = orig })
@@ -1103,7 +1104,7 @@ func TestCreateRecurring_UpdateBranch_NotFound(t *testing.T) {
 	recID := createRec(t, uid, accID)
 
 	orig := hookUpdateRecurring
-	hookUpdateRecurring = func(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
+	hookUpdateRecurring = func(id, userID, accountID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
 		return sql.ErrNoRows
 	}
 	t.Cleanup(func() { hookUpdateRecurring = orig })

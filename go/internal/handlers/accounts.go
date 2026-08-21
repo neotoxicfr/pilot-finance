@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"math"
 	"net/http"
@@ -15,7 +16,22 @@ import (
 	"pilot-finance/internal/middleware"
 )
 
+// errInvalidAmount : montant/taux non fini (NaN, ±Inf) ou hors bornes.
+var errInvalidAmount = errors.New("valeur numérique invalide")
+
+// maxCents borne les montants pour empêcher tout débordement int64 lors des
+// accumulations (soldes cumulés, projections sur 30 ans) : 10^15 centimes =
+// 10 000 milliards €, très au-delà de tout usage réel tout en laissant une
+// marge énorme avant 2^63.
+const maxCents = 1e15
+
+// maxRate borne les taux de rendement (pourcentages) pour éviter la propagation
+// de valeurs absurdes dans le moteur de projection.
+const maxRate = 1000.0
+
 // parseCents parses a decimal string ("1234.56") into centimes (123456).
+// Rejette NaN/±Inf et les valeurs dont l'arrondi dépasse ±maxCents (une
+// conversion int64 hors plage donnerait un solde indéfini, cf. audit FIN-1).
 func parseCents(s string) (int64, error) {
 	if s == "" {
 		return 0, nil
@@ -24,7 +40,30 @@ func parseCents(s string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return int64(math.Round(f * 100)), nil
+	if math.IsNaN(f) || math.IsInf(f, 0) {
+		return 0, errInvalidAmount
+	}
+	cents := math.Round(f * 100)
+	if math.Abs(cents) > maxCents {
+		return 0, errInvalidAmount
+	}
+	return int64(cents), nil
+}
+
+// parseRate parse un taux de rendement en pourcentage. Rejette NaN/±Inf et les
+// magnitudes > maxRate (le signe reste validé par l'appelant selon isYieldActive).
+func parseRate(s string) (float64, error) {
+	if s == "" {
+		return 0, nil
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0, err
+	}
+	if math.IsNaN(f) || math.IsInf(f, 0) || math.Abs(f) > maxRate {
+		return 0, errInvalidAmount
+	}
+	return f, nil
 }
 
 var hexColorRegex = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
@@ -107,13 +146,13 @@ func parseAccountForm(w http.ResponseWriter, r *http.Request, user *middleware.U
 	reinvestmentRate := 100
 	var parseErr error
 	if yieldMinStr != "" {
-		if yieldMin, parseErr = strconv.ParseFloat(yieldMinStr, 64); parseErr != nil {
+		if yieldMin, parseErr = parseRate(yieldMinStr); parseErr != nil {
 			clientError(w, ErrValidation, "Taux minimum invalide", http.StatusBadRequest)
 			return f, false
 		}
 	}
 	if yieldMaxStr != "" {
-		if yieldMax, parseErr = strconv.ParseFloat(yieldMaxStr, 64); parseErr != nil {
+		if yieldMax, parseErr = parseRate(yieldMaxStr); parseErr != nil {
 			clientError(w, ErrValidation, "Taux maximum invalide", http.StatusBadRequest)
 			return f, false
 		}
@@ -280,7 +319,13 @@ func UpdateBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Un solde vide est rejeté (400) : sinon parseCents("") renverrait 0 et
+	// écraserait silencieusement le solde existant (audit FIN-2, « vide ≠ 0 »).
 	balanceStr := r.FormValue("balance")
+	if balanceStr == "" {
+		clientError(w, ErrValidation, "Solde requis", http.StatusBadRequest)
+		return
+	}
 	balance, err := parseCents(balanceStr)
 	if err != nil {
 		clientError(w, ErrValidation, "Solde invalide", http.StatusBadRequest)

@@ -132,6 +132,9 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 		projection = append(projection, createYearData(0, formatYearName(0)))
 	}
 
+	// Somme des intérêts effectivement générés par le scénario avg (FIN-10).
+	var avgInterestCents int64
+
 	for m := 1; m <= totalMonths; m++ {
 		// 1. Opérations récurrentes : identiques pour les trois scénarios
 		for _, rec := range recurrings {
@@ -170,6 +173,12 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 				currentBal := scens[s].balances[id]
 				// Intérêt mensuel arrondi au centime (les soldes restent en int64 centimes).
 				monthlyInterest := int64(math.Round(float64(currentBal) * scenRate(acc, s)))
+				// TotalInterests = somme réelle des intérêts du scénario avg, et
+				// non « solde final − initial » qui incluait aussi les flux
+				// récurrents (épargne comptée comme intérêts, audit FIN-10).
+				if s == 1 {
+					avgInterestCents += monthlyInterest
+				}
 				reinvested := int64(math.Round(float64(monthlyInterest) * reinvest))
 				scens[s].balances[id] = currentBal + reinvested
 				payout := monthlyInterest - reinvested
@@ -206,15 +215,10 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 		}
 	}
 
-	var finalTotalCents int64
-	for _, id := range sortedIDs {
-		finalTotalCents += scens[1].balances[id]
-	}
-
 	return DashboardData{
 		Accounts:       accounts,
 		Projection:     projection,
-		TotalInterests: math.Round(float64(finalTotalCents-totalBalanceCents) / 100.0),
+		TotalInterests: math.Round(float64(avgInterestCents) / 100.0),
 		TotalBalance:   float64(totalBalanceCents) / 100.0,
 	}
 }
@@ -366,7 +370,11 @@ func formatYearName(year int) string {
 
 func formatMonthName(monthsFromNow int, lang string) string {
 	now := time.Now()
-	targetDate := now.AddDate(0, monthsFromNow, 0)
+	// Ancrer au 1er du mois courant : AddDate normalise les débordements
+	// (31 janv + 1 mois = 3 mars), ce qui ferait sauter février et afficher
+	// deux « mars » sur le graphe les 29-31 du mois (audit FIN-16).
+	base := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	targetDate := base.AddDate(0, monthsFromNow, 0)
 	month := int(targetDate.Month()) - 1
 	year := targetDate.Year()
 	names := monthNamesFR
