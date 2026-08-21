@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 )
 
@@ -38,7 +39,16 @@ func jsonError(w http.ResponseWriter, code string, message string, status int) {
 }
 
 // jsonSuccess renvoie une réponse JSON de succès.
+// L'encodage se fait en mémoire d'abord : une donnée non sérialisable (float
+// NaN/Inf, cf. audit FIN-1/EDGE-003) doit produire un 500 explicite plutôt
+// qu'un 200 au corps tronqué et silencieux.
 func jsonSuccess(w http.ResponseWriter, data interface{}) {
+	buf, err := json.Marshal(data)
+	if err != nil {
+		slog.Error("jsonSuccess: encodage", "err", err)
+		clientError(w, ErrInternal, "Erreur interne", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(data)
+	w.Write(buf)
 }

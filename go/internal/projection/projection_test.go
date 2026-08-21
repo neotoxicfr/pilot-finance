@@ -336,6 +336,27 @@ func TestCalculateMonthlySummaryTransferToYield(t *testing.T) {
 	}
 }
 
+// TestCalculate_TotalInterestsExcludesRecurring : audit FIN-10 — avec un compte
+// sans rendement mais alimenté par un revenu récurrent, TotalInterests doit
+// rester 0 (l'ancienne formule « solde final − initial » comptait l'épargne).
+func TestCalculate_TotalInterestsExcludesRecurring(t *testing.T) {
+	accounts := []db.Account{
+		{ID: 1, Name: "Courant", Balance: 100000, IsYieldActive: false},
+	}
+	recurrings := []db.RecurringOperation{
+		{ID: 1, UserID: 1, AccountID: 1, Amount: 30000, DayOfMonth: 1}, // +300/mois
+	}
+	result := projection.Calculate(accounts, recurrings, 5, "fr")
+	if result.TotalInterests != 0 {
+		t.Errorf("TotalInterests: want 0 (aucun rendement), got %v", result.TotalInterests)
+	}
+	// Le solde final, lui, doit avoir crû grâce aux versements.
+	last := result.Projection[len(result.Projection)-1]
+	if last.TotalAvg <= 1000 {
+		t.Errorf("solde final attendu > 1000 (épargne cumulée), got %v", last.TotalAvg)
+	}
+}
+
 // TestCalculate_MonthlyPayoutToTarget couvre projection.go:149-151 — else branch :
 // versement mensuel (non YEARLY) vers un TargetAccountID.
 func TestCalculate_MonthlyPayoutToTarget(t *testing.T) {

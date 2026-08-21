@@ -107,8 +107,11 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 		serverError(w, "get accounts", accErr)
 		return
 	}
+	// Cohérent avec DashboardAPI (audit FIN-11) : une projection sans les
+	// récurrentes est trompeuse — échouer plutôt que rendre en silence.
 	if recErr != nil {
-		slog.Warn("Dashboard: recurring", "err", recErr, "userID", user.ID)
+		serverError(w, "get recurring", recErr)
+		return
 	}
 
 	decryptAccountNames(accounts)
@@ -161,11 +164,16 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 
 	lang, _ := userLocale(user)
 	accounts, recurrings, accErr, recErr := loadAccountsAndRecurring(user.ID)
+	// Échouer bruyamment plutôt que rendre une liste vide : afficher « aucun
+	// compte » sur une erreur DB transitoire est trompeur et anxiogène pour une
+	// app de finances (audit FIN-17).
 	if accErr != nil {
-		slog.Warn("AccountsPage: accounts", "err", accErr, "userID", user.ID)
+		serverError(w, "AccountsPage: accounts", accErr)
+		return
 	}
 	if recErr != nil {
-		slog.Warn("AccountsPage: recurring", "err", recErr, "userID", user.ID)
+		serverError(w, "AccountsPage: recurring", recErr)
+		return
 	}
 
 	decryptAccountNames(accounts)

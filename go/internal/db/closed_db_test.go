@@ -78,7 +78,7 @@ func TestCreateRecurring_ClosedDB(t *testing.T) {
 
 func TestUpdateRecurring_ClosedDB(t *testing.T) {
 	setupClosedDB(t)
-	err := UpdateRecurring(1, 1, "Test", 100, 15, nil)
+	err := UpdateRecurring(1, 1, 0, "Test", 100, 15, nil)
 	if err == nil {
 		t.Error("want error with closed DB")
 	}

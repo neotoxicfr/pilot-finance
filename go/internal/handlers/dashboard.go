@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -38,8 +37,11 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 		serverError(w, "get accounts", accErr)
 		return
 	}
+	// Échouer bruyamment : une projection amputée de ses opérations récurrentes
+	// est trompeuse et invisible pour l'utilisateur (audit FIN-11).
 	if recErr != nil {
-		slog.Warn("DashboardAPI: recurring", "err", recErr, "userID", user.ID)
+		serverError(w, "get recurring", recErr)
+		return
 	}
 
 	decryptAccountNames(accounts)

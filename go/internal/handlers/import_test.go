@@ -32,6 +32,14 @@ func TestParseCentsFlexible(t *testing.T) {
 		{"€ ", 0, true},
 		{"abc", 0, true},
 		{"1,2,3", 0, true},
+		// audit FIN-7 : point + exactement 3 décimales sans virgule = ambigu → rejet.
+		{"1.234", 0, true},
+		{"12.345", 0, true},
+		{"-1.234", 0, true},
+		// mais 2 décimales (non ambigu) reste une décimale.
+		{"1.23", 123, false},
+		// 4 décimales : pas un groupe de milliers, décimale acceptée.
+		{"1.2345", 123, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.in, func(t *testing.T) {
@@ -82,6 +90,18 @@ func TestParseBalancesCSV(t *testing.T) {
 			name:        "pas d'en-tête, première ligne valide",
 			csv:         "Livret A,7",
 			wantUpdates: []balanceUpdate{{"Livret A", 700}},
+		},
+		{
+			// audit FIN-8 : BOM UTF-8, fichier sans en-tête → 1re ligne conservée.
+			name:        "BOM UTF-8 sans en-tête",
+			csv:         "\xef\xbb\xbfLivret A,7",
+			wantUpdates: []balanceUpdate{{"Livret A", 700}},
+		},
+		{
+			// audit FIN-7 : "1.234" ambigu → ligne rejetée, pas devinée.
+			name:        "point milliers ambigu → invalide",
+			csv:         "nom,solde\nLivret A,1.234",
+			wantInvalid: []int{2},
 		},
 		{
 			name:        "une seule colonne → invalide",
@@ -337,13 +357,37 @@ func TestImportBalances_UpdateError(t *testing.T) {
 	uid := newUser(t, "import-uperr@example.com", "ValidP@ss1!", "USER")
 	namedAcc(t, uid, "Livret A", 100)
 
-	orig := hookUpdateAccountBalance
-	hookUpdateAccountBalance = func(int64, int64, int64) error { return errors.New("boom") }
-	defer func() { hookUpdateAccountBalance = orig }()
+	orig := hookUpdateAccountBalancesTx
+	hookUpdateAccountBalancesTx = func(int64, []db.AccountBalanceUpdate) error { return errors.New("boom") }
+	defer func() { hookUpdateAccountBalancesTx = orig }()
 
 	rr, _ := doImport(t, uid, "Livret A,1")
 	if rr.Code != http.StatusInternalServerError {
 		t.Errorf("got %d, want 500", rr.Code)
+	}
+}
+
+// audit FIN-9 : une erreur en cours d'import ne laisse aucune mise à jour partielle.
+func TestImportBalances_Atomic(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "import-atomic@example.com", "ValidP@ss1!", "USER")
+	namedAcc(t, uid, "A", 111)
+	namedAcc(t, uid, "B", 222)
+
+	orig := hookUpdateAccountBalancesTx
+	hookUpdateAccountBalancesTx = func(int64, []db.AccountBalanceUpdate) error { return errors.New("boom") }
+	defer func() { hookUpdateAccountBalancesTx = orig }()
+
+	rr, _ := doImport(t, uid, "A,1000\nB,2000")
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("got %d, want 500", rr.Code)
+	}
+	// Aucun solde ne doit avoir changé (le hook a tout rejeté).
+	accs, _ := db.GetAccountsByUserID(uid)
+	for _, a := range accs {
+		if a.Balance != 111 && a.Balance != 222 {
+			t.Errorf("solde modifié malgré l'échec: %d", a.Balance)
+		}
 	}
 }
 

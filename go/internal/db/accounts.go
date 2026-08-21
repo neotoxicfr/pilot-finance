@@ -74,6 +74,40 @@ func UpdateAccountBalance(id, userID int64, balance int64) error {
 	return err
 }
 
+// AccountBalanceUpdate : couple (id de compte, solde en centimes) pour l'import.
+type AccountBalanceUpdate struct {
+	ID    int64
+	Cents int64
+}
+
+// UpdateAccountBalancesTx applique plusieurs mises à jour de solde dans une
+// seule transaction : soit toutes réussissent, soit aucune n'est appliquée
+// (import CSV atomique, audit FIN-9).
+func UpdateAccountBalancesTx(userID int64, updates []AccountBalanceUpdate) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	now := time.Now().Unix()
+	for _, u := range updates {
+		balEnc, err := crypto.EncryptCents(u.Cents)
+		if err != nil {
+			return fmt.Errorf("encrypt balance: %w", err)
+		}
+		if _, err := tx.Exec(`
+			UPDATE accounts SET balance = ?, updated_at = ?
+			WHERE id = ? AND user_id = ?
+		`, balEnc, now, u.ID, userID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 // DeleteAccount supprime un compte et les opérations récurrentes associées
 func DeleteAccount(id, userID int64) error {
 	tx, err := DB.Begin()
@@ -170,16 +204,22 @@ func CreateRecurring(userID, accountID int64, toAccountID *int64, description st
 }
 
 // UpdateRecurring met a jour une operation recurrente.
+// accountID met à jour le compte source ; la valeur 0 (jamais un id valide,
+// l'autoincrément démarre à 1) laisse le compte inchangé — permet au chemin PUT
+// de ne pas toucher au compte tout en corrigeant le chemin d'édition POST qui,
+// lui, le persiste (audit FIN-3).
 // Retourne sql.ErrNoRows si l'opération n'existe pas ou n'appartient pas à l'utilisateur.
-func UpdateRecurring(id, userID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
+func UpdateRecurring(id, userID, accountID int64, description string, amount int64, dayOfMonth int, toAccountID *int64) error {
 	amtEnc, err := crypto.EncryptCents(amount)
 	if err != nil {
 		return fmt.Errorf("encrypt amount: %w", err)
 	}
 	res, err := DB.Exec(`
-		UPDATE recurring_operations SET description = ?, amount = ?, day_of_month = ?, to_account_id = ?
+		UPDATE recurring_operations
+		SET account_id = COALESCE(NULLIF(?, 0), account_id),
+		    description = ?, amount = ?, day_of_month = ?, to_account_id = ?
 		WHERE id = ? AND user_id = ?
-	`, description, amtEnc, dayOfMonth, toAccountID, id, userID)
+	`, accountID, description, amtEnc, dayOfMonth, toAccountID, id, userID)
 	if err != nil {
 		return err
 	}
