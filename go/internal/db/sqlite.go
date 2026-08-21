@@ -82,8 +82,10 @@ func initDB(cfg Config) error {
 		slog.Warn("WAL checkpoint", "err", err)
 	}
 
-	// Backup rotatif au démarrage (max 3 fichiers, même volume)
-	rotateBackups(cfg.Path)
+	// Backup rotatif au démarrage (max 3 fichiers, même volume). force=false :
+	// ignoré si un backup récent existe déjà (évite qu'un crash-loop n'écrase
+	// les générations saines, audit FIN-12).
+	rotateBackups(cfg.Path, false)
 
 	// VACUUM + backup périodique toutes les 24h
 	dbPath := cfg.Path
@@ -102,7 +104,7 @@ func initDB(cfg Config) error {
 				if _, err := DB.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
 					slog.Warn("WAL checkpoint périodique", "err", err)
 				}
-				rotateBackups(dbPath)
+				rotateBackups(dbPath, true)
 			case <-done:
 				return
 			}
@@ -113,19 +115,41 @@ func initDB(cfg Config) error {
 	return nil
 }
 
-// rotateBackups crée un backup et garde les 3 derniers (.backup.1 = plus récent)
-func rotateBackups(dbPath string) {
-	// Rotation : .backup.3 supprimé, .backup.2 → .3, .backup.1 → .2, nouveau → .1
+// backupMinAge : au démarrage, on ne rote pas si le backup le plus récent est
+// plus jeune que cette durée. Empêche des redémarrages rapprochés (crash-loop,
+// docker compose up répétés) d'évincer les 3 générations saines (audit FIN-12).
+const backupMinAge = 6 * time.Hour
+
+// rotateBackups crée un backup et garde les 3 derniers (.backup.1 = plus récent).
+// force=false ignore l'opération si un backup récent existe déjà.
+func rotateBackups(dbPath string, force bool) {
+	b1 := dbPath + ".backup.1"
+	if !force {
+		if info, err := os.Stat(b1); err == nil && time.Since(info.ModTime()) < backupMinAge {
+			return
+		}
+	}
+
+	// Écrire d'abord dans un fichier temporaire : un VACUUM INTO échoué (disque
+	// plein, I/O) laisse le .tmp et NON un .backup.1 partiel qui serait ensuite
+	// roté comme valide, évinçant un backup sain (audit FIN-12/EDGE-025).
+	tmp := dbPath + ".backup.tmp"
+	os.Remove(tmp)
+	if _, err := DB.Exec("VACUUM INTO ?", tmp); err != nil {
+		slog.Warn("backup automatique", "err", err)
+		os.Remove(tmp)
+		return
+	}
+
+	// Rotation seulement après un backup complet : .3 supprimé, .2→.3, .1→.2, tmp→.1
 	os.Remove(dbPath + ".backup.3")
 	os.Rename(dbPath+".backup.2", dbPath+".backup.3")
-	os.Rename(dbPath+".backup.1", dbPath+".backup.2")
-
-	backupPath := dbPath + ".backup.1"
-	if _, err := DB.Exec("VACUUM INTO ?", backupPath); err != nil {
-		slog.Warn("backup automatique", "err", err)
-	} else {
-		slog.Info("backup créé", "path", backupPath)
+	os.Rename(b1, dbPath+".backup.2")
+	if err := os.Rename(tmp, b1); err != nil {
+		slog.Warn("backup rename", "err", err)
+		return
 	}
+	slog.Info("backup créé", "path", b1)
 }
 
 // migration représente une migration de schéma nommée et idempotente.
@@ -436,6 +460,35 @@ func runMigrations(dbPath string) error {
 			return nil
 		}},
 		{Name: "013_add_foreign_keys", Run: func(d *sql.DB) error {
+			// Rebuild transactionnel (audit FIN-4) : soit toute la migration FK
+			// réussit, soit rien — un crash entre DROP et RENAME ne peut plus
+			// perdre la table accounts. Pré-nettoyage des références orphelines
+			// (bases legacy où DeleteAccount ne purgeait pas les cibles) pour
+			// que les INSERT ne violent pas les nouvelles contraintes FK.
+			tx, err := d.Begin()
+			if err != nil {
+				return err
+			}
+			defer tx.Rollback()
+
+			for _, clean := range []string{
+				`UPDATE accounts SET target_account_id = NULL
+					WHERE target_account_id IS NOT NULL
+					  AND target_account_id NOT IN (SELECT id FROM accounts)`,
+				`DELETE FROM recurring_operations
+					WHERE account_id NOT IN (SELECT id FROM accounts)`,
+				`UPDATE recurring_operations SET to_account_id = NULL
+					WHERE to_account_id IS NOT NULL
+					  AND to_account_id NOT IN (SELECT id FROM accounts)`,
+				`DELETE FROM accounts WHERE user_id NOT IN (SELECT id FROM users)`,
+				`DELETE FROM recurring_operations WHERE user_id NOT IN (SELECT id FROM users)`,
+				`DELETE FROM authenticators WHERE user_id NOT IN (SELECT id FROM users)`,
+			} {
+				if _, err := tx.Exec(clean); err != nil {
+					return fmt.Errorf("013 pré-nettoyage: %w", err)
+				}
+			}
+
 			stmts := []string{
 				`CREATE TABLE accounts_new (
 					id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -495,11 +548,23 @@ func runMigrations(dbPath string) error {
 				`CREATE INDEX IF NOT EXISTS idx_authenticators_cred_id ON authenticators(credential_id)`,
 			}
 			for _, stmt := range stmts {
-				if _, err := d.Exec(stmt); err != nil {
+				if _, err := tx.Exec(stmt); err != nil {
 					return fmt.Errorf("013_add_foreign_keys: %w", err)
 				}
 			}
-			return nil
+			// Contrôle d'intégrité référentielle avant commit : toute violation
+			// résiduelle fait échouer la migration (rollback) plutôt que de
+			// figer un schéma incohérent.
+			viol, err := tx.Query(`PRAGMA foreign_key_check`)
+			if err != nil {
+				return fmt.Errorf("013 foreign_key_check: %w", err)
+			}
+			hasViolation := viol.Next()
+			viol.Close()
+			if hasViolation {
+				return fmt.Errorf("013_add_foreign_keys: violations de clés étrangères après rebuild")
+			}
+			return tx.Commit()
 		}},
 	}
 
@@ -540,12 +605,15 @@ func runMigrations(dbPath string) error {
 		}
 
 		if applyErr != nil {
-			// Les erreurs idempotentes ("already exists" / "duplicate column name")
-			// signifient que l'objet existe déjà : on enregistre la migration comme
-			// appliquée. Toute autre erreur est fatale — un enregistrement silencieux
-			// laisserait la base dans un état incohérent (cf. migration 013 partielle).
+			// N'absorber "already exists"/"duplicate column name" QUE pour les
+			// migrations SQL mono-instruction (ALTER ADD COLUMN idempotent). Pour
+			// une migration Run multi-étapes (ex. 013 rebuild FK), toute erreur
+			// est fatale : l'enregistrer comme appliquée laisserait un schéma
+			// partiellement migré marqué "OK" (audit FIN-4, scénario boot-loop).
 			msg := applyErr.Error()
-			if !strings.Contains(msg, "already exists") && !strings.Contains(msg, "duplicate column name") {
+			idempotent := m.Run == nil &&
+				(strings.Contains(msg, "already exists") || strings.Contains(msg, "duplicate column name"))
+			if !idempotent {
 				return fmt.Errorf("migration %q échouée: %w", m.Name, applyErr)
 			}
 		}

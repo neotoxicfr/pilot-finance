@@ -136,7 +136,7 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 			clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
 			return
 		}
-		err = hookUpdateRecurring(id, user.ID, f.encryptedDesc, f.amount, f.day, f.toAccountID)
+		err = hookUpdateRecurring(id, user.ID, accountID, f.encryptedDesc, f.amount, f.day, f.toAccountID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				clientError(w, ErrNotFound, "Opération récurrente introuvable", http.StatusNotFound)
@@ -183,7 +183,9 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = hookUpdateRecurring(id, user.ID, f.encryptedDesc, f.amount, f.day, f.toAccountID)
+	// accountID=0 : le chemin PUT ne modifie pas le compte source (le formulaire
+	// d'édition de l'UI passe par POST /recurring). Voir db.UpdateRecurring.
+	err = hookUpdateRecurring(id, user.ID, 0, f.encryptedDesc, f.amount, f.day, f.toAccountID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			clientError(w, ErrNotFound, "Opération récurrente introuvable", http.StatusNotFound)

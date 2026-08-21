@@ -370,6 +370,41 @@ func TestUpdateBalance_InvalidBalance(t *testing.T) {
 	}
 }
 
+// audit FIN-1/EDGE-003 : jsonSuccess sur donnée non sérialisable → 500, pas de 200 tronqué.
+func TestJsonSuccess_EncodeError(t *testing.T) {
+	rr := httptest.NewRecorder()
+	jsonSuccess(rr, map[string]interface{}{"bad": make(chan int)}) // chan non sérialisable
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("want 500, got %d", rr.Code)
+	}
+	if got := rr.Header().Get("X-Error-Code"); got != ErrInternal {
+		t.Errorf("X-Error-Code: want %s, got %s", ErrInternal, got)
+	}
+}
+
+// audit FIN-2 : un solde vide est rejeté (400) et n'écrase pas le solde existant.
+func TestUpdateBalance_EmptyRejected(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "updbalempty@example.com", "ValidP@ss1!", "USER")
+	accID := createAcc(t, uid)
+
+	idStr := strconv.FormatInt(accID, 10)
+	req := injectUser(
+		withParam(post("/accounts/"+idStr+"/balance", url.Values{"balance": {""}}), "id", idStr),
+		mu(uid, "USER"),
+	)
+	rr := httptest.NewRecorder()
+	UpdateBalance(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("want 400, got %d", rr.Code)
+	}
+	// Le solde d'origine (créé par createAcc) doit être intact.
+	accs, _ := db.GetAccountsByUserID(uid)
+	if accs[0].Balance == 0 {
+		t.Error("solde écrasé à 0 malgré le rejet")
+	}
+}
+
 func TestUpdateBalance_Success(t *testing.T) {
 	setupHandlerTest(t)
 	uid := newUser(t, "updbal@example.com", "ValidP@ss1!", "USER")
