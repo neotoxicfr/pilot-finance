@@ -181,6 +181,11 @@ func main() {
 		if !disableRL {
 			r.Use(httprate.LimitBy(10, time.Minute, middleware.ClientIPKey))
 		}
+		// ValidateOrigin protège aussi les POST d'auth (login CSRF) : sans lui,
+		// un POST cross-site vers /login pouvait connecter la victime sur le
+		// compte de l'attaquant (cookie SameSite=Lax insuffisant, audit FIN-18).
+		// N'agit que sur les méthodes mutantes ; les GET de page passent.
+		r.Use(middleware.ValidateOrigin(host))
 
 		r.Get("/login", handlers.LoginPage)
 		r.Post("/login", handlers.LoginSubmit)
@@ -317,16 +322,29 @@ var staticETags = func() map[string]string {
 	return tags
 }()
 
-// computeAssetVersion calcule un hash court des fichiers CSS/JS pour le cache-busting.
-// Change à chaque rebuild Docker quand les assets changent.
+// computeAssetVersion calcule un hash court de TOUS les .css/.js servis (y
+// compris les libs vendorées htmx/alpine/chart/sortable) pour le cache-busting.
+// Servis en Cache-Control immutable/1 an, ils doivent changer d'URL à chaque
+// bump : les hasher tous évite qu'un bump vendor reste invisible jusqu'à un an
+// côté navigateur (audit FIN-13). Parcours déterministe (fs.WalkDir trie).
 func computeAssetVersion() string {
 	h := md5.New()
-	for _, name := range []string{"static/css/app.css", "static/css/tailwind.css", "static/js/charts.js", "static/js/passkey.js"} {
-		data, err := os.ReadFile(name)
-		if err != nil {
-			continue
+	if err := fs.WalkDir(os.DirFS("static"), ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
 		}
+		if !strings.HasSuffix(path, ".css") && !strings.HasSuffix(path, ".js") {
+			return nil
+		}
+		data, rerr := os.ReadFile("static/" + path)
+		if rerr != nil {
+			return nil
+		}
+		h.Write([]byte(path))
 		h.Write(data)
+		return nil
+	}); err != nil {
+		slog.Warn("computeAssetVersion", "err", err)
 	}
 	return fmt.Sprintf("%x", h.Sum(nil))[:8]
 }

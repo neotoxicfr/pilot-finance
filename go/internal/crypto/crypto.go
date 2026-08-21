@@ -244,6 +244,16 @@ func EncryptCents(cents int64) (string, error) {
 
 // DecryptCents déchiffre une valeur vers des centimes (int64).
 // Gère le format legacy (float string "1234.56") et le nouveau format (cents string "123456").
+//
+// LIMITE CONNUE (audit FIN-15) : l'heuristique repose sur la présence d'un
+// point décimal. La migration 008 a chiffré les soldes legacy en euros float
+// via EncryptFloat ; un montant entier comme 1500 € y est stocké "1500" (sans
+// point) et sera relu ici comme 1500 CENTIMES (15,00 €), soit ÷100. Ce cas ne
+// concerne QUE les bases importées de l'ancienne version Node avec des soldes à
+// valeur entière ; les bases créées par cette version stockent toujours des
+// centimes explicites. En cas de migration depuis Node, AUDITER les soldes
+// après migration (comparer au backup .bak créé par 008). Non corrigeable
+// rétroactivement sans ce backup.
 func DecryptCents(s string) (int64, error) {
 	plain, err := Decrypt(s)
 	if err != nil {

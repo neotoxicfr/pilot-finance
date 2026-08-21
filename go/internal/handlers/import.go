@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/csv"
 	"errors"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"pilot-finance/internal/db"
@@ -18,6 +20,12 @@ type balanceUpdate struct {
 }
 
 var errUnexpectedFields = errors.New("champs excédentaires")
+var errAmbiguousAmount = errors.New("montant ambigu (séparateur de milliers ?)")
+
+// ambiguousThousandsDot repère "1.234" : un point unique suivi d'exactement 3
+// chiffres, sans virgule — indistinguable entre décimale (1,234) et milliers
+// FR (1 234). On refuse plutôt que de deviner (audit FIN-7).
+var ambiguousThousandsDot = regexp.MustCompile(`^-?\d{1,3}\.\d{3}$`)
 
 // parseCentsFlexible convertit un montant saisi humainement en centimes.
 // Accepte point ou virgule décimale, séparateurs de milliers (espaces ou
@@ -42,6 +50,8 @@ func parseCentsFlexible(s string) (int64, error) {
 		} else {
 			s = strings.Replace(s, ",", ".", 1) // 1234,56
 		}
+	} else if ambiguousThousandsDot.MatchString(s) {
+		return 0, errAmbiguousAmount
 	}
 	if s == "" {
 		return 0, errors.New("montant vide")
@@ -57,6 +67,10 @@ func parseBalancesCSV(rd io.Reader) ([]balanceUpdate, []int) {
 	if err != nil || len(data) == 0 {
 		return nil, nil
 	}
+	// Retirer le BOM UTF-8 (exports Excel/Notepad FR) : sinon la 1re ligne de
+	// données d'un fichier sans en-tête serait préfixée d'un caractère
+	// invisible et classée « inconnue » (audit FIN-8).
+	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
 	firstLine, _, _ := strings.Cut(string(data), "\n")
 	comma := ','
 	// Le ';' gagne dès qu'il est présent et au moins aussi fréquent que la
@@ -144,28 +158,31 @@ func ImportBalances(w http.ResponseWriter, r *http.Request) {
 		byName[key] = append(byName[key], acc.ID)
 	}
 
-	updated := 0
 	unknown := []string{}
 	ambiguous := []string{}
+	pairs := make([]db.AccountBalanceUpdate, 0, len(updates))
 	for _, u := range updates {
 		ids := byName[strings.ToLower(u.name)]
 		switch len(ids) {
 		case 0:
 			unknown = append(unknown, u.name)
 		case 1:
-			if err := hookUpdateAccountBalance(ids[0], user.ID, u.cents); err != nil {
-				serverError(w, "import balance", err)
-				return
-			}
-			updated++
+			pairs = append(pairs, db.AccountBalanceUpdate{ID: ids[0], Cents: u.cents})
 		default:
 			ambiguous = append(ambiguous, u.name)
 		}
 	}
 
-	if updated > 0 {
+	// Application atomique : soit toutes les lignes valides sont écrites, soit
+	// aucune — pas de mise à jour partielle sur erreur en cours (audit FIN-9).
+	if len(pairs) > 0 {
+		if err := hookUpdateAccountBalancesTx(user.ID, pairs); err != nil {
+			serverError(w, "import balances", err)
+			return
+		}
 		hookLogAudit(user.ID, db.AuditImportBalances, getClientIP(r), r.UserAgent())
 	}
+	updated := len(pairs)
 
 	if invalidLines == nil {
 		invalidLines = []int{}
