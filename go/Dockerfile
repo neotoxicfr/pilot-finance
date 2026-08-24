@@ -23,7 +23,7 @@ RUN NODE_PATH=$(npm root -g) npx @tailwindcss/cli -i static/css/input.css -o sta
     && esbuild static/js/passkey.js --minify --outfile=static/js/passkey.js --allow-overwrite
 
 # ============ GO BUILD STAGE ============
-FROM golang:1.26.6-alpine AS builder
+FROM golang:1.27.0-alpine AS builder
 
 ARG TARGETARCH
 ARG VERSION=dev
