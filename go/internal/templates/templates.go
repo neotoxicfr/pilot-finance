@@ -169,7 +169,17 @@ func formatMoney(amount interface{}, currency string) string {
 	return fmt.Sprintf("%s %s", formatFloat(f), currency)
 }
 
-// formatMoneyCompact formate un montant en notation compacte (k, M) avec devise
+// formatMoneyCompact formate un montant en notation compacte (k, M) avec devise.
+//
+// Séparateur décimal : la virgule, comme formatFloat/formatMoney. Les deux
+// formateurs Go divergeaient (« +2 800,50 EUR » au-dessus de « +2.8k EUR/an »
+// sur la même carte, audit S-26) ; le point se lisait en outre comme un
+// séparateur de milliers en français. La notation reste figée en français,
+// comme le reste de la couche monétaire serveur (voir S-23 pour la locale).
+//
+// Ce formateur a un miroir JS strict dans go/static/js/charts.js
+// (compactMoney) : toute modification de tiers, d'arrondi ou de séparateur
+// doit être répercutée dans les deux.
 func formatMoneyCompact(amount interface{}, currency string) string {
 	f := toFloat64(amount)
 	if currency == "" {
@@ -179,15 +189,21 @@ func formatMoneyCompact(amount interface{}, currency string) string {
 		return "-" + formatMoneyCompact(-f, currency)
 	}
 	if f >= 1000000 {
-		return fmt.Sprintf("%.1fM %s", f/1000000, currency)
+		return fmt.Sprintf("%sM %s", oneDecimal(f/1000000), currency)
 	}
 	if f >= 10000 {
 		return fmt.Sprintf("%.0fk %s", f/1000, currency)
 	}
 	if f >= 1000 {
-		return fmt.Sprintf("%.1fk %s", f/1000, currency)
+		return fmt.Sprintf("%sk %s", oneDecimal(f/1000), currency)
 	}
 	return fmt.Sprintf("%.0f %s", f, currency)
+}
+
+// oneDecimal formate une valeur avec une décimale et la virgule française,
+// cohérent avec formatFloat (audit S-26).
+func oneDecimal(f float64) string {
+	return strings.Replace(fmt.Sprintf("%.1f", f), ".", ",", 1)
 }
 
 // formatBalance formate un solde pour l'input

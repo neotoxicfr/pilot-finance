@@ -577,12 +577,63 @@ func TestNeedsRehashInvalidHash(t *testing.T) {
 
 func TestEncrypt_NilCipherBlock(t *testing.T) {
 	ResetForTest()
-	// cipherBlock is nil after ResetForTest (Init not called)
+	// cipherBlock is nil after ResetForTest (Init not called) : audit S-24, le
+	// cas « non initialisé » remonte désormais ErrNotInitialized et non plus
+	// ErrDecryption, pour être distinguable d'une donnée corrompue.
 	_, err := Encrypt("test")
-	if err != ErrDecryption {
-		t.Errorf("want ErrDecryption, got %v", err)
+	if !errors.Is(err, ErrNotInitialized) {
+		t.Errorf("want ErrNotInitialized, got %v", err)
 	}
 	mustInit(t) // restore for subsequent tests
+}
+
+// TestDecrypt_NotInitialized couvre la garde « non initialisé » de Decrypt sur
+// une entrée BIEN FORMÉE (3 parties, IV de 12 octets) : sans Init, elle doit
+// remonter ErrNotInitialized et non ErrDecryption.
+func TestDecrypt_NotInitialized(t *testing.T) {
+	ResetForTest()
+	iv := strings.Repeat("ab", 12)
+	tag := strings.Repeat("cd", 16)
+	ct := strings.Repeat("ef", 8)
+	_, err := Decrypt(iv + ":" + tag + ":" + ct)
+	if !errors.Is(err, ErrNotInitialized) {
+		t.Errorf("want ErrNotInitialized, got %v", err)
+	}
+	mustInit(t) // restore for subsequent tests
+}
+
+// TestComputeBlindIndexE_NotInitialized couvre la garde ajoutée par l'audit
+// S-24 : hmac.New accepte une clé nil et produit un digest d'apparence valide.
+func TestComputeBlindIndexE_NotInitialized(t *testing.T) {
+	ResetForTest()
+	idx, err := ComputeBlindIndexE("test@example.com")
+	if !errors.Is(err, ErrNotInitialized) {
+		t.Errorf("ComputeBlindIndexE: want ErrNotInitialized, got %v", err)
+	}
+	if idx != "" {
+		t.Errorf("ComputeBlindIndexE: want empty index, got %q", idx)
+	}
+	// La façade historique échoue en mode fermé : chaîne vide, jamais un digest.
+	if got := ComputeBlindIndex("test@example.com"); got != "" {
+		t.Errorf("ComputeBlindIndex non initialisé: want %q, got %q", "", got)
+	}
+	mustInit(t) // restore for subsequent tests
+}
+
+// TestComputeBlindIndexE_Initialized vérifie que la variante avec erreur
+// produit exactement le même index que la façade historique.
+func TestComputeBlindIndexE_Initialized(t *testing.T) {
+	mustInit(t)
+	idx, err := ComputeBlindIndexE("test@example.com")
+	if err != nil {
+		t.Fatalf("ComputeBlindIndexE: %v", err)
+	}
+	if len(idx) != 64 {
+		t.Errorf("blind index length = %d, want 64", len(idx))
+	}
+	if got := ComputeBlindIndex("test@example.com"); got != idx {
+		t.Errorf("ComputeBlindIndex = %q, want %q", got, idx)
+	}
 }
 
 // --- error branches via hooks / key corruption ---

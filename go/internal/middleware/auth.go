@@ -4,6 +4,7 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -141,13 +142,40 @@ func loadSessionData(userID int64) (entry sessionCacheEntry, hit, found bool, er
 	return entry, false, true, nil
 }
 
+// wantsJSON indique que l'appelant attend une réponse machine plutôt qu'une
+// page HTML : requête fetch()/HTMX ou endpoint /api/.
+//
+// Audit S-06 : RequireAuth répondait systématiquement par une redirection 303
+// vers /login. fetch() suit les redirections de façon transparente, donc un
+// appel JS sur session expirée résolvait avec ok=true et le HTML de la page de
+// connexion — ni la vérification de resp.ok ni le .catch() n'étaient atteints,
+// et le front affichait des données vides sans jamais signaler la déconnexion.
+// On répond désormais 401 + X-Error-Code à ces appelants ; la navigation
+// classique conserve la redirection.
+func wantsJSON(r *http.Request) bool {
+	return r.Header.Get("HX-Request") == "true" ||
+		strings.Contains(r.Header.Get("Accept"), "application/json") ||
+		strings.HasPrefix(r.URL.Path, "/api/")
+}
+
+// denyAuth termine la requête : 401 machine-readable pour les appels
+// fetch()/HTMX/API, redirection vers /login pour une navigation normale.
+func denyAuth(w http.ResponseWriter, r *http.Request) {
+	if wantsJSON(r) {
+		w.Header().Set("X-Error-Code", "AUTH_REQUIRED")
+		http.Error(w, "Non authentifié", http.StatusUnauthorized)
+		return
+	}
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
+}
+
 // RequireAuth vérifie que l'utilisateur est authentifié.
 // Uses an in-memory cache (30s TTL) to avoid querying the DB on every request.
 func RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("session")
 		if err != nil {
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			denyAuth(w, r)
 			return
 		}
 
@@ -155,13 +183,13 @@ func RequireAuth(next http.Handler) http.Handler {
 		if err != nil {
 			// Token invalide ou expiré, supprimer le cookie
 			clearSessionCookie(w)
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			denyAuth(w, r)
 			return
 		}
 
 		entry, _, found, dbErr := loadSessionData(claims.UserID)
 		if dbErr != nil {
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			denyAuth(w, r)
 			return
 		}
 		if !found || entry.sessionVersion != claims.SessionVersion {
@@ -169,7 +197,7 @@ func RequireAuth(next http.Handler) http.Handler {
 			// (changement de mot de passe). Dans les deux cas on déconnecte.
 			InvalidateSessionCache(claims.UserID)
 			clearSessionCookie(w)
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			denyAuth(w, r)
 			return
 		}
 

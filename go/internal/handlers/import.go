@@ -59,6 +59,24 @@ func parseCentsFlexible(s string) (int64, error) {
 	return parseCents(s)
 }
 
+// parseRateFlexible convertit un taux saisi humainement en pourcentage.
+// Même souplesse que parseCentsFlexible sur les saisies francophones (virgule
+// décimale, espaces fine/insécable, symbole « % »), sans logique de séparateur
+// de milliers : un taux tient sur trois chiffres, « 1.234 » n'y est jamais
+// ambigu. Les garde-fous de parseRate (NaN/±Inf, magnitude ≤ maxRate) restent
+// appliqués — audit S-03.
+func parseRateFlexible(s string) (float64, error) {
+	s = strings.Map(func(r rune) rune {
+		switch r {
+		case ' ', ' ', ' ', '%':
+			return -1
+		}
+		return r
+	}, s)
+	s = strings.Replace(s, ",", ".", 1)
+	return parseRate(s)
+}
+
 // parseBalancesCSV lit un CSV "nom,solde" (séparateur , ou ; détecté sur la
 // première ligne, en-tête optionnel) et retourne les lignes valides plus les
 // numéros des lignes rejetées.

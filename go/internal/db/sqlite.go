@@ -54,7 +54,17 @@ func initDB(cfg Config) error {
 
 	// PRAGMAs via DSN ensure they apply to every connection in the pool
 	// (foreign_keys, busy_timeout, cache_size, temp_store are per-connection).
-	dsn := cfg.Path + "?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=cache_size(10000)&_pragma=temp_store(MEMORY)&_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=mmap_size(268435456)"
+	//
+	// _txlock=immediate (audit S-33) : sans ce paramètre, database/sql ouvre un
+	// BEGIN DEFERRED. Toutes les transactions de ce paquet lisent avant d'écrire
+	// (CreateUserAtomic, SwapAccountPositions, DeleteAccount, ReorderAccounts,
+	// UpdateAccountBalancesTx, UpdatePasswordAndClearResetToken,
+	// DeleteUserAndData) : en DEFERRED, l'upgrade lecture→écriture peut échouer
+	// en SQLITE_BUSY_SNAPSHOT, que busy_timeout ne rattrape PAS et qu'aucun
+	// retry ne couvre. En IMMEDIATE, le verrou d'écriture est pris dès le BEGIN,
+	// donc l'attente est gouvernée par busy_timeout (5 s). Aucune transaction
+	// purement lecture n'existe ici, le coût de sérialisation est donc nul.
+	dsn := cfg.Path + "?_txlock=immediate&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=cache_size(10000)&_pragma=temp_store(MEMORY)&_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=mmap_size(268435456)"
 
 	var err error
 	DB, err = sql.Open("sqlite", dsn)
@@ -271,12 +281,43 @@ func runMigrations(dbPath string) error {
 			created_at INTEGER NOT NULL
 		)`},
 		{Name: "008_encrypt_account_fields", Run: func(d *sql.DB) error {
-			// Backup avant chiffrement via VACUUM INTO (copie propre incluant le WAL)
-			backupPath := dbPath + ".bak"
-			if _, err := d.Exec("VACUUM INTO ?", backupPath); err != nil {
-				return fmt.Errorf("migration 008: backup impossible (arrêt par sécurité): %w", err)
+			// Backup avant chiffrement via VACUUM INTO (copie propre incluant le WAL).
+			//
+			// Audit S-11 : l'ancien nom fixe dbPath+".bak" créait une impasse de
+			// démarrage permanente. VACUUM INTO REFUSE d'écrire sur un fichier
+			// existant ("output file already exists") et rien ne supprimait jamais
+			// ce .bak, donc tout rejeu de 008 — crash entre le return et l'INSERT
+			// dans schema_migrations, ou suppression manuelle de pilot.db pour
+			// repartir de zéro — échouait définitivement avec un message que
+			// l'opérateur ne pouvait rattacher à aucune action.
+			//
+			// Deux corrections, toutes deux sûres pour une base déjà migrée
+			// (008 est alors dans schema_migrations et n'est jamais rejouée) :
+			//  1. Le backup n'est créé que si accounts est NON VIDE. Sur une base
+			//     neuve il n'y a rien à convertir, donc rien à sauvegarder : plus
+			//     de fichier .bak parasite contenant des montants en clair à côté
+			//     d'une base « chiffrée au repos ».
+			//  2. Le nom porte un horodatage, donc ne peut jamais entrer en
+			//     collision. Un rejeu produit un NOUVEAU fichier au lieu
+			//     d'échouer, et n'écrase JAMAIS la copie pré-migration
+			//     précédente — celle-ci est l'unique recours documenté pour la
+			//     limite d'unité FIN-15/S-32 (voir crypto.DecryptCents).
+			var accountCount int
+			if err := d.QueryRow(`SELECT COUNT(*) FROM accounts`).Scan(&accountCount); err != nil {
+				return fmt.Errorf("migration 008: comptage accounts: %w", err)
 			}
-			slog.Info("migration 008: backup créé", "path", backupPath)
+			if accountCount > 0 {
+				backupPath := fmt.Sprintf("%s.pre008.%d.bak", dbPath, time.Now().Unix())
+				// Garde-fou contre un rejeu dans la même seconde : sans cela,
+				// VACUUM INTO échouerait sur « output file already exists » et on
+				// retomberait exactement dans le boot loop corrigé ici.
+				os.Remove(backupPath)
+				if _, err := d.Exec("VACUUM INTO ?", backupPath); err != nil {
+					return fmt.Errorf("migration 008: backup impossible (arrêt par sécurité): %w", err)
+				}
+				slog.Warn("migration 008: backup pré-chiffrement créé — il contient les montants EN CLAIR, à conserver le temps de l'audit des soldes puis à supprimer",
+					"path", backupPath, "accounts", accountCount)
+			}
 
 			rows, err := d.Query(`SELECT id, balance, yield_min, yield_max, reinvestment_rate FROM accounts`)
 			if err != nil {
@@ -301,35 +342,36 @@ func runMigrations(dbPath string) error {
 			}
 			rows.Close()
 
+			encFloat := func(s string) (string, error) {
+				f, err := strconv.ParseFloat(s, 64)
+				if err != nil {
+					return s, nil
+				}
+				return crypto.EncryptFloat(f)
+			}
 			for _, r := range toUpdate {
-				balEnc := encryptIfPlain(r.balance, func(s string) (string, error) {
-					f, err := strconv.ParseFloat(s, 64)
-					if err != nil {
-						return s, nil
-					}
-					return crypto.EncryptFloat(f)
-				})
-				ymEnc := encryptIfPlain(r.yieldMin, func(s string) (string, error) {
-					f, err := strconv.ParseFloat(s, 64)
-					if err != nil {
-						return s, nil
-					}
-					return crypto.EncryptFloat(f)
-				})
-				yxEnc := encryptIfPlain(r.yieldMax, func(s string) (string, error) {
-					f, err := strconv.ParseFloat(s, 64)
-					if err != nil {
-						return s, nil
-					}
-					return crypto.EncryptFloat(f)
-				})
-				rrEnc := encryptIfPlain(r.reinvestRate, func(s string) (string, error) {
+				balEnc, err := encryptIfPlain(r.balance, encFloat)
+				if err != nil {
+					return fmt.Errorf("migration 008: chiffrement balance id=%d: %w", r.id, err)
+				}
+				ymEnc, err := encryptIfPlain(r.yieldMin, encFloat)
+				if err != nil {
+					return fmt.Errorf("migration 008: chiffrement yield_min id=%d: %w", r.id, err)
+				}
+				yxEnc, err := encryptIfPlain(r.yieldMax, encFloat)
+				if err != nil {
+					return fmt.Errorf("migration 008: chiffrement yield_max id=%d: %w", r.id, err)
+				}
+				rrEnc, err := encryptIfPlain(r.reinvestRate, func(s string) (string, error) {
 					n, err := strconv.Atoi(s)
 					if err != nil {
 						return s, nil
 					}
 					return crypto.EncryptInt(n)
 				})
+				if err != nil {
+					return fmt.Errorf("migration 008: chiffrement reinvestment_rate id=%d: %w", r.id, err)
+				}
 				if _, err := d.Exec(`UPDATE accounts SET balance=?, yield_min=?, yield_max=?, reinvestment_rate=? WHERE id=?`,
 					balEnc, ymEnc, yxEnc, rrEnc, r.id); err != nil {
 					return fmt.Errorf("update account id=%d: %w", r.id, err)
@@ -337,6 +379,18 @@ func runMigrations(dbPath string) error {
 			}
 			return nil
 		}},
+		// ATTENTION (audit S-32) : cette migration chiffre les montants récurrents
+		// legacy en EUROS float via EncryptFloat, alors que le lecteur
+		// (crypto.DecryptCents, appelé par GetRecurringByUserID) interprète en
+		// CENTIMES dès que le plaintext ne contient pas de point décimal. Un
+		// salaire Node « 3000 » est donc relu 3000 centimes = 30,00 € (÷100).
+		// Même ambiguïté d'unité que la migration 008 sur les soldes (FIN-15),
+		// mais PLUS exposée : un salaire, un loyer ou un abonnement est presque
+		// toujours un montant entier. Voir la note complète sur DecryptCents.
+		// Non corrigeable ici : « 3000 » est indiscernable d'un montant
+		// légitimement stocké en centimes. Seul l'audit manuel après migration
+		// depuis Node, comparé au backup .pre008.<timestamp>.bak, permet de
+		// trancher — les bases créées par cette version ne sont pas concernées.
 		{Name: "009_encrypt_recurring_amount", Run: func(d *sql.DB) error {
 			rows, err := d.Query(`SELECT id, amount FROM recurring_operations`)
 			if err != nil {
@@ -359,13 +413,16 @@ func runMigrations(dbPath string) error {
 			rows.Close()
 
 			for _, r := range toUpdate {
-				amtEnc := encryptIfPlain(r.amount, func(s string) (string, error) {
+				amtEnc, err := encryptIfPlain(r.amount, func(s string) (string, error) {
 					f, err := strconv.ParseFloat(s, 64)
 					if err != nil {
 						return s, nil
 					}
 					return crypto.EncryptFloat(f)
 				})
+				if err != nil {
+					return fmt.Errorf("migration 009: chiffrement amount id=%d: %w", r.id, err)
+				}
 				if _, err := d.Exec(`UPDATE recurring_operations SET amount=? WHERE id=?`, amtEnc, r.id); err != nil {
 					return fmt.Errorf("update recurring id=%d: %w", r.id, err)
 				}
@@ -406,12 +463,14 @@ func runMigrations(dbPath string) error {
 			rows.Close()
 
 			for _, r := range toUpdate {
-				ipEnc := encryptIfPlain(r.ip, func(s string) (string, error) {
-					return crypto.Encrypt(s)
-				})
-				uaEnc := encryptIfPlain(r.userAgent, func(s string) (string, error) {
-					return crypto.Encrypt(s)
-				})
+				ipEnc, err := encryptIfPlain(r.ip, crypto.Encrypt)
+				if err != nil {
+					return fmt.Errorf("migration 011: chiffrement ip id=%d: %w", r.id, err)
+				}
+				uaEnc, err := encryptIfPlain(r.userAgent, crypto.Encrypt)
+				if err != nil {
+					return fmt.Errorf("migration 011: chiffrement user_agent id=%d: %w", r.id, err)
+				}
 				if _, err := d.Exec(`UPDATE audit_log SET ip=?, user_agent=? WHERE id=?`,
 					ipEnc, uaEnc, r.id); err != nil {
 					return fmt.Errorf("update audit id=%d: %w", r.id, err)
@@ -444,12 +503,14 @@ func runMigrations(dbPath string) error {
 			rows.Close()
 
 			for _, r := range toUpdate {
-				ipEnc := encryptIfPlain(r.ip, func(s string) (string, error) {
-					return crypto.Encrypt(s)
-				})
-				uaEnc := encryptIfPlain(r.userAgent, func(s string) (string, error) {
-					return crypto.Encrypt(s)
-				})
+				ipEnc, err := encryptIfPlain(r.ip, crypto.Encrypt)
+				if err != nil {
+					return fmt.Errorf("migration 012: chiffrement ip id=%d: %w", r.id, err)
+				}
+				uaEnc, err := encryptIfPlain(r.userAgent, crypto.Encrypt)
+				if err != nil {
+					return fmt.Errorf("migration 012: chiffrement user_agent id=%d: %w", r.id, err)
+				}
 				if ipEnc != r.ip || uaEnc != r.userAgent {
 					if _, err := d.Exec(`UPDATE audit_log SET ip=?, user_agent=? WHERE id=?`,
 						ipEnc, uaEnc, r.id); err != nil {
@@ -508,7 +569,29 @@ func runMigrations(dbPath string) error {
 					reinvestment_rate TEXT DEFAULT '100',
 					target_account_id INTEGER REFERENCES accounts_new(id) ON DELETE SET NULL
 				)`,
-				`INSERT INTO accounts_new SELECT * FROM accounts`,
+				// Colonnes NOMMÉES et non SELECT * (audit S-10) : un INSERT
+				// positionnel suppose que l'ordre PHYSIQUE des colonnes de
+				// l'ancienne table est identique à celui de la nouvelle. Ce
+				// n'est vrai que pour une base créée par 000_base_schema ; sur
+				// une base héritée de la version Node, l'ordre diffère et les
+				// ALTER ... ADD COLUMN de 001/004/005 ajoutent leurs colonnes
+				// EN FIN de table. Le rebuild écrivait alors les valeurs dans
+				// les mauvaises colonnes — au mieux une contrainte NOT NULL /
+				// FOREIGN KEY échouait (boot loop permanent, la migration
+				// n'étant jamais classée idempotente), au pire des données
+				// financières atterrissaient dans le mauvais champ. La liste
+				// explicite est correcte quel que soit l'ordre physique.
+				`INSERT INTO accounts_new (
+					id, user_id, name, balance, color, position, updated_at,
+					is_yield_active, yield_type, yield_min, yield_max,
+					yield_frequency, payout_frequency, last_yield_date,
+					reinvestment_rate, target_account_id
+				) SELECT
+					id, user_id, name, balance, color, position, updated_at,
+					is_yield_active, yield_type, yield_min, yield_max,
+					yield_frequency, payout_frequency, last_yield_date,
+					reinvestment_rate, target_account_id
+				FROM accounts`,
 				`DROP TABLE accounts`,
 				`ALTER TABLE accounts_new RENAME TO accounts`,
 				`CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id, position)`,
@@ -524,7 +607,13 @@ func runMigrations(dbPath string) error {
 					last_run_date INTEGER,
 					is_active INTEGER DEFAULT 1
 				)`,
-				`INSERT INTO recurring_operations_new SELECT * FROM recurring_operations`,
+				`INSERT INTO recurring_operations_new (
+					id, user_id, account_id, to_account_id, amount, description,
+					day_of_month, last_run_date, is_active
+				) SELECT
+					id, user_id, account_id, to_account_id, amount, description,
+					day_of_month, last_run_date, is_active
+				FROM recurring_operations`,
 				`DROP TABLE recurring_operations`,
 				`ALTER TABLE recurring_operations_new RENAME TO recurring_operations`,
 				`CREATE INDEX IF NOT EXISTS idx_recurring_user_id ON recurring_operations(user_id, day_of_month)`,
@@ -541,7 +630,15 @@ func runMigrations(dbPath string) error {
 					user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 					name TEXT
 				)`,
-				`INSERT INTO authenticators_new SELECT * FROM authenticators`,
+				`INSERT INTO authenticators_new (
+					id, credential_id, credential_public_key, counter,
+					credential_device_type, credential_backed_up,
+					backup_eligible, transports, user_id, name
+				) SELECT
+					id, credential_id, credential_public_key, counter,
+					credential_device_type, credential_backed_up,
+					backup_eligible, transports, user_id, name
+				FROM authenticators`,
 				`DROP TABLE authenticators`,
 				`ALTER TABLE authenticators_new RENAME TO authenticators`,
 				`CREATE INDEX IF NOT EXISTS idx_authenticators_user_id ON authenticators(user_id)`,
@@ -681,16 +778,23 @@ func isEncrypted(s string) bool {
 
 // encryptIfPlain chiffre une valeur si elle n'est pas déjà au format AES-256-GCM.
 // fn reçoit la valeur brute et retourne la valeur chiffrée.
-func encryptIfPlain(raw string, fn func(string) (string, error)) string {
+//
+// Audit S-24 : cette fonction échouait en mode OUVERT — un chiffrement raté
+// laissait la valeur EN CLAIR en base, la migration se déclarait réussie et
+// était enregistrée dans schema_migrations, donc jamais rejouée. Le résultat
+// était une base partiellement en clair sous une application qui affiche
+// « tout chiffré au repos », sans erreur ni test rouge. L'erreur est désormais
+// remontée : l'appelant (une migration) doit interrompre le démarrage.
+func encryptIfPlain(raw string, fn func(string) (string, error)) (string, error) {
 	if isEncrypted(raw) {
-		return raw // déjà chiffré
+		return raw, nil // déjà chiffré
 	}
 	enc, err := fn(raw)
 	if err != nil {
-		slog.Warn("encryptIfPlain: encryption failed, keeping plaintext", "err", err, "len", len(raw))
-		return raw
+		slog.Error("encryptIfPlain: chiffrement échoué, migration interrompue", "err", err, "len", len(raw))
+		return "", err
 	}
-	return enc
+	return enc, nil
 }
 
 // Close ferme la connexion à la base de données et arrête la goroutine de maintenance.
