@@ -1,0 +1,19 @@
+{
+  "name": "pilot-finance-assets",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Build-time asset toolchain (Tailwind CSS v4 + esbuild). Used only by the `css` stage of go/Dockerfile — nothing from node_modules ships in the final image.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build:css": "tailwindcss -i static/css/input.css -o static/css/tailwind.css --minify",
+    "watch:css": "tailwindcss -i static/css/input.css -o static/css/tailwind.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.3.3",
+    "esbuild": "0.28.1",
+    "tailwindcss": "4.3.3"
+  }
+}
