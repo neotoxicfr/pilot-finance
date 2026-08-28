@@ -7,7 +7,7 @@ Thank you for considering contributing to Pilot Finance! This guide will help yo
 ### Prerequisites
 
 - **Go 1.26+**
-- **Node.js 25+** (for Tailwind CSS compilation and E2E tests)
+- **Node.js 26** (the version used by the `css` stage of `go/Dockerfile`; 25+ is enough for the E2E suite alone)
 - **SQLite** (bundled via `modernc.org/sqlite`, no system install needed)
 
 ### Clone and Build
@@ -45,7 +45,7 @@ go test -race -timeout 600s -coverprofile=coverage.out $(go list ./... | grep -v
 # Benchmarks
 go test -bench=. -benchmem ./internal/projection/
 
-# Lint
+# Lint (CI pins v2.13.2 — see .github/workflows/ci.yml)
 golangci-lint run
 ```
 
@@ -61,7 +61,41 @@ npx playwright test
 
 # With UI
 npx playwright test --ui
+
+# WebKit is excluded in CI (flaky cookie/storageState on Linux runners) but
+# input.css carries an iOS-Safari-only fix — run it locally before a release:
+npx playwright install webkit
+npx playwright test --project=webkit
 ```
+
+### Asset toolchain lockfile
+
+The CSS/JS assets served in production are produced by the `css` stage of
+`go/Dockerfile` (Tailwind CSS + esbuild). Their versions are declared exactly in
+`go/package.json`, and the whole transitive tree is meant to be frozen by
+`go/package-lock.json`.
+
+```bash
+cd go
+npm ci --ignore-scripts --no-audit --no-fund   # install exactly what the lockfile says
+npm run build:css                              # or: make css
+```
+
+After changing a version in `go/package.json`, regenerate the lockfile and commit
+it in the same commit:
+
+```bash
+cd go
+npm install --package-lock-only --ignore-scripts --no-audit --no-fund   # or: make css-lock
+git add package.json package-lock.json
+```
+
+`go/Dockerfile` runs `npm ci`, so a missing or out-of-sync lockfile fails the
+image build. The `Asset toolchain` job in `ci.yml` runs the same install and
+compiles the assets, so a broken toolchain is caught before the Docker build.
+
+Never install these tools with `-g`, and never drop `--ignore-scripts`: this is
+the only path by which third-party code reaches the files served to browsers.
 
 ### Load Tests
 

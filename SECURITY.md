@@ -2,14 +2,13 @@
 
 ## Supported Versions
 
-Only the latest minor release receives security fixes.
+Only the **latest published release** receives security fixes. No version number
+is pinned here on purpose: the supported version is always the one shown by the
+[Releases page](https://github.com/neotoxicfr/pilot-finance/releases/latest),
+and the matching `ghcr.io/neotoxicfr/pilot-finance:latest` image.
 
-| Version | Supported |
-| ------- | --------- |
-| v2.21.x | ✅ |
-| < v2.21 | ❌ |
-
-> Versions prior to v2.21 are no longer supported. Please update to the latest release.
+Older releases, including earlier patch versions of the current minor, are not
+maintained. Please update before reporting an issue.
 
 ## Reporting a Vulnerability
 
@@ -26,14 +25,14 @@ I aim to respond within 48 hours to discuss remediation steps.
 
 ## Versions supportées
 
-Seule la dernière version mineure bénéficie des correctifs de sécurité.
+Seule la **dernière version publiée** bénéficie des correctifs de sécurité.
+Aucun numéro de version n'est figé ici volontairement : la version supportée est
+toujours celle qu'affiche la
+[page des releases](https://github.com/neotoxicfr/pilot-finance/releases/latest),
+et l'image `ghcr.io/neotoxicfr/pilot-finance:latest` correspondante.
 
-| Version | Supportée |
-| ------- | --------- |
-| v2.21.x | ✅ |
-| < v2.21 | ❌ |
-
-> Les versions antérieures à v2.21 ne sont plus supportées. Veuillez mettre à jour vers la dernière version.
+Les versions antérieures, y compris les patchs précédents de la mineure
+courante, ne sont pas maintenues. Merci de mettre à jour avant tout signalement.
 
 ## Signaler une vulnérabilité
 

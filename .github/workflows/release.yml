@@ -5,9 +5,15 @@ on:
     tags:
       - 'v*'
 
+# Pas de `concurrency` ici : une publication de release ne doit jamais être
+# annulée par un autre run.
+
+permissions: {}
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     defaults:
@@ -19,11 +25,15 @@ jobs:
         with:
           go-version-file: go/go.mod
           cache-dependency-path: go/go.sum
-      - run: go test -race -timeout 600s $(go list ./... | grep -v -E '/cmd/|/db$')
+      # Suite complète (audit S-13) : l'exclusion de /cmd/ et /db permettait à
+      # une régression db de créer la release GitHub alors que le build d'image,
+      # lui, testait tout — release et image pouvaient diverger silencieusement.
+      - run: go test -race -timeout 600s ./...
 
   release:
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:

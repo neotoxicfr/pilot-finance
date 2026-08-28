@@ -8,6 +8,12 @@ on:
     branches: [main, develop]
     paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
 
+concurrency:
+  group: lighthouse-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
 jobs:
   lighthouse:
     name: Lighthouse Audit
