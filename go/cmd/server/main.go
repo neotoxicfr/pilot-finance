@@ -299,6 +299,11 @@ func main() {
 	// Stop rate-limiter background workers only after in-flight requests have
 	// drained (server.Shutdown above), since handlers may still touch limiters.
 	ratelimit.StopAll()
+	// Drain les tâches forgot-password en vol (audit S-33). Le handler répond
+	// immédiatement puis fait le travail en arrière-plan pour ne pas exposer un
+	// oracle temporel ; sans ce drain, un arrêt pendant cette fenêtre laissait
+	// l'écriture du jeton ou l'envoi du mail inachevés, sur une base déjà fermée.
+	handlers.FlushForgotPassword()
 	// M6 : drain les écritures audit en vol avant de quitter (fire-and-forget).
 	db.FlushAuditLog()
 	slog.Info("serveur arrêté proprement")

@@ -256,12 +256,15 @@ func DeleteSelfAccount(w http.ResponseWriter, r *http.Request) {
 	clientIP := getClientIP(r)
 	ua := r.UserAgent()
 
-	hookInvalidateSessionCache(userID)
-
+	// L'invalidation doit suivre la suppression, pas la précéder (audit S-33) :
+	// entre les deux, une requête concurrente portant l'ancien cookie relit la
+	// base — l'utilisateur existe encore — et repeuple le cache, qui survit
+	// alors à la suppression pendant tout son TTL.
 	if err := hookDeleteUserAndData(userID); err != nil {
 		serverError(w, "delete user", err)
 		return
 	}
+	hookInvalidateSessionCache(userID)
 
 	hookLogAudit(userID, db.AuditGDPRDelete, clientIP, ua)
 
@@ -297,13 +300,13 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hookInvalidateSessionCache(id)
-
+	// Même ordre que la suppression de son propre compte (audit S-33).
 	err = hookDeleteUserAndData(id)
 	if err != nil {
 		serverError(w, "delete user", err)
 		return
 	}
+	hookInvalidateSessionCache(id)
 
 	hookLogAudit(user.ID, db.AuditAdminDeleteUser, getClientIP(r), r.UserAgent())
 
