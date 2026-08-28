@@ -20,32 +20,32 @@ func goRoot() string {
 // --- formatMoneyCompact ---
 
 func TestFormatMoneyCompact_Small(t *testing.T) {
-	if got := formatMoneyCompact(0, "EUR"); got != "0 EUR" {
+	if got := formatMoneyCompact(0, "EUR", "fr"); got != "0 EUR" {
 		t.Errorf("want '0 EUR', got %q", got)
 	}
-	if got := formatMoneyCompact(999, "EUR"); got != "999 EUR" {
+	if got := formatMoneyCompact(999, "EUR", "fr"); got != "999 EUR" {
 		t.Errorf("want '999 EUR', got %q", got)
 	}
 }
 
 // Séparateur décimal harmonisé sur formatFloat : virgule, plus point (audit S-26).
 func TestFormatMoneyCompact_Kilo(t *testing.T) {
-	if got := formatMoneyCompact(1500, "EUR"); got != "1,5k EUR" {
+	if got := formatMoneyCompact(1500, "EUR", "fr"); got != "1,5k EUR" {
 		t.Errorf("want '1,5k EUR', got %q", got)
 	}
-	if got := formatMoneyCompact(15000, "EUR"); got != "15k EUR" {
+	if got := formatMoneyCompact(15000, "EUR", "fr"); got != "15k EUR" {
 		t.Errorf("want '15k EUR', got %q", got)
 	}
 }
 
 func TestFormatMoneyCompact_Mega(t *testing.T) {
-	if got := formatMoneyCompact(1500000, "EUR"); got != "1,5M EUR" {
+	if got := formatMoneyCompact(1500000, "EUR", "fr"); got != "1,5M EUR" {
 		t.Errorf("want '1,5M EUR', got %q", got)
 	}
 }
 
 func TestFormatMoneyCompact_Negative(t *testing.T) {
-	got := formatMoneyCompact(-1500, "EUR")
+	got := formatMoneyCompact(-1500, "EUR", "fr")
 	if got != "-1,5k EUR" {
 		t.Errorf("want '-1,5k EUR', got %q", got)
 	}
@@ -53,7 +53,7 @@ func TestFormatMoneyCompact_Negative(t *testing.T) {
 
 func TestFormatMoneyCompact_EmptyCurrency(t *testing.T) {
 	// Empty currency defaults to EUR
-	got := formatMoneyCompact(100, "")
+	got := formatMoneyCompact(100, "", "fr")
 	if got != "100 EUR" {
 		t.Errorf("want '100 EUR', got %q", got)
 	}
@@ -88,7 +88,7 @@ func TestFormatMoneyCompact_JSMirror(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := formatMoneyCompact(tc.value, "EUR"); got != tc.want {
+			if got := formatMoneyCompact(tc.value, "EUR", "fr"); got != tc.want {
 				t.Errorf("formatMoneyCompact(%v): want %q, got %q", tc.value, tc.want, got)
 			}
 		})
@@ -143,19 +143,19 @@ func TestFormatBalance_Decimal(t *testing.T) {
 // --- formatMoney ---
 
 func TestFormatMoney_Integer(t *testing.T) {
-	if got := formatMoney(1000, "EUR"); got != "1 000 EUR" {
+	if got := formatMoney(1000, "EUR", "fr"); got != "1 000 EUR" {
 		t.Errorf("want '1 000 EUR', got %q", got)
 	}
 }
 
 func TestFormatMoney_Decimal(t *testing.T) {
-	if got := formatMoney(1000.50, "EUR"); got != "1 000,50 EUR" {
+	if got := formatMoney(1000.50, "EUR", "fr"); got != "1 000,50 EUR" {
 		t.Errorf("want '1 000,50 EUR', got %q", got)
 	}
 }
 
 func TestFormatMoney_EmptyCurrency(t *testing.T) {
-	got := formatMoney(100, "")
+	got := formatMoney(100, "", "fr")
 	if got != "100 EUR" {
 		t.Errorf("want '100 EUR', got %q", got)
 	}
@@ -402,8 +402,8 @@ func TestNeFunc(t *testing.T) {
 // --- formatWithSpaces negative ---
 
 func TestFormatWithSpaces_Negative(t *testing.T) {
-	if got := formatWithSpaces(-1234567); got != "-1 234 567" {
-		t.Errorf("formatWithSpaces(-1234567): want '-1 234 567', got %q", got)
+	if got := groupDigits(-1234567, " "); got != "-1 234 567" {
+		t.Errorf("groupDigits(-1234567, espace): want '-1 234 567', got %q", got)
 	}
 }
 
@@ -411,8 +411,8 @@ func TestFormatWithSpaces_Negative(t *testing.T) {
 
 func TestFormatFloat_Negative(t *testing.T) {
 	// negative float: intPart=-1, decPart = (-1.5 - (-1)) * 100 = -50 → abs → 50
-	if got := formatFloat(-1.5); got != "-1,50" {
-		t.Errorf("formatFloat(-1.5): want '-1,50', got %q", got)
+	if got := formatDecimal(-1.5, " ", ","); got != "-1,50" {
+		t.Errorf("formatDecimal(-1.5): want '-1,50', got %q", got)
 	}
 }
 
@@ -604,32 +604,32 @@ func TestToFloat64_Int64(t *testing.T) {
 
 func TestFormatFloat_NegativeZero(t *testing.T) {
 	// math.Signbit(-0.0) is true, but abs is 0 → should produce "-0,00"
-	got := formatFloat(math.Copysign(0, -1))
+	got := formatDecimal(math.Copysign(0, -1), " ", ",")
 	if got != "-0,00" {
-		t.Errorf("formatFloat(-0.0): want '-0,00', got %q", got)
+		t.Errorf("formatDecimal(-0.0): want '-0,00', got %q", got)
 	}
 }
 
 func TestFormatFloat_RoundingOverflow(t *testing.T) {
 	// Test the rounding overflow path: when decPart rounds up to 100
 	// 99.999 → absVal=99.999, intPart=99, decPart=round(0.999*100)=100 → intPart becomes 100
-	got := formatFloat(99.999)
+	got := formatDecimal(99.999, " ", ",")
 	if got != "100,00" {
-		t.Errorf("formatFloat(99.999): want '100,00', got %q", got)
+		t.Errorf("formatDecimal(99.999): want '100,00', got %q", got)
 	}
 }
 
 func TestFormatFloat_PositiveDecimal(t *testing.T) {
-	got := formatFloat(1234.56)
+	got := formatDecimal(1234.56, " ", ",")
 	if got != "1 234,56" {
-		t.Errorf("formatFloat(1234.56): want '1 234,56', got %q", got)
+		t.Errorf("formatDecimal(1234.56): want '1 234,56', got %q", got)
 	}
 }
 
 func TestFormatFloat_Zero(t *testing.T) {
-	got := formatFloat(0.0)
+	got := formatDecimal(0.0, " ", ",")
 	if got != "0,00" {
-		t.Errorf("formatFloat(0.0): want '0,00', got %q", got)
+		t.Errorf("formatDecimal(0.0): want '0,00', got %q", got)
 	}
 }
 
@@ -652,5 +652,98 @@ func TestInit_ReadPageFileError(t *testing.T) {
 	err := Init(dir)
 	if err == nil {
 		t.Error("want error from osReadFile on page file")
+	}
+}
+
+// --- Localisation de la couche monétaire (audit S-23) ---
+//
+// Le serveur figeait la notation française alors que PILOT_FMT.currency, côté
+// navigateur, localise via Intl : un compte en anglais lisait « 1 234,56 EUR »
+// rendu par le serveur à côté de « 1,234.56 EUR » rendu par le JS.
+
+func TestMoneySeparators(t *testing.T) {
+	cases := []struct {
+		locale, thousands, decimal string
+	}{
+		{"fr", " ", ","},
+		{"fr-FR", " ", ","},
+		{"en", ",", "."},
+		{"en-US", ",", "."},
+		{"", " ", ","}, // locale absente : repli français, comportement historique
+	}
+	for _, tc := range cases {
+		t.Run(tc.locale, func(t *testing.T) {
+			th, dec := moneySeparators(tc.locale)
+			if th != tc.thousands || dec != tc.decimal {
+				t.Errorf("moneySeparators(%q): want (%q,%q), got (%q,%q)", tc.locale, tc.thousands, tc.decimal, th, dec)
+			}
+		})
+	}
+}
+
+func TestCurrencyDecimals(t *testing.T) {
+	if got := currencyDecimals("JPY"); got != 0 {
+		t.Errorf("le yen ne subdivise pas : want 0, got %d", got)
+	}
+	if got := currencyDecimals("EUR"); got != 2 {
+		t.Errorf("currencyDecimals(EUR): want 2, got %d", got)
+	}
+}
+
+func TestFormatMoney_Locales(t *testing.T) {
+	cases := []struct {
+		name             string
+		amount           interface{}
+		currency, locale string
+		want             string
+	}{
+		{"centimes fr", int64(1234567), "EUR", "fr", "12 345,67 EUR"},
+		{"centimes en", int64(1234567), "EUR", "en", "12,345.67 EUR"},
+		{"decimal fr", 1000.50, "EUR", "fr", "1 000,50 EUR"},
+		{"decimal en", 1000.50, "EUR", "en", "1,000.50 EUR"},
+		{"negatif en", -1000.50, "EUR", "en", "-1,000.50 EUR"},
+		// JPY : aucune décimale, même sur un montant fractionnaire.
+		{"yen entier", 1500.0, "JPY", "fr", "1 500 JPY"},
+		{"yen arrondi", 1500.6, "JPY", "en", "1,501 JPY"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := formatMoney(tc.amount, tc.currency, tc.locale); got != tc.want {
+				t.Errorf("formatMoney(%v,%q,%q): want %q, got %q", tc.amount, tc.currency, tc.locale, tc.want, got)
+			}
+		})
+	}
+}
+
+func TestFormatMoneyCompact_Locales(t *testing.T) {
+	if got := formatMoneyCompact(1500.0, "EUR", "en"); got != "1.5k EUR" {
+		t.Errorf("compact en: want '1.5k EUR', got %q", got)
+	}
+	if got := formatMoneyCompact(-2500000.0, "EUR", "en"); got != "-2.5M EUR" {
+		t.Errorf("compact en negatif: want '-2.5M EUR', got %q", got)
+	}
+}
+
+func TestGroupDigits_Locales(t *testing.T) {
+	if got := groupDigits(1234567, ","); got != "1,234,567" {
+		t.Errorf("groupDigits en: want '1,234,567', got %q", got)
+	}
+	if got := groupDigits(123, " "); got != "123" {
+		t.Errorf("groupDigits court: want '123', got %q", got)
+	}
+}
+
+// TestReplaceFunc couvre la substitution des marqueurs i18n (audit S-20) :
+// la même clé est consommée côté serveur et côté JS, le rendu doit être
+// identique.
+func TestReplaceFunc(t *testing.T) {
+	if got := replaceFunc("Supprime aussi {n} opération(s)", "{n}", 3); got != "Supprime aussi 3 opération(s)" {
+		t.Errorf("replaceFunc nombre: got %q", got)
+	}
+	if got := replaceFunc("Comptes : {list}", "{list}", "A, B"); got != "Comptes : A, B" {
+		t.Errorf("replaceFunc chaine: got %q", got)
+	}
+	if got := replaceFunc("sans marqueur", "{n}", 1); got != "sans marqueur" {
+		t.Errorf("replaceFunc absent: got %q", got)
 	}
 }

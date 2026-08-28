@@ -181,7 +181,7 @@
             <!-- Accounts List -->
             <div class="space-y-3" id="accounts-list">
                 {{range $i, $v := .Accounts}}
-                {{template "account-row" dict "Account" $v "Currency" $.Currency "T" $.T "IsFirst" (eq $i 0) "IsLast" (eq $i $.AccountLastIdx)}}
+                {{template "account-row" dict "Account" $v "Currency" $.Currency "T" $.T "LinkedCount" (index $.LinkedCounts $v.ID) "IsFirst" (eq $i 0) "IsLast" (eq $i $.AccountLastIdx)}}
                 {{else}}
                 {{template "accounts-empty" .}}
                 {{end}}
@@ -639,6 +639,16 @@ document.addEventListener('alpine:init', () => {
         </div>
         <!-- FIX (S-19): x-show puts display:none on the ancestor of the focused button,
              dropping focus to <body>; askDelete()/cancelDelete() move it explicitly. -->
+        <!-- FIX (S-20): db.DeleteAccount supprime aussi les récurrentes liées au
+             compte dans les deux sens (`account_id = ? OR to_account_id = ?`),
+             y compris les virements dont il n'est que la destination. Rien ne
+             l'annonçait : la portée réelle de la suppression est désormais
+             affichée avant confirmation. -->
+        {{if gt .LinkedCount 0}}
+        <span class="text-xs text-red-700 dark:text-red-400 font-medium text-right leading-tight shrink" x-show="del" x-cloak>
+            {{replace (index .T "accounts.delete_cascade") "{n}" .LinkedCount}}
+        </span>
+        {{end}}
         <div class="flex items-center gap-0.5 shrink-0" x-show="del" x-cloak>
             <button hx-delete="/accounts/{{.Account.ID}}" hx-target="#accounts-list" hx-swap="innerHTML"
                     aria-label="{{index .T "common.confirm_delete"}}"
@@ -683,7 +693,7 @@ document.addEventListener('alpine:init', () => {
             </div>
         </div>
         <div class="text-right shrink-0">
-            <div class="font-mono font-bold text-sm text-emerald-700 dark:text-emerald-400 tabular-nums">+{{formatMoney .Amount $.Currency}}</div>
+            <div class="font-mono font-bold text-sm text-emerald-700 dark:text-emerald-400 tabular-nums">+{{formatMoney .Amount $.Currency $.Locale}}</div>
             <div class="text-xs text-muted-foreground italic mt-0.5">
                 {{if eq .PayoutFrequency "YEARLY"}}{{index $.T "recurring.auto_badge_annual"}}{{else}}{{index $.T "recurring.auto_badge"}}{{end}}
             </div>
@@ -709,7 +719,7 @@ document.addEventListener('alpine:init', () => {
             </div>
         </div>
         <div class="font-mono font-bold text-sm tabular-nums shrink-0 {{if .ToAccountID}}text-blue-600 dark:text-blue-400{{else if gt .Amount 0.0}}text-emerald-700 dark:text-emerald-400{{else}}text-foreground{{end}}">
-            {{if not .ToAccountID}}{{if gt .Amount 0.0}}+{{end}}{{end}}{{formatMoney .Amount $.Currency}}
+            {{if not .ToAccountID}}{{if gt .Amount 0.0}}+{{end}}{{end}}{{formatMoney .Amount $.Currency $.Locale}}
         </div>
         <div class="flex items-center gap-0.5 shrink-0" x-show="!del">
             <button @click="openRecurringForm({{. | json}})" aria-label="{{index $.T "common.edit"}}"
@@ -766,14 +776,14 @@ document.addEventListener('alpine:init', () => {
                 {{index $.T "summary.income"}}
             </div>
             <div class="font-mono font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
-                <span class="text-lg sm:text-xl">+{{formatMoney .MonthlyIncome $.Currency}}</span>
+                <span class="text-lg sm:text-xl">+{{formatMoney .MonthlyIncome $.Currency $.Locale}}</span>
                 <span class="text-xs text-muted-foreground font-medium">{{index $.T "summary.per_month"}}</span>
             </div>
             <div class="font-mono text-sm text-emerald-700 dark:text-emerald-400 whitespace-nowrap mt-0.5">
-                +{{formatMoneyCompact (add (mult .MonthlyIncome 12) .AnnualYield) $.Currency}}{{index $.T "summary.per_year"}}
+                +{{formatMoneyCompact (add (mult .MonthlyIncome 12) .AnnualYield) $.Currency $.Locale}}{{index $.T "summary.per_year"}}
             </div>
             {{if gt (add .MonthlyYield .AnnualYield) 0.0}}
-            <div class="text-xs text-emerald-700 dark:text-emerald-400 mt-1.5 font-medium whitespace-nowrap">{{index $.T "summary.yield_auto"}} +{{formatMoneyCompact (add (mult .MonthlyYield 12) .AnnualYield) $.Currency}}{{index $.T "summary.per_year"}}</div>
+            <div class="text-xs text-emerald-700 dark:text-emerald-400 mt-1.5 font-medium whitespace-nowrap">{{index $.T "summary.yield_auto"}} +{{formatMoneyCompact (add (mult .MonthlyYield 12) .AnnualYield) $.Currency $.Locale}}{{index $.T "summary.per_year"}}</div>
             {{end}}
         </div>
         <!-- Expenses -->
@@ -783,11 +793,11 @@ document.addEventListener('alpine:init', () => {
                 {{index $.T "summary.expenses"}}
             </div>
             <div class="font-mono font-bold text-red-700 dark:text-red-400 whitespace-nowrap">
-                <span class="text-lg sm:text-xl">-{{formatMoney .MonthlyExpenses $.Currency}}</span>
+                <span class="text-lg sm:text-xl">-{{formatMoney .MonthlyExpenses $.Currency $.Locale}}</span>
                 <span class="text-xs text-muted-foreground font-medium">{{index $.T "summary.per_month"}}</span>
             </div>
             <div class="font-mono text-sm text-red-700 dark:text-red-400 whitespace-nowrap mt-0.5">
-                -{{formatMoneyCompact (mult .MonthlyExpenses 12) $.Currency}}{{index $.T "summary.per_year"}}
+                -{{formatMoneyCompact (mult .MonthlyExpenses 12) $.Currency $.Locale}}{{index $.T "summary.per_year"}}
             </div>
         </div>
         <!-- Net -->
@@ -797,11 +807,11 @@ document.addEventListener('alpine:init', () => {
                 {{index $.T "summary.balance"}}
             </div>
             <div class="font-mono font-bold whitespace-nowrap {{if ge .MonthlyNet 0.0}}text-blue-600 dark:text-blue-400{{else}}text-red-700 dark:text-red-400{{end}}">
-                <span class="text-lg sm:text-xl">{{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney .MonthlyNet $.Currency}}</span>
+                <span class="text-lg sm:text-xl">{{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney .MonthlyNet $.Currency $.Locale}}</span>
                 <span class="text-xs text-muted-foreground font-medium">{{index $.T "summary.per_month"}}</span>
             </div>
             <div class="font-mono text-sm whitespace-nowrap mt-0.5 {{if ge .MonthlyNet 0.0}}text-blue-600 dark:text-blue-400{{else}}text-red-700 dark:text-red-400{{end}}">
-                {{if gt (add (mult .MonthlyNet 12) .AnnualYield) 0.0}}+{{end}}{{formatMoneyCompact (add (mult .MonthlyNet 12) .AnnualYield) $.Currency}}{{index $.T "summary.per_year"}}
+                {{if gt (add (mult .MonthlyNet 12) .AnnualYield) 0.0}}+{{end}}{{formatMoneyCompact (add (mult .MonthlyNet 12) .AnnualYield) $.Currency $.Locale}}{{index $.T "summary.per_year"}}
             </div>
         </div>
     </div>

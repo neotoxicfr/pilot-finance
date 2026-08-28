@@ -4,6 +4,7 @@
   "accounts.balance_hint": "1500.00",
   "accounts.balance_placeholder": "Balance",
   "accounts.color_label": "Color",
+  "accounts.delete_cascade": "Also deletes {n} linked recurring operation(s)",
   "accounts.edit_form": "Edit Account",
   "accounts.empty_subtitle": "Create your first account to get started",
   "accounts.empty_title": "No accounts yet",

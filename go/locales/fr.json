@@ -4,6 +4,7 @@
   "accounts.balance_hint": "1500.00",
   "accounts.balance_placeholder": "Solde",
   "accounts.color_label": "Couleur",
+  "accounts.delete_cascade": "Supprime aussi {n} op\u00e9ration(s) r\u00e9currente(s) li\u00e9e(s)",
   "accounts.edit_form": "Modifier le compte",
   "accounts.empty_subtitle": "Cr\u00e9ez votre premier compte pour commencer",
   "accounts.empty_title": "Aucun compte pour l'instant",
