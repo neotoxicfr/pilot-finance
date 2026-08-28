@@ -322,3 +322,59 @@ func TestGetUser_WithUser_ReturnsUser(t *testing.T) {
 		t.Errorf("Email: want test@example.com, got %s", got.Email)
 	}
 }
+
+// --- RequireAuth : réponse machine-readable pour les appels fetch/HTMX/API ---
+//
+// Audit S-06 : une session expirée renvoyait un 303 vers /login que fetch()
+// suit de façon transparente, si bien que l'appel JS résolvait avec ok=true et
+// le HTML de la page de connexion. Ces appelants doivent recevoir un 401.
+
+func TestRequireAuth_APICallers_Get401(t *testing.T) {
+	cases := []struct {
+		name   string
+		path   string
+		header [2]string
+	}{
+		{"requête HTMX", "/dashboard", [2]string{"HX-Request", "true"}},
+		{"fetch attendant du JSON", "/dashboard", [2]string{"Accept", "application/json"}},
+		{"endpoint /api/", "/api/dashboard", [2]string{"", ""}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			if tc.header[0] != "" {
+				req.Header.Set(tc.header[0], tc.header[1])
+			}
+			rr := httptest.NewRecorder()
+
+			middleware.RequireAuth(http.HandlerFunc(okHandler)).ServeHTTP(rr, req)
+
+			if rr.Code != http.StatusUnauthorized {
+				t.Errorf("want 401, got %d", rr.Code)
+			}
+			if got := rr.Header().Get("X-Error-Code"); got != "AUTH_REQUIRED" {
+				t.Errorf("X-Error-Code: want AUTH_REQUIRED, got %q", got)
+			}
+			if loc := rr.Header().Get("Location"); loc != "" {
+				t.Errorf("aucune redirection attendue, got Location=%q", loc)
+			}
+		})
+	}
+}
+
+func TestRequireAuth_Navigation_StillRedirects(t *testing.T) {
+	// Une navigation classique (pas de HX-Request, Accept HTML) garde la
+	// redirection : c'est ce qui amène l'utilisateur sur la page de connexion.
+	req := httptest.NewRequest(http.MethodGet, "/dashboard", nil)
+	req.Header.Set("Accept", "text/html")
+	rr := httptest.NewRecorder()
+
+	middleware.RequireAuth(http.HandlerFunc(okHandler)).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("want 303, got %d", rr.Code)
+	}
+	if loc := rr.Header().Get("Location"); loc != "/login" {
+		t.Errorf("Location: want /login, got %s", loc)
+	}
+}

@@ -28,9 +28,10 @@ func TestFormatMoneyCompact_Small(t *testing.T) {
 	}
 }
 
+// Séparateur décimal harmonisé sur formatFloat : virgule, plus point (audit S-26).
 func TestFormatMoneyCompact_Kilo(t *testing.T) {
-	if got := formatMoneyCompact(1500, "EUR"); got != "1.5k EUR" {
-		t.Errorf("want '1.5k EUR', got %q", got)
+	if got := formatMoneyCompact(1500, "EUR"); got != "1,5k EUR" {
+		t.Errorf("want '1,5k EUR', got %q", got)
 	}
 	if got := formatMoneyCompact(15000, "EUR"); got != "15k EUR" {
 		t.Errorf("want '15k EUR', got %q", got)
@@ -38,15 +39,15 @@ func TestFormatMoneyCompact_Kilo(t *testing.T) {
 }
 
 func TestFormatMoneyCompact_Mega(t *testing.T) {
-	if got := formatMoneyCompact(1500000, "EUR"); got != "1.5M EUR" {
-		t.Errorf("want '1.5M EUR', got %q", got)
+	if got := formatMoneyCompact(1500000, "EUR"); got != "1,5M EUR" {
+		t.Errorf("want '1,5M EUR', got %q", got)
 	}
 }
 
 func TestFormatMoneyCompact_Negative(t *testing.T) {
 	got := formatMoneyCompact(-1500, "EUR")
-	if got != "-1.5k EUR" {
-		t.Errorf("want '-1.5k EUR', got %q", got)
+	if got != "-1,5k EUR" {
+		t.Errorf("want '-1,5k EUR', got %q", got)
 	}
 }
 
@@ -55,6 +56,42 @@ func TestFormatMoneyCompact_EmptyCurrency(t *testing.T) {
 	got := formatMoneyCompact(100, "")
 	if got != "100 EUR" {
 		t.Errorf("want '100 EUR', got %q", got)
+	}
+}
+
+// TestFormatMoneyCompact_JSMirror fige le contrat partagé avec le miroir JS
+// compactMoney() de go/static/js/charts.js (audit S-26). Toute ligne modifiée
+// ici doit l'être aussi dans charts.js : ces valeurs sont exactement celles que
+// l'axe Y et le centre du camembert doivent afficher.
+//
+// Les valeurs évitent volontairement les demi-unités exactes (12,5 → « 12k » en
+// Go, « 13k » en JS) : c'est la seule divergence résiduelle assumée entre les
+// deux formateurs, Go arrondissant les égalités à l'entier pair et JS à
+// l'entier supérieur. Elle est documentée dans charts.js.
+func TestFormatMoneyCompact_JSMirror(t *testing.T) {
+	tests := []struct {
+		name  string
+		value float64
+		want  string
+	}{
+		{"zero", 0, "0 EUR"},
+		{"unites", 999, "999 EUR"},
+		{"millier", 1000, "1,0k EUR"},
+		{"millier decimal", 1234, "1,2k EUR"},
+		{"palier 10k", 10000, "10k EUR"},
+		{"dizaines de milliers", 49450, "49k EUR"},
+		{"million", 1000000, "1,0M EUR"},
+		{"negatif unites", -999, "-999 EUR"},
+		{"negatif millier", -1234, "-1,2k EUR"},
+		{"negatif palier 10k", -12400, "-12k EUR"},
+		{"negatif million", -2500000, "-2,5M EUR"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := formatMoneyCompact(tc.value, "EUR"); got != tc.want {
+				t.Errorf("formatMoneyCompact(%v): want %q, got %q", tc.value, tc.want, got)
+			}
+		})
 	}
 }
 

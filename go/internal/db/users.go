@@ -37,9 +37,16 @@ func CreateUserAtomic(emailEncrypted, emailBlindIndex, password string) (int64, 
 	}
 	defer tx.Rollback()
 
-	// SELECT EXISTS dans la même transaction → sérialise l'attribution ADMIN.
-	// SQLite est single-writer (BEGIN IMMEDIATE/EXCLUSIVE pris implicitement
-	// au premier write), donc deux INSERT concurrents seront sérialisés.
+	// COUNT dans la même transaction → sérialise l'attribution ADMIN.
+	//
+	// Correction du commentaire d'origine (audit S-33), qui affirmait à tort que
+	// « BEGIN IMMEDIATE/EXCLUSIVE est pris implicitement au premier write » :
+	// SQLite ouvre un BEGIN DEFERRED et ne prend le verrou d'écriture qu'au
+	// premier write, ce qui expose la séquence lecture→écriture ci-dessous à un
+	// SQLITE_BUSY_SNAPSHOT que busy_timeout ne rattrape pas. La sérialisation
+	// réelle vient de `_txlock=immediate` posé dans le DSN (sqlite.go) : le
+	// verrou d'écriture est pris dès DB.Begin(), donc deux inscriptions
+	// concurrentes s'attendent au lieu de courir.
 	var adminCount int
 	if err := tx.QueryRow(`SELECT COUNT(*) FROM users WHERE role = 'ADMIN'`).Scan(&adminCount); err != nil {
 		return 0, "", err

@@ -63,13 +63,24 @@ func LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	HandleLogin(w, r)
 }
 
-// RegisterPage affiche la page d'inscription
+// RegisterPage affiche la page d'inscription.
+// Le GET s'ouvre exactement dans les mêmes cas que le POST : registrationOpen()
+// est l'unique condition des deux chemins (audit S-08). CanRegister est forcé à
+// true ici, sinon la page rendue pendant le bootstrap (base vide, ALLOW_REGISTER
+// non positionné) n'afficherait aucun moyen de basculer en mode inscription.
 func RegisterPage(w http.ResponseWriter, r *http.Request) {
-	if os.Getenv("ALLOW_REGISTER") != "true" {
+	if !registrationOpen() {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
-	LoginPage(w, r)
+	data := loginPageData(r)
+	data["CanRegister"] = true
+	data["ResetSuccess"] = false
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := hookRender(w, "login.html", data); err != nil {
+		serverError(w, "render register", err)
+	}
 }
 
 // RegisterSubmit traite la soumission du formulaire d'inscription
@@ -130,6 +141,10 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 	accountColors := make([]map[string]interface{}, 0)
 	for _, acc := range accounts {
 		accountColors = append(accountColors, map[string]interface{}{
+			// L'ID est la clé des séries de projection (audit S-30 : YearData.Accounts
+			// est indexé par ID et non plus par nom, deux comptes homonymes se
+			// double-comptaient). charts.js lit d.accounts[a.id].
+			"id":    acc.ID,
 			"name":  acc.Name,
 			"color": acc.Color,
 		})

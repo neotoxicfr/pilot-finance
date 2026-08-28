@@ -66,11 +66,29 @@ func parseRecurringForm(w http.ResponseWriter, r *http.Request, user *middleware
 	// Pour income/expense, on ignore toute valeur résiduelle envoyée par le formulaire
 	// (le select reste dans le DOM même quand x-show le cache).
 	var toAccountID *int64
-	if opType == "transfer" && toAccountIDStr != "" {
+	if opType == "transfer" {
+		// audit S-04 : un virement sans destinataire n'était pas refusé — il
+		// était enregistré avec ToAccountID nil et un montant laissé positif
+		// (l'ajustement de signe ne traite que expense/income), donc compté
+		// comme un revenu récurrent fantôme dans le résumé et la projection.
+		if toAccountIDStr == "" {
+			clientError(w, ErrValidation, "Compte destinataire requis", http.StatusBadRequest)
+			return f, false
+		}
 		id, err := strconv.ParseInt(toAccountIDStr, 10, 64)
 		if err != nil {
 			clientError(w, ErrValidation, "Compte destinataire invalide", http.StatusBadRequest)
 			return f, false
+		}
+		// Virement vers soi-même : mouvement net nul que la projection
+		// compterait quand même. Refusé (audit S-04). Le compte source n'est
+		// présent dans le formulaire que sur le chemin POST /recurring ; le
+		// chemin PUT ne le transmet pas et ne le modifie pas.
+		if srcStr := r.FormValue("accountId"); srcStr != "" {
+			if srcID, srcErr := strconv.ParseInt(srcStr, 10, 64); srcErr == nil && srcID == id {
+				clientError(w, ErrValidation, "Le compte destinataire doit être différent du compte source", http.StatusBadRequest)
+				return f, false
+			}
 		}
 		if ok, err := hookAccountBelongsToUser(id, user.ID); err != nil || !ok {
 			clientError(w, ErrValidation, "Compte destinataire invalide", http.StatusBadRequest)

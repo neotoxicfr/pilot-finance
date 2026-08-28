@@ -46,6 +46,9 @@ func TestLoginSubmit_DelegatesHandleLogin(t *testing.T) {
 
 func TestRegisterPage_RegisterDisabled_Redirects(t *testing.T) {
 	setupHandlerTest(t)
+	// Un utilisateur existe déjà : le bootstrap du premier compte ne s'applique
+	// plus, donc ALLOW_REGISTER absent referme aussi le GET (audit S-08).
+	newUser(t, "already@example.com", "ValidP@ss1!", "ADMIN")
 
 	rr := httptest.NewRecorder()
 	RegisterPage(rr, httptest.NewRequest(http.MethodGet, "/register", nil))

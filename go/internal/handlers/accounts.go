@@ -19,15 +19,24 @@ import (
 // errInvalidAmount : montant/taux non fini (NaN, ±Inf) ou hors bornes.
 var errInvalidAmount = errors.New("valeur numérique invalide")
 
-// maxCents borne les montants pour empêcher tout débordement int64 lors des
-// accumulations (soldes cumulés, projections sur 30 ans) : 10^15 centimes =
-// 10 000 milliards €, très au-delà de tout usage réel tout en laissant une
-// marge énorme avant 2^63.
+// maxCents borne les montants acceptés EN ENTRÉE (soldes, montants récurrents) :
+// 10^15 centimes = 10 000 milliards €, très au-delà de tout usage réel. Cette
+// borne sécurise la conversion float64 → int64 au parsing ; elle ne garantit à
+// elle seule aucune propriété sur la projection, dont les accumulations
+// dépendent aussi de maxRate, de l'horizon et du nombre de comptes/récurrences
+// (audit S-31 : l'ancien commentaire affirmait à tort « aucun débordement sur
+// 30 ans » alors que 10^15 × (1+10/12)^360 dépasse 2^63 de très loin).
 const maxCents = 1e15
 
 // maxRate borne les taux de rendement (pourcentages) pour éviter la propagation
-// de valeurs absurdes dans le moteur de projection.
-const maxRate = 1000.0
+// de valeurs absurdes dans le moteur de projection. 100 %/an reste un ordre de
+// grandeur au-dessus de tout placement réel, et ramène le facteur composé
+// mensuel de 1,8333 (ancienne borne de 1000 %, qui saturait un int64 en moins
+// de cinq ans depuis un solde ordinaire) à 1,0833. Ce n'est PAS une garantie de
+// non-débordement sur l'horizon maximal de 30 ans (dashboard.go) : la
+// projection somme N comptes et réinjecte des récurrences elles-mêmes seulement
+// bornées par maxCents (audit S-31).
+const maxRate = 100.0
 
 // parseCents parses a decimal string ("1234.56") into centimes (123456).
 // Rejette NaN/±Inf et les valeurs dont l'arrondi dépasse ±maxCents (une
@@ -120,10 +129,13 @@ func parseAccountForm(w http.ResponseWriter, r *http.Request, user *middleware.U
 		return f, false
 	}
 
+	// audit S-03 : même souplesse de saisie que l'import CSV (virgule décimale,
+	// espaces insécables, symboles monétaires). parseCentsFlexible délègue à
+	// parseCents, donc les garde-fous NaN/±Inf/maxCents restent actifs.
 	var balance int64
 	if balanceStr != "" {
 		var err error
-		balance, err = parseCents(balanceStr)
+		balance, err = parseCentsFlexible(balanceStr)
 		if err != nil {
 			clientError(w, ErrValidation, "Solde invalide", http.StatusBadRequest)
 			return f, false
@@ -145,14 +157,16 @@ func parseAccountForm(w http.ResponseWriter, r *http.Request, user *middleware.U
 	yieldMax := 0.0
 	reinvestmentRate := 100
 	var parseErr error
+	// audit S-03 : « 2,5 » et « 2,5 % » sont acceptés au même titre que « 2.5 ».
+	// parseRateFlexible délègue à parseRate : bornes NaN/±Inf/maxRate inchangées.
 	if yieldMinStr != "" {
-		if yieldMin, parseErr = parseRate(yieldMinStr); parseErr != nil {
+		if yieldMin, parseErr = parseRateFlexible(yieldMinStr); parseErr != nil {
 			clientError(w, ErrValidation, "Taux minimum invalide", http.StatusBadRequest)
 			return f, false
 		}
 	}
 	if yieldMaxStr != "" {
-		if yieldMax, parseErr = parseRate(yieldMaxStr); parseErr != nil {
+		if yieldMax, parseErr = parseRateFlexible(yieldMaxStr); parseErr != nil {
 			clientError(w, ErrValidation, "Taux maximum invalide", http.StatusBadRequest)
 			return f, false
 		}
@@ -326,7 +340,9 @@ func UpdateBalance(w http.ResponseWriter, r *http.Request) {
 		clientError(w, ErrValidation, "Solde requis", http.StatusBadRequest)
 		return
 	}
-	balance, err := parseCents(balanceStr)
+	// audit S-03 : saisie souple identique au formulaire de compte et à l'import
+	// CSV ; parseCentsFlexible délègue à parseCents (bornes FIN-1 conservées).
+	balance, err := parseCentsFlexible(balanceStr)
 	if err != nil {
 		clientError(w, ErrValidation, "Solde invalide", http.StatusBadRequest)
 		return

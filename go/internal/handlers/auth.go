@@ -219,14 +219,31 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	htmxRedirect(w, r, "/")
 }
 
+// registrationOpen indique si l'inscription est autorisée, et constitue l'unique
+// source de vérité partagée par le GET (RegisterPage) et le POST
+// (HandleRegister) — avant, l'UI annonçait « fermé » là où l'endpoint acceptait
+// encore (audit S-08).
+//
+// Deux cas seulement :
+//   - ALLOW_REGISTER=true : inscription ouverte en permanence ;
+//   - base sans aucun utilisateur : bootstrap du premier compte (qui reçoit
+//     ADMIN). Sans cette dérogation une instance fraîche serait ininstallable ;
+//     elle se referme d'elle-même dès que ce compte existe.
+//
+// Fail-closed : toute erreur de comptage referme l'inscription.
+func registrationOpen() bool {
+	if os.Getenv("ALLOW_REGISTER") == "true" {
+		return true
+	}
+	count, err := hookCountUsers()
+	return err == nil && count == 0
+}
+
 // HandleRegister gère l'inscription
 func HandleRegister(w http.ResponseWriter, r *http.Request) {
-	if os.Getenv("ALLOW_REGISTER") != "true" {
-		count, err := hookCountUsers()
-		if err != nil || count > 0 {
-			clientError(w, ErrForbidden, "Inscription désactivée", http.StatusForbidden)
-			return
-		}
+	if !registrationOpen() {
+		clientError(w, ErrForbidden, "Inscription désactivée", http.StatusForbidden)
+		return
 	}
 
 	clientIP := getClientIP(r)
