@@ -16,7 +16,7 @@
                 {{template "icon-check-circle" dict "Size" 48 "Class" "text-emerald-500"}}
             </div>
             <div>
-                <h2 class="text-xl font-bold text-foreground">{{index .T "verify.success"}}</h2>
+                <h1 class="text-xl font-bold text-foreground">{{index .T "verify.success"}}</h1>
                 <p class="text-muted-foreground text-sm mt-2">{{index .T "verify.redirecting"}}</p>
             </div>
         </div>
@@ -31,17 +31,17 @@
                 {{template "icon-x-circle" dict "Size" 48 "Class" "text-red-500"}}
             </div>
             <div>
-                <h2 class="text-xl font-bold text-foreground">{{index .T "verify.failed"}}</h2>
-                <p class="text-red-500 text-sm mt-2 font-medium">{{.Error}}</p>
+                <h1 class="text-xl font-bold text-foreground">{{index .T "verify.failed"}}</h1>
+                <p class="text-red-700 dark:text-red-400 text-sm mt-2 font-medium">{{.Error}}</p>
             </div>
-            <a href="/login" class="mt-4 text-blue-500 hover:text-blue-400 hover:underline text-sm font-medium transition-colors">
+            <a href="/login" class="mt-4 text-blue-600 dark:text-blue-400 hover:underline text-sm font-medium transition-colors">
                 {{index .T "verify.back"}}
             </a>
         </div>
         {{else}}
         <div class="flex flex-col items-center gap-4">
             <div class="animate-spin">
-                {{template "icon-loader" dict "Size" 48 "Class" "text-blue-500"}}
+                {{template "icon-loader" dict "Size" 48 "Class" "text-blue-600 dark:text-blue-400"}}
             </div>
             <p class="text-muted-foreground">{{index .T "verify.loading"}}</p>
         </div>

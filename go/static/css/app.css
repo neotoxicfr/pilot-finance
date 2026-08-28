@@ -10,7 +10,7 @@
     --card: #ffffff;
     --border: #e2e8f0;
     --accent: #f1f5f9;
-    --muted-foreground: #64748b;
+    --muted-foreground: #475569;
     --accent-blue: #2563eb;
 
     color-scheme: light;
@@ -410,6 +410,15 @@ form.htmx-request > button:last-child {
     opacity: 0.5;
     pointer-events: none;
     cursor: not-allowed;
+}
+
+/* Busy state for the swap targets (#accounts-list / #recurring-list).
+   Toggled from base.html on htmx:beforeRequest and cleared on htmx:afterRequest,
+   which htmx emits even on 4xx/5xx (where no swap/settle occurs). */
+.list-busy {
+    opacity: 0.45;
+    transition: opacity .15s ease;
+    pointer-events: none;
 }
 
 /* Animations */

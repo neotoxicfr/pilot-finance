@@ -2,12 +2,12 @@
 <div class="w-full flex-1 p-4 md:p-8 max-w-[1600px] mx-auto space-y-8"
      x-data="dashboardData">
 
-<h1 class="sr-only">Dashboard</h1>
+<h1 class="sr-only">{{index .T "dashboard.page_title"}}</h1>
 
 {{if not .Accounts}}
     <!-- Empty state -->
     <div class="flex flex-col items-center justify-center py-16 px-4 text-center">
-        <div class="mb-6 p-6 bg-blue-500/10 rounded-full text-blue-500">
+        <div class="mb-6 p-6 bg-blue-500/10 rounded-full text-blue-600 dark:text-blue-400">
             {{template "icon-piggybank" dict "Size" 64}}
         </div>
         <h2 class="text-2xl font-bold text-foreground mb-2">{{index .T "dashboard.empty_title"}}</h2>
@@ -33,16 +33,16 @@
             <p class="text-xs text-foreground/70 font-semibold uppercase tracking-wider mb-2">{{index .T "dashboard.compound_interests"}}</p>
             <div x-show="!ready" class="skeleton skeleton-kpi mt-1"></div>
             <div x-show="ready" x-cloak class="flex items-baseline gap-2 font-mono tracking-tight">
-                <span class="text-3xl md:text-4xl font-bold text-emerald-500 tabular-nums" x-text="'+' + formatAmount(totalInterests)"></span>
-                <span class="text-lg font-medium text-emerald-500/70" x-text="currency()"></span>
+                <span class="text-3xl md:text-4xl font-bold text-emerald-700 dark:text-emerald-400 tabular-nums" x-text="'+' + formatAmount(totalInterests)"></span>
+                <span class="text-lg font-medium text-emerald-700 dark:text-emerald-400" x-text="currency()"></span>
             </div>
         </div>
         <div class="dashboard-card kpi-card-blue border p-6 rounded-2xl relative overflow-hidden">
             <p class="text-xs text-foreground/70 font-semibold uppercase tracking-wider mb-2">{{index .T "dashboard.projection_years"}} <span x-text="years"></span> {{index .T "dashboard.years_suffix"}}</p>
             <div x-show="!ready" class="skeleton skeleton-kpi mt-1"></div>
             <div x-show="ready" x-cloak class="flex items-baseline gap-2 font-mono tracking-tight">
-                <span class="text-3xl md:text-4xl font-bold text-blue-500 tabular-nums" x-text="formatAmount(projectionTotal)"></span>
-                <span class="text-lg font-medium text-blue-500/70" x-text="currency()"></span>
+                <span class="text-3xl md:text-4xl font-bold text-blue-600 dark:text-blue-400 tabular-nums" x-text="formatAmount(projectionTotal)"></span>
+                <span class="text-lg font-medium text-blue-600 dark:text-blue-400" x-text="currency()"></span>
             </div>
         </div>
     </div>
@@ -114,6 +114,10 @@ function dashboardData() {
         _initial: initial,
         ready: false,
         years: initial.years || 5,
+        // Last horizon actually confirmed by a successful /api/dashboard response.
+        // FIX (S-06): the label follows x-model="years" instantly, so a failed refresh
+        // used to leave "Projection at N years" above the PREVIOUS horizon's amount.
+        confirmedYears: initial.years || 5,
         totalBalance: 0,
         totalInterests: 0,
         projectionTotal: 0,
@@ -141,20 +145,45 @@ function dashboardData() {
             this.updateTimeout = setTimeout(() => this.fetchData(), 150);
         },
 
+        // FIX (S-06): resp.ok is now inspected, the auth redirect (RequireAuth answers a
+        // 303 to /login, which fetch follows into a 200 HTML page) is detected, and any
+        // failure both tells the user and rolls the slider back to the horizon that the
+        // displayed numbers actually correspond to.
         async fetchData() {
+            let resp;
             try {
-                const resp = await fetch('/api/dashboard?years=' + this.years);
-                if (!resp.ok) return;
-                const data = await resp.json();
-
-                this.totalBalance = data.totalBalance;
-                this.totalInterests = data.totalInterests;
-                this.projectionTotal = data.projectionTotal;
-
-                window.updateProjectionChart(data.projection, this.accountColors);
+                resp = await fetch('/api/dashboard?years=' + this.years, {
+                    headers: { 'Accept': 'application/json' }
+                });
             } catch (e) {
-                console.error('Erreur fetch dashboard:', e);
+                this.projectionFailed();
+                return;
             }
+            if (resp.redirected || resp.status === 401) { location.href = '/login'; return; }
+            const ct = resp.headers.get('content-type') || '';
+            if (!resp.ok || ct.indexOf('json') === -1) { this.projectionFailed(); return; }
+
+            let data;
+            try {
+                data = await resp.json();
+            } catch (e) {
+                this.projectionFailed();
+                return;
+            }
+
+            this.confirmedYears = this.years;
+            this.totalBalance = data.totalBalance;
+            this.totalInterests = data.totalInterests;
+            this.projectionTotal = data.projectionTotal;
+
+            window.updateProjectionChart(data.projection, this.accountColors);
+        },
+
+        projectionFailed() {
+            this.years = this.confirmedYears;
+            window.dispatchEvent(new CustomEvent('pilot:toast', {
+                detail: { message: '{{index .T "dashboard.projection_error"}}', isError: true }
+            }));
         },
 
         countUp(to, setter, duration = 700) {
