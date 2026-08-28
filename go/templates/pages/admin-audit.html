@@ -35,9 +35,9 @@
                         <td class="px-4 py-3 whitespace-nowrap">
                             <span class="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide
                                 {{if or (eq .Action "LOGIN_SUCCESS") (eq .Action "PASSKEY_ADD") (eq .Action "MFA_ENABLE") (eq .Action "ACCOUNT_CREATE")}}
-                                    bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20
+                                    bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20
                                 {{else if or (eq .Action "LOGIN_FAIL") (eq .Action "GDPR_DELETE") (eq .Action "ACCOUNT_DELETE") (eq .Action "PASSKEY_REMOVE") (eq .Action "MFA_DISABLE")}}
-                                    bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20
+                                    bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20
                                 {{else}}
                                     bg-accent text-muted-foreground border border-border
                                 {{end}}">
@@ -67,7 +67,7 @@
 
         {{if gt .TotalPages 1}}
         <div class="border-t border-border px-4 py-3 flex items-center justify-between gap-4 text-sm shrink-0">
-            <span class="text-muted-foreground">Page {{.Page}} / {{.TotalPages}}</span>
+            <span class="text-muted-foreground">{{index .T "audit.page_label"}} {{.Page}} / {{.TotalPages}}</span>
             <div class="flex gap-2">
                 {{if gt .Page 1}}
                 <a href="/admin/audit?page={{sub .Page 1}}"

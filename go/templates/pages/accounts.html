@@ -2,6 +2,8 @@
 <div class="w-full flex-1 p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto space-y-6 sm:space-y-8 text-foreground"
      x-data="accountsPage">
 
+    <h1 class="sr-only">{{index .T "accounts.page_title"}}</h1>
+
     <!-- Summary Cards -->
     <div id="summary-card">
         {{template "summary-card" .}}
@@ -14,7 +16,7 @@
                 <h2 class="text-lg font-bold flex items-center gap-2 text-foreground">
                     {{template "icon-wallet" dict "Size" 18}} {{index .T "accounts.title"}}
                 </h2>
-                <button @click="openAccountForm(null)"
+                <button @click="openAccountForm(null)" data-add-account
                         class="text-xs btn-primary text-white px-3 py-2 rounded-xl flex items-center gap-1 font-bold">
                     {{template "icon-plus" dict "Size" 16}} {{index .T "accounts.add"}}
                 </button>
@@ -29,11 +31,14 @@
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 20}}
                     </button>
-                    <h3 id="account-dialog-title" class="text-base font-bold text-blue-500 mb-5" x-text="editingAccount ? '{{index .T "accounts.edit_form"}}' : '{{index .T "accounts.new_form"}}'"></h3>
+                    <h3 id="account-dialog-title" class="text-base font-bold text-blue-600 dark:text-blue-400 mb-5" x-text="editingAccount ? '{{index .T "accounts.edit_form"}}' : '{{index .T "accounts.new_form"}}'"></h3>
                     <form hx-post="/accounts"
                           hx-target="#accounts-list"
                           hx-swap="innerHTML"
                           data-toast=""
+                          @htmx:before-request="accountError = ''"
+                          @htmx:response-error="accountError = $event.detail.xhr.responseText"
+                          @htmx:send-error="accountNetworkError()"
                           class="space-y-5">
                         <input type="hidden" name="id" x-model="accountEditId">
                         <div class="grid grid-cols-2 gap-4">
@@ -115,7 +120,7 @@
 
                                 <div>
                                     <label class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">
-                                        {{index .T "accounts.reinvestment"}}: <span x-text="reinvestmentRate + '%'" class="text-emerald-500"></span>
+                                        {{index .T "accounts.reinvestment"}}: <span x-text="reinvestmentRate + '%'" class="text-emerald-700 dark:text-emerald-400"></span>
                                     </label>
                                     <input type="range" min="0" max="100" step="5" name="reinvestmentRate" x-model="reinvestmentRate"
                                            aria-label="{{index .T "accounts.reinvestment"}}"
@@ -157,7 +162,16 @@
                             </div>
                         </div>
 
-                        <button class="w-full btn-primary text-white py-3 rounded-xl text-sm font-bold">
+                        <!-- FIX (S-02): persistent, in-dialog error region. A <dialog> opened with
+                             showModal() lives in the top layer, so the body-level toast is painted
+                             UNDER its ::backdrop and is unreadable. -->
+                        <template x-if="accountError">
+                            <div role="alert"
+                                 class="text-red-700 dark:text-red-300 text-sm bg-red-500/10 p-3 rounded-xl border border-red-500/30 break-words"
+                                 x-text="accountError"></div>
+                        </template>
+
+                        <button type="submit" class="w-full btn-primary text-white py-3 rounded-xl text-sm font-bold">
                             {{index .T "accounts.submit"}}
                         </button>
                     </form>
@@ -180,7 +194,7 @@
                 <h2 class="text-lg font-bold flex items-center gap-2 text-foreground">
                     {{template "icon-refresh" dict "Size" 18}} {{index .T "recurring.title"}}
                 </h2>
-                <button @click="openRecurringForm(null)"
+                <button @click="openRecurringForm(null)" data-add-recurring
                         class="text-xs btn-primary text-white px-3 py-2 rounded-xl flex items-center gap-1 font-bold">
                     {{template "icon-plus" dict "Size" 16}} {{index .T "recurring.add"}}
                 </button>
@@ -195,11 +209,14 @@
                             class="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
                         {{template "icon-x" dict "Size" 20}}
                     </button>
-                    <h3 id="recurring-dialog-title" class="text-base font-bold text-blue-500 mb-5" x-text="editingRecurring ? '{{index .T "recurring.edit_form"}}' : '{{index .T "recurring.new_form"}}'"></h3>
+                    <h3 id="recurring-dialog-title" class="text-base font-bold text-blue-600 dark:text-blue-400 mb-5" x-text="editingRecurring ? '{{index .T "recurring.edit_form"}}' : '{{index .T "recurring.new_form"}}'"></h3>
                     <form hx-post="/recurring"
                           hx-target="#recurring-list"
                           hx-swap="innerHTML"
                           data-toast=""
+                          @htmx:before-request="recurringError = ''"
+                          @htmx:response-error="recurringError = $event.detail.xhr.responseText"
+                          @htmx:send-error="recurringNetworkError()"
                           class="space-y-4">
                             <input type="hidden" name="id" x-model="recurringEditId">
                             <div class="flex flex-col sm:flex-row gap-3">
@@ -215,14 +232,14 @@
                                                class="w-full bg-accent border border-border text-foreground rounded-xl p-2.5 pr-12 text-sm outline-hidden font-mono focus:border-blue-500">
                                         <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium">{{.Currency}}</span>
                                     </div>
-                                    <label for="recurring-day" class="sr-only">{{index .T "recurring.day_placeholder"}}</label>
+                                    <label for="recurring-day" class="sr-only">{{index .T "recurring.day_label"}}</label>
                                     <input id="recurring-day" type="number" min="1" max="31" name="dayOfMonth" placeholder="{{index .T "recurring.day_hint"}}" required
                                            x-model="recurringDay"
                                            class="w-14 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden text-center focus:border-blue-500">
                                 </div>
                             </div>
                             <div class="flex gap-3">
-                                <label for="recurring-type" class="sr-only">{{index .T "recurring.type_expense"}}</label>
+                                <label for="recurring-type" class="sr-only">{{index .T "recurring.type_label"}}</label>
                                 <select id="recurring-type" name="type" x-model="opType"
                                         @change="onOpTypeChange()"
                                         class="w-28 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden focus:border-blue-500">
@@ -248,7 +265,14 @@
                                     {{template "account-options" dict "Accounts" .Accounts "Placeholder" (index .T "recurring.account_placeholder")}}
                                 </select>
                             </div>
-                            <button class="w-full btn-primary text-white py-3 rounded-xl text-sm font-bold">
+                            <!-- FIX (S-02): in-dialog error region (see account dialog above). -->
+                            <template x-if="recurringError">
+                                <div role="alert"
+                                     class="text-red-700 dark:text-red-300 text-sm bg-red-500/10 p-3 rounded-xl border border-red-500/30 break-words"
+                                     x-text="recurringError"></div>
+                            </template>
+
+                            <button type="submit" class="w-full btn-primary text-white py-3 rounded-xl text-sm font-bold">
                                 {{index .T "recurring.submit"}}
                             </button>
                     </form>
@@ -266,6 +290,12 @@
 </div>
 
 <script nonce="{{.Nonce}}">
+// FIX (S-17, second half): the drag handle only exists from 768px up, so the Sortable
+// instance must follow the media query instead of sampling window.innerWidth once at
+// boot — a window widened after load left a cursor-grab handle that did nothing.
+// Kept outside the component so it never lands in Alpine's reactive proxy.
+var desktopMq = window.matchMedia('(min-width: 768px)');
+
 function accountsPage() {
     return {
         editingAccount: null,
@@ -283,8 +313,31 @@ function accountsPage() {
         reinvestmentRate: 100,
         targetAccountId: '',
         payoutFrequency: 'MONTHLY',
+        // FIX (S-02): in-dialog error text, fed by htmx:responseError on the two forms.
+        accountError: '',
+        recurringError: '',
+        // Kept as component state (never as a literal inside an Alpine attribute), so a
+        // translation containing an apostrophe cannot break the CSP evaluator's parser.
+        networkErrorLabel: '{{index .T "common.network_error"}}',
+        accountNetworkError()   { this.accountError = this.networkErrorLabel; },
+        recurringNetworkError() { this.recurringError = this.networkErrorLabel; },
+
+        // Localized colour names for the palette swatch aria-labels (FIX S-28: these
+        // were 18 hard-coded English words on otherwise text-less buttons).
+        colorNames: {
+            '#ef4444': '{{index .T "color.red"}}',    '#f97316': '{{index .T "color.orange"}}',
+            '#f59e0b': '{{index .T "color.amber"}}',  '#eab308': '{{index .T "color.yellow"}}',
+            '#84cc16': '{{index .T "color.lime"}}',   '#22c55e': '{{index .T "color.green"}}',
+            '#10b981': '{{index .T "color.emerald"}}','#14b8a6': '{{index .T "color.teal"}}',
+            '#06b6d4': '{{index .T "color.cyan"}}',   '#0ea5e9': '{{index .T "color.sky"}}',
+            '#3b82f6': '{{index .T "color.blue"}}',   '#6366f1': '{{index .T "color.indigo"}}',
+            '#8b5cf6': '{{index .T "color.violet"}}', '#a855f7': '{{index .T "color.purple"}}',
+            '#d946ef': '{{index .T "color.fuchsia"}}','#ec4899': '{{index .T "color.pink"}}',
+            '#f43f5e': '{{index .T "color.rose"}}',   '#64748b': '{{index .T "color.slate"}}'
+        },
 
         openAccountForm(account) {
+            this.accountError = '';
             this.editingAccount = account;
             this.accountEditId = account ? String(account.id) : '';
             this.accountName = account ? account.name : '';
@@ -297,9 +350,31 @@ function accountsPage() {
             this.reinvestmentRate = account?.reinvestment_rate ?? 100;
             this.targetAccountId = account?.target_account_id ? String(account.target_account_id) : '';
             this.payoutFrequency = account?.payout_frequency || 'MONTHLY';
-            this._accountTrigger = document.activeElement;
+            this._rememberAccountTrigger();
             document.getElementById('account-dialog').showModal();
             this.$nextTick(() => document.querySelector('#account-dialog input[name="name"]')?.focus());
+        },
+
+        // FIX (S-19): the swap that follows a successful submit destroys the row that
+        // held the trigger, so we also remember WHICH row it was and re-resolve it
+        // after the swap; the "add account" button is the fallback.
+        _rememberAccountTrigger() {
+            const el = document.activeElement;
+            this._accountTrigger = el;
+            this._accountTriggerRow = el?.closest?.('[data-account-id]')?.dataset.accountId || null;
+        },
+        _rememberRecurringTrigger() {
+            const el = document.activeElement;
+            this._recurringTrigger = el;
+            this._recurringTriggerRow = el?.closest?.('[data-recurring-id]')?.dataset.recurringId || null;
+        },
+        _restoreFocus(trigger, rowId, rowAttr, editAttr, fallbackSel) {
+            let el = trigger;
+            if ((!el || !el.isConnected) && rowId) {
+                el = document.querySelector('[' + rowAttr + '="' + rowId + '"] [' + editAttr + ']');
+            }
+            if (!el || !el.isConnected) el = document.querySelector(fallbackSel);
+            el?.focus();
         },
 
         editingRecurring: null,
@@ -320,6 +395,7 @@ function accountsPage() {
         },
 
         openRecurringForm(recurring) {
+            this.recurringError = '';
             this.editingRecurring = recurring;
             this.recurringEditId = recurring ? String(recurring.ID) : '';
             this.recurringDescription = recurring ? recurring.Description : '';
@@ -334,15 +410,17 @@ function accountsPage() {
             } else {
                 this.opType = recurring.Amount > 0 ? 'income' : 'expense';
             }
-            this._recurringTrigger = document.activeElement;
+            this._rememberRecurringTrigger();
             document.getElementById('recurring-dialog').showModal();
             this.$nextTick(() => document.querySelector('#recurring-dialog input[name="description"]')?.focus());
         },
 
         initSortable() {
             const el = document.getElementById('accounts-list');
-            if (!el || typeof Sortable === 'undefined' || window.innerWidth < 768) return;
-            if (el._sortable) el._sortable.destroy();
+            if (!el || typeof Sortable === 'undefined') return;
+            if (el._sortable) { el._sortable.destroy(); el._sortable = null; }
+            if (!desktopMq.matches) return;
+            const self = this;
             el._sortable = new Sortable(el, {
                 animation: 150,
                 handle: '.drag-handle',
@@ -351,44 +429,135 @@ function accountsPage() {
                     if (evt.oldIndex === evt.newIndex) return;
                     const ids = [...el.querySelectorAll('[data-account-id]')]
                         .map(n => parseInt(n.dataset.accountId, 10));
-                    fetch('/accounts/reorder', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ ids })
-                    }).catch(() => location.reload());
+                    self.persistOrder(ids);
                 }
             });
         },
 
+        // FIX (S-06, client half): the previous call never inspected r.ok, so a 400/500
+        // from ReorderAccounts — and the 303 to /login that RequireAuth answers with,
+        // which fetch silently follows into a 200 HTML page — both looked like success
+        // and the new order was quietly lost.
+        persistOrder(ids) {
+            fetch('/accounts/reorder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids })
+            }).then(r => {
+                if (r.status === 401 || r.redirected) { location.href = '/login'; return; }
+                if (!r.ok) this.reorderFailed();
+            }).catch(() => this.reorderFailed());
+        },
+
+        reorderFailed() {
+            window.dispatchEvent(new CustomEvent('pilot:toast', {
+                detail: { message: '{{index .T "accounts.reorder_error"}}', isError: true }
+            }));
+            // Give the toast time to be read, then re-sync with the server order.
+            setTimeout(() => location.reload(), 2500);
+        },
+
         colorName(hex) {
-            const names = {'#ef4444':'Red','#f97316':'Orange','#f59e0b':'Amber','#eab308':'Yellow','#84cc16':'Lime','#22c55e':'Green','#10b981':'Emerald','#14b8a6':'Teal','#06b6d4':'Cyan','#0ea5e9':'Sky','#3b82f6':'Blue','#6366f1':'Indigo','#8b5cf6':'Violet','#a855f7':'Purple','#d946ef':'Fuchsia','#ec4899':'Pink','#f43f5e':'Rose','#64748b':'Slate'};
-            return names[hex] || hex;
+            return this.colorNames[hex] || hex;
         },
 
         closeAccountDialog()  { document.getElementById('account-dialog').close(); },
         closeRecurringDialog() { document.getElementById('recurring-dialog').close(); },
-        onAccountDialogClose()   { this.editingAccount = null; this.$nextTick(() => this._accountTrigger?.focus()); },
-        onRecurringDialogClose() { this.editingRecurring = null; this.$nextTick(() => this._recurringTrigger?.focus()); },
+        onAccountDialogClose() {
+            this.editingAccount = null;
+            this.accountError = '';
+            this.$nextTick(() => this._restoreFocus(
+                this._accountTrigger, this._accountTriggerRow,
+                'data-account-id', 'data-edit-account', '[data-add-account]'));
+        },
+        onRecurringDialogClose() {
+            this.editingRecurring = null;
+            this.recurringError = '';
+            this.$nextTick(() => this._restoreFocus(
+                this._recurringTrigger, this._recurringTriggerRow,
+                'data-recurring-id', 'data-edit-recurring', '[data-add-recurring]'));
+        },
+
+        // FIX (S-29): every inline balance form targets #accounts-list/innerHTML, so
+        // saving ONE account re-renders them all and wipes any other balance the user
+        // had typed but not saved. Capture the pending values before the swap and put
+        // them back (marked dirty) afterwards.
+        _captureDirtyBalances(srcId) {
+            const pending = {};
+            document.querySelectorAll('#accounts-list [data-account-id]').forEach(row => {
+                const id = row.dataset.accountId;
+                if (id === srcId) return;
+                const input = row.querySelector('input[name="balance"]');
+                if (input && input.value !== input.defaultValue) pending[id] = input.value;
+            });
+            this._pendingBalances = Object.keys(pending).length ? pending : null;
+        },
+        _restoreDirtyBalances() {
+            const pending = this._pendingBalances;
+            this._pendingBalances = null;
+            if (!pending) return;
+            Object.keys(pending).forEach(id => {
+                const input = document.querySelector(
+                    '#accounts-list [data-account-id="' + id + '"] input[name="balance"]');
+                if (!input) return;
+                input.value = pending[id];
+                // Replays @input="dirty = true" so the save affordance comes back too.
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+        },
 
         init() {
             this.$nextTick(() => this.initSortable());
             this._htmxHandler = e => {
-                if (e.detail.target?.id === 'accounts-list') this.initSortable();
+                if (e.detail.target?.id !== 'accounts-list') return;
+                this.initSortable();
+                this._restoreDirtyBalances();
             };
+            this._beforeSwapHandler = e => {
+                if (e.detail.target?.id !== 'accounts-list') return;
+                const srcId = e.detail.elt?.closest?.('[data-account-id]')?.dataset.accountId || null;
+                this._captureDirtyBalances(srcId);
+            };
+            this._mqHandler = () => this.initSortable();
+            document.body.addEventListener('htmx:beforeSwap', this._beforeSwapHandler);
             document.body.addEventListener('htmx:afterSettle', this._htmxHandler);
+            desktopMq.addEventListener('change', this._mqHandler);
         },
         destroy() {
             if (this._htmxHandler) {
                 document.body.removeEventListener('htmx:afterSettle', this._htmxHandler);
             }
+            if (this._beforeSwapHandler) {
+                document.body.removeEventListener('htmx:beforeSwap', this._beforeSwapHandler);
+            }
+            if (this._mqHandler) {
+                desktopMq.removeEventListener('change', this._mqHandler);
+            }
         }
     };
 }
 
+// FIX (S-19): toggling `del` puts display:none on the ancestor of the button that
+// currently has focus, which drops focus onto <body>. Both transitions now move the
+// focus explicitly to the control that just appeared.
+function deleteToggle(extra) {
+    return Object.assign({
+        del: false,
+        askDelete() {
+            this.del = true;
+            this.$nextTick(() => this.$refs.confirmDel?.focus());
+        },
+        cancelDelete() {
+            this.del = false;
+            this.$nextTick(() => this.$refs.delBtn?.focus());
+        }
+    }, extra);
+}
+
 document.addEventListener('alpine:init', () => {
     Alpine.data('accountsPage', accountsPage);
-    Alpine.data('accountRow',    () => ({ del: false, dirty: false }));
-    Alpine.data('recurringRow',  () => ({ del: false }));
+    Alpine.data('accountRow',    () => deleteToggle({ dirty: false, unsavedLabel: '{{index .T "accounts.unsaved"}}' }));
+    Alpine.data('recurringRow',  () => deleteToggle({}));
 });
 </script>
 {{end}}
@@ -402,18 +571,21 @@ document.addEventListener('alpine:init', () => {
     <div class="drag-handle cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground touch-none flex-shrink-0 hidden md:flex items-center" aria-hidden="true">
         {{template "icon-grip" dict "Size" 18}}
     </div>
-    <div class="flex flex-col gap-0 flex-shrink-0 md:hidden">
+    <!-- FIX (S-17): these arrows are the ONLY keyboard path to reordering (SortableJS
+         offers none), so they must exist at every viewport width — they used to be
+         md:hidden, leaving desktop keyboard users with no way to reorder at all. -->
+    <div class="flex flex-col gap-0 flex-shrink-0">
         <button {{if not .IsFirst}}hx-post="/accounts/{{.Account.ID}}/move?direction=up"
                 hx-target="#accounts-list" hx-swap="innerHTML"{{end}}
                 aria-label="{{index .T "accounts.move_up"}}"
-                class="min-h-[44px] min-w-[44px] flex items-center justify-center rounded transition-colors {{if .IsFirst}}text-muted-foreground opacity-30 cursor-default{{else}}text-muted-foreground active:text-foreground active:bg-accent{{end}}"
+                class="min-h-[44px] min-w-[44px] md:min-h-[26px] md:min-w-[26px] flex items-center justify-center rounded transition-colors {{if .IsFirst}}text-muted-foreground opacity-30 cursor-default{{else}}text-muted-foreground hover:text-foreground hover:bg-accent active:text-foreground active:bg-accent{{end}}"
                 {{if .IsFirst}}disabled{{end}}>
             {{template "icon-chevron-up" dict "Size" 16}}
         </button>
         <button {{if not .IsLast}}hx-post="/accounts/{{.Account.ID}}/move?direction=down"
                 hx-target="#accounts-list" hx-swap="innerHTML"{{end}}
                 aria-label="{{index .T "accounts.move_down"}}"
-                class="min-h-[44px] min-w-[44px] flex items-center justify-center rounded transition-colors {{if .IsLast}}text-muted-foreground opacity-30 cursor-default{{else}}text-muted-foreground active:text-foreground active:bg-accent{{end}}"
+                class="min-h-[44px] min-w-[44px] md:min-h-[26px] md:min-w-[26px] flex items-center justify-center rounded transition-colors {{if .IsLast}}text-muted-foreground opacity-30 cursor-default{{else}}text-muted-foreground hover:text-foreground hover:bg-accent active:text-foreground active:bg-accent{{end}}"
                 {{if .IsLast}}disabled{{end}}>
             {{template "icon-chevron-down" dict "Size" 16}}
         </button>
@@ -422,7 +594,7 @@ document.addEventListener('alpine:init', () => {
     <div class="flex-1 min-w-0">
         <h3 class="font-bold text-foreground text-sm truncate">{{.Account.Name}}</h3>
         {{if .Account.IsYieldActive}}
-        <div class="flex items-center gap-1 text-xs text-emerald-500 mt-0.5">
+        <div class="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
             {{template "icon-trending-up" dict "Size" 12}}
             <span class="font-medium font-mono">
                 {{if eq .Account.YieldType "FIXED"}}{{.Account.YieldMin}}%{{else}}{{.Account.YieldMin}}-{{.Account.YieldMax}}%{{end}}
@@ -440,30 +612,41 @@ document.addEventListener('alpine:init', () => {
                    value="{{formatBalance .Account.Balance}}"
                    aria-label="{{index .T "accounts.balance_placeholder"}}"
                    @input="dirty = true"
-                   class="bg-transparent w-24 sm:w-28 text-right outline-hidden font-mono text-base sm:text-lg font-bold text-foreground focus:text-blue-500 focus:bg-accent hover:border-b hover:border-dashed hover:border-muted-foreground rounded-lg px-1 transition-colors cursor-text">
+                   :class="dirty ? 'bg-amber-500/10 border-amber-500' : 'border-transparent hover:border-muted-foreground'"
+                   class="bg-transparent w-24 sm:w-28 text-right outline-hidden font-mono text-base sm:text-lg font-bold text-foreground focus:text-blue-600 dark:focus:text-blue-400 focus:bg-accent border-b border-dashed rounded-lg px-1 transition-colors cursor-text">
             <span class="text-xs text-muted-foreground font-medium whitespace-nowrap">{{.Currency}}</span>
-            <button aria-label="{{index .T "common.save"}}" class="text-blue-500 p-2.5 rounded-lg transition-all"
+            <!-- FIX (S-18): opacity-0 does NOT remove an element from the tab order, so the
+                 focus ring vanished off-screen once per account row and Enter fired a silent
+                 balance POST. :disabled keeps the exact same visual rendering. -->
+            <button type="submit" aria-label="{{index .T "common.save"}}"
+                    :disabled="!dirty" :title="dirty ? unsavedLabel : ''"
+                    class="text-blue-600 dark:text-blue-400 p-2.5 rounded-lg transition-all"
                     :class="dirty ? 'opacity-100' : 'opacity-0 pointer-events-none'">
                 {{template "icon-save" dict "Size" 16}}
             </button>
         </form>
         <div class="flex items-center gap-0.5 shrink-0" x-show="!del">
             <button @click="openAccountForm({{.Account | json}})" aria-label="{{index .T "common.edit"}}"
-                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
+                    data-edit-account
+                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 hover:bg-accent rounded-lg transition-colors">
                 {{template "icon-pencil" dict "Size" 14}}
             </button>
-            <button @click.prevent="del = true" aria-label="{{index .T "common.delete"}}"
-                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+            <button @click.prevent="askDelete()" aria-label="{{index .T "common.delete"}}"
+                    x-ref="delBtn"
+                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
                 {{template "icon-trash" dict "Size" 14}}
             </button>
         </div>
-        <div class="flex items-center gap-0.5 shrink-0" x-show="del">
+        <!-- FIX (S-19): x-show puts display:none on the ancestor of the focused button,
+             dropping focus to <body>; askDelete()/cancelDelete() move it explicitly. -->
+        <div class="flex items-center gap-0.5 shrink-0" x-show="del" x-cloak>
             <button hx-delete="/accounts/{{.Account.ID}}" hx-target="#accounts-list" hx-swap="innerHTML"
                     aria-label="{{index .T "common.confirm_delete"}}"
-                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                    x-ref="confirmDel"
+                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-red-700 dark:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
                 {{template "icon-check" dict "Size" 14}}
             </button>
-            <button @click.prevent="del = false" aria-label="{{index .T "common.cancel"}}"
+            <button @click.prevent="cancelDelete()" aria-label="{{index .T "common.cancel"}}"
                     class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:bg-accent rounded-lg transition-colors">
                 {{template "icon-x" dict "Size" 14}}
             </button>
@@ -483,13 +666,13 @@ document.addEventListener('alpine:init', () => {
     {{if .IsYieldPayout}}
     <div class="flex items-center gap-3 px-4 py-3 bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors">
         <div class="w-1 self-stretch rounded-full bg-emerald-500 shrink-0"></div>
-        <div class="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
             {{template "icon-trending-up" dict "Size" 14}}
         </div>
         <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-sm font-medium text-emerald-600 dark:text-emerald-400 truncate">{{.Description}}</span>
-                <span class="text-xs font-bold bg-emerald-500/20 text-emerald-500 px-1.5 py-0.5 rounded shrink-0">{{printf "%.2f" .YieldRate}}%</span>
+                <span class="text-sm font-medium text-emerald-700 dark:text-emerald-400 truncate">{{.Description}}</span>
+                <span class="text-xs font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded shrink-0">{{printf "%.2f" .YieldRate}}%</span>
             </div>
             <div class="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground truncate">
                 <span class="truncate">{{.AccountName}}</span>
@@ -500,7 +683,7 @@ document.addEventListener('alpine:init', () => {
             </div>
         </div>
         <div class="text-right shrink-0">
-            <div class="font-mono font-bold text-sm text-emerald-500 tabular-nums">+{{formatMoney .Amount $.Currency}}</div>
+            <div class="font-mono font-bold text-sm text-emerald-700 dark:text-emerald-400 tabular-nums">+{{formatMoney .Amount $.Currency}}</div>
             <div class="text-xs text-muted-foreground italic mt-0.5">
                 {{if eq .PayoutFrequency "YEARLY"}}{{index $.T "recurring.auto_badge_annual"}}{{else}}{{index $.T "recurring.auto_badge"}}{{end}}
             </div>
@@ -508,43 +691,47 @@ document.addEventListener('alpine:init', () => {
         <div class="w-[54px] shrink-0"></div>
     </div>
     {{else}}
-    <div class="group flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors" x-data="recurringRow">
+    <div class="group flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors" x-data="recurringRow" data-recurring-id="{{.ID}}">
         <div class="w-1 self-stretch rounded-full shrink-0 {{if .ToAccountID}}bg-blue-500{{else if gt .Amount 0.0}}bg-emerald-500{{else}}bg-red-400{{end}}"></div>
-        <div class="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center text-xs font-mono font-bold {{if .ToAccountID}}bg-blue-500/10 text-blue-500{{else if gt .Amount 0.0}}bg-emerald-500/10 text-emerald-500{{else}}bg-red-500/10 text-red-500{{end}}">
+        <div class="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center text-xs font-mono font-bold {{if .ToAccountID}}bg-blue-500/10 text-blue-700 dark:text-blue-300{{else if gt .Amount 0.0}}bg-emerald-500/10 text-emerald-700 dark:text-emerald-300{{else}}bg-red-500/10 text-red-700 dark:text-red-300{{end}}">
             {{.DayOfMonth}}
         </div>
         <div class="flex-1 min-w-0">
             <div class="text-sm font-medium text-foreground truncate">{{.Description}}</div>
             <div class="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground truncate">
                 {{if .ToAccountID}}
-                <span class="text-blue-500 truncate">{{.AccountName}}</span>
+                <span class="text-blue-600 dark:text-blue-400 truncate">{{.AccountName}}</span>
                 <span class="shrink-0">{{template "icon-arrow-right" dict "Size" 9}}</span>
-                <span class="text-blue-500 truncate">{{.ToAccountName}}</span>
+                <span class="text-blue-600 dark:text-blue-400 truncate">{{.ToAccountName}}</span>
                 {{else}}
                 <span class="truncate">{{.AccountName}}</span>
                 {{end}}
             </div>
         </div>
-        <div class="font-mono font-bold text-sm tabular-nums shrink-0 {{if .ToAccountID}}text-blue-500{{else if gt .Amount 0.0}}text-emerald-500{{else}}text-foreground{{end}}">
+        <div class="font-mono font-bold text-sm tabular-nums shrink-0 {{if .ToAccountID}}text-blue-600 dark:text-blue-400{{else if gt .Amount 0.0}}text-emerald-700 dark:text-emerald-400{{else}}text-foreground{{end}}">
             {{if not .ToAccountID}}{{if gt .Amount 0.0}}+{{end}}{{end}}{{formatMoney .Amount $.Currency}}
         </div>
         <div class="flex items-center gap-0.5 shrink-0" x-show="!del">
             <button @click="openRecurringForm({{. | json}})" aria-label="{{index $.T "common.edit"}}"
-                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-blue-500 hover:bg-accent rounded-lg transition-colors">
+                    data-edit-recurring
+                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 hover:bg-accent rounded-lg transition-colors">
                 {{template "icon-pencil" dict "Size" 14}}
             </button>
-            <button @click.prevent="del = true" aria-label="{{index $.T "common.delete"}}"
-                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+            <button @click.prevent="askDelete()" aria-label="{{index $.T "common.delete"}}"
+                    x-ref="delBtn"
+                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
                 {{template "icon-trash" dict "Size" 14}}
             </button>
         </div>
-        <div class="flex items-center gap-0.5 shrink-0" x-show="del">
+        <!-- FIX (S-19): explicit focus move when the confirm pair replaces the action pair. -->
+        <div class="flex items-center gap-0.5 shrink-0" x-show="del" x-cloak>
             <button hx-delete="/recurring/{{.ID}}" hx-target="#recurring-list" hx-swap="innerHTML"
                     aria-label="{{index $.T "common.confirm_delete"}}"
-                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                    x-ref="confirmDel"
+                    class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-red-700 dark:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
                 {{template "icon-check" dict "Size" 14}}
             </button>
-            <button @click.prevent="del = false" aria-label="{{index $.T "common.cancel_delete"}}"
+            <button @click.prevent="cancelDelete()" aria-label="{{index $.T "common.cancel_delete"}}"
                     class="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-muted-foreground hover:bg-accent rounded-lg transition-colors">
                 {{template "icon-x" dict "Size" 14}}
             </button>
@@ -575,45 +762,45 @@ document.addEventListener('alpine:init', () => {
         <!-- Income -->
         <div class="min-w-0">
             <div class="text-xs text-muted-foreground uppercase font-semibold mb-2 tracking-wider flex items-center gap-1.5">
-                <span class="text-emerald-500">{{template "icon-trending-up" dict "Size" 14}}</span>
+                <span class="text-emerald-700 dark:text-emerald-400">{{template "icon-trending-up" dict "Size" 14}}</span>
                 {{index $.T "summary.income"}}
             </div>
-            <div class="font-mono font-bold text-emerald-500 whitespace-nowrap">
+            <div class="font-mono font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
                 <span class="text-lg sm:text-xl">+{{formatMoney .MonthlyIncome $.Currency}}</span>
                 <span class="text-xs text-muted-foreground font-medium">{{index $.T "summary.per_month"}}</span>
             </div>
-            <div class="font-mono text-sm text-emerald-500/70 whitespace-nowrap mt-0.5">
+            <div class="font-mono text-sm text-emerald-700 dark:text-emerald-400 whitespace-nowrap mt-0.5">
                 +{{formatMoneyCompact (add (mult .MonthlyIncome 12) .AnnualYield) $.Currency}}{{index $.T "summary.per_year"}}
             </div>
             {{if gt (add .MonthlyYield .AnnualYield) 0.0}}
-            <div class="text-xs text-emerald-500/70 mt-1.5 font-medium whitespace-nowrap">{{index $.T "summary.yield_auto"}} +{{formatMoneyCompact (add (mult .MonthlyYield 12) .AnnualYield) $.Currency}}{{index $.T "summary.per_year"}}</div>
+            <div class="text-xs text-emerald-700 dark:text-emerald-400 mt-1.5 font-medium whitespace-nowrap">{{index $.T "summary.yield_auto"}} +{{formatMoneyCompact (add (mult .MonthlyYield 12) .AnnualYield) $.Currency}}{{index $.T "summary.per_year"}}</div>
             {{end}}
         </div>
         <!-- Expenses -->
         <div class="min-w-0 border-t border-border sm:border-0 pt-3 sm:pt-0">
             <div class="text-xs text-muted-foreground uppercase font-semibold mb-2 tracking-wider flex items-center gap-1.5">
-                <span class="text-red-400 rotate-180">{{template "icon-trending-up" dict "Size" 14}}</span>
+                <span class="text-red-700 dark:text-red-400 rotate-180">{{template "icon-trending-up" dict "Size" 14}}</span>
                 {{index $.T "summary.expenses"}}
             </div>
-            <div class="font-mono font-bold text-red-500 whitespace-nowrap">
+            <div class="font-mono font-bold text-red-700 dark:text-red-400 whitespace-nowrap">
                 <span class="text-lg sm:text-xl">-{{formatMoney .MonthlyExpenses $.Currency}}</span>
                 <span class="text-xs text-muted-foreground font-medium">{{index $.T "summary.per_month"}}</span>
             </div>
-            <div class="font-mono text-sm text-red-500/70 whitespace-nowrap mt-0.5">
+            <div class="font-mono text-sm text-red-700 dark:text-red-400 whitespace-nowrap mt-0.5">
                 -{{formatMoneyCompact (mult .MonthlyExpenses 12) $.Currency}}{{index $.T "summary.per_year"}}
             </div>
         </div>
         <!-- Net -->
         <div class="min-w-0 border-t border-border sm:border-0 pt-3 sm:pt-0">
             <div class="text-xs text-muted-foreground uppercase font-semibold mb-2 tracking-wider flex items-center gap-1.5">
-                <span class="text-blue-500">{{template "icon-target" dict "Size" 14}}</span>
+                <span class="text-blue-600 dark:text-blue-400">{{template "icon-target" dict "Size" 14}}</span>
                 {{index $.T "summary.balance"}}
             </div>
-            <div class="font-mono font-bold whitespace-nowrap {{if ge .MonthlyNet 0.0}}text-blue-500{{else}}text-red-500{{end}}">
+            <div class="font-mono font-bold whitespace-nowrap {{if ge .MonthlyNet 0.0}}text-blue-600 dark:text-blue-400{{else}}text-red-700 dark:text-red-400{{end}}">
                 <span class="text-lg sm:text-xl">{{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney .MonthlyNet $.Currency}}</span>
                 <span class="text-xs text-muted-foreground font-medium">{{index $.T "summary.per_month"}}</span>
             </div>
-            <div class="font-mono text-sm whitespace-nowrap mt-0.5 {{if ge .MonthlyNet 0.0}}text-blue-500/70{{else}}text-red-500/70{{end}}">
+            <div class="font-mono text-sm whitespace-nowrap mt-0.5 {{if ge .MonthlyNet 0.0}}text-blue-600 dark:text-blue-400{{else}}text-red-700 dark:text-red-400{{end}}">
                 {{if gt (add (mult .MonthlyNet 12) .AnnualYield) 0.0}}+{{end}}{{formatMoneyCompact (add (mult .MonthlyNet 12) .AnnualYield) $.Currency}}{{index $.T "summary.per_year"}}
             </div>
         </div>

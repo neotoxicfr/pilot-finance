@@ -39,7 +39,10 @@ export default defineConfig({
       },
       dependencies: ['setup'],
     },
-    // WebKit skipped in CI (flaky cookie/storageState on Linux)
+    // WebKit runs locally only — flaky cookie/storageState handling on Linux CI.
+    // The READMEs therefore advertise Chromium/Firefox/Mobile Chrome for CI.
+    // input.css carries an iOS-Safari-only fix (@supports -webkit-touch-callout),
+    // so run `npx playwright test --project=webkit` locally before a release.
     ...(!process.env.CI ? [{
       name: 'webkit',
       use: {

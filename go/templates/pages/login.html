@@ -42,19 +42,19 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
         </div>
 
         {{if .ResetSuccess}}
-        <div class="mb-6 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center text-emerald-600 dark:text-emerald-400 text-sm font-bold">
+        <div class="mb-6 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center text-emerald-700 dark:text-emerald-400 text-sm font-bold">
             {{index .T "login.reset_success"}}
         </div>
         {{end}}
 
         {{if .Error}}
-        <div class="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center text-red-600 dark:text-red-400 text-sm font-bold flex items-center justify-center gap-2">
+        <div class="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center text-red-700 dark:text-red-400 text-sm font-bold flex items-center justify-center gap-2">
             {{template "icon-alert" dict "Size" 16}} {{.Error}}
         </div>
         {{end}}
 
         <template x-if="error">
-            <div class="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center text-red-600 dark:text-red-400 text-sm font-bold flex items-center justify-center gap-2">
+            <div class="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center text-red-700 dark:text-red-400 text-sm font-bold flex items-center justify-center gap-2">
                 {{template "icon-alert" dict "Size" 16}}
                 <span x-text="error"></span>
             </div>
@@ -100,7 +100,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
                     <div>
                         {{if .MailEnabled}}
                         <div class="flex justify-end mb-2 px-1">
-                            <a href="/forgot-password" class="text-xs text-blue-500 hover:text-blue-400 font-medium">{{index .T "login.forgot_password"}}</a>
+                            <a href="/forgot-password" class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-400 font-medium">{{index .T "login.forgot_password"}}</a>
                         </div>
                         {{end}}
                         <div class="relative group">
@@ -138,7 +138,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
 
             <template x-if="requires2FA">
                 <div class="bg-blue-500/5 p-4 rounded-xl border border-blue-500/20">
-                    <div class="flex items-center gap-2 text-blue-500 font-bold text-sm mb-3">
+                    <div class="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-sm mb-3">
                         {{template "icon-shield" dict "Size" 18}} {{index .T "login.totp_title"}}
                     </div>
                     <label for="login-totp" class="sr-only">{{index .T "login.totp_title"}}</label>

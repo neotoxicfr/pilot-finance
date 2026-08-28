@@ -39,6 +39,15 @@ document.addEventListener('alpine:init', () => {
 });
 {{end}}
 
+// FIX (S-25): every one of these handlers used to do `if (!r.ok) throw` BEFORE reading
+// the body, replacing the server's precise message ("Code invalide", "Session de
+// configuration MFA expirée", "Fichier manquant", "CSV vide" — all emitted as
+// {code, error} by jsonError) with a generic network error. readJson() reads the body
+// first so the caller can prefer the server's own wording whenever there is one.
+async function readJson(r) {
+    try { return await r.json(); } catch (e) { return {}; }
+}
+
 // Composant MFA
 function mfaData() {
     return {
@@ -47,24 +56,52 @@ function mfaData() {
         mfaError: '',
         mfaLoading: false,
         mfaDisableForm: false,
-        setupMfa() {
+        async setupMfa() {
             this.mfaLoading = true;
-            fetch('/settings/mfa/setup')
-                .then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); })
-                .then(d => { this.mfaSetup = d; this.mfaLoading = false; })
-                .catch(() => { this.mfaLoading = false; this.mfaError = '{{index .T "common.network_error"}}'; });
+            this.mfaError = '';
+            try {
+                const r = await fetch('/settings/mfa/setup');
+                const d = await readJson(r);
+                if (!r.ok) { this.mfaError = d.error || '{{index .T "common.network_error"}}'; return; }
+                this.mfaSetup = d;
+            } catch (e) {
+                this.mfaError = '{{index .T "common.network_error"}}';
+            } finally {
+                this.mfaLoading = false;
+            }
         },
-        enableMfa() {
+        async enableMfa() {
             // Le secret est désormais stocké côté serveur dans un cookie signé
             // (mfa_setup), posé par /settings/mfa/setup. On n'envoie que le code.
-            fetch('/settings/mfa/enable', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code: this.mfaCode })
-            }).then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); }).then(d => {
-                if (d.error) this.mfaError = d.error;
-                else location.reload();
-            }).catch(() => { this.mfaError = '{{index .T "common.network_error"}}'; });
+            this.mfaError = '';
+            try {
+                const r = await fetch('/settings/mfa/enable', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: this.mfaCode })
+                });
+                const d = await readJson(r);
+                if (!r.ok || d.error) {
+                    this.mfaError = d.error || '{{index .T "common.network_error"}}';
+                    return;
+                }
+                location.reload();
+            } catch (e) {
+                this.mfaError = '{{index .T "common.network_error"}}';
+            }
+        },
+        // FIX (S-19): mfaDisableForm lives in a <template x-if>, so its `autofocus`
+        // attribute never fires (the node is inserted after parsing) and the focus
+        // stayed on a button that x-if had just removed.
+        openMfaDisable() {
+            this.mfaDisableForm = true;
+            this.mfaError = '';
+            this.$nextTick(() => document.querySelector('#mfa-disable-form input[name="current_password"]')?.focus());
+        },
+        closeMfaDisable() {
+            this.mfaDisableForm = false;
+            this.mfaError = '';
+            this.$nextTick(() => this.$refs.mfaDisableBtn?.focus());
         },
         reload() { location.reload(); }
     };
@@ -92,14 +129,33 @@ function passkeyData() {
             this.renameId = null;
             this.$nextTick(() => this._renameTrigger?.focus());
         },
-        submitRename() {
+        async submitRename() {
             if (!this.renameId) return;
+            // Capture before closing: onRenameDialogClose() resets renameId to null.
+            const id = this.renameId;
+            const name = this.renameName;
             this.closeRenameDialog();
-            fetch('/api/passkey/' + this.renameId + '/rename', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: this.renameName })
-            }).then(function(r) { if (!r.ok) throw new Error(r.statusText); }).then(() => location.reload()).catch(() => location.reload());
+            try {
+                const r = await fetch('/api/passkey/' + id + '/rename', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name })
+                });
+                if (!r.ok) {
+                    // FIX (S-25): previously reloaded identically on success AND failure,
+                    // so a rejected rename looked exactly like an accepted one.
+                    const d = await readJson(r);
+                    window.dispatchEvent(new CustomEvent('pilot:toast', {
+                        detail: { message: d.error || '{{index .T "common.network_error"}}', isError: true }
+                    }));
+                    return;
+                }
+                location.reload();
+            } catch (e) {
+                window.dispatchEvent(new CustomEvent('pilot:toast', {
+                    detail: { message: '{{index .T "common.network_error"}}', isError: true }
+                }));
+            }
         }
     };
 }
@@ -135,7 +191,18 @@ function dangerData() {
         triggerImport() {
             document.getElementById('import-file').click();
         },
-        importBalances(event) {
+        // FIX (S-19): the confirm form is inside a <template x-if>, so its `autofocus`
+        // never fired and focus fell back to <body> right after the user asked for the
+        // most destructive action in the app.
+        askSelfDelete() {
+            this.selfDeleteConfirm = true;
+            this.$nextTick(() => document.querySelector('#self-delete-form input[name="current_password"]')?.focus());
+        },
+        cancelSelfDelete() {
+            this.selfDeleteConfirm = false;
+            this.$nextTick(() => this.$refs.selfDeleteBtn?.focus());
+        },
+        async importBalances(event) {
             var input = event.target;
             if (!input.files || !input.files.length) return;
             this.importMsg = '';
@@ -143,23 +210,26 @@ function dangerData() {
             var fd = new FormData();
             fd.append('file', input.files[0]);
             input.value = '';
-            fetch('/settings/import', { method: 'POST', body: fd })
-                .then(function(r) {
-                    if (!r.ok) throw new Error(r.statusText);
-                    return r.json();
-                })
-                .then(d => {
-                    var parts = ['{{index .T "settings.import_success"}}'.replace('{n}', d.updated)];
-                    if (d.unknown && d.unknown.length) parts.push('{{index .T "settings.import_unknown"}}'.replace('{list}', d.unknown.join(', ')));
-                    if (d.ambiguous && d.ambiguous.length) parts.push('{{index .T "settings.import_ambiguous"}}'.replace('{list}', d.ambiguous.join(', ')));
-                    if (d.invalid_lines && d.invalid_lines.length) parts.push('{{index .T "settings.import_invalid_lines"}}'.replace('{list}', d.invalid_lines.join(', ')));
-                    this.importMsg = parts.join(' — ');
-                    window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.importMsg } }));
-                })
-                .catch(() => {
-                    this.importErrMsg = '{{index .T "settings.import_error"}}';
+            try {
+                const r = await fetch('/settings/import', { method: 'POST', body: fd });
+                const d = await readJson(r);
+                if (!r.ok) {
+                    // FIX (S-25): show what the server actually said ("Fichier manquant",
+                    // "CSV vide", …) instead of a blanket "Échec de l'import".
+                    this.importErrMsg = d.error || '{{index .T "settings.import_error"}}';
                     window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.importErrMsg, isError: true } }));
-                });
+                    return;
+                }
+                var parts = ['{{index .T "settings.import_success"}}'.replace('{n}', d.updated)];
+                if (d.unknown && d.unknown.length) parts.push('{{index .T "settings.import_unknown"}}'.replace('{list}', d.unknown.join(', ')));
+                if (d.ambiguous && d.ambiguous.length) parts.push('{{index .T "settings.import_ambiguous"}}'.replace('{list}', d.ambiguous.join(', ')));
+                if (d.invalid_lines && d.invalid_lines.length) parts.push('{{index .T "settings.import_invalid_lines"}}'.replace('{list}', d.invalid_lines.join(', ')));
+                this.importMsg = parts.join(' — ');
+                window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.importMsg } }));
+            } catch (e) {
+                this.importErrMsg = '{{index .T "settings.import_error"}}';
+                window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.importErrMsg, isError: true } }));
+            }
         },
         exportData() {
             fetch('/settings/export')
@@ -199,7 +269,7 @@ document.addEventListener('alpine:init', () => {
 
     <!-- Header -->
     <div class="flex items-center gap-3 border-b border-border pb-4">
-        <span class="text-blue-500">{{template "icon-settings" dict "Size" 32}}</span>
+        <span class="text-blue-600 dark:text-blue-400">{{template "icon-settings" dict "Size" 32}}</span>
         <h1 class="text-2xl font-bold text-foreground">{{index .T "settings.title"}}</h1>
     </div>
 
@@ -212,7 +282,7 @@ document.addEventListener('alpine:init', () => {
         </h2>
         <p class="text-sm text-muted-foreground mb-4">{{index .T "verify_email.settings_description"}}</p>
         {{if not .MailEnabled}}
-            <p class="text-sm text-orange-500 bg-orange-500/10 border border-orange-500/20 rounded-xl p-3">{{index .T "verify_email.mail_disabled"}}</p>
+            <p class="text-sm text-orange-700 dark:text-orange-300 bg-orange-500/10 border border-orange-500/20 rounded-xl p-3">{{index .T "verify_email.mail_disabled"}}</p>
         {{else}}
             <button type="button" @click="resend()" :disabled="sending"
                     class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
@@ -220,7 +290,7 @@ document.addEventListener('alpine:init', () => {
                 <span x-show="sending" x-cloak>{{index .T "verify_email.resend_sending"}}</span>
             </button>
             <template x-if="error">
-                <p class="mt-3 text-sm text-red-500" x-text="error"></p>
+                <p role="alert" class="mt-3 text-sm text-red-700 dark:text-red-400" x-text="error"></p>
             </template>
         {{end}}
     </div>
@@ -235,12 +305,12 @@ document.addEventListener('alpine:init', () => {
             <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden" x-data="prefsData">
                 <div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></div>
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
-                    <span class="text-blue-500">{{template "icon-settings" dict "Size" 20}}</span>
+                    <span class="text-blue-600 dark:text-blue-400">{{template "icon-settings" dict "Size" 20}}</span>
                     {{index .T "settings.preferences_title"}}
                 </h2>
                 <form hx-post="/settings/preferences"
                       hx-swap="none"
-                      @htmx:after-request="event.detail.successful && reload()"
+                      @htmx:after-request="$event.detail.successful && reload()"
                       class="space-y-5">
                     <div>
                         <label for="language" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.language_label"}}</label>
@@ -279,7 +349,7 @@ document.addEventListener('alpine:init', () => {
                 </h2>
 
                 <template x-if="pwdSuccess">
-                    <div class="mb-6 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-3 text-emerald-600 dark:text-emerald-400 text-sm">
+                    <div class="mb-6 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-3 text-emerald-700 dark:text-emerald-400 text-sm">
                         {{template "icon-check-circle" dict "Size" 20}} {{index .T "settings.password_success"}}
                     </div>
                 </template>
@@ -288,7 +358,7 @@ document.addEventListener('alpine:init', () => {
                       hx-swap="none"
                       @htmx:before-request="pwdLoading = true; pwdError = ''; pwdSuccess = false"
                       @htmx:after-request="pwdLoading = false"
-                      @htmx:response-error="pwdError = event.detail.xhr.responseText"
+                      @htmx:response-error="pwdError = $event.detail.xhr.responseText"
                       @htmx:after-settle="afterPwdSettle($event)"
                       class="space-y-5">
                     <div>
@@ -310,7 +380,7 @@ document.addEventListener('alpine:init', () => {
                     {{template "password-feedback" .}}
 
                     <template x-if="pwdError">
-                        <div class="text-red-500 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="pwdError"></div>
+                        <div role="alert" class="text-red-700 dark:text-red-300 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="pwdError"></div>
                     </template>
 
                     <button type="submit" :disabled="submitDisabled"
@@ -330,35 +400,36 @@ document.addEventListener('alpine:init', () => {
             <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden" x-data="mfaData">
                 <div class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"></div>
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
-                    <span class="text-blue-500">{{template "icon-smartphone" dict "Size" 20}}</span>
+                    <span class="text-blue-600 dark:text-blue-400">{{template "icon-smartphone" dict "Size" 20}}</span>
                     {{index .T "settings.mfa_title"}}
                 </h2>
 
                 {{if .MFAEnabled}}
                 <div class="space-y-4">
                     <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 flex items-center justify-between">
-                        <div class="flex items-center gap-3 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
+                        <div class="flex items-center gap-3 text-emerald-700 dark:text-emerald-400 font-bold text-sm">
                             {{template "icon-shield" dict "Size" 24}} {{index .T "settings.mfa_active"}}
                         </div>
-                        <button type="button" @click="mfaDisableForm = !mfaDisableForm"
-                                class="text-xs bg-background hover:bg-red-500/10 text-muted-foreground hover:text-red-500 px-3 py-2 rounded-lg border border-border hover:border-red-500/50 transition-colors">
+                        <button type="button" x-ref="mfaDisableBtn"
+                                @click="mfaDisableForm ? closeMfaDisable() : openMfaDisable()"
+                                class="text-xs bg-background hover:bg-red-500/10 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 px-3 py-2 rounded-lg border border-border hover:border-red-500/50 transition-colors">
                             {{index .T "settings.mfa_disable_btn"}}
                         </button>
                     </div>
                     <template x-if="mfaDisableForm">
-                        <form hx-post="/settings/mfa/disable" hx-swap="none"
-                              @htmx:after-request="event.detail.successful && reload()"
+                        <form id="mfa-disable-form" hx-post="/settings/mfa/disable" hx-swap="none"
+                              @htmx:after-request="$event.detail.successful && reload()"
                               @htmx:response-error="mfaError = $event.detail.xhr.responseText"
                               class="bg-red-500/5 border border-red-500/20 rounded-xl p-4 space-y-3">
                             <p class="text-sm text-muted-foreground">{{index .T "settings.mfa_disable_password"}}</p>
-                            <input type="password" name="current_password" required autofocus
+                            <input type="password" name="current_password" required
                                    class="w-full bg-accent border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-red-500 transition-colors text-sm"
                                    placeholder="{{index .T "settings.current_password"}}">
                             <template x-if="mfaError">
-                                <div class="text-red-500 text-xs text-center bg-red-500/10 p-2 rounded-lg border border-red-500/20" x-text="mfaError"></div>
+                                <div role="alert" class="text-red-700 dark:text-red-300 text-xs text-center bg-red-500/10 p-2 rounded-lg border border-red-500/20" x-text="mfaError"></div>
                             </template>
                             <div class="flex gap-2">
-                                <button type="button" @click="mfaDisableForm = false; mfaError = ''"
+                                <button type="button" @click="closeMfaDisable()"
                                         class="flex-1 bg-accent hover:bg-border text-muted-foreground font-medium py-3 rounded-xl transition-colors text-sm">
                                     {{index .T "common.cancel"}}
                                 </button>
@@ -395,7 +466,7 @@ document.addEventListener('alpine:init', () => {
                                    placeholder="000000">
                         </div>
                         <template x-if="mfaError">
-                            <div class="text-red-500 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="mfaError"></div>
+                            <div role="alert" class="text-red-700 dark:text-red-300 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="mfaError"></div>
                         </template>
                         <div class="flex gap-2">
                             <button @click="mfaSetup = null; mfaCode = ''; mfaError = ''"
@@ -418,7 +489,7 @@ document.addEventListener('alpine:init', () => {
             <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden" x-data="passkeyData">
                 <div class="absolute left-0 top-0 bottom-0 w-1 bg-purple-500"></div>
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
-                    <span class="text-purple-500">{{template "icon-fingerprint" dict "Size" 20}}</span>
+                    <span class="text-purple-700 dark:text-purple-400">{{template "icon-fingerprint" dict "Size" 20}}</span>
                     {{index .T "settings.passkeys_title"}}
                 </h2>
                 <p class="text-sm text-muted-foreground mb-4">{{index .T "settings.passkeys_description"}}</p>
@@ -428,7 +499,7 @@ document.addEventListener('alpine:init', () => {
                     {{range .Passkeys}}
                     <div class="flex items-center justify-between p-3 bg-accent rounded-xl border border-border">
                         <div class="flex items-center gap-3">
-                            <div class="p-2 bg-purple-500/10 text-purple-500 rounded-lg">{{template "icon-fingerprint" dict "Size" 16}}</div>
+                            <div class="p-2 bg-purple-500/10 text-purple-700 dark:text-purple-400 rounded-lg">{{template "icon-fingerprint" dict "Size" 16}}</div>
                             <div>
                                 <div class="font-bold text-sm text-foreground">{{or .Name (index $.T "settings.passkey_unnamed")}}</div>
                                 <div class="text-xs text-muted-foreground uppercase font-semibold">
@@ -446,7 +517,7 @@ document.addEventListener('alpine:init', () => {
                             <button hx-delete="/api/passkey/{{.ID}}"
                                     hx-confirm="{{index $.T "settings.passkey_delete_confirm"}}"
                                     hx-swap="none"
-                                    @htmx:after-request="event.detail.successful && reload()"
+                                    @htmx:after-request="$event.detail.successful && reload()"
                                     aria-label="{{index $.T "common.delete"}}"
                                     class="p-2.5 text-muted-foreground hover:text-red-500 hover:bg-background rounded-lg transition-colors">
                                 {{template "icon-trash" dict "Size" 14}}
@@ -511,31 +582,31 @@ document.addEventListener('alpine:init', () => {
                         {{index .T "settings.import_data"}}
                     </button>
                     <p class="text-xs text-foreground/70 mt-2">{{index .T "settings.import_hint"}}</p>
-                    <p x-show="importMsg" x-text="importMsg" class="text-sm mt-2 text-emerald-600"></p>
-                    <p x-show="importErrMsg" x-text="importErrMsg" class="text-sm mt-2 text-red-500"></p>
+                    <p x-show="importMsg" x-text="importMsg" class="text-sm mt-2 text-emerald-700 dark:text-emerald-400"></p>
+                    <p role="alert" x-show="importErrMsg" x-text="importErrMsg" class="text-sm mt-2 text-red-700 dark:text-red-400"></p>
                 </div>
 
                 <!-- Danger Zone -->
                 <div class="dashboard-card bg-background border border-red-500/20 rounded-2xl p-6 relative overflow-hidden mt-6">
                     <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
-                    <h2 class="text-lg font-bold text-red-500 mb-6 flex items-center gap-2">
+                    <h2 class="text-lg font-bold text-red-700 dark:text-red-400 mb-6 flex items-center gap-2">
                         {{template "icon-trash" dict "Size" 18}}
                         {{index .T "settings.danger_zone"}}
                     </h2>
-                    <button x-show="!selfDeleteConfirm" @click="selfDeleteConfirm = true"
-                            class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-bold text-red-500 transition-colors">
+                    <button x-show="!selfDeleteConfirm" x-ref="selfDeleteBtn" @click="askSelfDelete()"
+                            class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-bold text-red-700 dark:text-red-400 transition-colors">
                         {{template "icon-trash" dict "Size" 16}}
                         {{index .T "settings.delete_account"}}
                     </button>
                     <template x-if="selfDeleteConfirm">
-                        <form hx-delete="/settings/account" hx-target="body"
+                        <form id="self-delete-form" hx-delete="/settings/account" hx-target="body"
                               class="bg-red-500/5 border border-red-500/20 rounded-xl p-4 space-y-3 mt-4">
                             <p class="text-sm text-muted-foreground">{{index .T "settings.delete_account_password"}}</p>
-                            <input type="password" name="current_password" required autofocus
+                            <input type="password" name="current_password" required
                                    class="w-full bg-accent border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-red-500 transition-colors text-sm"
                                    placeholder="{{index .T "settings.current_password"}}">
                             <div class="flex gap-2">
-                                <button type="button" @click="selfDeleteConfirm = false"
+                                <button type="button" @click="cancelSelfDelete()"
                                         class="flex-1 bg-accent hover:bg-border text-muted-foreground font-medium py-3 rounded-xl transition-colors text-sm">
                                     {{index .T "common.cancel"}}
                                 </button>
@@ -573,7 +644,7 @@ document.addEventListener('alpine:init', () => {
     <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden">
         <div class="absolute left-0 top-0 bottom-0 w-1 bg-purple-500"></div>
         <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
-            <span class="text-purple-500">{{template "icon-shield" dict "Size" 20}}</span>
+            <span class="text-purple-700 dark:text-purple-400">{{template "icon-shield" dict "Size" 20}}</span>
             {{index .T "settings.admin_title"}} ({{len .Users}})
         </h2>
         <div class="overflow-x-auto rounded-xl border border-border" tabindex="0" role="region" aria-label="{{index .T "settings.admin_title"}}">
@@ -590,7 +661,7 @@ document.addEventListener('alpine:init', () => {
                     <tr class="hover:bg-accent transition-colors">
                         <td class="px-4 py-3">
                             <div class="flex items-center gap-2 sm:gap-3">
-                                <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 {{if eq .Role "ADMIN"}}bg-purple-500/10 text-purple-500{{else}}bg-blue-500/10 text-blue-500{{end}}">
+                                <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 {{if eq .Role "ADMIN"}}bg-purple-500/10 text-purple-700 dark:text-purple-400{{else}}bg-blue-500/10 text-blue-600 dark:text-blue-400{{end}}">
                                     {{template "icon-mail" dict "Size" 14}}
                                 </div>
                                 <div class="min-w-0">
@@ -600,7 +671,7 @@ document.addEventListener('alpine:init', () => {
                             </div>
                         </td>
                         <td class="hidden sm:table-cell px-4 py-3">
-                            <span class="px-2 py-1 rounded text-xs font-bold uppercase tracking-wide {{if eq .Role "ADMIN"}}bg-purple-500/10 text-purple-500 border border-purple-500/20{{else}}bg-accent text-muted-foreground border border-border{{end}}">
+                            <span class="px-2 py-1 rounded text-xs font-bold uppercase tracking-wide {{if eq .Role "ADMIN"}}bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20{{else}}bg-accent text-muted-foreground border border-border{{end}}">
                                 {{.Role}}
                             </span>
                         </td>
@@ -621,7 +692,7 @@ document.addEventListener('alpine:init', () => {
                 </tbody>
             </table>
         </div>
-        <a href="/admin/audit" class="mt-4 inline-flex items-center gap-1.5 text-sm text-purple-500 hover:text-purple-400 transition-colors font-medium">
+        <a href="/admin/audit" class="mt-4 inline-flex items-center gap-1.5 text-sm text-purple-700 dark:text-purple-400 hover:text-purple-400 transition-colors font-medium">
             {{template "icon-shield" dict "Size" 14}}
             {{index .T "settings.admin_audit_link"}}
         </a>
