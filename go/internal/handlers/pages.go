@@ -11,6 +11,18 @@ import (
 	"pilot-finance/internal/projection"
 )
 
+// localeTag retourne l'étiquette BCP-47 d'une langue, avec repli français.
+//
+// Les partiels HTMX doivent la passer au même titre que "Currency" et "T" :
+// formatMoney/formatMoneyCompact sont localisés depuis l'audit S-23, et une
+// donnée "Locale" absente ferait échouer le rendu du partiel.
+func localeTag(lang string) string {
+	if l := localeMap[lang]; l != "" {
+		return l
+	}
+	return "fr-FR"
+}
+
 // localeMap mappe la langue vers la locale BCP-47 pour JS Intl
 var localeMap = map[string]string{
 	"fr": "fr-FR",
@@ -20,10 +32,7 @@ var localeMap = map[string]string{
 // baseData construit les données communes à toutes les pages (i18n, devise, langue, nonce CSP)
 func baseData(r *http.Request, user *middleware.User) map[string]interface{} {
 	lang, currency := userLocale(user)
-	locale := localeMap[lang]
-	if locale == "" {
-		locale = "fr-FR"
-	}
+	locale := localeTag(lang)
 	return map[string]interface{}{
 		"T":           i18n.Map(lang),
 		"Lang":        lang,
@@ -206,6 +215,9 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role, "EmailVerified": user.EmailVerified}
 	data["Accounts"] = accounts
 	data["AccountLastIdx"] = len(accounts) - 1
+	// Nombre d'opérations récurrentes emportées par la suppression de chaque
+	// compte, affiché dans la confirmation (audit S-20).
+	data["LinkedCounts"] = countLinkedRecurrings(recurrings)
 	data["Recurrings"] = recurringData
 	data["MonthlyIncome"] = s.MonthlyIncome
 	data["MonthlyExpenses"] = s.MonthlyExpenses

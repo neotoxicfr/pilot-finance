@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
-	"math"
 	"strings"
 )
 
@@ -37,6 +37,7 @@ var FuncMap = template.FuncMap{
 	"eq":                 eqFunc,
 	"ne":                 neFunc,
 	"abs":                absFunc,
+	"replace":            replaceFunc,
 }
 
 // Init charge tous les templates depuis le dossier templates
@@ -152,21 +153,47 @@ func toFloat64(v interface{}) float64 {
 	}
 }
 
-// formatMoney formate un montant avec la devise donnée
-func formatMoney(amount interface{}, currency string) string {
+// moneySeparators retourne les séparateurs de milliers et de décimales de la
+// locale (audit S-23).
+//
+// Le serveur figeait la notation française tandis que PILOT_FMT.currency, côté
+// navigateur, passe par Intl et localise : un même écran pouvait afficher
+// « 1 234,56 EUR » rendu par le serveur à côté de « 1,234.56 EUR » rendu par
+// le JS. Seuls les séparateurs varient — la devise reste suffixée dans les deux
+// langues, comme partout dans l'interface.
+func moneySeparators(locale string) (thousands, decimal string) {
+	if strings.HasPrefix(locale, "en") {
+		return ",", "."
+	}
+	return " ", ","
+}
+
+// currencyDecimals retourne le nombre de décimales d'une devise. Le yen ne
+// subdivise pas : afficher « 1 234,00 JPY » est faux (audit S-23).
+func currencyDecimals(currency string) int {
+	if currency == "JPY" {
+		return 0
+	}
+	return 2
+}
+
+// formatMoney formate un montant avec la devise et la locale données.
+func formatMoney(amount interface{}, currency string, locale string) string {
 	f := toFloat64(amount)
 	if currency == "" {
 		currency = "EUR"
 	}
-	decimals := 0
-	if f != float64(int64(f)) {
-		decimals = 2
-	}
+	thousands, decimal := moneySeparators(locale)
 
-	if decimals == 0 {
-		return fmt.Sprintf("%s %s", formatWithSpaces(int64(f)), currency)
+	// Une devise sans subdivision n'affiche jamais de décimales, même sur un
+	// montant non entier (arrondi à l'unité).
+	if currencyDecimals(currency) == 0 {
+		return fmt.Sprintf("%s %s", groupDigits(int64(math.Round(f)), thousands), currency)
 	}
-	return fmt.Sprintf("%s %s", formatFloat(f), currency)
+	if f == float64(int64(f)) {
+		return fmt.Sprintf("%s %s", groupDigits(int64(f), thousands), currency)
+	}
+	return fmt.Sprintf("%s %s", formatDecimal(f, thousands, decimal), currency)
 }
 
 // formatMoneyCompact formate un montant en notation compacte (k, M) avec devise.
@@ -180,30 +207,69 @@ func formatMoney(amount interface{}, currency string) string {
 // Ce formateur a un miroir JS strict dans go/static/js/charts.js
 // (compactMoney) : toute modification de tiers, d'arrondi ou de séparateur
 // doit être répercutée dans les deux.
-func formatMoneyCompact(amount interface{}, currency string) string {
+func formatMoneyCompact(amount interface{}, currency string, locale string) string {
 	f := toFloat64(amount)
 	if currency == "" {
 		currency = "EUR"
 	}
 	if f < 0 {
-		return "-" + formatMoneyCompact(-f, currency)
+		return "-" + formatMoneyCompact(-f, currency, locale)
 	}
+	_, decimal := moneySeparators(locale)
 	if f >= 1000000 {
-		return fmt.Sprintf("%sM %s", oneDecimal(f/1000000), currency)
+		return fmt.Sprintf("%sM %s", oneDecimal(f/1000000, decimal), currency)
 	}
 	if f >= 10000 {
 		return fmt.Sprintf("%.0fk %s", f/1000, currency)
 	}
 	if f >= 1000 {
-		return fmt.Sprintf("%sk %s", oneDecimal(f/1000), currency)
+		return fmt.Sprintf("%sk %s", oneDecimal(f/1000, decimal), currency)
 	}
 	return fmt.Sprintf("%.0f %s", f, currency)
 }
 
 // oneDecimal formate une valeur avec une décimale et la virgule française,
 // cohérent avec formatFloat (audit S-26).
-func oneDecimal(f float64) string {
-	return strings.Replace(fmt.Sprintf("%.1f", f), ".", ",", 1)
+func oneDecimal(f float64, decimal string) string {
+	return strings.Replace(fmt.Sprintf("%.1f", f), ".", decimal, 1)
+}
+
+// groupDigits insère le séparateur de milliers de la locale dans un entier.
+// Remplace formatWithSpaces, qui figeait l'espace (audit S-23).
+func groupDigits(n int64, thousands string) string {
+	if n < 0 {
+		return "-" + groupDigits(-n, thousands)
+	}
+	str := fmt.Sprintf("%d", n)
+	if len(str) <= 3 {
+		return str
+	}
+	var b strings.Builder
+	for i, c := range str {
+		if i > 0 && (len(str)-i)%3 == 0 {
+			b.WriteString(thousands)
+		}
+		b.WriteRune(c)
+	}
+	return b.String()
+}
+
+// formatDecimal rend un montant à deux décimales avec les séparateurs de la
+// locale, en gérant le débordement d'arrondi (99,999… → 100,00).
+func formatDecimal(f float64, thousands, decimal string) string {
+	negative := math.Signbit(f)
+	absVal := math.Abs(f)
+	intPart := int64(absVal)
+	decPart := int(math.Round((absVal - float64(intPart)) * 100))
+	if decPart >= 100 {
+		intPart++
+		decPart = 0
+	}
+	s := fmt.Sprintf("%s%s%02d", groupDigits(intPart, thousands), decimal, decPart)
+	if negative {
+		return "-" + s
+	}
+	return s
 }
 
 // formatBalance formate un solde pour l'input
@@ -215,47 +281,11 @@ func formatBalance(amount interface{}) string {
 	return fmt.Sprintf("%.2f", f)
 }
 
-func formatWithSpaces(n int64) string {
-	if n < 0 {
-		return "-" + formatWithSpaces(-n)
-	}
-
-	str := fmt.Sprintf("%d", n)
-	if len(str) <= 3 {
-		return str
-	}
-
-	var result strings.Builder
-	for i, c := range str {
-		if i > 0 && (len(str)-i)%3 == 0 {
-			result.WriteRune(' ')
-		}
-		result.WriteRune(c)
-	}
-	return result.String()
-}
-
-func formatFloat(v interface{}) string {
-	f := toFloat64(v)
-	// Separer partie entiere et decimale
-	negative := math.Signbit(f)
-	absVal := math.Abs(f)
-	intPart := int64(absVal)
-	decPart := int(math.Round((absVal - float64(intPart)) * 100))
-
-	// Handle rounding overflow (e.g., 99.999... -> decPart=100)
-	if decPart >= 100 {
-		intPart++
-		decPart = 0
-	}
-
-	// Formater avec separateurs de milliers
-	intStr := formatWithSpaces(intPart)
-
-	if negative {
-		return fmt.Sprintf("-%s,%02d", intStr, decPart)
-	}
-	return fmt.Sprintf("%s,%02d", intStr, decPart)
+// replaceFunc substitue un marqueur dans une chaîne traduite, comme le fait
+// déjà le JS sur les mêmes clés (« {n} », « {list} »). La valeur peut être un
+// nombre : elle est rendue via %v.
+func replaceFunc(s, old string, value interface{}) string {
+	return strings.ReplaceAll(s, old, fmt.Sprintf("%v", value))
 }
 
 // dict cree un dictionnaire pour passer des parametres aux templates
@@ -329,10 +359,10 @@ func add(a, b interface{}) float64  { return toFloat64(a) + toFloat64(b) }
 func sub(a, b interface{}) float64  { return toFloat64(a) - toFloat64(b) }
 
 // Fonctions de comparaison
-func ge(a, b interface{}) bool      { return toFloat64(a) >= toFloat64(b) }
-func gt(a, b interface{}) bool      { return toFloat64(a) > toFloat64(b) }
-func eqFunc(a, b interface{}) bool  { return a == b }
-func neFunc(a, b interface{}) bool  { return a != b }
+func ge(a, b interface{}) bool     { return toFloat64(a) >= toFloat64(b) }
+func gt(a, b interface{}) bool     { return toFloat64(a) > toFloat64(b) }
+func eqFunc(a, b interface{}) bool { return a == b }
+func neFunc(a, b interface{}) bool { return a != b }
 
 // Fonction valeur absolue
 func absFunc(a interface{}) float64 {

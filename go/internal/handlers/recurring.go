@@ -265,6 +265,7 @@ func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
 	hookRenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{ //nolint:errcheck
 		"Recurrings": computed.recurringData,
 		"Currency":   currency,
+		"Locale":     localeTag(lang),
 		"T":          i18n.Map(lang),
 	})
 

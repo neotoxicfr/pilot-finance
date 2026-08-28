@@ -32,7 +32,12 @@ const fmt = v => window.PILOT_FMT.currency(v);
 // arrondies à l'entier PAIR par Go (« 12k ») et à l'entier SUPÉRIEUR par
 // Math.round (« 13k ») — écart d'un « k » sur une étiquette, sans conséquence.
 // La virgule est figée comme côté serveur (voir audit S-23 pour la locale).
-const oneDecimal = n => n.toFixed(1).replace('.', ',');
+// Séparateur décimal de la locale, miroir de templates.moneySeparators (Go).
+// Audit S-23 : la virgule était figée ici alors que PILOT_FMT.currency localise
+// via Intl — un compte en anglais voyait « 1.5k EUR » et « 1,234.56 EUR » se
+// contredire sur le même écran.
+const decimalSep = () => (window.PILOT_LOCALE || 'fr').startsWith('en') ? '.' : ',';
+const oneDecimal = n => n.toFixed(1).replace('.', decimalSep());
 const compactMoney = (value) => {
     const c = window.PILOT_CURRENCY || 'EUR';
     if (value < 0) return '-' + compactMoney(-value);

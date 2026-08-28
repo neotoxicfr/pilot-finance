@@ -213,6 +213,28 @@ type accountsComputed struct {
 	accounts      []db.Account
 	summary       summaryTotals
 	recurringData []map[string]interface{}
+	// linkedCounts[id] = nombre d'opérations récurrentes que la suppression du
+	// compte id détruirait aussi (audit S-20).
+	linkedCounts map[int64]int
+}
+
+// countLinkedRecurrings compte, pour chaque compte, les opérations récurrentes
+// que sa suppression emporterait.
+//
+// db.DeleteAccount supprime les récurrentes dans LES DEUX SENS
+// (`account_id = ? OR to_account_id = ?`) : un virement dont ce compte est la
+// destination disparaît lui aussi, alors qu'il « appartient » visuellement à un
+// autre compte. L'interface ne le disait pas (audit S-20) ; on compte donc les
+// deux sens, comme la requête de suppression.
+func countLinkedRecurrings(recurrings []db.RecurringOperation) map[int64]int {
+	counts := make(map[int64]int)
+	for _, r := range recurrings {
+		counts[r.AccountID]++
+		if r.ToAccountID != nil && *r.ToAccountID != r.AccountID {
+			counts[*r.ToAccountID]++
+		}
+	}
+	return counts
 }
 
 // computeAccountsSummary déchiffre les noms de comptes, calcule les yield payouts,
@@ -226,7 +248,7 @@ func computeAccountsSummary(lang string, accounts []db.Account, recurrings []db.
 	s := calculateSummary(yieldPayouts, recurrings)
 	recurringData := buildRecurringData(yieldPayouts, recurrings, accountMap, interestPrefix)
 
-	return accountsComputed{accounts: accounts, summary: s, recurringData: recurringData}
+	return accountsComputed{accounts: accounts, summary: s, recurringData: recurringData, linkedCounts: countLinkedRecurrings(recurrings)}
 }
 
 // renderSummaryCardOOB rend la carte de résumé en fragment OOB (id + hx-swap-oob
@@ -240,6 +262,7 @@ func renderSummaryCardOOB(w io.Writer, lang, currency string, s summaryTotals) {
 		"MonthlyYield":    s.MonthlyYield,
 		"AnnualYield":     s.AnnualYield,
 		"Currency":        currency,
+		"Locale":          localeTag(lang),
 	})
 }
 
