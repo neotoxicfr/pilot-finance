@@ -16,15 +16,28 @@ on:
       - '.gitignore'
     tags: [ 'v*.*.*' ]
 
+# Deux pushes rapprochés sur develop laissaient l'ancien commit sous :dev
+# (audit S-38). On annule le run obsolète — jamais sur un tag, dont la
+# publication ne doit pas être interrompue.
+concurrency:
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+permissions: {}
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # Barrière de test (audit S-13) : l'image :dev est tirée telle quelle en
+  # production, ce job doit donc réussir AVANT toute publication. Il tourne sur
+  # les branches ET sur les tags — `needs: [test]` sans `always()` garantit
+  # qu'aucun `push: true` n'a lieu si un test échoue.
   test:
-    name: Run tests (tag builds)
-    if: startsWith(github.ref, 'refs/tags/')
+    name: Test barrier
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -38,13 +51,13 @@ jobs:
         run: go test -race -timeout 600s ./...
 
   build:
+    name: Build and push
     needs: [test]
-    if: ${{ always() && (needs.test.result == 'success' || needs.test.result == 'skipped') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: write
-      security-events: write
 
     steps:
       - name: Checkout repository
@@ -83,6 +96,37 @@ jobs:
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
             type=raw,value=dev,enable=${{ github.ref == 'refs/heads/develop' }}
 
+      # Le scan doit précéder le push (audit S-35) : scanner l'image déjà
+      # publiée ne peut plus rien empêcher. Build amd64 local, mis en cache et
+      # réutilisé par l'étape de publication ci-dessous.
+      - name: Build image locally for scanning
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: ./go
+          push: false
+          load: true
+          platforms: linux/amd64
+          build-args: VERSION=${{ steps.version.outputs.value }}
+          tags: pilot-finance:scan
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Périmètre réel de ce scan, explicitement : l'étage final est `scratch`,
+      # il n'a donc AUCUN paquet OS, et le binaire Go est compressé par UPX, ce
+      # qui empêche l'analyseur `gobinary` de lire debug/buildinfo. Ce scan ne
+      # détecte donc que ce qui est ajouté à l'image hors binaire (assets,
+      # certificats). La couverture réelle des dépendances Go est assurée par
+      # `trivy fs` (bloquant) et `govulncheck` dans ci.yml. Il est conservé
+      # bloquant et pré-push pour qu'une régression de base d'image future
+      # (passage hors scratch) soit arrêtée avant publication.
+      - name: Scan image with Trivy (blocking, pre-push)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
+        with:
+          image-ref: pilot-finance:scan
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+
       - name: Build and push Docker image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
@@ -94,16 +138,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Scan Docker image with Trivy
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
-        with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ startsWith(github.ref, 'refs/tags/') && 'latest' || 'dev' }}
-          format: sarif
-          output: trivy-results.sarif
-          severity: CRITICAL,HIGH
-
-      - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
-        with:
-          sarif_file: trivy-results.sarif

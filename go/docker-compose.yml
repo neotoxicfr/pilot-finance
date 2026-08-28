@@ -1,5 +1,13 @@
 # Pilot Finance v2.0 - Go + HTMX
-# Pour tester: docker compose up --build
+#
+# Prérequis avant `docker compose up --build` :
+#   1) créer un fichier .env à côté de ce fichier :
+#        AUTH_SECRET=$(openssl rand -hex 32)
+#        ENCRYPTION_KEY=$(openssl rand -hex 32)
+#        BLIND_INDEX_KEY=$(openssl rand -hex 32)
+#      (sans ces trois clés le serveur refuse de démarrer, par conception)
+#   2) préparer le volume de données pour l'uid non privilégié :
+#        mkdir -p data && sudo chown -R 65532:65532 data
 
 services:
   pilot:
@@ -23,8 +31,18 @@ services:
           cpus: '1.0'
         reservations:
           memory: 64M
+    # Le conteneur tourne en uid/gid 65532 (non privilégié) : le dossier de
+    # données doit lui appartenir avant le premier démarrage.
+    #   mkdir -p data && sudo chown -R 65532:65532 data
+    user: "65532:65532"
     environment:
+      # ENV=production active les logs JSON ET impose TRUSTED_PROXIES
+      # (sans quoi X-Forwarded-For serait spoofable et contournerait le rate limit).
       - ENV=production
+      # Liste d'IPs / CIDR autorisés à poser X-Forwarded-For. Par défaut : les
+      # réseaux bridge Docker (le reverse-proxy est un conteneur voisin).
+      # À restreindre à l'IP exacte du reverse-proxy quand elle est fixe.
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-172.16.0.0/12}
       - TZ=Europe/Paris
       - PORT=3000
       - DATABASE_URL=file:/data/pilot.db
@@ -37,9 +55,14 @@ services:
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASS=${SMTP_PASS:-}
       - SMTP_FROM=${SMTP_FROM:-}
+      # SMTP_SECURE=true → TLS implicite (port 465). Sinon STARTTLS (port 587).
+      - SMTP_SECURE=${SMTP_SECURE:-false}
       # Configuration domaine
       - HOST=${HOST:-localhost}
       - ALLOW_REGISTER=${ALLOW_REGISTER:-false}
+      # DISABLE_RATE_LIMIT=true DÉSACTIVE toutes les limites de débit.
+      # Réservé aux tests E2E — ne jamais activer sur une instance exposée.
+      # - DISABLE_RATE_LIMIT=false
       # --- Docker Secrets (alternative plus sécurisée) ---
       # Décommenter les lignes _FILE et commenter les variables ci-dessus :
       # - AUTH_SECRET_FILE=/run/secrets/auth_secret
@@ -58,7 +81,9 @@ services:
     ports:
       - "3000:3000"
     healthcheck:
-      test: ["/app/server", "healthcheck"]
+      # Le premier élément DOIT être CMD / CMD-SHELL / NONE (spec Compose) :
+      # sans lui, la sonde est ignorée ET celle de l'image est écrasée.
+      test: ["CMD", "/app/server", "healthcheck"]
       interval: 30s
       timeout: 5s
       retries: 3
