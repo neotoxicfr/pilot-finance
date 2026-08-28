@@ -1,6 +1,9 @@
 package db
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestCreateAndGetAccount(t *testing.T) {
 	cleanup := setupTestDB(t)
@@ -101,6 +104,135 @@ func TestUpdateAccountBalance(t *testing.T) {
 	accounts, _ = GetAccountsByUserID(userID)
 	if accounts[0].Balance != 999999 {
 		t.Errorf("balance: want 999999, got %v", accounts[0].Balance)
+	}
+}
+
+// ── S-36 / FIN-9 : atomicité réelle de l'import CSV ─────────────────────────
+//
+// Les tests d'import côté handlers remplacent hookUpdateAccountBalancesTx par
+// un stub qui n'écrit rien : ils ne pouvaient donc pas détecter la suppression
+// de la transaction. Les deux tests ci-dessous exercent la vraie fonction.
+
+// failUpdateTrigger installe un déclencheur SQLite qui fait échouer toute
+// écriture sur le compte donné, et le retire en fin de test.
+func failUpdateTrigger(t *testing.T, accountID int64) {
+	t.Helper()
+	// CREATE TRIGGER est du DDL : la valeur est interpolée (elle vient de la
+	// base de test, pas d'une entrée utilisateur).
+	stmt := fmt.Sprintf(`
+		CREATE TRIGGER fail_update_%d BEFORE UPDATE ON accounts
+		WHEN NEW.id = %d
+		BEGIN SELECT RAISE(ABORT, 'echec simule'); END`, accountID, accountID)
+	if _, err := DB.Exec(stmt); err != nil {
+		t.Fatalf("CREATE TRIGGER: %v", err)
+	}
+	t.Cleanup(func() {
+		DB.Exec(fmt.Sprintf(`DROP TRIGGER IF EXISTS fail_update_%d`, accountID)) //nolint:errcheck
+	})
+}
+
+// TestUpdateAccountBalancesTx_AppliesAll vérifie le cas nominal : toutes les
+// lignes valides sont écrites en une passe.
+func TestUpdateAccountBalancesTx_AppliesAll(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+	userID := createTestUser(t)
+
+	CreateAccountWithYield(userID, "A", 111, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
+	CreateAccountWithYield(userID, "B", 222, "#111", 1, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
+	accounts, _ := GetAccountsByUserID(userID)
+	idA, idB := accounts[0].ID, accounts[1].ID
+
+	if err := UpdateAccountBalancesTx(userID, []AccountBalanceUpdate{
+		{ID: idA, Cents: 1000},
+		{ID: idB, Cents: 2000},
+	}); err != nil {
+		t.Fatalf("UpdateAccountBalancesTx: %v", err)
+	}
+
+	accounts, _ = GetAccountsByUserID(userID)
+	got := map[int64]int64{}
+	for _, a := range accounts {
+		got[a.ID] = a.Balance
+	}
+	if got[idA] != 1000 {
+		t.Errorf("solde A : want 1000, got %d", got[idA])
+	}
+	if got[idB] != 2000 {
+		t.Errorf("solde B : want 2000, got %d", got[idB])
+	}
+}
+
+// TestUpdateAccountBalancesTx_RollbackOnFailure vérifie l'atomicité : quand la
+// seconde écriture échoue, la première ne doit PAS subsister. Retirer la
+// transaction (Begin/Commit/Rollback) au profit d'un DB.Exec direct laisserait
+// le premier solde modifié et fait rougir ce test.
+func TestUpdateAccountBalancesTx_RollbackOnFailure(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+	userID := createTestUser(t)
+
+	CreateAccountWithYield(userID, "A", 111, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
+	CreateAccountWithYield(userID, "B", 222, "#111", 1, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
+	accounts, _ := GetAccountsByUserID(userID)
+	idA, idB := accounts[0].ID, accounts[1].ID
+
+	// La 2e ligne de l'import échouera ; la 1re a déjà été écrite dans la
+	// transaction et doit donc être annulée.
+	failUpdateTrigger(t, idB)
+
+	err := UpdateAccountBalancesTx(userID, []AccountBalanceUpdate{
+		{ID: idA, Cents: 1000},
+		{ID: idB, Cents: 2000},
+	})
+	if err == nil {
+		t.Fatal("UpdateAccountBalancesTx devrait échouer quand une écriture est refusée")
+	}
+
+	accounts, _ = GetAccountsByUserID(userID)
+	got := map[int64]int64{}
+	for _, a := range accounts {
+		got[a.ID] = a.Balance
+	}
+	if got[idA] != 111 {
+		t.Errorf("mise à jour partielle : le solde A devrait rester 111, got %d", got[idA])
+	}
+	if got[idB] != 222 {
+		t.Errorf("le solde B devrait rester 222, got %d", got[idB])
+	}
+}
+
+// TestUpdateAccountBalancesTx_Empty vérifie le court-circuit sur liste vide.
+func TestUpdateAccountBalancesTx_Empty(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+	userID := createTestUser(t)
+
+	if err := UpdateAccountBalancesTx(userID, nil); err != nil {
+		t.Errorf("liste vide : want nil, got %v", err)
+	}
+}
+
+// TestUpdateAccountBalancesTx_ForeignUser vérifie le cloisonnement : les
+// soldes d'un autre utilisateur ne sont jamais touchés.
+func TestUpdateAccountBalancesTx_ForeignUser(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+	userID := createTestUser(t)
+
+	CreateAccountWithYield(userID, "A", 111, "#000", 0, false, "FIXED", 0, 0, 100, nil, "MONTHLY")
+	accounts, _ := GetAccountsByUserID(userID)
+	idA := accounts[0].ID
+
+	// userID+999 n'est pas le propriétaire : la clause WHERE user_id doit
+	// neutraliser l'écriture (0 ligne affectée, pas d'erreur).
+	if err := UpdateAccountBalancesTx(userID+999, []AccountBalanceUpdate{{ID: idA, Cents: 9999}}); err != nil {
+		t.Fatalf("UpdateAccountBalancesTx: %v", err)
+	}
+
+	accounts, _ = GetAccountsByUserID(userID)
+	if accounts[0].Balance != 111 {
+		t.Errorf("solde d'autrui modifié : want 111, got %d", accounts[0].Balance)
 	}
 }
 
