@@ -142,26 +142,26 @@ func parseBalancesCSV(rd io.Reader) ([]balanceUpdate, []int) {
 func ImportBalances(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	file, _, err := r.FormFile("file")
 	if err != nil {
-		clientError(w, ErrValidation, "Fichier manquant", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.file_missing", http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
 
 	updates, invalidLines := parseBalancesCSV(file)
 	if len(updates) == 0 && len(invalidLines) == 0 {
-		clientError(w, ErrValidation, "CSV vide", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.csv_empty", http.StatusBadRequest)
 		return
 	}
 
 	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
-		serverError(w, "get accounts", err)
+		serverError(w, r, "get accounts", err)
 		return
 	}
 	// Index nom déchiffré (minuscules) → IDs ; un nom peut apparaître plusieurs
@@ -195,7 +195,7 @@ func ImportBalances(w http.ResponseWriter, r *http.Request) {
 	// aucune — pas de mise à jour partielle sur erreur en cours (audit FIN-9).
 	if len(pairs) > 0 {
 		if err := hookUpdateAccountBalancesTx(user.ID, pairs); err != nil {
-			serverError(w, "import balances", err)
+			serverError(w, r, "import balances", err)
 			return
 		}
 		hookLogAudit(user.ID, db.AuditImportBalances, getClientIP(r), r.UserAgent())

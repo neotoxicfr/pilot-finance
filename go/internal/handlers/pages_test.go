@@ -225,16 +225,37 @@ func TestSettingsPage_Admin_OK(t *testing.T) {
 
 // --- VerifyEmailPage ---
 
+// TestVerifyEmailPage_NoToken vérifie aussi que la page non authentifiée suit
+// Accept-Language (FIN-14) : baseData retombait sur « fr » en dur pour un
+// visiteur sans session, alors que ses messages d'erreur, eux, étaient déjà
+// traduits — la page et ses erreurs se contredisaient.
 func TestVerifyEmailPage_NoToken(t *testing.T) {
 	setupHandlerTest(t)
 
-	rr := httptest.NewRecorder()
-	VerifyEmailPage(rr, httptest.NewRequest(http.MethodGet, "/verify-email", nil))
-	if rr.Code != http.StatusOK {
-		t.Errorf("want 200, got %d", rr.Code)
+	cases := []struct {
+		name       string
+		acceptLang string
+		want       string
+	}{
+		{"navigateur francais", "fr-FR,fr;q=0.9", "Jeton manquant"},
+		{"navigateur anglais", "en-US,en;q=0.9", "Missing token"},
+		{"sans en-tete (defaut)", "", "Missing token"},
 	}
-	if !strings.Contains(rr.Body.String(), "Jeton manquant") {
-		t.Error("response should mention missing token")
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/verify-email", nil)
+			if tc.acceptLang != "" {
+				req.Header.Set("Accept-Language", tc.acceptLang)
+			}
+			rr := httptest.NewRecorder()
+			VerifyEmailPage(rr, req)
+			if rr.Code != http.StatusOK {
+				t.Errorf("want 200, got %d", rr.Code)
+			}
+			if !strings.Contains(rr.Body.String(), tc.want) {
+				t.Errorf("la page devrait mentionner %q", tc.want)
+			}
+		})
 	}
 }
 

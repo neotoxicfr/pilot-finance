@@ -288,6 +288,9 @@ func TestVerifyEmailPage_TokenInvalid(t *testing.T) {
 	t.Cleanup(func() { hookGetUserByVerificationTok = orig })
 
 	req := httptest.NewRequest(http.MethodGet, "/verify-email?token=sometoken", nil)
+	// Page non authentifiée : la langue suit Accept-Language depuis FIN-14, on
+	// la fixe pour asserter un libellé déterministe.
+	req.Header.Set("Accept-Language", "fr-FR,fr;q=0.9")
 	rr := httptest.NewRecorder()
 	VerifyEmailPage(rr, req)
 	if rr.Code != http.StatusOK {
