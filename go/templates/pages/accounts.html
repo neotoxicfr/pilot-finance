@@ -199,6 +199,11 @@
                     {{template "icon-plus" dict "Size" 16}} {{index .T "recurring.add"}}
                 </button>
             </div>
+            <!-- FIX (S-40): aucun planificateur n'exécute ces opérations — elles ne
+                 servent qu'à la projection, et les soldes restent saisis à la main.
+                 L'interface le laissait croire (badge « jour du mois » bien visible,
+                 intérêts annoncés au futur). -->
+            <p class="text-xs text-muted-foreground -mt-2">{{index .T "recurring.projection_note"}}</p>
 
             <!-- Recurring Form Modal -->
             <dialog id="recurring-dialog" aria-labelledby="recurring-dialog-title"
@@ -234,6 +239,7 @@
                                     </div>
                                     <label for="recurring-day" class="sr-only">{{index .T "recurring.day_label"}}</label>
                                     <input id="recurring-day" type="number" min="1" max="31" name="dayOfMonth" placeholder="{{index .T "recurring.day_hint"}}" required
+                                           title="{{index .T "recurring.day_help"}}"
                                            x-model="recurringDay"
                                            class="w-14 bg-accent border border-border text-foreground rounded-xl p-2.5 text-sm outline-hidden text-center focus:border-blue-500">
                                 </div>
