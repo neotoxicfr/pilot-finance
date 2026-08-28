@@ -93,7 +93,6 @@
     </div>
     <!-- Shared color legend for both charts -->
     <div id="chartLegend" class="flex flex-wrap justify-center gap-x-4 gap-y-2 -mt-4"></div>
-</div>
 
 <script id="initial-data" type="application/json">{
     "years": {{.Years}},
@@ -105,6 +104,15 @@
     "pieData": {{.PieData | json}}
 }</script>
 
+{{end}}
+<!-- FIX (S-39): ce </div> et l'enregistrement Alpine vivaient dans la branche
+     « comptes présents ». Sur un dashboard vide — le premier écran d'un nouvel
+     utilisateur — le conteneur restait ouvert et x-data pointait vers un
+     composant jamais enregistré (« Undefined variable » sur le build CSP).
+     dashboardData gère déjà l'absence de #initial-data.
+     NB : le parseur Go lit les directives même dans un commentaire HTML, d'où
+     la formulation sans accolades. -->
+</div>
 <script nonce="{{.Nonce}}">
 function dashboardData() {
     const initialEl = document.getElementById('initial-data');
@@ -215,5 +223,4 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('dashboardData', dashboardData);
 });
 </script>
-{{end}}
 {{end}}
