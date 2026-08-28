@@ -1,15 +1,22 @@
 package handlers
 
-// audit_findings_test.go — non-régression des findings S-03, S-04, S-08 et S-31
-// du giga-audit du 21 août 2026.
+// audit_findings_test.go — non-régression des findings S-03, S-04, S-08, S-31
+// et FIN-14 du giga-audit du 21 août 2026.
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
+
+	"pilot-finance/internal/i18n"
+	"pilot-finance/internal/middleware"
+	"pilot-finance/internal/ratelimit"
 )
 
 // ── S-03 : souplesse des formats numériques sur les formulaires ──────────────
@@ -353,4 +360,202 @@ func TestParseRate_MaxRateBound(t *testing.T) {
 			t.Errorf("parseRate(%q): want error, got nil", s)
 		}
 	}
+}
+
+// ── FIN-14 : messages d'erreur utilisateur traduits ──────────────────────────
+
+// requestLang privilégie la préférence du compte, et retombe sur
+// Accept-Language quand le contexte n'est pas authentifié (login, register,
+// forgot/reset password : middleware.GetUser y renvoie nil).
+func TestFIN14_RequestLang(t *testing.T) {
+	cases := []struct {
+		name   string
+		accept string
+		user   func() *middleware.User
+		want   string
+	}{
+		{"compte_en", "fr-FR,fr;q=0.9", func() *middleware.User { u := mu(1, "USER"); u.Language = "en"; return u }, "en"},
+		{"compte_fr", "en-US,en;q=0.9", func() *middleware.User { return mu(1, "USER") }, "fr"},
+		{"compte_sans_langue", "fr-FR", func() *middleware.User { u := mu(1, "USER"); u.Language = ""; return u }, "fr"},
+		{"anonyme_fr", "fr-FR,fr;q=0.9", nil, "fr"},
+		{"anonyme_en", "en-US,en;q=0.9", nil, "en"},
+		{"anonyme_sans_entete", "", nil, "en"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			if tc.accept != "" {
+				req.Header.Set("Accept-Language", tc.accept)
+			}
+			if tc.user != nil {
+				req = injectUser(req, tc.user())
+			}
+			if got := requestLang(req); got != tc.want {
+				t.Errorf("requestLang: got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// Chemin NON authentifié : le message suit la langue du navigateur, pas un
+// français codé en dur. Le code machine-readable, lui, ne bouge pas.
+func TestFIN14_UnauthenticatedErrorFollowsAcceptLanguage(t *testing.T) {
+	setupHandlerTest(t)
+
+	cases := map[string]string{
+		"en-US,en;q=0.9": "Email and password required",
+		"fr-FR,fr;q=0.9": "Email et mot de passe requis",
+	}
+	for accept, want := range cases {
+		t.Run(accept, func(t *testing.T) {
+			req := post("/login", url.Values{"email": {""}, "password": {""}})
+			req.Header.Set("Accept-Language", accept)
+			rr := httptest.NewRecorder()
+			HandleLogin(rr, req)
+
+			if rr.Code != http.StatusBadRequest {
+				t.Fatalf("want 400, got %d", rr.Code)
+			}
+			if got := rr.Header().Get("X-Error-Code"); got != ErrValidation {
+				t.Errorf("X-Error-Code: got %q, want %q", got, ErrValidation)
+			}
+			if !strings.Contains(rr.Body.String(), want) {
+				t.Errorf("message: got %q, want contains %q", rr.Body.String(), want)
+			}
+		})
+	}
+}
+
+// Chemin authentifié : le message suit la préférence enregistrée sur le compte.
+func TestFIN14_AuthenticatedErrorFollowsAccountLanguage(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "fin14@example.com", "ValidP@ss1!", "USER")
+
+	cases := map[string]string{"fr": "Nom requis", "en": "Name required"}
+	for lang, want := range cases {
+		t.Run(lang, func(t *testing.T) {
+			u := mu(uid, "USER")
+			u.Language = lang
+			// Accept-Language contradictoire : la préférence du compte prime.
+			req := injectUser(post("/accounts", url.Values{"name": {""}}), u)
+			req.Header.Set("Accept-Language", "de-DE")
+			rr := httptest.NewRecorder()
+			CreateAccount(rr, req)
+
+			if rr.Code != http.StatusBadRequest {
+				t.Fatalf("want 400, got %d", rr.Code)
+			}
+			if got := rr.Header().Get("X-Error-Code"); got != ErrValidation {
+				t.Errorf("X-Error-Code: got %q, want %q", got, ErrValidation)
+			}
+			if !strings.Contains(rr.Body.String(), want) {
+				t.Errorf("message: got %q, want contains %q", rr.Body.String(), want)
+			}
+		})
+	}
+}
+
+// Les messages paramétrés conservent leur valeur : « {n} » est substitué dans
+// les deux langues (clientErrorTn).
+func TestFIN14_RateLimitMessageKeepsMinutes(t *testing.T) {
+	setupHandlerTest(t)
+	ratelimit.StopAll()
+
+	orig := hookRateLimitCheck
+	hookRateLimitCheck = func(identifier, action string) ratelimit.Result {
+		return ratelimit.Result{Allowed: false, RetryAfterMs: 900000, Remaining: 0}
+	}
+	t.Cleanup(func() { hookRateLimitCheck = orig })
+
+	cases := map[string]string{
+		"fr-FR": "Trop de tentatives. Réessayez dans 16 min.",
+		"en-US": "Too many attempts. Try again in 16 min.",
+	}
+	for accept, want := range cases {
+		t.Run(accept, func(t *testing.T) {
+			req := post("/login", url.Values{"email": {"x@example.com"}, "password": {"y"}})
+			req.Header.Set("Accept-Language", accept)
+			rr := httptest.NewRecorder()
+			HandleLogin(rr, req)
+
+			if rr.Code != http.StatusTooManyRequests {
+				t.Fatalf("want 429, got %d", rr.Code)
+			}
+			if !strings.Contains(rr.Body.String(), want) {
+				t.Errorf("message: got %q, want contains %q", rr.Body.String(), want)
+			}
+		})
+	}
+}
+
+// jsonErrorT : le corps JSON porte le code structuré ET le message traduit.
+func TestFIN14_JSONErrorIsTranslated(t *testing.T) {
+	setupHandlerTest(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/mfa/setup", nil)
+	req.Header.Set("Accept-Language", "en-US")
+	rr := httptest.NewRecorder()
+	MFASetup(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("want 401, got %d", rr.Code)
+	}
+	var body map[string]string
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("corps JSON illisible: %v (%q)", err, rr.Body.String())
+	}
+	if body["code"] != ErrAuthRequired {
+		t.Errorf("code: got %q, want %q", body["code"], ErrAuthRequired)
+	}
+	if body["error"] != "Not authenticated" {
+		t.Errorf("error: got %q, want %q", body["error"], "Not authenticated")
+	}
+}
+
+// Toute clé passée aux helpers traduits doit exister dans les DEUX locales :
+// une clé absente ferait retomber i18n.T sur la clé brute (« error.invalid_id »
+// affiché tel quel à l'utilisateur).
+func TestFIN14_ErrorKeysExistInBothLocales(t *testing.T) {
+	setupHandlerTest(t)
+
+	for _, key := range collectErrorKeys(t) {
+		for _, lang := range []string{"fr", "en"} {
+			if got := i18n.T(lang, key); got == key {
+				t.Errorf("clé %q absente de locales/%s.json", key, lang)
+			}
+		}
+	}
+}
+
+// collectErrorKeys extrait les clés i18n passées à clientErrorT / clientErrorTn
+// / jsonErrorT par les sources de production du paquet handlers.
+func collectErrorKeys(t *testing.T) []string {
+	t.Helper()
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("ReadDir: %v", err)
+	}
+	re := regexp.MustCompile(`(?:clientErrorTn?|jsonErrorT)\(w, r, Err[A-Za-z]+, "([a-z0-9_.]+)"`)
+	seen := map[string]bool{}
+	var keys []string
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		src, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatalf("ReadFile %s: %v", name, err)
+		}
+		for _, m := range re.FindAllStringSubmatch(string(src), -1) {
+			if !seen[m[1]] {
+				seen[m[1]] = true
+				keys = append(keys, m[1])
+			}
+		}
+	}
+	if len(keys) < 50 {
+		t.Fatalf("extraction cassée : %d clés trouvées, ~70 attendues", len(keys))
+	}
+	return keys
 }

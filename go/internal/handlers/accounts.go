@@ -112,12 +112,12 @@ func parseAccountForm(w http.ResponseWriter, r *http.Request, user *middleware.U
 	targetAccountIDStr := r.FormValue("targetAccountId")
 
 	if name == "" {
-		clientError(w, ErrValidation, "Nom requis", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.account_name_required", http.StatusBadRequest)
 		return f, false
 	}
 
 	if len([]rune(name)) > 100 {
-		clientError(w, ErrValidation, "Nom trop long (100 caractères max)", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.account_name_too_long", http.StatusBadRequest)
 		return f, false
 	}
 
@@ -125,7 +125,7 @@ func parseAccountForm(w http.ResponseWriter, r *http.Request, user *middleware.U
 	encryptedName, err := hookEncryptStr(name)
 	if err != nil {
 		slog.Error("encrypt name", "err", err)
-		clientError(w, ErrEncryption, "Erreur chiffrement", http.StatusInternalServerError)
+		clientErrorT(w, r, ErrEncryption, "error.encryption", http.StatusInternalServerError)
 		return f, false
 	}
 
@@ -137,7 +137,7 @@ func parseAccountForm(w http.ResponseWriter, r *http.Request, user *middleware.U
 		var err error
 		balance, err = parseCentsFlexible(balanceStr)
 		if err != nil {
-			clientError(w, ErrValidation, "Solde invalide", http.StatusBadRequest)
+			clientErrorT(w, r, ErrValidation, "error.balance_invalid", http.StatusBadRequest)
 			return f, false
 		}
 	}
@@ -145,7 +145,7 @@ func parseAccountForm(w http.ResponseWriter, r *http.Request, user *middleware.U
 	if color == "" {
 		color = "#3b82f6"
 	} else if !hexColorRegex.MatchString(color) {
-		clientError(w, ErrValidation, "Format couleur invalide (ex: #3b82f6)", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.color_invalid", http.StatusBadRequest)
 		return f, false
 	}
 
@@ -161,19 +161,19 @@ func parseAccountForm(w http.ResponseWriter, r *http.Request, user *middleware.U
 	// parseRateFlexible délègue à parseRate : bornes NaN/±Inf/maxRate inchangées.
 	if yieldMinStr != "" {
 		if yieldMin, parseErr = parseRateFlexible(yieldMinStr); parseErr != nil {
-			clientError(w, ErrValidation, "Taux minimum invalide", http.StatusBadRequest)
+			clientErrorT(w, r, ErrValidation, "error.yield_min_invalid", http.StatusBadRequest)
 			return f, false
 		}
 	}
 	if yieldMaxStr != "" {
 		if yieldMax, parseErr = parseRateFlexible(yieldMaxStr); parseErr != nil {
-			clientError(w, ErrValidation, "Taux maximum invalide", http.StatusBadRequest)
+			clientErrorT(w, r, ErrValidation, "error.yield_max_invalid", http.StatusBadRequest)
 			return f, false
 		}
 	}
 	if reinvestmentRateStr != "" {
 		if reinvestmentRate, parseErr = strconv.Atoi(reinvestmentRateStr); parseErr != nil {
-			clientError(w, ErrValidation, "Taux de réinvestissement invalide", http.StatusBadRequest)
+			clientErrorT(w, r, ErrValidation, "error.reinvestment_invalid", http.StatusBadRequest)
 			return f, false
 		}
 	}
@@ -181,18 +181,18 @@ func parseAccountForm(w http.ResponseWriter, r *http.Request, user *middleware.U
 	// Validation des taux de rendement
 	if isYieldActive {
 		if yieldMin < 0 || yieldMax < 0 {
-			clientError(w, ErrValidation, "Les taux de rendement ne peuvent pas être négatifs", http.StatusBadRequest)
+			clientErrorT(w, r, ErrValidation, "error.yield_negative", http.StatusBadRequest)
 			return f, false
 		}
 		if yieldType == "RANGE" && yieldMin > yieldMax {
-			clientError(w, ErrValidation, "Le taux minimum doit être inférieur ou égal au taux maximum", http.StatusBadRequest)
+			clientErrorT(w, r, ErrValidation, "error.yield_min_gt_max", http.StatusBadRequest)
 			return f, false
 		}
 	}
 
 	// Validation du taux de réinvestissement
 	if reinvestmentRate < 0 || reinvestmentRate > 100 {
-		clientError(w, ErrValidation, "Le taux de réinvestissement doit être compris entre 0 et 100", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.reinvestment_range", http.StatusBadRequest)
 		return f, false
 	}
 
@@ -201,13 +201,13 @@ func parseAccountForm(w http.ResponseWriter, r *http.Request, user *middleware.U
 	if targetAccountIDStr != "" && targetAccountIDStr != "0" {
 		targetID, err := strconv.ParseInt(targetAccountIDStr, 10, 64)
 		if err != nil {
-			clientError(w, ErrValidation, "Compte cible invalide", http.StatusBadRequest)
+			clientErrorT(w, r, ErrValidation, "error.target_account_invalid", http.StatusBadRequest)
 			return f, false
 		}
 		// Vérifier que le compte cible appartient à l'utilisateur
 		ok, err := hookAccountBelongsToUser(targetID, user.ID)
 		if err != nil || !ok {
-			clientError(w, ErrValidation, "Compte cible invalide", http.StatusBadRequest)
+			clientErrorT(w, r, ErrValidation, "error.target_account_invalid", http.StatusBadRequest)
 			return f, false
 		}
 		targetAccountID = &targetID
@@ -237,12 +237,12 @@ func parseAccountForm(w http.ResponseWriter, r *http.Request, user *middleware.U
 func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_data", http.StatusBadRequest)
 		return
 	}
 
@@ -257,12 +257,12 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 	if idStr != "" {
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
-			clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
+			clientErrorT(w, r, ErrValidation, "error.invalid_id", http.StatusBadRequest)
 			return
 		}
 		err = hookUpdateAccountWithYield(id, user.ID, f.encryptedName, f.balance, f.color, f.isYieldActive, f.yieldType, f.yieldMin, f.yieldMax, f.reinvestmentRate, f.targetAccountID, f.payoutFrequency)
 		if err != nil {
-			serverError(w, "update account", err)
+			serverError(w, r, "update account", err)
 			return
 		}
 		hookLogAudit(user.ID, db.AuditAccountUpdate, getClientIP(r), r.UserAgent())
@@ -276,60 +276,60 @@ func CreateAccount(w http.ResponseWriter, r *http.Request) {
 
 		err := hookCreateAccountWithYield(user.ID, f.encryptedName, f.balance, f.color, position, f.isYieldActive, f.yieldType, f.yieldMin, f.yieldMax, f.reinvestmentRate, f.targetAccountID, f.payoutFrequency)
 		if err != nil {
-			serverError(w, "create account", err)
+			serverError(w, r, "create account", err)
 			return
 		}
 		hookLogAudit(user.ID, db.AuditAccountCreate, getClientIP(r), r.UserAgent())
 	}
 
 	// Retourner la liste mise a jour en HTML
-	renderAccountsList(w, user)
+	renderAccountsList(w, r, user)
 }
 
 // DeleteAccount supprime un compte
 func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_id", http.StatusBadRequest)
 		return
 	}
 
 	err = hookDeleteAccount(id, user.ID)
 	if err != nil {
-		serverError(w, "delete account", err)
+		serverError(w, r, "delete account", err)
 		return
 	}
 
 	hookLogAudit(user.ID, db.AuditAccountDelete, getClientIP(r), r.UserAgent())
 
 	// Retourner la liste mise a jour en HTML
-	renderAccountsList(w, user)
+	renderAccountsList(w, r, user)
 }
 
 // UpdateBalance met a jour le solde d'un compte
 func UpdateBalance(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_id", http.StatusBadRequest)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_data", http.StatusBadRequest)
 		return
 	}
 
@@ -337,51 +337,51 @@ func UpdateBalance(w http.ResponseWriter, r *http.Request) {
 	// écraserait silencieusement le solde existant (audit FIN-2, « vide ≠ 0 »).
 	balanceStr := r.FormValue("balance")
 	if balanceStr == "" {
-		clientError(w, ErrValidation, "Solde requis", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.balance_required", http.StatusBadRequest)
 		return
 	}
 	// audit S-03 : saisie souple identique au formulaire de compte et à l'import
 	// CSV ; parseCentsFlexible délègue à parseCents (bornes FIN-1 conservées).
 	balance, err := parseCentsFlexible(balanceStr)
 	if err != nil {
-		clientError(w, ErrValidation, "Solde invalide", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.balance_invalid", http.StatusBadRequest)
 		return
 	}
 
 	err = hookUpdateAccountBalance(id, user.ID, balance)
 	if err != nil {
-		serverError(w, "update balance", err)
+		serverError(w, r, "update balance", err)
 		return
 	}
 
-	renderAccountsList(w, user)
+	renderAccountsList(w, r, user)
 }
 
 // MoveAccount deplace un compte vers le haut ou le bas
 func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_id", http.StatusBadRequest)
 		return
 	}
 
 	direction := r.URL.Query().Get("direction")
 	if direction != "up" && direction != "down" {
-		clientError(w, ErrValidation, "Direction invalide", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.direction_invalid", http.StatusBadRequest)
 		return
 	}
 
 	// Recuperer tous les comptes tries par position
 	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
-		serverError(w, "get accounts", err)
+		serverError(w, r, "get accounts", err)
 		return
 	}
 
@@ -395,7 +395,7 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if currentIdx == -1 {
-		clientError(w, ErrNotFound, "Compte non trouvé", http.StatusNotFound)
+		clientErrorT(w, r, ErrNotFound, "error.account_not_found", http.StatusNotFound)
 		return
 	}
 
@@ -410,26 +410,26 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 	// Verifier les limites
 	if targetIdx < 0 || targetIdx >= len(accounts) {
 		// Pas de changement, retourner la liste actuelle
-		renderAccountsList(w, user)
+		renderAccountsList(w, r, user)
 		return
 	}
 
 	// Echanger les positions
 	err = hookSwapAccountPositions(accounts[currentIdx].ID, accounts[targetIdx].ID, user.ID)
 	if err != nil {
-		serverError(w, "swap positions", err)
+		serverError(w, r, "swap positions", err)
 		return
 	}
 
 	// Retourner la liste mise a jour
-	renderAccountsList(w, user)
+	renderAccountsList(w, r, user)
 }
 
 // ReorderAccounts reordonne les comptes selon un tableau d'IDs
 func ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
@@ -437,12 +437,12 @@ func ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 		IDs []int64 `json:"ids"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.IDs) == 0 {
-		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_data", http.StatusBadRequest)
 		return
 	}
 
 	if err := hookReorderAccounts(user.ID, body.IDs); err != nil {
-		serverError(w, "reorder accounts", err)
+		serverError(w, r, "reorder accounts", err)
 		return
 	}
 
@@ -450,16 +450,16 @@ func ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 }
 
 // renderAccountsList rend la liste des comptes en HTML avec OOB updates
-func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
+func renderAccountsList(w http.ResponseWriter, r *http.Request, user *middleware.User) {
 	lang, currency := userLocale(user)
 
 	accounts, recurrings, accErr, recErr := loadAccountsAndRecurring(user.ID)
 	if accErr != nil {
-		serverError(w, "renderAccountsList: accounts", accErr)
+		serverError(w, r, "renderAccountsList: accounts", accErr)
 		return
 	}
 	if recErr != nil {
-		serverError(w, "renderAccountsList: recurring", recErr)
+		serverError(w, r, "renderAccountsList: recurring", recErr)
 		return
 	}
 
@@ -479,12 +479,12 @@ func renderAccountsList(w http.ResponseWriter, user *middleware.User) {
 	lastIdx := len(accounts) - 1
 	for i, acc := range accounts {
 		hookRenderPartial(w, "accounts.html", "account-row", map[string]interface{}{ //nolint:errcheck
-			"Account":      acc,
-			"Currency":     currency,
-			"T":            i18n.Map(lang),
-			"LinkedCount":  computed.linkedCounts[acc.ID],
-			"IsFirst":      i == 0,
-			"IsLast":   i == lastIdx,
+			"Account":     acc,
+			"Currency":    currency,
+			"T":           i18n.Map(lang),
+			"LinkedCount": computed.linkedCounts[acc.ID],
+			"IsFirst":     i == 0,
+			"IsLast":      i == lastIdx,
 		})
 	}
 

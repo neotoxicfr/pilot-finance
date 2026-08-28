@@ -32,6 +32,13 @@ var localeMap = map[string]string{
 // baseData construit les données communes à toutes les pages (i18n, devise, langue, nonce CSP)
 func baseData(r *http.Request, user *middleware.User) map[string]interface{} {
 	lang, currency := userLocale(user)
+	// Sur les pages non authentifiées (login, inscription, mot de passe oublié),
+	// user est nil et userLocale retombait sur « fr » en dur : un navigateur
+	// anglais recevait la page en français alors que ses messages d'erreur, eux,
+	// suivaient déjà Accept-Language depuis FIN-14. On aligne les deux.
+	if user == nil {
+		lang = detectLanguage(r)
+	}
 	locale := localeTag(lang)
 	return map[string]interface{}{
 		"T":           i18n.Map(lang),
@@ -63,7 +70,7 @@ func LoginPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "login.html", data); err != nil {
-		serverError(w, "render login", err)
+		serverError(w, r, "render login", err)
 	}
 }
 
@@ -88,7 +95,7 @@ func RegisterPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "login.html", data); err != nil {
-		serverError(w, "render register", err)
+		serverError(w, r, "render register", err)
 	}
 }
 
@@ -124,13 +131,13 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 
 	accounts, recurrings, accErr, recErr := loadAccountsAndRecurring(user.ID)
 	if accErr != nil {
-		serverError(w, "get accounts", accErr)
+		serverError(w, r, "get accounts", accErr)
 		return
 	}
 	// Cohérent avec DashboardAPI (audit FIN-11) : une projection sans les
 	// récurrentes est trompeuse — échouer plutôt que rendre en silence.
 	if recErr != nil {
-		serverError(w, "get recurring", recErr)
+		serverError(w, r, "get recurring", recErr)
 		return
 	}
 
@@ -174,7 +181,7 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "dashboard.html", data); err != nil {
-		serverError(w, "render dashboard", err)
+		serverError(w, r, "render dashboard", err)
 	}
 }
 
@@ -192,11 +199,11 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	// compte » sur une erreur DB transitoire est trompeur et anxiogène pour une
 	// app de finances (audit FIN-17).
 	if accErr != nil {
-		serverError(w, "AccountsPage: accounts", accErr)
+		serverError(w, r, "AccountsPage: accounts", accErr)
 		return
 	}
 	if recErr != nil {
-		serverError(w, "AccountsPage: recurring", recErr)
+		serverError(w, r, "AccountsPage: recurring", recErr)
 		return
 	}
 
@@ -227,7 +234,7 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "accounts.html", data); err != nil {
-		serverError(w, "render accounts", err)
+		serverError(w, r, "render accounts", err)
 	}
 }
 
@@ -277,7 +284,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 	if isAdmin {
 		users, err := hookGetAllUsers()
 		if err != nil {
-			serverError(w, "get all users", err)
+			serverError(w, r, "get all users", err)
 			return
 		}
 		var usersWithEmail []map[string]interface{}
@@ -298,7 +305,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "settings.html", data); err != nil {
-		serverError(w, "render settings", err)
+		serverError(w, r, "render settings", err)
 	}
 }
 
@@ -373,7 +380,7 @@ func PrivacyPage(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "privacy.html", data); err != nil {
-		serverError(w, "render privacy", err)
+		serverError(w, r, "render privacy", err)
 	}
 }
 
@@ -388,6 +395,6 @@ func LegalPage(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "legal.html", data); err != nil {
-		serverError(w, "render legal", err)
+		serverError(w, r, "render legal", err)
 	}
 }

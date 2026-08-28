@@ -12,7 +12,7 @@ import (
 func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
@@ -21,11 +21,11 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 	if y := r.URL.Query().Get("years"); y != "" {
 		parsed, err := strconv.Atoi(y)
 		if err != nil {
-			clientError(w, ErrValidation, "years must be an integer", http.StatusBadRequest)
+			clientErrorT(w, r, ErrValidation, "error.years_invalid", http.StatusBadRequest)
 			return
 		}
 		if parsed < 1 || parsed > 30 {
-			clientError(w, ErrValidation, "years must be between 1 and 30", http.StatusBadRequest)
+			clientErrorT(w, r, ErrValidation, "error.years_range", http.StatusBadRequest)
 			return
 		}
 		years = parsed
@@ -34,13 +34,13 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 	// Récupère comptes et récurrents en parallèle (H2 perf)
 	accounts, recurrings, accErr, recErr := loadAccountsAndRecurring(user.ID)
 	if accErr != nil {
-		serverError(w, "get accounts", accErr)
+		serverError(w, r, "get accounts", accErr)
 		return
 	}
 	// Échouer bruyamment : une projection amputée de ses opérations récurrentes
 	// est trompeuse et invisible pour l'utilisateur (audit FIN-11).
 	if recErr != nil {
-		serverError(w, "get recurring", recErr)
+		serverError(w, r, "get recurring", recErr)
 		return
 	}
 
@@ -86,13 +86,13 @@ func DashboardAPI(w http.ResponseWriter, r *http.Request) {
 func AccountsAPI(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
-		serverError(w, "get accounts", err)
+		serverError(w, r, "get accounts", err)
 		return
 	}
 
@@ -105,13 +105,13 @@ func AccountsAPI(w http.ResponseWriter, r *http.Request) {
 func RecurringAPI(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	recurrings, err := hookGetRecurringByUserID(user.ID)
 	if err != nil {
-		serverError(w, "get recurrings", err)
+		serverError(w, r, "get recurrings", err)
 		return
 	}
 

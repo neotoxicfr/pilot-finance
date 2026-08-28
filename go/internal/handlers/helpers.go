@@ -60,9 +60,14 @@ func parseFormAny(r *http.Request) error {
 
 // serverError logue l'erreur interne et renvoie une 500 générique au client.
 // Inclut le header X-Error-Code pour le suivi structuré.
-func serverError(w http.ResponseWriter, context string, err error) {
+// serverError journalise l'erreur technique et renvoie un 500 traduit.
+//
+// Le message est rendu tel quel par le front (setError sur responseText), donc
+// il doit suivre la langue de l'utilisateur comme tous les autres (FIN-14) :
+// un compte anglais lisait « Erreur serveur » sur chaque 500.
+func serverError(w http.ResponseWriter, r *http.Request, context string, err error) {
 	slog.Error(context, "err", err)
-	clientError(w, ErrInternal, "Erreur serveur", http.StatusInternalServerError)
+	clientErrorT(w, r, ErrInternal, "error.internal", http.StatusInternalServerError)
 }
 
 // setSessionCookie pose un cookie de session avec les flags de sécurité appropriés

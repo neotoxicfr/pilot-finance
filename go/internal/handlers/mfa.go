@@ -74,7 +74,7 @@ func qrEncodePNG(otpauthURI string, size int) ([]byte, error) {
 func MFASetup(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		jsonError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		jsonErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
@@ -82,7 +82,7 @@ func MFASetup(w http.ResponseWriter, r *http.Request) {
 	secret, err := hookGenerateTOTPSecret()
 	if err != nil {
 		slog.Error("generate TOTP secret", "err", err)
-		jsonError(w, ErrInternal, "Erreur serveur", http.StatusInternalServerError)
+		jsonErrorT(w, r, ErrInternal, "error.internal", http.StatusInternalServerError)
 		return
 	}
 
@@ -93,7 +93,7 @@ func MFASetup(w http.ResponseWriter, r *http.Request) {
 	png, err := hookQREncode(otpauthURI, qrSize)
 	if err != nil {
 		slog.Error("generate QR code", "err", err)
-		jsonError(w, ErrInternal, "Erreur generation QR", http.StatusInternalServerError)
+		jsonErrorT(w, r, ErrInternal, "error.qr_generation", http.StatusInternalServerError)
 		return
 	}
 	qrDataURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
@@ -102,7 +102,7 @@ func MFASetup(w http.ResponseWriter, r *http.Request) {
 	mfaToken, err := hookGenerateMFASetupToken(user.ID, secret)
 	if err != nil {
 		slog.Error("generate MFA setup token", "err", err)
-		jsonError(w, ErrInternal, "Erreur serveur", http.StatusInternalServerError)
+		jsonErrorT(w, r, ErrInternal, "error.internal", http.StatusInternalServerError)
 		return
 	}
 	// L4 fix : cookie limité à /settings/mfa pour réduire la surface
@@ -119,7 +119,7 @@ func MFASetup(w http.ResponseWriter, r *http.Request) {
 func MFAEnable(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		jsonError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		jsonErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
@@ -128,42 +128,42 @@ func MFAEnable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		jsonError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
+		jsonErrorT(w, r, ErrValidation, "error.invalid_data", http.StatusBadRequest)
 		return
 	}
 
 	// Lire le secret depuis le cookie signé posé par MFASetup
 	cookie, err := r.Cookie("mfa_setup")
 	if err != nil {
-		jsonError(w, ErrAuthInvalid, "Session de configuration MFA expirée", http.StatusBadRequest)
+		jsonErrorT(w, r, ErrAuthInvalid, "error.mfa_setup_expired", http.StatusBadRequest)
 		return
 	}
 	tokenUserID, secret, err := hookValidateMFASetupToken(cookie.Value)
 	if err != nil {
-		jsonError(w, ErrAuthInvalid, "Session de configuration MFA invalide", http.StatusBadRequest)
+		jsonErrorT(w, r, ErrAuthInvalid, "error.mfa_setup_invalid", http.StatusBadRequest)
 		return
 	}
 	// Le cookie doit appartenir à l'utilisateur courant
 	if tokenUserID != user.ID {
-		jsonError(w, ErrAuthInvalid, "Session de configuration MFA invalide", http.StatusBadRequest)
+		jsonErrorT(w, r, ErrAuthInvalid, "error.mfa_setup_invalid", http.StatusBadRequest)
 		return
 	}
 
 	// Verifier le code TOTP contre le secret côté serveur
 	if !hookValidateTOTP(secret, req.Code) {
-		jsonError(w, ErrAuthInvalid, "Code invalide", http.StatusBadRequest)
+		jsonErrorT(w, r, ErrAuthInvalid, "error.code_invalid", http.StatusBadRequest)
 		return
 	}
 
 	// Chiffrer et sauvegarder le secret
 	encryptedSecret, err := hookEncryptStr(secret)
 	if err != nil {
-		jsonError(w, ErrEncryption, "Erreur serveur", http.StatusInternalServerError)
+		jsonErrorT(w, r, ErrEncryption, "error.internal", http.StatusInternalServerError)
 		return
 	}
 
 	if err := hookEnableMFA(user.ID, encryptedSecret); err != nil {
-		jsonError(w, ErrInternal, "Erreur sauvegarde", http.StatusInternalServerError)
+		jsonErrorT(w, r, ErrInternal, "error.mfa_save_failed", http.StatusInternalServerError)
 		return
 	}
 
@@ -180,36 +180,36 @@ func MFAEnable(w http.ResponseWriter, r *http.Request) {
 func MFADisable(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_data", http.StatusBadRequest)
 		return
 	}
 
 	// Require password re-verification before disabling MFA
 	currentPassword := r.FormValue("current_password")
 	if currentPassword == "" {
-		clientError(w, ErrValidation, "Mot de passe requis pour désactiver le 2FA", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.password_required_disable_mfa", http.StatusBadRequest)
 		return
 	}
 
 	// Retrieve the stored password hash to verify
 	dbUser, err := hookGetUserByID(user.ID)
 	if err != nil || dbUser == nil {
-		clientError(w, ErrNotFound, "Utilisateur non trouvé", http.StatusNotFound)
+		clientErrorT(w, r, ErrNotFound, "error.user_not_found", http.StatusNotFound)
 		return
 	}
 
 	if !hookVerifyPassword(currentPassword, dbUser.Password) {
-		clientError(w, ErrAuthInvalid, "Mot de passe incorrect", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthInvalid, "error.password_incorrect", http.StatusUnauthorized)
 		return
 	}
 
 	if err := hookDisableMFA(user.ID); err != nil {
-		serverError(w, "disable MFA", err)
+		serverError(w, r, "disable MFA", err)
 		return
 	}
 

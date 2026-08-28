@@ -17,12 +17,12 @@ import (
 func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_data", http.StatusBadRequest)
 		return
 	}
 
@@ -31,12 +31,12 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	confirmPassword := r.FormValue("confirmPassword")
 
 	if currentPassword == "" || newPassword == "" {
-		clientError(w, ErrValidation, "Tous les champs sont requis", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.all_fields_required", http.StatusBadRequest)
 		return
 	}
 
 	if newPassword != confirmPassword {
-		clientError(w, ErrValidation, "Les mots de passe ne correspondent pas", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.passwords_mismatch", http.StatusBadRequest)
 		return
 	}
 
@@ -49,27 +49,27 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 	// Récupérer l'utilisateur complet pour vérifier le mot de passe
 	dbUser, err := hookGetUserByID(user.ID)
 	if err != nil || dbUser == nil {
-		clientError(w, ErrNotFound, "Utilisateur non trouvé", http.StatusNotFound)
+		clientErrorT(w, r, ErrNotFound, "error.user_not_found", http.StatusNotFound)
 		return
 	}
 
 	// Verifier le mot de passe actuel
 	if !hookVerifyPassword(currentPassword, dbUser.Password) {
-		clientError(w, ErrAuthInvalid, "Mot de passe actuel incorrect", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthInvalid, "error.current_password_incorrect", http.StatusUnauthorized)
 		return
 	}
 
 	// Hasher le nouveau mot de passe
 	hashedPassword, err := hookHashPassword(newPassword)
 	if err != nil {
-		serverError(w, "hash password", err)
+		serverError(w, r, "hash password", err)
 		return
 	}
 
 	// Mettre a jour
 	err = hookUpdatePassword(user.ID, hashedPassword)
 	if err != nil {
-		serverError(w, "update password", err)
+		serverError(w, r, "update password", err)
 		return
 	}
 
@@ -93,12 +93,12 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 func UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_data", http.StatusBadRequest)
 		return
 	}
 
@@ -119,14 +119,14 @@ func UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := hookUpdateUserPrefs(user.ID, language, currency); err != nil {
-		serverError(w, "update preferences", err)
+		serverError(w, r, "update preferences", err)
 		return
 	}
 
 	// Re-émettre le JWT avec les nouvelles préférences (Language/Currency dans les claims)
 	token, err := hookGenerateToken(user.ID, user.Role, language, currency, user.SessionVersion)
 	if err != nil {
-		serverError(w, "generate token", err)
+		serverError(w, r, "generate token", err)
 		return
 	}
 	setSessionCookie(w, "session", token, 86400)
@@ -138,13 +138,13 @@ func UpdatePreferences(w http.ResponseWriter, r *http.Request) {
 func ExportData(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	dbUser, err := hookGetUserByID(user.ID)
 	if err != nil || dbUser == nil {
-		clientError(w, ErrNotFound, "Utilisateur non trouvé", http.StatusNotFound)
+		clientErrorT(w, r, ErrNotFound, "error.user_not_found", http.StatusNotFound)
 		return
 	}
 	email, err := hookDecryptStr(dbUser.EmailEncrypted)
@@ -154,12 +154,12 @@ func ExportData(w http.ResponseWriter, r *http.Request) {
 
 	accounts, err := hookGetAccountsByUserID(user.ID)
 	if err != nil {
-		serverError(w, "get accounts", err)
+		serverError(w, r, "get accounts", err)
 		return
 	}
 	recurrings, err := hookGetRecurringByUserID(user.ID)
 	if err != nil {
-		serverError(w, "get recurrings", err)
+		serverError(w, r, "get recurrings", err)
 		return
 	}
 
@@ -226,29 +226,29 @@ func ExportData(w http.ResponseWriter, r *http.Request) {
 func DeleteSelfAccount(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	if err := parseFormAny(r); err != nil {
-		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_data", http.StatusBadRequest)
 		return
 	}
 
 	currentPassword := r.FormValue("current_password")
 	if currentPassword == "" {
-		clientError(w, ErrValidation, "Mot de passe requis", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.password_required", http.StatusBadRequest)
 		return
 	}
 
 	dbUser, err := hookGetUserByID(user.ID)
 	if err != nil || dbUser == nil {
-		clientError(w, ErrNotFound, "Utilisateur non trouvé", http.StatusNotFound)
+		clientErrorT(w, r, ErrNotFound, "error.user_not_found", http.StatusNotFound)
 		return
 	}
 
 	if !hookVerifyPassword(currentPassword, dbUser.Password) {
-		clientError(w, ErrAuthInvalid, "Mot de passe incorrect", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthInvalid, "error.password_incorrect", http.StatusUnauthorized)
 		return
 	}
 
@@ -261,7 +261,7 @@ func DeleteSelfAccount(w http.ResponseWriter, r *http.Request) {
 	// base — l'utilisateur existe encore — et repeuple le cache, qui survit
 	// alors à la suppression pendant tout son TTL.
 	if err := hookDeleteUserAndData(userID); err != nil {
-		serverError(w, "delete user", err)
+		serverError(w, r, "delete user", err)
 		return
 	}
 	hookInvalidateSessionCache(userID)
@@ -277,33 +277,33 @@ func DeleteSelfAccount(w http.ResponseWriter, r *http.Request) {
 func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil || user.Role != "ADMIN" {
-		clientError(w, ErrForbidden, "Non autorisé", http.StatusForbidden)
+		clientErrorT(w, r, ErrForbidden, "error.forbidden", http.StatusForbidden)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_id", http.StatusBadRequest)
 		return
 	}
 
 	// Ne pas permettre de supprimer un admin
 	targetUser, err := hookGetUserByID(id)
 	if err != nil || targetUser == nil {
-		clientError(w, ErrNotFound, "Utilisateur non trouvé", http.StatusNotFound)
+		clientErrorT(w, r, ErrNotFound, "error.user_not_found", http.StatusNotFound)
 		return
 	}
 
 	if targetUser.Role == "ADMIN" {
-		clientError(w, ErrForbidden, "Impossible de supprimer un administrateur", http.StatusForbidden)
+		clientErrorT(w, r, ErrForbidden, "error.cannot_delete_admin", http.StatusForbidden)
 		return
 	}
 
 	// Même ordre que la suppression de son propre compte (audit S-33).
 	err = hookDeleteUserAndData(id)
 	if err != nil {
-		serverError(w, "delete user", err)
+		serverError(w, r, "delete user", err)
 		return
 	}
 	hookInvalidateSessionCache(id)
