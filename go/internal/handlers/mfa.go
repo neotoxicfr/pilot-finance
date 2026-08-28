@@ -1,16 +1,71 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/draw"
 	"log/slog"
 	"net/http"
 
-	qrcode "github.com/skip2/go-qrcode"
+	"github.com/pquerna/otp"
 
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/middleware"
 )
+
+// Géométrie du QR code d'enrôlement TOTP. L'image reste de 200×200 px, comme
+// avec skip2/go-qrcode. qrQuietZone est la marge blanche réservée sur chaque
+// bord : boombuler ne dessine aucune quiet zone alors que la norme ISO/IEC
+// 18004 en exige 4 modules. 14 px garantit ≥ 4 modules jusqu'à la version 10
+// (57×57), soit bien au-delà des URI otpauth:// produites ici.
+const (
+	qrSize      = 200
+	qrQuietZone = 14
+)
+
+// qrEncodePNG génère le PNG (size × size) du QR code d'enrôlement TOTP à
+// partir de l'URI otpauth://.
+//
+// Remplace github.com/skip2/go-qrcode (upstream sans commit depuis 2020) par
+// otp.Key.Image, qui s'appuie sur github.com/boombuler/barcode — déjà présent
+// dans l'arbre via pquerna/otp, et activement maintenu. Key.Image encode
+// k.orig : l'URI est donc reprise à l'octet près, avec le même niveau de
+// correction d'erreur (M) qu'auparavant.
+//
+// boombuler met la matrice à l'échelle avec un facteur entier puis la centre,
+// mais sans quiet zone. On encode donc sur une surface réduite de
+// 2*qrQuietZone, que l'on recentre ensuite sur un fond blanc.
+func qrEncodePNG(otpauthURI string, size int) ([]byte, error) {
+	key, err := otp.NewKeyFromURL(otpauthURI)
+	if err != nil {
+		return nil, err
+	}
+
+	inner := size - 2*qrQuietZone
+	code, err := key.Image(inner, inner)
+	if err != nil {
+		return nil, err
+	}
+
+	// Palette 1 bit (blanc, noir) : le pixel zéro vaut déjà blanc, donc seule
+	// la matrice reste à dessiner. Sortie PNG compacte, comme avec skip2.
+	img := image.NewPaletted(
+		image.Rect(0, 0, size, size),
+		color.Palette{color.White, color.Black},
+	)
+	draw.Draw(img,
+		image.Rect(qrQuietZone, qrQuietZone, size-qrQuietZone, size-qrQuietZone),
+		code, image.Point{}, draw.Src)
+
+	var buf bytes.Buffer
+	if err := hookPNGEncode(&buf, img); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
 
 // MFASetup retourne le QR code pour configurer le 2FA et stocke le secret
 // dans un cookie signé HS256 (mfa_setup, 5 min). Le secret n'est PLUS exposé
@@ -35,7 +90,7 @@ func MFASetup(w http.ResponseWriter, r *http.Request) {
 	otpauthURI := hookGenerateTOTPURI(secret, user.Email)
 
 	// Generer le QR code localement (zéro dépendance externe)
-	png, err := hookQREncode(otpauthURI, qrcode.Medium, 200)
+	png, err := hookQREncode(otpauthURI, qrSize)
 	if err != nil {
 		slog.Error("generate QR code", "err", err)
 		jsonError(w, ErrInternal, "Erreur generation QR", http.StatusInternalServerError)

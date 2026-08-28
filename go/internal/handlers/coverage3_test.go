@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/go-webauthn/webauthn/webauthn"
-	qrcode "github.com/skip2/go-qrcode"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -117,7 +116,7 @@ func TestMFASetup_QREncodeError(t *testing.T) {
 	uid := newUser(t, "mfaqr_err@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookQREncode
-	hookQREncode = func(content string, level qrcode.RecoveryLevel, size int) ([]byte, error) {
+	hookQREncode = func(content string, size int) ([]byte, error) {
 		return nil, errTest
 	}
 	t.Cleanup(func() { hookQREncode = orig })
