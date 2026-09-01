@@ -58,3 +58,71 @@ func TestLastProjectionTotal_Empty(t *testing.T) {
 		t.Errorf("want 0 for empty projection, got %v", got)
 	}
 }
+
+// --- Unité monétaire de la liste des opérations récurrentes (audit S-40) ---
+//
+// buildRecurringData fusionne DEUX sources dont les unités divergent en amont —
+// projection.YieldPayout.Amount est un float64 en unité de devise, tandis que
+// db.RecurringOperation.Amount est un int64 en centimes — sous une clé
+// « Amount » unique que le template rend avec un seul appel. Tant que le
+// formateur devinait l'unité d'après le type dynamique, l'écran était juste par
+// coïncidence et une inversion serait passée inaperçue.
+//
+// Le test fige donc l'invariant : après construction, « Amount » est toujours un
+// int64 en centimes, quelle que soit la branche.
+func TestBuildRecurringData_AmountAlwaysCents(t *testing.T) {
+	origDecrypt := hookDecryptStr
+	defer func() { hookDecryptStr = origDecrypt }()
+	hookDecryptStr = func(s string) (string, error) { return s, nil }
+
+	target := int64(1)
+	payouts := []projection.YieldPayout{
+		// 12 345,67 EUR à 3 % l'an, versés mensuellement : 30,864175 EUR,
+		// arrondis à 3086 centimes.
+		{SourceAccountID: 2, SourceAccountName: "Livret A", TargetAccountID: &target,
+			TargetAccountName: "Courant", Amount: 30.864175, Rate: 3, PayoutFrequency: "MONTHLY"},
+	}
+	recs := []db.RecurringOperation{
+		{ID: 7, Description: "Loyer", Amount: -123456, DayOfMonth: 3, AccountID: 1, IsActive: true},
+	}
+
+	rows := buildRecurringData(payouts, recs, map[int64]string{1: "Courant", 2: "Livret A"}, "Intérêts")
+	if len(rows) != 2 {
+		t.Fatalf("want 2 lignes, got %d", len(rows))
+	}
+
+	for i, row := range rows {
+		if _, ok := row["Amount"].(int64); !ok {
+			t.Fatalf("ligne %d: Amount doit être un int64 (centimes), got %T", i, row["Amount"])
+		}
+	}
+	if got := rows[0]["Amount"].(int64); got != 3086 {
+		t.Errorf("versement d'intérêts: want 3086 centimes, got %d", got)
+	}
+	if got := rows[1]["Amount"].(int64); got != -123456 {
+		t.Errorf("opération stockée: want -123456 centimes (inchangé), got %d", got)
+	}
+}
+
+// unitsToCents arrondit au centime le plus proche : les intérêts périodiques
+// sont des quotients (taux annuel ÷ 12) qu'une troncature raboterait
+// systématiquement vers le bas.
+func TestUnitsToCents(t *testing.T) {
+	cases := []struct {
+		in   float64
+		want int64
+	}{
+		{0, 0},
+		{30.864175, 3086},
+		{30.865, 3087},
+		{750, 75000},
+		{-12.345, -1235},
+		{0.004, 0},
+		{0.005, 1},
+	}
+	for _, tc := range cases {
+		if got := unitsToCents(tc.in); got != tc.want {
+			t.Errorf("unitsToCents(%v): want %d, got %d", tc.in, tc.want, got)
+		}
+	}
+}

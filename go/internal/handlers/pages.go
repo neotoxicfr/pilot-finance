@@ -14,8 +14,8 @@ import (
 // localeTag retourne l'étiquette BCP-47 d'une langue, avec repli français.
 //
 // Les partiels HTMX doivent la passer au même titre que "Currency" et "T" :
-// formatMoney/formatMoneyCompact sont localisés depuis l'audit S-23, et une
-// donnée "Locale" absente ferait échouer le rendu du partiel.
+// formatCents/formatUnits/formatUnitsCompact sont localisés depuis l'audit
+// S-23, et une donnée "Locale" absente ferait échouer le rendu du partiel.
 func localeTag(lang string) string {
 	if l := localeMap[lang]; l != "" {
 		return l
