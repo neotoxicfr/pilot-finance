@@ -40,7 +40,7 @@
 - **Rate limiting** — 120 req/min global, 10 req/min sur les routes d'authentification (voir `DISABLE_RATE_LIMIT` et `TRUSTED_PROXIES` plus bas)
 - **Session versioning** — deconnexion automatique sur tous les appareils apres changement de mot de passe
 - **Journal d'audit** — tracabilite complete des evenements d'authentification et de compte (vue admin)
-- **Conteneur non privilegie** — execution en uid/gid 65532 sur une base `scratch` (ni shell, ni gestionnaire de paquets)
+- **Conteneur non privilegie** — execution en uid/gid 1000 sur une base `scratch` (ni shell, ni gestionnaire de paquets)
 - Support **Docker Secrets** pour toutes les variables sensibles
 
 ### Qualite
@@ -124,10 +124,10 @@ L'image embarque deja un healthcheck : vous pouvez supprimer entierement le bloc
 
 ### 3. Demarrer
 
-Le conteneur tourne en uid/gid **65532** : le dossier de donnees doit lui appartenir.
+Le conteneur tourne en uid/gid **1000** : le dossier de donnees doit lui appartenir.
 
 ```bash
-mkdir -p data && sudo chown -R 65532:65532 data
+mkdir -p data && sudo chown -R 1000:1000 data
 docker compose up -d
 ```
 
@@ -156,11 +156,11 @@ docker compose logs -f pilot   # le serveur sort en code 1 plutot que servir un 
 
 ### Migration depuis la v2.23.0 ou anterieure
 
-Les images precedentes tournaient en root : les fichiers de `./data` appartiennent donc a root. A partir de la prochaine version, le serveur tourne en uid/gid **65532** et ne pourra plus ouvrir la base tant que le dossier ne lui appartient pas — operation a faire une seule fois :
+Les images precedentes tournaient en root : les fichiers de `./data` appartiennent donc a root. A partir de la prochaine version, le serveur tourne en uid/gid **1000** et ne pourra plus ouvrir la base tant que le dossier ne lui appartient pas — operation a faire une seule fois :
 
 ```bash
 docker compose down
-sudo chown -R 65532:65532 data
+sudo chown -R 1000:1000 data
 docker compose pull && docker compose up -d
 ```
 
@@ -205,7 +205,7 @@ Copier un instantane par-dessus `pilot.db` puis redemarrer **est silencieusement
 docker compose down
 rm -f data/pilot.db data/pilot.db-wal data/pilot.db-shm   # la suppression des -wal/-shm est obligatoire
 cp /chemin/vers/pilot.db.backup.1 data/pilot.db
-sudo chown 65532:65532 data/pilot.db
+sudo chown 1000:1000 data/pilot.db
 docker compose up -d
 ```
 
@@ -254,7 +254,7 @@ Restaurez avec les **memes** `ENCRYPTION_KEY` / `BLIND_INDEX_KEY` que ceux utili
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
 | CI/CD | GitHub Actions (tests unitaires, E2E, CodeQL, Trivy, Lighthouse, GHCR, auto-release) — la publication d'image est conditionnee a la suite de tests |
 | E2E | Playwright — Chromium, Firefox, Mobile Chrome en CI ; WebKit en local |
-| Docker | Image ~8 Mo (base scratch, compression UPX), execution en uid 65532 |
+| Docker | Image ~8 Mo (base scratch, compression UPX), execution en uid 1000 |
 
 ---
 

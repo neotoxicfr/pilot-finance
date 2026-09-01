@@ -7,7 +7,7 @@
 #        BLIND_INDEX_KEY=$(openssl rand -hex 32)
 #      (sans ces trois clés le serveur refuse de démarrer, par conception)
 #   2) préparer le volume de données pour l'uid non privilégié :
-#        mkdir -p data && sudo chown -R 65532:65532 data
+#        mkdir -p data && sudo chown -R 1000:1000 data
 
 services:
   pilot:
@@ -31,10 +31,10 @@ services:
           cpus: '1.0'
         reservations:
           memory: 64M
-    # Le conteneur tourne en uid/gid 65532 (non privilégié) : le dossier de
+    # Le conteneur tourne en uid/gid 1000 (non privilégié) : le dossier de
     # données doit lui appartenir avant le premier démarrage.
-    #   mkdir -p data && sudo chown -R 65532:65532 data
-    user: "65532:65532"
+    #   mkdir -p data && sudo chown -R 1000:1000 data
+    user: "1000:1000"
     environment:
       # ENV=production active les logs JSON ET impose TRUSTED_PROXIES
       # (sans quoi X-Forwarded-For serait spoofable et contournerait le rate limit).
