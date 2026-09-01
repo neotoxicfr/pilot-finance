@@ -40,7 +40,7 @@
 - **Rate limiting** — 120 req/min global, 10 req/min on auth routes (see `DISABLE_RATE_LIMIT` and `TRUSTED_PROXIES` below)
 - **Session versioning** — automatic logout on all devices after password change
 - **Audit log** — full traceability of authentication and account events (admin view)
-- **Non-root container** — runs as uid/gid 65532 on a `scratch` base (no shell, no package manager)
+- **Non-root container** — runs as uid/gid 1000 on a `scratch` base (no shell, no package manager)
 - **Docker Secrets** support for all sensitive environment variables
 
 ### Quality
@@ -124,10 +124,10 @@ The image already ships a healthcheck, so you can drop the `healthcheck:` block 
 
 ### 3. Start
 
-The container runs as uid/gid **65532**, so the data directory must belong to it:
+The container runs as uid/gid **1000**, so the data directory must belong to it:
 
 ```bash
-mkdir -p data && sudo chown -R 65532:65532 data
+mkdir -p data && sudo chown -R 1000:1000 data
 docker compose up -d
 ```
 
@@ -157,12 +157,12 @@ docker compose logs -f pilot   # the server exits 1 rather than serve an uncerta
 ### Upgrading from v2.23.0 or earlier
 
 Older images ran as root, so the files in `./data` belong to root. From the next
-release the server runs as uid/gid **65532** and will not be able to open the
+release the server runs as uid/gid **1000** and will not be able to open the
 database until you hand the directory over — a one-time operation:
 
 ```bash
 docker compose down
-sudo chown -R 65532:65532 data
+sudo chown -R 1000:1000 data
 docker compose pull && docker compose up -d
 ```
 
@@ -207,7 +207,7 @@ Copying a snapshot over `pilot.db` and restarting **is silently undone**: the le
 docker compose down
 rm -f data/pilot.db data/pilot.db-wal data/pilot.db-shm   # removing -wal/-shm is mandatory
 cp /path/to/pilot.db.backup.1 data/pilot.db
-sudo chown 65532:65532 data/pilot.db
+sudo chown 1000:1000 data/pilot.db
 docker compose up -d
 ```
 
@@ -256,7 +256,7 @@ Restore with the **same** `ENCRYPTION_KEY` / `BLIND_INDEX_KEY` the backup was wr
 | Auth | bcrypt + TOTP (pquerna/otp) + WebAuthn (go-webauthn) |
 | CI/CD | GitHub Actions (unit tests, E2E, CodeQL, Trivy, Lighthouse, GHCR, auto-release) — image publication is gated on the test suite |
 | E2E | Playwright — Chromium, Firefox, Mobile Chrome in CI; WebKit locally |
-| Docker | ~8 MB image (scratch base, UPX compressed), runs as uid 65532 |
+| Docker | ~8 MB image (scratch base, UPX compressed), runs as uid 1000 |
 
 ---
 

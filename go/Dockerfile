@@ -66,8 +66,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
 # de création d'utilisateur : /etc/passwd et /etc/group sont fabriqués ici).
 FROM alpine:3.24 AS certs
 RUN apk add --no-cache ca-certificates tzdata \
-    && addgroup -g 65532 -S nonroot \
-    && adduser -u 65532 -S -D -H -G nonroot -s /sbin/nologin nonroot
+    && addgroup -g 1000 -S pilot \
+    && adduser -u 1000 -S -D -H -G pilot -s /sbin/nologin pilot
 
 # ============ PRODUCTION STAGE ============
 FROM scratch
@@ -76,7 +76,7 @@ FROM scratch
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=certs /usr/share/zoneinfo /usr/share/zoneinfo
 
-# Comptes système (pour que l'uid 65532 ait un nom résolvable)
+# Comptes système (pour que l'uid 1000 ait un nom résolvable)
 COPY --from=certs /etc/passwd /etc/passwd
 COPY --from=certs /etc/group /etc/group
 
@@ -97,9 +97,9 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
 
 # Exécution non privilégiée (audit S-34). Forme numérique obligatoire : sans
 # NSS, l'uid doit être littéral pour que le runtime puisse l'appliquer.
-# Le volume de données doit appartenir à cet uid : `chown -R 65532:65532 ./data`
+# Le volume de données doit appartenir à cet uid : `chown -R 1000:1000 ./data`
 # (voir README.md § Upgrading from v2.23.0 or earlier).
-USER 65532:65532
+USER 1000:1000
 
 # Démarrage
 ENTRYPOINT ["/app/server"]
