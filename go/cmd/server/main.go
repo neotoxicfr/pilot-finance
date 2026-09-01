@@ -232,6 +232,9 @@ func main() {
 		}
 		exportRoute.Get("/settings/export", handlers.ExportData)
 		exportRoute.Post("/settings/import", handlers.ImportBalances)
+		// Le modèle déchiffre et renvoie tous les noms de comptes : même
+		// limiteur que l'export, qui expose les mêmes données.
+		exportRoute.Get("/settings/import/template", handlers.ImportTemplate)
 		r.Delete("/settings/account", handlers.DeleteSelfAccount)
 
 		// Routes MFA
