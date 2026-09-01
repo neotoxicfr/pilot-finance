@@ -4,6 +4,7 @@ docker-compose.yml
 
 # Base de données
 /data/
+go/data/
 *.db
 *.db-journal
 

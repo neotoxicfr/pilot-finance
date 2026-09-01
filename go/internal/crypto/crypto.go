@@ -35,6 +35,12 @@ var (
 	initErr        error
 	ErrInvalidKey  = errors.New("clé invalide: 32 bytes requis")
 	ErrDecryption  = errors.New("échec déchiffrement")
+	// ErrNotInitialized distingue « paquet crypto non initialisé » (bug de
+	// câblage : Init n'a pas été appelé ou a échoué) d'un « échec de
+	// déchiffrement » (donnée corrompue / clé erronée). Auparavant les deux cas
+	// remontaient ErrDecryption, ce qui rendait le premier indiscernable du
+	// second dans les logs (audit S-24).
+	ErrNotInitialized = errors.New("crypto non initialisé: Init() n'a pas été appelé")
 )
 
 // ResetForTest resets the crypto package state so Init can be called again.
@@ -96,7 +102,7 @@ func Init(encKeyHex, blindKeyHex string) error {
 // Format de sortie: IV_HEX:AUTH_TAG_HEX:CIPHERTEXT_HEX (compatible Node.js)
 func Encrypt(plaintext string) (string, error) {
 	if gcmStandard == nil {
-		return "", ErrDecryption
+		return "", ErrNotInitialized
 	}
 	gcm := gcmStandard
 
@@ -123,10 +129,26 @@ func Encrypt(plaintext string) (string, error) {
 // Decrypt déchiffre un texte chiffré avec AES-256-GCM
 // Accepte le format: IV_HEX:AUTH_TAG_HEX:CIPHERTEXT_HEX
 // Supporte les IV de 12 bytes (standard) et 16 bytes (Node.js legacy)
+//
+// CONTRAT (audit S-24) — Decrypt est volontairement TOLÉRANT sur un seul cas :
+// une valeur SANS ':' est considérée comme du plaintext legacy et retournée
+// telle quelle (avec un slog.Warn). Ce passthrough est LOAD-BEARING et ne peut
+// pas être supprimé sans casser la lecture de bases réelles : sur une instance
+// migrée depuis la version Node, accounts.name et
+// recurring_operations.description ne sont chiffrés par AUCUNE migration
+// (008 ne traite que balance/yield_min/yield_max/reinvestment_rate, 009 que
+// recurring_operations.amount, 011/012 que audit_log). Ces colonnes restent
+// donc en clair indéfiniment et transitent par Decrypt à chaque lecture ;
+// échouer ici afficherait « ??? » à la place de tous les noms de comptes
+// (handlers/helpers.go decryptAccountNames). Le durcissement fail-closed
+// complet suppose d'abord une migration qui chiffre ces deux colonnes.
+// Tous les AUTRES cas échouent fermés (ErrDecryption) : format à N != 3
+// parties, hex invalide, taille d'IV non supportée, tag GCM invalide.
 func Decrypt(encrypted string) (string, error) {
-	// Si pas de séparateur, retourner tel quel (données non chiffrées)
+	// Si pas de séparateur, retourner tel quel (données non chiffrées) — voir
+	// le contrat documenté ci-dessus : legacy Node uniquement.
 	if !strings.Contains(encrypted, ":") {
-		slog.Warn("crypto.Decrypt: value appears unencrypted, returning as plaintext", "len", len(encrypted))
+		slog.Warn("crypto.Decrypt: value appears unencrypted, returning as plaintext (legacy Node data)", "len", len(encrypted))
 		return encrypted, nil
 	}
 
@@ -155,7 +177,7 @@ func Decrypt(encrypted string) (string, error) {
 
 	// Use pre-computed GCM for standard 12-byte nonce, fallback for legacy 16-byte
 	if gcmStandard == nil {
-		return "", ErrDecryption
+		return "", ErrNotInitialized
 	}
 	var gcm cipher.AEAD
 	switch len(iv) {
@@ -186,12 +208,38 @@ func Decrypt(encrypted string) (string, error) {
 	return string(plaintext), nil
 }
 
-// ComputeBlindIndex calcule un index aveugle HMAC-SHA256
+// ComputeBlindIndexE calcule un index aveugle HMAC-SHA256 et échoue
+// explicitement si le paquet n'est pas initialisé.
 // Compatible avec Node.js: createHmac('sha256', key).update(input).digest('hex')
-func ComputeBlindIndex(input string) string {
+//
+// Audit S-24 : hmac.New accepte une clé nil sans paniquer et produit un digest
+// d'apparence parfaitement valide. Sans cette garde, un appel avant Init()
+// écrivait un index aveugle calculé avec une clé vide — indétectable à l'œil,
+// et incohérent avec tous les index calculés après Init. Encrypt et Decrypt
+// avaient déjà cette garde ; l'asymétrie induisait en erreur.
+// Préférer cette variante dans tout nouveau code.
+func ComputeBlindIndexE(input string) (string, error) {
+	if len(blindIndexKey) == 0 {
+		return "", ErrNotInitialized
+	}
 	h := hmac.New(sha256.New, blindIndexKey)
 	h.Write([]byte(input))
-	return hex.EncodeToString(h.Sum(nil))
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// ComputeBlindIndex conserve la signature historique (appelée via des hooks de
+// test dans handlers/ et middleware/). Elle échoue en mode FERMÉ : si le paquet
+// n'est pas initialisé, elle retourne la chaîne vide — jamais un digest
+// plausible calculé avec une clé nulle. Une chaîne vide ne peut correspondre à
+// aucun index aveugle stocké (toujours 64 caractères hex), donc une recherche
+// ne renvoie aucune ligne au lieu de renvoyer une ligne arbitraire.
+func ComputeBlindIndex(input string) string {
+	idx, err := ComputeBlindIndexE(input)
+	if err != nil {
+		slog.Error("crypto.ComputeBlindIndex appelé avant Init: index vide retourné", "err", err)
+		return ""
+	}
+	return idx
 }
 
 // HashToken calcule un hash SHA256 simple
@@ -222,7 +270,10 @@ func VerifyPassword(password, hash string) bool {
 }
 
 // EncryptFloat chiffre un float64 après conversion en string.
-// Idempotent : si la valeur contient déjà ":" (déjà chiffrée), elle est retournée telle quelle.
+// ATTENTION : cette fonction n'est PAS idempotente (le commentaire antérieur
+// l'affirmait à tort, audit S-24) — elle chiffre toujours. La détection
+// « déjà chiffré » est assurée en amont par db.encryptIfPlain/isEncrypted, qui
+// est le seul endroit à s'en charger.
 func EncryptFloat(f float64) (string, error) {
 	return Encrypt(strconv.FormatFloat(f, 'f', -1, 64))
 }
@@ -245,15 +296,32 @@ func EncryptCents(cents int64) (string, error) {
 // DecryptCents déchiffre une valeur vers des centimes (int64).
 // Gère le format legacy (float string "1234.56") et le nouveau format (cents string "123456").
 //
-// LIMITE CONNUE (audit FIN-15) : l'heuristique repose sur la présence d'un
-// point décimal. La migration 008 a chiffré les soldes legacy en euros float
-// via EncryptFloat ; un montant entier comme 1500 € y est stocké "1500" (sans
-// point) et sera relu ici comme 1500 CENTIMES (15,00 €), soit ÷100. Ce cas ne
-// concerne QUE les bases importées de l'ancienne version Node avec des soldes à
-// valeur entière ; les bases créées par cette version stockent toujours des
-// centimes explicites. En cas de migration depuis Node, AUDITER les soldes
-// après migration (comparer au backup .bak créé par 008). Non corrigeable
-// rétroactivement sans ce backup.
+// LIMITE CONNUE (audit FIN-15, étendue par S-32) : l'heuristique repose sur la
+// présence d'un point décimal. Deux migrations ont chiffré des montants legacy
+// en EUROS float via EncryptFloat, et strconv.FormatFloat n'émet pas de point
+// pour une valeur entière :
+//
+//	migration 008 → accounts.balance                  (soldes)
+//	migration 009 → recurring_operations.amount       (salaires, loyers, abos)
+//
+// Dans les DEUX cas, un montant entier comme 3000 € est stocké "3000" (sans
+// point) et sera relu ici comme 3000 CENTIMES (30,00 €), soit ÷100. Les
+// montants récurrents sont le cas le plus fréquent (un salaire ou un loyer est
+// presque toujours un entier), donc PLUS exposé que les soldes.
+//
+// Ces cas ne concernent QUE les bases importées de l'ancienne version Node ;
+// les bases créées par cette version stockent toujours des centimes explicites
+// (EncryptCents), et une valeur relue est alors correcte par construction.
+// En cas de migration depuis Node, AUDITER après migration À LA FOIS les soldes
+// ET les opérations récurrentes (comparer au backup créé par la migration 008,
+// qui précède 009 : « <base>.pre008.<timestamp>.bak » désormais, « <base>.bak »
+// sur les instances migrées avant le correctif S-11). Non corrigeable rétroactivement
+// sans ce backup : "3000" est indiscernable d'un montant de 30,00 €
+// légitimement stocké en centimes.
+//
+// Correctif de fond (non appliqué : changerait le format stocké et casserait
+// tout retour arrière de version sur une base réelle) : préfixer l'unité dans
+// le plaintext chiffré ("c:" pour centimes) au lieu de la deviner.
 func DecryptCents(s string) (int64, error) {
 	plain, err := Decrypt(s)
 	if err != nil {

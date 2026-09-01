@@ -44,8 +44,11 @@ test.describe('Settings', () => {
 
   test('danger zone has export and delete buttons', async ({ page }) => {
     await expect(page.getByText(/zone dangereuse|danger/i)).toBeVisible();
-    // Export link
-    await expect(page.getByRole('button', { name: /export|télécharger|download/i })).toBeVisible();
+    // Two distinct downloads live in the Data card (S-21 added the CSV
+    // template), so each is matched on its own wording rather than on a shared
+    // /télécharger/ pattern that would now resolve to both.
+    await expect(page.getByRole('button', { name: /mes données|my data/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /modèle|template/i })).toBeVisible();
     // Delete button
     await expect(page.getByRole('button', { name: /supprimer|delete/i })).toBeVisible();
   });

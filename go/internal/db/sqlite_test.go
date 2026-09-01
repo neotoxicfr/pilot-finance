@@ -2,6 +2,9 @@ package db
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,9 +15,12 @@ import (
 func TestEncryptIfPlainAlreadyEncrypted(t *testing.T) {
 	// Valid AES-256-GCM format: 24-char hex IV : 32-char hex TAG : hex ciphertext
 	raw := "0123456789abcdef01234567:0123456789abcdef0123456789abcdef:aabbccdd"
-	result := encryptIfPlain(raw, func(s string) (string, error) {
+	result, err := encryptIfPlain(raw, func(s string) (string, error) {
 		return "should-not-be-called", nil
 	})
+	if err != nil {
+		t.Fatalf("already encrypted: unexpected error %v", err)
+	}
 	if result != raw {
 		t.Errorf("already encrypted: want %q, got %q", raw, result)
 	}
@@ -22,21 +28,31 @@ func TestEncryptIfPlainAlreadyEncrypted(t *testing.T) {
 
 // TestEncryptIfPlainPlaintext covers the normal encryption path.
 func TestEncryptIfPlainPlaintext(t *testing.T) {
-	result := encryptIfPlain("1234.56", func(s string) (string, error) {
+	result, err := encryptIfPlain("1234.56", func(s string) (string, error) {
 		return "encrypted-value", nil
 	})
+	if err != nil {
+		t.Fatalf("plain value: unexpected error %v", err)
+	}
 	if result != "encrypted-value" {
 		t.Errorf("plain value: want 'encrypted-value', got %q", result)
 	}
 }
 
-// TestEncryptIfPlainFnError covers the fn error path → returns raw value.
+// TestEncryptIfPlainFnError couvre le durcissement de l'audit S-24 : un
+// chiffrement raté ne doit PLUS retomber silencieusement sur le plaintext
+// (ce qui laissait des données en clair dans une base déclarée migrée), mais
+// remonter l'erreur pour que la migration appelante interrompe le démarrage.
 func TestEncryptIfPlainFnError(t *testing.T) {
-	result := encryptIfPlain("bad", func(s string) (string, error) {
-		return "", errors.New("encrypt failed")
+	sentinel := errors.New("encrypt failed")
+	result, err := encryptIfPlain("bad", func(s string) (string, error) {
+		return "", sentinel
 	})
-	if result != "bad" {
-		t.Errorf("fn error: want original 'bad', got %q", result)
+	if !errors.Is(err, sentinel) {
+		t.Errorf("fn error: want sentinel error, got %v", err)
+	}
+	if result != "" {
+		t.Errorf("fn error: want empty result (fail closed), got %q", result)
 	}
 }
 
@@ -68,9 +84,12 @@ func TestIsEncrypted(t *testing.T) {
 // TestEncryptIfPlainUserAgentWithColon ensures user agents containing ":" are encrypted.
 func TestEncryptIfPlainUserAgentWithColon(t *testing.T) {
 	ua := "Mozilla/5.0 (X11; rv:128.0) Gecko/20100101 Firefox/128.0"
-	result := encryptIfPlain(ua, func(s string) (string, error) {
+	result, err := encryptIfPlain(ua, func(s string) (string, error) {
 		return "encrypted-ua", nil
 	})
+	if err != nil {
+		t.Fatalf("UA with colon: unexpected error %v", err)
+	}
 	if result != "encrypted-ua" {
 		t.Errorf("UA with colon should be encrypted, got %q", result)
 	}
@@ -321,4 +340,49 @@ func encryptTestCents(t *testing.T, cents int64) string {
 		t.Fatalf("encryptTestCents(%v): %v", cents, err)
 	}
 	return s
+}
+
+// TestCheckDirWritable couvre la sonde d'inscriptibilité ajoutée après la bascule
+// en utilisateur non privilégié (audit S-34) : un volume hérité d'une version
+// antérieure appartient à root et faisait sortir le serveur en boucle sur une
+// erreur SQLite opaque.
+func TestCheckDirWritable(t *testing.T) {
+	t.Run("dossier inscriptible", func(t *testing.T) {
+		if err := checkDirWritable(t.TempDir()); err != nil {
+			t.Errorf("un TempDir doit être inscriptible, got %v", err)
+		}
+	})
+	t.Run("dossier inexistant", func(t *testing.T) {
+		if err := checkDirWritable(filepath.Join(t.TempDir(), "absent")); err == nil {
+			t.Error("un dossier inexistant doit remonter une erreur")
+		}
+	})
+}
+
+// TestNewDataDirPermError vérifie que le message porte l'uid effectif et la
+// commande de correction — c'est tout l'intérêt du message.
+func TestNewDataDirPermError(t *testing.T) {
+	cause := errors.New("permission denied")
+	err := newDataDirPermError("/data", cause)
+	msg := err.Error()
+	// Toujours présents, quelle que soit la plateforme.
+	for _, want := range []string{"/data", "permission denied"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("le message doit contenir %q, got: %s", want, msg)
+		}
+	}
+	if !errors.Is(err, cause) {
+		t.Error("la cause doit rester enveloppée (errors.Is)")
+	}
+	// La commande de correction n'est affichée que là où un uid POSIX existe :
+	// sur Windows os.Getuid() vaut -1 et « chown -R -1:-1 » n'aurait aucun sens.
+	if os.Getuid() >= 0 {
+		for _, want := range []string{"chown -R", "docker-compose.yml"} {
+			if !strings.Contains(msg, want) {
+				t.Errorf("sur plateforme POSIX le message doit contenir %q, got: %s", want, msg)
+			}
+		}
+	} else if strings.Contains(msg, "chown") {
+		t.Errorf("sans uid POSIX, aucune commande chown ne doit être suggérée: %s", msg)
+	}
 }

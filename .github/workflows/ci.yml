@@ -3,15 +3,25 @@ name: CI
 on:
   push:
     branches: [develop]
+    # Les tags sont couverts pour que :latest passe par le même garde-fou que
+    # develop (lint, couverture, govulncheck, Trivy fs) — audit S-13.
+    tags: ['v*.*.*']
     paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
   pull_request:
     branches: [main, develop]
     paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+permissions: {}
+
 jobs:
   test:
     name: go test -race
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     permissions:
       contents: read
 
@@ -57,21 +67,29 @@ jobs:
           name: coverage
           path: go/coverage.out
 
+      # Version explicite (audit S-38) : `latest` rendait la CI capable de
+      # rougir sans changement de code, juste avant un déploiement. À bumper à
+      # la main — Dependabot ne met pas à jour les `with:` d'une action.
       - name: Lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          version: latest
+          version: v2.13.2
           working-directory: go
 
       - name: Vulnerability scan
         working-directory: go
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+          # v1.1.4 embarquait golang.org/x/tools@v0.29.0, qui ne sait pas
+          # analyser du Go 1.27 : govulncheck paniquait dans le constructeur SSA
+          # et sortait en code 2 (plantage de l'outil, pas une vulnérabilité).
+          # Toute future montée de Go doit s'accompagner d'une montée d'ici.
+          go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
           govulncheck ./...
 
   security-scan:
     name: Trivy filesystem scan
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
 
@@ -86,3 +104,39 @@ jobs:
           format: 'table'
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
+
+  # Audit FIN-5 : la chaîne d'assets (Tailwind + esbuild) est le seul chemin par
+  # lequel du code tiers atteint les fichiers servis en production. Ce job
+  # rejoue exactement le stage `css` de go/Dockerfile : `npm ci` échoue si le
+  # lockfile manque ou diverge de package.json, et la compilation valide que
+  # l'outillage épinglé produit bien les assets — sans attendre le build Docker.
+  assets:
+    name: Asset toolchain (Tailwind + esbuild)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: go/package-lock.json
+
+      - name: Install pinned toolchain (no install scripts)
+        working-directory: go
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Build assets
+        working-directory: go
+        run: |
+          out=$(mktemp -d)
+          ./node_modules/.bin/tailwindcss -i static/css/input.css -o "$out/tailwind.css" --minify
+          ./node_modules/.bin/esbuild static/css/app.css  --minify --outfile="$out/app.css"
+          ./node_modules/.bin/esbuild static/js/charts.js  --minify --outfile="$out/charts.js"
+          ./node_modules/.bin/esbuild static/js/passkey.js --minify --outfile="$out/passkey.js"
+          ls -l "$out"

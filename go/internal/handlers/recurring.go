@@ -36,24 +36,24 @@ func parseRecurringForm(w http.ResponseWriter, r *http.Request, user *middleware
 	toAccountIDStr := r.FormValue("toAccountId")
 
 	if description == "" || amountStr == "" {
-		clientError(w, ErrValidation, "Champs requis manquants", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.required_fields_missing", http.StatusBadRequest)
 		return f, false
 	}
 	if len([]rune(description)) > 500 {
-		clientError(w, ErrValidation, "Description trop longue (max 500)", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.description_too_long", http.StatusBadRequest)
 		return f, false
 	}
 
 	// Chiffrer la description
 	encryptedDesc, err := hookEncryptStr(description)
 	if err != nil {
-		clientError(w, ErrEncryption, "Erreur chiffrement", http.StatusInternalServerError)
+		clientErrorT(w, r, ErrEncryption, "error.encryption", http.StatusInternalServerError)
 		return f, false
 	}
 
 	amount, err := parseCents(amountStr)
 	if err != nil {
-		clientError(w, ErrValidation, "Montant invalide", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.amount_invalid", http.StatusBadRequest)
 		return f, false
 	}
 
@@ -66,14 +66,32 @@ func parseRecurringForm(w http.ResponseWriter, r *http.Request, user *middleware
 	// Pour income/expense, on ignore toute valeur résiduelle envoyée par le formulaire
 	// (le select reste dans le DOM même quand x-show le cache).
 	var toAccountID *int64
-	if opType == "transfer" && toAccountIDStr != "" {
-		id, err := strconv.ParseInt(toAccountIDStr, 10, 64)
-		if err != nil {
-			clientError(w, ErrValidation, "Compte destinataire invalide", http.StatusBadRequest)
+	if opType == "transfer" {
+		// audit S-04 : un virement sans destinataire n'était pas refusé — il
+		// était enregistré avec ToAccountID nil et un montant laissé positif
+		// (l'ajustement de signe ne traite que expense/income), donc compté
+		// comme un revenu récurrent fantôme dans le résumé et la projection.
+		if toAccountIDStr == "" {
+			clientErrorT(w, r, ErrValidation, "error.to_account_required", http.StatusBadRequest)
 			return f, false
 		}
+		id, err := strconv.ParseInt(toAccountIDStr, 10, 64)
+		if err != nil {
+			clientErrorT(w, r, ErrValidation, "error.to_account_invalid", http.StatusBadRequest)
+			return f, false
+		}
+		// Virement vers soi-même : mouvement net nul que la projection
+		// compterait quand même. Refusé (audit S-04). Le compte source n'est
+		// présent dans le formulaire que sur le chemin POST /recurring ; le
+		// chemin PUT ne le transmet pas et ne le modifie pas.
+		if srcStr := r.FormValue("accountId"); srcStr != "" {
+			if srcID, srcErr := strconv.ParseInt(srcStr, 10, 64); srcErr == nil && srcID == id {
+				clientErrorT(w, r, ErrValidation, "error.to_account_same", http.StatusBadRequest)
+				return f, false
+			}
+		}
 		if ok, err := hookAccountBelongsToUser(id, user.ID); err != nil || !ok {
-			clientError(w, ErrValidation, "Compte destinataire invalide", http.StatusBadRequest)
+			clientErrorT(w, r, ErrValidation, "error.to_account_invalid", http.StatusBadRequest)
 			return f, false
 		}
 		toAccountID = &id
@@ -97,12 +115,12 @@ func parseRecurringForm(w http.ResponseWriter, r *http.Request, user *middleware
 func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_data", http.StatusBadRequest)
 		return
 	}
 
@@ -110,7 +128,7 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 	accountIDStr := r.FormValue("accountId")
 
 	if accountIDStr == "" {
-		clientError(w, ErrValidation, "Champs requis manquants", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.required_fields_missing", http.StatusBadRequest)
 		return
 	}
 
@@ -121,11 +139,11 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 
 	accountID, err := strconv.ParseInt(accountIDStr, 10, 64)
 	if err != nil {
-		clientError(w, ErrValidation, "Compte invalide", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.account_invalid", http.StatusBadRequest)
 		return
 	}
 	if ok, err := hookAccountBelongsToUser(accountID, user.ID); err != nil || !ok {
-		clientError(w, ErrValidation, "Compte invalide", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.account_invalid", http.StatusBadRequest)
 		return
 	}
 
@@ -133,48 +151,48 @@ func CreateRecurring(w http.ResponseWriter, r *http.Request) {
 	if idStr != "" {
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil {
-			clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
+			clientErrorT(w, r, ErrValidation, "error.invalid_id", http.StatusBadRequest)
 			return
 		}
 		err = hookUpdateRecurring(id, user.ID, accountID, f.encryptedDesc, f.amount, f.day, f.toAccountID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				clientError(w, ErrNotFound, "Opération récurrente introuvable", http.StatusNotFound)
+				clientErrorT(w, r, ErrNotFound, "error.recurring_not_found", http.StatusNotFound)
 				return
 			}
-			serverError(w, "update recurring", err)
+			serverError(w, r, "update recurring", err)
 			return
 		}
 	} else {
 		// Creation
 		err = hookCreateRecurring(user.ID, accountID, f.toAccountID, f.encryptedDesc, f.amount, f.day)
 		if err != nil {
-			serverError(w, "create recurring", err)
+			serverError(w, r, "create recurring", err)
 			return
 		}
 	}
 
 	// Retourner la liste mise a jour en HTML
-	renderRecurringTable(w, user)
+	renderRecurringTable(w, r, user)
 }
 
 // UpdateRecurring met a jour une operation recurrente
 func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_id", http.StatusBadRequest)
 		return
 	}
 
 	if err := r.ParseForm(); err != nil {
-		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_data", http.StatusBadRequest)
 		return
 	}
 
@@ -188,10 +206,10 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 	err = hookUpdateRecurring(id, user.ID, 0, f.encryptedDesc, f.amount, f.day, f.toAccountID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			clientError(w, ErrNotFound, "Opération récurrente introuvable", http.StatusNotFound)
+			clientErrorT(w, r, ErrNotFound, "error.recurring_not_found", http.StatusNotFound)
 			return
 		}
-		serverError(w, "update recurring", err)
+		serverError(w, r, "update recurring", err)
 		return
 	}
 
@@ -202,42 +220,42 @@ func UpdateRecurring(w http.ResponseWriter, r *http.Request) {
 func DeleteRecurring(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_id", http.StatusBadRequest)
 		return
 	}
 
 	err = hookDeleteRecurring(id, user.ID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			clientError(w, ErrNotFound, "Opération récurrente introuvable", http.StatusNotFound)
+			clientErrorT(w, r, ErrNotFound, "error.recurring_not_found", http.StatusNotFound)
 			return
 		}
-		serverError(w, "delete recurring", err)
+		serverError(w, r, "delete recurring", err)
 		return
 	}
 
 	// Retourner la liste mise a jour en HTML
-	renderRecurringTable(w, user)
+	renderRecurringTable(w, r, user)
 }
 
 // renderRecurringTable rend le tableau des operations recurrentes en HTML avec OOB summary
-func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
+func renderRecurringTable(w http.ResponseWriter, r *http.Request, user *middleware.User) {
 	lang, currency := userLocale(user)
 
 	accounts, recurrings, accErr, recErr := loadAccountsAndRecurring(user.ID)
 	if recErr != nil {
-		serverError(w, "renderRecurringTable: recurring", recErr)
+		serverError(w, r, "renderRecurringTable: recurring", recErr)
 		return
 	}
 	if accErr != nil {
-		serverError(w, "renderRecurringTable: accounts", accErr)
+		serverError(w, r, "renderRecurringTable: accounts", accErr)
 		return
 	}
 
@@ -247,6 +265,7 @@ func renderRecurringTable(w http.ResponseWriter, user *middleware.User) {
 	hookRenderPartial(w, "accounts.html", "recurring-table", map[string]interface{}{ //nolint:errcheck
 		"Recurrings": computed.recurringData,
 		"Currency":   currency,
+		"Locale":     localeTag(lang),
 		"T":          i18n.Map(lang),
 	})
 

@@ -1,4 +1,13 @@
 version: 2
+
+# Tous les écosystèmes présents dans le dépôt sont couverts :
+#   gomod          → go/go.mod
+#   docker         → go/Dockerfile (node, golang, alpine)
+#   github-actions → .github/workflows/*.yml
+#   npm (/e2e)     → outillage Playwright
+#   npm (/go)      → chaîne d'assets Tailwind + esbuild (audit FIN-5)
+# Chaque écosystème est groupé en une seule PR pour limiter le bruit.
+# Pas d'auto-merge : les notes de release sont rédigées à la main.
 updates:
   - package-ecosystem: "gomod"
     directory: "/go"
@@ -18,14 +27,20 @@ updates:
     target-branch: "develop"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(deps)"
+    groups:
+      docker-base-images:
+        patterns:
+          - "*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     target-branch: "develop"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 3
     commit-message:
       prefix: "chore(deps)"
     groups:
@@ -43,5 +58,20 @@ updates:
       prefix: "chore(deps)"
     groups:
       npm-dependencies:
+        patterns:
+          - "*"
+
+  # Chaîne d'outils d'assets du stage `css` de go/Dockerfile : Tailwind CSS et
+  # esbuild produisent les fichiers réellement servis en production.
+  - package-ecosystem: "npm"
+    directory: "/go"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      asset-toolchain:
         patterns:
           - "*"

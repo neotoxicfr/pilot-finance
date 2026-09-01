@@ -1,6 +1,7 @@
 package projection_test
 
 import (
+	"math"
 	"testing"
 
 	"pilot-finance/internal/db"
@@ -255,10 +256,14 @@ func TestCalculateYieldPayoutsNoTarget(t *testing.T) {
 }
 
 // TestCalculateMonthlyYieldPayoutRange covers the YieldType=="RANGE" branch.
+// Un compte cible est requis depuis l'alignement des filtres (audit S-05).
 func TestCalculateMonthlyYieldPayoutRange(t *testing.T) {
+	targetID := int64(2)
 	accounts := []db.Account{
 		{ID: 1, Name: "PEA", Balance: 1200000, IsYieldActive: true, YieldType: "RANGE",
-			YieldMin: 2.0, YieldMax: 10.0, ReinvestmentRate: 0, PayoutFrequency: "MONTHLY"},
+			YieldMin: 2.0, YieldMax: 10.0, ReinvestmentRate: 0, PayoutFrequency: "MONTHLY",
+			TargetAccountID: &targetID},
+		{ID: 2, Name: "Courant", Balance: 0},
 	}
 	// avg rate = (2+10)/2 = 6%, annual = 720, monthly = 60, payout (0% reinvested) = 60
 	got := projection.CalculateMonthlyYieldPayout(accounts)
@@ -269,9 +274,12 @@ func TestCalculateMonthlyYieldPayoutRange(t *testing.T) {
 
 // TestCalculateAnnualYieldPayoutRange covers the YieldType=="RANGE" branch.
 func TestCalculateAnnualYieldPayoutRange(t *testing.T) {
+	targetID := int64(2)
 	accounts := []db.Account{
 		{ID: 1, Name: "PEA", Balance: 1000000, IsYieldActive: true, YieldType: "RANGE",
-			YieldMin: 3.0, YieldMax: 7.0, ReinvestmentRate: 0, PayoutFrequency: "YEARLY"},
+			YieldMin: 3.0, YieldMax: 7.0, ReinvestmentRate: 0, PayoutFrequency: "YEARLY",
+			TargetAccountID: &targetID},
+		{ID: 2, Name: "Courant", Balance: 0},
 	}
 	// avg rate = (3+7)/2 = 5%, annual = 500
 	got := projection.CalculateAnnualYieldPayout(accounts)
@@ -388,6 +396,177 @@ func TestCalculateMonthlySummaryWithAnnualYield(t *testing.T) {
 	}
 }
 
+// ----- Audit S-05 : TotalInterests ne compte que ce qui atterrit -----
+
+// TestCalculate_InterestsWithoutTargetNotCounted : cas déterministe du rapport
+// d'audit — 10 000 € à 5 %, réinvestissement 0 %, cible « Aucun ». Les intérêts
+// ne sont versés nulle part : la courbe est plate ET le KPI doit valoir 0.
+func TestCalculate_InterestsWithoutTargetNotCounted(t *testing.T) {
+	accounts := []db.Account{
+		{ID: 1, Name: "Livret", Balance: 1000000, IsYieldActive: true,
+			YieldType: "FIXED", YieldMin: 5.0, YieldMax: 5.0,
+			ReinvestmentRate: 0, PayoutFrequency: "MONTHLY", TargetAccountID: nil},
+	}
+	result := projection.Calculate(accounts, nil, 5, "fr")
+	if result.TotalInterests != 0 {
+		t.Errorf("TotalInterests: want 0 (payout jeté, aucune cible), got %v", result.TotalInterests)
+	}
+	last := result.Projection[len(result.Projection)-1]
+	if last.TotalAvg != 10000 {
+		t.Errorf("courbe plate attendue: want 10000, got %v", last.TotalAvg)
+	}
+}
+
+// TestCalculate_PartialReinvestmentWithoutTarget : avec un réinvestissement
+// partiel et aucune cible, seule la part réinvestie atterrit dans la courbe —
+// le KPI doit valoir exactement la croissance du solde, et rester strictement
+// inférieur au même compte doté d'une cible valide.
+func TestCalculate_PartialReinvestmentWithoutTarget(t *testing.T) {
+	base := db.Account{
+		ID: 1, Name: "Livret", Balance: 1200000, IsYieldActive: true,
+		YieldType: "FIXED", YieldMin: 12.0, YieldMax: 12.0,
+		ReinvestmentRate: 50, PayoutFrequency: "MONTHLY",
+	}
+	targetID := int64(2)
+	withTargetSrc := base
+	withTargetSrc.TargetAccountID = &targetID
+
+	noTarget := projection.Calculate([]db.Account{base}, nil, 3, "fr")
+	withTarget := projection.Calculate([]db.Account{withTargetSrc, {ID: 2, Name: "Courant"}}, nil, 3, "fr")
+
+	if noTarget.TotalInterests <= 0 {
+		t.Fatalf("part réinvestie: want >0, got %v", noTarget.TotalInterests)
+	}
+	if noTarget.TotalInterests >= withTarget.TotalInterests {
+		t.Errorf("sans cible (%v) doit être < avec cible (%v)", noTarget.TotalInterests, withTarget.TotalInterests)
+	}
+	last := noTarget.Projection[len(noTarget.Projection)-1]
+	growth := last.TotalAvg - noTarget.TotalBalance
+	if math.Abs(noTarget.TotalInterests-growth) > 1 {
+		t.Errorf("KPI (%v) doit égaler la croissance du solde (%v)", noTarget.TotalInterests, growth)
+	}
+}
+
+// TestCalculate_InterestsLandingInvariant : avec une cible valide, tout
+// l'intérêt atterrit (réinvesti + versé) — le KPI doit égaler la croissance du
+// patrimoine total, aucune opération récurrente n'étant en jeu.
+func TestCalculate_InterestsLandingInvariant(t *testing.T) {
+	targetID := int64(2)
+	accounts := []db.Account{
+		{ID: 1, Name: "Livret", Balance: 1200000, IsYieldActive: true,
+			YieldType: "FIXED", YieldMin: 12.0, YieldMax: 12.0,
+			ReinvestmentRate: 50, PayoutFrequency: "MONTHLY", TargetAccountID: &targetID},
+		{ID: 2, Name: "Courant", Balance: 300000},
+	}
+	result := projection.Calculate(accounts, nil, 3, "fr")
+	last := result.Projection[len(result.Projection)-1]
+	growth := last.TotalAvg - result.TotalBalance
+	if math.Abs(result.TotalInterests-growth) > 1 {
+		t.Errorf("réinvesti+versé (%v) doit égaler la croissance totale (%v)", result.TotalInterests, growth)
+	}
+}
+
+// TestCalculate_OrphanTargetNotCredited : une cible qui ne fait pas partie des
+// comptes simulés (référence orpheline) ne reçoit rien — le montant sortirait
+// des totaux, il ne doit donc pas alimenter le KPI non plus.
+func TestCalculate_OrphanTargetNotCredited(t *testing.T) {
+	orphanID := int64(99)
+	accounts := []db.Account{
+		{ID: 1, Name: "Livret", Balance: 1200000, IsYieldActive: true,
+			YieldType: "FIXED", YieldMin: 12.0, YieldMax: 12.0,
+			ReinvestmentRate: 0, PayoutFrequency: "MONTHLY", TargetAccountID: &orphanID},
+	}
+	result := projection.Calculate(accounts, nil, 1, "fr")
+	if result.TotalInterests != 0 {
+		t.Errorf("cible orpheline: want TotalInterests 0, got %v", result.TotalInterests)
+	}
+	last := result.Projection[len(result.Projection)-1]
+	if last.TotalAvg != 12000 {
+		t.Errorf("cible orpheline: solde inchangé attendu 12000, got %v", last.TotalAvg)
+	}
+}
+
+// TestYieldPayoutFilters_Aligned : /comptes (CalculateYieldPayouts) et
+// /api/dashboard (CalculateMonthly/AnnualYieldPayout) doivent répondre le même
+// revenu pour les mêmes comptes, quelle que soit la configuration (audit S-05).
+func TestYieldPayoutFilters_Aligned(t *testing.T) {
+	targetID := int64(2)
+	selfID := int64(1)
+	src := func(mut func(*db.Account)) db.Account {
+		a := db.Account{
+			ID: 1, Name: "Source", Balance: 1200000, IsYieldActive: true,
+			YieldType: "FIXED", YieldMin: 3.0, YieldMax: 3.0,
+			ReinvestmentRate: 0, PayoutFrequency: "MONTHLY", TargetAccountID: &targetID,
+		}
+		mut(&a)
+		return a
+	}
+
+	tests := []struct {
+		name string
+		acc  db.Account
+	}{
+		{"mensuel avec cible", src(func(*db.Account) {})},
+		{"mensuel sans cible", src(func(a *db.Account) { a.TargetAccountID = nil })},
+		{"annuel avec cible", src(func(a *db.Account) { a.PayoutFrequency = "YEARLY" })},
+		{"annuel sans cible", src(func(a *db.Account) { a.PayoutFrequency = "YEARLY"; a.TargetAccountID = nil })},
+		{"frequence vide", src(func(a *db.Account) { a.PayoutFrequency = "" })},
+		{"reinvestissement total", src(func(a *db.Account) { a.ReinvestmentRate = 100 })},
+		{"rendement inactif", src(func(a *db.Account) { a.IsYieldActive = false })},
+		{"solde nul", src(func(a *db.Account) { a.Balance = 0 })},
+		{"solde debiteur", src(func(a *db.Account) { a.Balance = -500000 })},
+		{"cible sur soi-meme", src(func(a *db.Account) { a.TargetAccountID = &selfID })},
+		{"taux variable", src(func(a *db.Account) { a.YieldType = "RANGE"; a.YieldMin = 2.0; a.YieldMax = 8.0 })},
+	}
+
+	names := map[int64]string{1: "Source", 2: "Cible"}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			accounts := []db.Account{tc.acc, {ID: 2, Name: "Cible", Balance: 100000}}
+			var wantMonthly, wantAnnual float64
+			for _, p := range projection.CalculateYieldPayouts(accounts, names) {
+				if p.PayoutFrequency == "YEARLY" {
+					wantAnnual += p.Amount
+				} else {
+					wantMonthly += p.Amount
+				}
+			}
+			if got := projection.CalculateMonthlyYieldPayout(accounts); got != wantMonthly {
+				t.Errorf("revenu mensuel : /comptes=%v, /api/dashboard=%v", wantMonthly, got)
+			}
+			if got := projection.CalculateAnnualYieldPayout(accounts); got != wantAnnual {
+				t.Errorf("revenu annuel : /comptes=%v, /api/dashboard=%v", wantAnnual, got)
+			}
+		})
+	}
+}
+
+// ----- Audit S-30 : YearData.Accounts indexé par ID -----
+
+// TestCalculate_AccountsIndexedByID : deux comptes homonymes doivent produire
+// deux entrées distinctes (avant le correctif, la dernière écriture écrasait la
+// première : un compte disparaissait et l'autre était empilé deux fois).
+func TestCalculate_AccountsIndexedByID(t *testing.T) {
+	accounts := []db.Account{
+		{ID: 1, Name: "Livret A", Balance: 1200000},
+		{ID: 2, Name: "Livret A", Balance: 100000},
+	}
+	result := projection.Calculate(accounts, nil, 3, "fr")
+	last := result.Projection[len(result.Projection)-1]
+	if len(last.Accounts) != 2 {
+		t.Fatalf("comptes homonymes : want 2 entrées, got %d (%v)", len(last.Accounts), last.Accounts)
+	}
+	if last.Accounts[1] != 12000 {
+		t.Errorf("compte 1 : want 12000, got %v", last.Accounts[1])
+	}
+	if last.Accounts[2] != 1000 {
+		t.Errorf("compte 2 : want 1000, got %v", last.Accounts[2])
+	}
+	if last.TotalAvg != 13000 {
+		t.Errorf("total : want 13000, got %v", last.TotalAvg)
+	}
+}
+
 // ----- Benchmarks -----
 
 // BenchmarkCalculate_5years benchmarks a 5-year projection with 10 accounts and recurring ops.
@@ -434,5 +613,32 @@ func BenchmarkCalculate_30years(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		projection.Calculate(accounts, recurrings, 30, "fr")
+	}
+}
+
+// TestCalculateTransferNegativeAmount couvre la normalisation du signe d'un
+// virement (branche `if amt < 0`). Un virement stocké avec un montant négatif
+// doit déplacer la même somme dans le même sens qu'un montant positif : c'est
+// le compte source qui est débité, jamais l'inverse.
+func TestCalculateTransferNegativeAmount(t *testing.T) {
+	fromID := int64(1)
+	toID := int64(2)
+	accounts := []db.Account{
+		{ID: fromID, Name: "Checking", Balance: 500000, IsYieldActive: false},
+		{ID: toID, Name: "Savings", Balance: 0, IsYieldActive: false},
+	}
+	recurrings := []db.RecurringOperation{
+		{ID: 1, UserID: 1, AccountID: fromID, ToAccountID: &toID, Amount: -50000, DayOfMonth: 1},
+	}
+	result := projection.Calculate(accounts, recurrings, 1, "en")
+	last := result.Projection[len(result.Projection)-1]
+
+	// Le total est conservé (transfert interne), comme pour un montant positif.
+	if last.TotalAvg != 5000 {
+		t.Errorf("virement négatif : total attendu 5000, got %v", last.TotalAvg)
+	}
+	// Et le sens est bien source -> destination : la destination a été créditée.
+	if got := last.Accounts[toID]; got != 6000 {
+		t.Errorf("virement négatif : destination attendue 6000, got %v", got)
 	}
 }

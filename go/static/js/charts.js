@@ -16,10 +16,47 @@
 //            Filler, Tooltip, Legend);
 // This would reduce the Chart.js payload to ~80 KB.
 
-// Money formatting comes from the shared window.PILOT_FMT (defined in base.html)
-// so axis labels and the pie-center compact value stay in sync with dashboard.html.
+// Le format monétaire complet vient de window.PILOT_FMT (défini dans base.html),
+// partagé avec dashboard.html.
 const fmt = v => window.PILOT_FMT.currency(v);
-const fmtAxis = v => window.PILOT_FMT.compact(v);
+
+// compactMoney — miroir STRICT de templates.formatUnitsCompact (Go), figé par
+// TestFormatUnitsCompact_JSMirror (internal/templates/templates_test.go).
+// Comme son homologue Go, il reçoit un montant DÉJÀ dans l'unité de la devise
+// (les séries de projection sont en euros), jamais des centimes (audit S-40).
+// Audit S-26 : l'implémentation de base.html avait perdu la branche « négatif »
+// de son homologue Go — compact(-12400) rendait « -12400 EUR » au lieu de
+// « -12k EUR », donc l'axe Y basculait en nombres bruts non groupés côté
+// négatif — alors qu'un commentaire affirmait la parité. Le séparateur décimal
+// divergeait en outre du reste de la couche monétaire serveur (virgule).
+// Tiers, seuils et séparateur sont désormais identiques des deux côtés.
+// Seule divergence résiduelle assumée : les demi-unités exactes (12,5) sont
+// arrondies à l'entier PAIR par Go (« 12k ») et à l'entier SUPÉRIEUR par
+// Math.round (« 13k ») — écart d'un « k » sur une étiquette, sans conséquence.
+// La virgule est figée comme côté serveur (voir audit S-23 pour la locale).
+// Séparateur décimal de la locale, miroir de templates.moneySeparators (Go).
+// Audit S-23 : la virgule était figée ici alors que PILOT_FMT.currency localise
+// via Intl — un compte en anglais voyait « 1.5k EUR » et « 1,234.56 EUR » se
+// contredire sur le même écran.
+const decimalSep = () => (window.PILOT_LOCALE || 'fr').startsWith('en') ? '.' : ',';
+const oneDecimal = n => n.toFixed(1).replace('.', decimalSep());
+const compactMoney = (value) => {
+    const c = window.PILOT_CURRENCY || 'EUR';
+    if (value < 0) return '-' + compactMoney(-value);
+    if (value >= 1000000) return oneDecimal(value / 1000000) + 'M ' + c;
+    if (value >= 10000) return Math.round(value / 1000) + 'k ' + c;
+    if (value >= 1000) return oneDecimal(value / 1000) + 'k ' + c;
+    return Math.round(value) + ' ' + c;
+};
+// base.html se présente comme la source unique des formateurs partagés : on y
+// réinjecte l'implémentation corrigée pour que le centre du camembert
+// (dashboard.html, via PILOT_FMT.compact) et l'axe Y restent identiques.
+// charts.js est chargé en `defer`, donc APRÈS le script inline qui définit
+// PILOT_FMT — l'affectation est sûre. À terme, déplacer compactMoney dans
+// base.html:146-152 et supprimer ce patch.
+if (window.PILOT_FMT) window.PILOT_FMT.compact = compactMoney;
+
+const fmtAxis = v => compactMoney(v);
 const getColors = () => {
     const d = document.documentElement.classList.contains('dark');
     return { isDark: d, grid: d ? 'rgba(148,163,184,.1)' : 'rgba(100,116,139,.1)', text: d ? '#94a3b8' : '#64748b', tipBg: d ? '#1e293b' : '#fff', tipTitle: d ? '#f1f5f9' : '#0f172a', tipBody: d ? '#cbd5e1' : '#475569', tipBorder: d ? '#334155' : '#e2e8f0' };
@@ -29,11 +66,40 @@ const dsOpts = (c) => ({ backgroundColor: c, borderWidth: 0, fill: true, tension
 // Detect cone data (variable-rate accounts)
 const hasCone = (data) => data?.some(d => d.totalMin !== d.totalAvg);
 
+// Audit S-30 : YearData.accounts est indexé par ID de compte, plus par nom —
+// deux comptes homonymes s'écrasaient mutuellement (l'un empilé deux fois,
+// l'autre absent). La liste de couleurs doit donc porter l'ID de chaque compte.
+// Si elle ne le porte pas (donnée servie par une version antérieure du
+// handler), on retombe volontairement sur la courbe de total agrégée : un total
+// juste vaut mieux qu'un empilement de séries à zéro.
+const hasAccountSeries = (data, acc) =>
+    !!(acc?.length && data?.[0]?.accounts && acc.some(a => data[0].accounts[a.id] !== undefined));
+
+// Escape helper for text injected into legend / tooltip markup
+const esc = (s) => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
+
+// Audit S-27 : la légende est annoncée comme partagée par les deux graphiques,
+// mais elle n'était construite que depuis les données du camembert — lequel ne
+// retient que les comptes au solde strictement positif (helpers.go buildPieData)
+// alors que la courbe empile TOUS les comptes. Un compte à 0 alimenté par une
+// récurrence apparaissait donc comme une bande colorée sans pastille.
+// Elle est désormais construite depuis la liste de couleurs (tous les comptes),
+// et explicitement vidée quand il n'y a rien à afficher.
+const renderLegend = (acc) => {
+    const leg = document.getElementById('chartLegend');
+    if (!leg) return;
+    if (!acc?.length) { leg.innerHTML = ''; return; }
+    leg.innerHTML = acc.map(a =>
+        '<div class="flex items-center gap-2 text-sm"><span class="w-3 h-3 rounded-full flex-shrink-0" style="background:'
+        + (/^#[0-9a-fA-F]{3,8}$/.test(a.color) ? a.color : '#888')
+        + '"></span><span class="text-muted-foreground font-medium">' + esc(a.name) + '</span></div>').join('');
+};
+
 // Create projection datasets
 const createDS = (data, acc) => {
     const cone = hasCone(data);
-    const baseDS = acc?.length && data[0]?.accounts
-        ? acc.map(a => ({ label: a.name, data: data.map(d => d.accounts?.[a.name] || 0), ...dsOpts(a.color), stack: 'accounts' }))
+    const baseDS = hasAccountSeries(data, acc)
+        ? acc.map(a => ({ label: a.name, data: data.map(d => d.accounts?.[a.id] || 0), ...dsOpts(a.color), stack: 'accounts' }))
         : [{ label: 'Projection', data: data.map(d => d.totalAvg), ...dsOpts('#3b82f6'), stack: 'accounts' }];
     if (!cone) return baseDS;
     const co = { pointRadius: 0, pointHoverRadius: 0, tension: 0.4 };
@@ -66,6 +132,10 @@ const tooltipTimeoutPlugin = {
 // Projection chart
 window.initProjectionChart = (data, acc) => {
     window._projData = data; window._projAcc = acc;
+    // Légende partagée : construite ici (source = tous les comptes) et avant les
+    // sorties anticipées, pour qu'elle reste cohérente même sans canvas ni
+    // données de projection (audit S-27).
+    renderLegend(acc);
     const ctx = document.getElementById('projectionCanvas');
     if (!ctx || typeof Chart === 'undefined') return;
     if (window.projectionChart) { clearTimeout(window.projectionChart._ttTimer); window.projectionChart.destroy(); }
@@ -100,7 +170,7 @@ window.initProjectionChart = (data, acc) => {
             },
             scales: {
                 x: { grid: { color: c.grid, drawBorder: false }, ticks: { color: c.text, font: { size: 11 } } },
-                y: { stacked: acc?.length > 0, beginAtZero: true, grid: { color: c.grid, drawBorder: false }, ticks: { color: c.text, font: { size: 11 }, callback: fmtAxis } }
+                y: { stacked: hasAccountSeries(data, acc), beginAtZero: true, grid: { color: c.grid, drawBorder: false }, ticks: { color: c.text, font: { size: 11 }, callback: fmtAxis } }
             }
         }
     });
@@ -128,7 +198,6 @@ window.initPieChart = (accounts, animated = true) => {
                 const tm = ctx.tooltip;
                 if (!tm.opacity) { t.style.opacity = 0; return; }
                 const cc = getColors(), d = tm.dataPoints[0], total = d.dataset.data.reduce((a,b) => a+b, 0);
-                const esc = s => { const d2 = document.createElement('div'); d2.textContent = s; return d2.innerHTML; };
                 t.innerHTML = '<strong>'+esc(d.label)+'</strong><br>'+fmt(d.raw)+' ('+(d.raw/total*100).toFixed(1)+'%)';
                 const tw = t.offsetWidth || 160, th = t.offsetHeight || 50;
                 const rect = ctx.chart.canvas.getBoundingClientRect();
@@ -136,8 +205,8 @@ window.initPieChart = (accounts, animated = true) => {
             } } }
         }
     });
-    const leg = document.getElementById('chartLegend');
-    if (leg) { const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }; leg.innerHTML = accounts.map(a => '<div class="flex items-center gap-2 text-sm"><span class="w-3 h-3 rounded-full flex-shrink-0" style="background:'+(/^#[0-9a-fA-F]{3,8}$/.test(a.color)?a.color:'#888')+'"></span><span class="text-muted-foreground font-medium">'+esc(a.name)+'</span></div>').join(''); }
+    // La légende n'est plus construite ici : elle est partagée et alimentée par
+    // initProjectionChart depuis la liste complète des comptes (audit S-27).
     window.pieChartData = accounts;
 };
 

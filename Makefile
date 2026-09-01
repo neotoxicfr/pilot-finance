@@ -1,4 +1,4 @@
-.PHONY: test bench lint build coverage docker dev vuln
+.PHONY: test test-race bench lint build coverage coverage-html docker dev vuln css css-watch css-lock
 
 test:
 	cd go && go test -timeout 120s ./...
@@ -31,3 +31,15 @@ dev:
 
 vuln:
 	cd go && govulncheck ./...
+
+# --- Assets (même chaîne d'outils que le stage `css` de go/Dockerfile) ---
+
+# Génère go/package-lock.json. À lancer une fois, puis commiter le résultat.
+css-lock:
+	cd go && npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+
+css:
+	cd go && npm ci --ignore-scripts --no-audit --no-fund && npm run build:css
+
+css-watch:
+	cd go && npm run watch:css

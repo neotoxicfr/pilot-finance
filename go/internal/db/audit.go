@@ -20,6 +20,11 @@ const (
 	AuditPasswordChange = "PASSWORD_CHANGE"
 	AuditMFAEnable     = "MFA_ENABLE"
 	AuditMFADisable    = "MFA_DISABLE"
+	// Codes de récupération 2FA (audit S-22). MFA_RECOVERY_USED est
+	// délibérément journalisé : la consommation d'un code contourne le
+	// téléphone de l'utilisateur, elle doit rester visible dans l'audit.
+	AuditMFARecoveryRegen = "MFA_RECOVERY_REGENERATE"
+	AuditMFARecoveryUsed  = "MFA_RECOVERY_USED"
 	AuditPasskeyAdd    = "PASSKEY_ADD"
 	AuditPasskeyRemove = "PASSKEY_REMOVE"
 	AuditPasskeyRename = "PASSKEY_RENAME"
@@ -80,16 +85,23 @@ func startAuditWorkers() {
 }
 
 // writeAuditEntry chiffre IP/UserAgent et insère une entrée d'audit.
+//
+// Audit S-24 : en cas d'échec de chiffrement, ces deux champs retombaient sur
+// la valeur EN CLAIR — soit exactement l'inverse du contrat affiché (« IP et
+// UserAgent sont chiffrés AES-256-GCM avant stockage »), et sans aucune erreur
+// visible. Le repli est désormais la chaîne VIDE : la trace d'audit
+// (utilisateur, action, horodatage) est conservée, mais aucune donnée
+// personnelle n'est jamais écrite en clair.
 func writeAuditEntry(job auditJob) {
 	ipEnc, err := crypto.Encrypt(job.ip)
 	if err != nil {
-		slog.Warn("audit log: encrypt ip failed", "err", err)
-		ipEnc = job.ip
+		slog.Error("audit log: chiffrement ip échoué, champ vidé (jamais stocké en clair)", "err", err)
+		ipEnc = ""
 	}
 	uaEnc, err := crypto.Encrypt(job.userAgent)
 	if err != nil {
-		slog.Warn("audit log: encrypt user_agent failed", "err", err)
-		uaEnc = job.userAgent
+		slog.Error("audit log: chiffrement user_agent échoué, champ vidé (jamais stocké en clair)", "err", err)
+		uaEnc = ""
 	}
 	if _, err := DB.Exec(`INSERT INTO audit_log (user_id, action, ip, user_agent, created_at) VALUES (?, ?, ?, ?, ?)`,
 		job.userID, job.action, ipEnc, uaEnc, job.createdAt); err != nil {

@@ -6,12 +6,20 @@ function loginPage() {
     return pwdMixin({
         isRegister: false,
         requires2FA: false,
+        // Le serveur accepte indifféremment un code TOTP ou un code de
+        // récupération dans le MÊME champ (audit S-22) : seul l'habillage
+        // change, il n'y a pas de second champ ni de second endpoint.
+        useRecovery: false,
         loading: false,
         error: '',
         success: '',
         password: '',
         confirm: '',
         consent: false,
+        toggleRecovery() {
+            this.useRecovery = !this.useRecovery;
+            this.error = '';
+        },
         get submitDisabled() {
             if (this.loading) return true;
             if (this.isRegister) return this.pwdStrength < 5 || !this.pwdsMatch || !this.consent;
@@ -20,6 +28,11 @@ function loginPage() {
         init() {
             this.requires2FA = this.$el.dataset.requires2fa === 'true';
         },
+        // Le build Alpine CSP ne parse PAS les expressions multi-instructions
+        // (« a = 1; b = 2 » leve « CSP Parser Error »), et l'attribut est alors
+        // ignore en entier : sans cette methode, `loading` ne passait jamais a
+        // true et l'erreur precedente restait affichee sous la nouvelle.
+        startSubmit() { this.loading = true; this.error = ''; },
         setError(msg) { this.loading = false; this.error = msg; },
         loginWithPasskey() { window.loginWithPasskey(); },
         toggleRegister() { this.isRegister = !this.isRegister; this.error = ''; },
@@ -42,19 +55,19 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
         </div>
 
         {{if .ResetSuccess}}
-        <div class="mb-6 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center text-emerald-600 dark:text-emerald-400 text-sm font-bold">
+        <div class="mb-6 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-center text-emerald-700 dark:text-emerald-400 text-sm font-bold">
             {{index .T "login.reset_success"}}
         </div>
         {{end}}
 
         {{if .Error}}
-        <div class="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center text-red-600 dark:text-red-400 text-sm font-bold flex items-center justify-center gap-2">
+        <div class="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center text-red-700 dark:text-red-400 text-sm font-bold flex items-center justify-center gap-2">
             {{template "icon-alert" dict "Size" 16}} {{.Error}}
         </div>
         {{end}}
 
         <template x-if="error">
-            <div class="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center text-red-600 dark:text-red-400 text-sm font-bold flex items-center justify-center gap-2">
+            <div class="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center text-red-700 dark:text-red-400 text-sm font-bold flex items-center justify-center gap-2">
                 {{template "icon-alert" dict "Size" 16}}
                 <span x-text="error"></span>
             </div>
@@ -81,7 +94,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
               hx-target="body"
               hx-swap="outerHTML"
               @htmx:config-request="configRequest($event)"
-              @htmx:before-request="loading = true; error = ''"
+              @htmx:before-request="startSubmit()"
               @htmx:after-request="loading = false"
               @htmx:response-error="setError($event.detail.xhr.responseText)"
               class="space-y-4">
@@ -100,7 +113,7 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
                     <div>
                         {{if .MailEnabled}}
                         <div class="flex justify-end mb-2 px-1">
-                            <a href="/forgot-password" class="text-xs text-blue-500 hover:text-blue-400 font-medium">{{index .T "login.forgot_password"}}</a>
+                            <a href="/forgot-password" class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-400 font-medium">{{index .T "login.forgot_password"}}</a>
                         </div>
                         {{end}}
                         <div class="relative group">
@@ -126,10 +139,17 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
                                        placeholder="{{index .T "login.confirm_placeholder"}}">
                             </div>
                             {{template "password-feedback" .}}
-                            <label class="flex items-start gap-2.5 text-xs text-muted-foreground cursor-pointer select-none mt-1">
-                                <input type="checkbox" name="consent" required x-model="consent"
+                            <!-- Le lien est construit ICI, pas dans les fichiers de
+                                 locale : l'insertion d'une traduction echappe le HTML,
+                                 donc une valeur contenant une balise <a href=...>
+                                 s'affichait telle quelle et le lien vers la politique
+                                 de confidentialite n'etait pas cliquable.
+                                 NB : ne jamais ecrire de directive de template dans un
+                                 commentaire HTML, le parseur Go la lit quand meme. -->
+                            <label for="login-consent" class="flex items-start gap-2.5 text-xs text-muted-foreground cursor-pointer select-none mt-1">
+                                <input id="login-consent" type="checkbox" name="consent" required x-model="consent"
                                        class="mt-0.5 w-4 h-4 rounded border-border accent-blue-600 flex-shrink-0">
-                                <span>{{index .T "consent_register"}}</span>
+                                <span>{{index .T "consent_register_prefix"}}<a href="/privacy" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline font-medium">{{index .T "consent_register_link"}}</a>{{index .T "consent_register_suffix"}}</span>
                             </label>
                         </div>
                     </template>
@@ -138,14 +158,34 @@ document.addEventListener('alpine:init', () => { Alpine.data('loginPage', loginP
 
             <template x-if="requires2FA">
                 <div class="bg-blue-500/5 p-4 rounded-xl border border-blue-500/20">
-                    <div class="flex items-center gap-2 text-blue-500 font-bold text-sm mb-3">
-                        {{template "icon-shield" dict "Size" 18}} {{index .T "login.totp_title"}}
+                    <div class="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-sm mb-3">
+                        {{template "icon-shield" dict "Size" 18}}
+                        <span x-show="!useRecovery">{{index .T "login.totp_title"}}</span>
+                        <span x-show="useRecovery" x-cloak>{{index .T "login.recovery_title"}}</span>
                     </div>
-                    <label for="login-totp" class="sr-only">{{index .T "login.totp_title"}}</label>
-                    <input id="login-totp" name="twoFactorCode" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" autofocus required
-                           class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden text-center text-xl tracking-[0.5em] font-mono focus:border-blue-500 transition-colors"
-                           placeholder="000000">
-                    <p class="text-xs text-muted-foreground text-center mt-2">{{index .T "login.totp_help"}}</p>
+                    <template x-if="!useRecovery">
+                        <div>
+                            <label for="login-totp" class="sr-only">{{index .T "login.totp_title"}}</label>
+                            <input id="login-totp" name="twoFactorCode" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" autofocus required
+                                   class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden text-center text-xl tracking-[0.5em] font-mono focus:border-blue-500 transition-colors"
+                                   placeholder="000000">
+                            <p class="text-xs text-muted-foreground text-center mt-2">{{index .T "login.totp_help"}}</p>
+                        </div>
+                    </template>
+                    <template x-if="useRecovery">
+                        <div>
+                            <label for="login-recovery" class="sr-only">{{index .T "login.recovery_title"}}</label>
+                            <input id="login-recovery" name="twoFactorCode" type="text" autocomplete="one-time-code" autofocus required
+                                   class="w-full bg-background border border-border rounded-xl p-3 text-foreground outline-hidden text-center text-lg tracking-widest font-mono uppercase focus:border-blue-500 transition-colors"
+                                   placeholder="{{index .T "login.recovery_placeholder"}}">
+                            <p class="text-xs text-muted-foreground text-center mt-2">{{index .T "login.recovery_help"}}</p>
+                        </div>
+                    </template>
+                    <button type="button" @click="toggleRecovery()"
+                            class="w-full text-xs text-blue-600 dark:text-blue-400 hover:underline mt-3 font-medium">
+                        <span x-show="!useRecovery">{{index .T "login.recovery_toggle"}}</span>
+                        <span x-show="useRecovery" x-cloak>{{index .T "login.recovery_back"}}</span>
+                    </button>
                 </div>
             </template>
 

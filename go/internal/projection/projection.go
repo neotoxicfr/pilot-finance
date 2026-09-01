@@ -9,14 +9,23 @@ import (
 	"pilot-finance/internal/db"
 )
 
-// YearData represente les donnees d'une annee de projection
+// YearData represente les donnees d'une annee de projection.
+//
+// Accounts est indexé par IDENTIFIANT de compte, et non par nom (audit S-30) :
+// rien n'impose l'unicité des noms de comptes, et deux homonymes s'écrasaient
+// mutuellement dans la map — l'un était double-compté dans le graphe empilé,
+// l'autre disparaissait. Le nom d'affichage est porté par la liste
+// AccountColors passée au graphique côté template.
+//
+// Sérialisation : encoding/json rend les clés entières sous forme de chaînes
+// ("12"), ce qui est transparent pour l'accès JS `d.accounts[a.id]`.
 type YearData struct {
-	Year     int                `json:"year"`
-	Name     string             `json:"name"`
-	TotalMin float64            `json:"totalMin"`
-	TotalMax float64            `json:"totalMax"`
-	TotalAvg float64            `json:"totalAvg"`
-	Accounts map[string]float64 `json:"accounts"`
+	Year     int               `json:"year"`
+	Name     string            `json:"name"`
+	TotalMin float64           `json:"totalMin"`
+	TotalMax float64           `json:"totalMax"`
+	TotalAvg float64           `json:"totalAvg"`
+	Accounts map[int64]float64 `json:"accounts"`
 }
 
 // DashboardData contient toutes les donnees du dashboard
@@ -46,6 +55,13 @@ type DashboardData struct {
 // calculés sur le solde signé — un solde négatif génère donc un « intérêt »
 // négatif. Ce comportement est délibéré (cohérence arithmétique du modèle).
 //
+// TotalInterests : somme des intérêts qui ATTERRISSENT réellement dans la
+// projection du scénario avg — part réinvestie plus part versée à un compte
+// cible existant. Un intérêt non réinvesti et sans cible valide sort de la
+// simulation (option « non comptabilisé ») et n'est donc pas compté : sinon le
+// KPI « Intérêts Composés » afficherait un gain au-dessus d'une courbe plate
+// (audit S-05).
+//
 // Déterminisme : toutes les itérations qui dépendaient de l'ordre d'itération des
 // maps (boucle d'intérêts mutant des soldes cibles, sommes des totaux) parcourent
 // désormais une tranche d'IDs triée (sortedIDs), ce qui rend le résultat
@@ -57,12 +73,10 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 	}
 
 	accountByID := make(map[int64]*db.Account)
-	nameByID := make(map[int64]string)
 	sortedIDs := make([]int64, 0, len(accounts))
 	for i := range accounts {
 		acc := &accounts[i]
 		accountByID[acc.ID] = acc
-		nameByID[acc.ID] = acc.Name
 		sortedIDs = append(sortedIDs, acc.ID)
 	}
 	// Ordre stable pour toutes les itérations dépendantes de l'ordre (déterminisme).
@@ -103,6 +117,31 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 		return annualRate / 100 / 12
 	}
 
+	// creditPayout verse la part non réinvestie des intérêts au compte cible et
+	// retourne le montant EFFECTIVEMENT crédité dans la projection (0 sinon).
+	// Trois cas rendent le payout inexistant du point de vue de la courbe :
+	//   - payout <= 0 (rien à verser, ou intérêt négatif sur solde débiteur) ;
+	//   - aucun compte cible (option « non comptabilisé ») ;
+	//   - cible introuvable parmi les comptes simulés (référence orpheline) —
+	//     sans ce garde, l'argent serait crédité à une entrée hors sortedIDs,
+	//     donc invisible dans les totaux comme dans le détail par compte.
+	// Le retour alimente TotalInterests : ce qui n'atterrit pas n'est pas compté
+	// (audit S-05).
+	creditPayout := func(s int, acc *db.Account, payout int64) int64 {
+		if payout <= 0 || acc.TargetAccountID == nil {
+			return 0
+		}
+		if _, exists := scens[s].balances[*acc.TargetAccountID]; !exists {
+			return 0
+		}
+		if acc.PayoutFrequency == "YEARLY" {
+			scens[s].annualAccum[*acc.TargetAccountID] += payout
+		} else {
+			scens[s].balances[*acc.TargetAccountID] += payout
+		}
+		return payout
+	}
+
 	useMonths := years <= 2
 	totalMonths := years * 12
 	var projection []YearData
@@ -111,11 +150,11 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 	// Crée un point de données à partir de l'état courant des trois scénarios.
 	// Les données par compte utilisent le scénario avg (index 1).
 	createYearData := func(index int, name string) YearData {
-		yd := YearData{Year: index, Name: name, Accounts: make(map[string]float64)}
+		yd := YearData{Year: index, Name: name, Accounts: make(map[int64]float64, len(sortedIDs))}
 		var minC, avgC, maxC int64
 		for _, id := range sortedIDs {
 			bal := scens[1].balances[id]
-			yd.Accounts[nameByID[id]] = math.Round(float64(bal) / 100.0)
+			yd.Accounts[id] = math.Round(float64(bal) / 100.0)
 			avgC += bal
 			minC += scens[0].balances[id]
 			maxC += scens[2].balances[id]
@@ -173,21 +212,23 @@ func Calculate(accounts []db.Account, recurrings []db.RecurringOperation, years 
 				currentBal := scens[s].balances[id]
 				// Intérêt mensuel arrondi au centime (les soldes restent en int64 centimes).
 				monthlyInterest := int64(math.Round(float64(currentBal) * scenRate(acc, s)))
-				// TotalInterests = somme réelle des intérêts du scénario avg, et
-				// non « solde final − initial » qui incluait aussi les flux
-				// récurrents (épargne comptée comme intérêts, audit FIN-10).
-				if s == 1 {
-					avgInterestCents += monthlyInterest
-				}
 				reinvested := int64(math.Round(float64(monthlyInterest) * reinvest))
 				scens[s].balances[id] = currentBal + reinvested
 				payout := monthlyInterest - reinvested
-				if payout > 0 && acc.TargetAccountID != nil {
-					if acc.PayoutFrequency == "YEARLY" {
-						scens[s].annualAccum[*acc.TargetAccountID] += payout
-					} else {
-						scens[s].balances[*acc.TargetAccountID] += payout
-					}
+				credited := creditPayout(s, acc, payout)
+				// TotalInterests = somme réelle des intérêts du scénario avg, et
+				// non « solde final − initial » qui incluait aussi les flux
+				// récurrents (épargne comptée comme intérêts, audit FIN-10).
+				//
+				// On n'accumule QUE ce qui atterrit réellement dans la projection :
+				// la part réinvestie (ajoutée au solde du compte) plus la part
+				// effectivement versée à un compte cible. Un payout sans cible est
+				// jeté de la courbe — le compter donnerait un KPI « Intérêts
+				// Composés » positif au-dessus d'une courbe plate (audit S-05).
+				// Invariant : reinvested + credited <= monthlyInterest, avec
+				// égalité stricte dès qu'une cible valide existe.
+				if s == 1 {
+					avgInterestCents += reinvested + credited
 				}
 			}
 		}
@@ -252,6 +293,41 @@ type YieldPayout struct {
 	PayoutFrequency   string // MONTHLY ou YEARLY
 }
 
+// periodicPayout est le PRÉDICAT UNIQUE de versement d'intérêts, partagé par
+// CalculateYieldPayouts (/comptes), CalculateMonthlyYieldPayout et
+// CalculateAnnualYieldPayout (/api/dashboard). Ces trois fonctions filtraient
+// différemment — seule la première exigeait un compte cible — et les deux écrans
+// annonçaient donc deux « revenus mensuels » différents pour les mêmes comptes
+// (audit S-05).
+//
+// Un versement n'existe que si : le rendement est actif, une part n'est pas
+// réinvestie, un compte cible est défini (sans cible, l'intérêt n'est versé
+// nulle part — cohérent avec la projection) et le montant est strictement
+// positif (un solde débiteur produit un « intérêt » négatif qui n'est pas un
+// revenu).
+//
+// Retourne le montant de la période (mensuel pour MONTHLY, annuel pour YEARLY),
+// la fréquence normalisée ("" ⇒ MONTHLY) et ok=false si aucun versement.
+func periodicPayout(acc db.Account) (amount float64, freq string, ok bool) {
+	freq = acc.PayoutFrequency
+	if freq == "" {
+		freq = "MONTHLY"
+	}
+	if !acc.IsYieldActive || acc.ReinvestmentRate >= 100 || acc.TargetAccountID == nil {
+		return 0, freq, false
+	}
+	annual := annualPayout(acc)
+	if freq == "YEARLY" {
+		amount = annual
+	} else {
+		amount = annual / 12
+	}
+	if amount <= 0 {
+		return 0, freq, false
+	}
+	return amount, freq, true
+}
+
 // CalculateYieldPayouts calcule les payouts détaillés par compte.
 // Pour MONTHLY : montant mensuel (taux annuel ÷ 12).
 // Pour YEARLY : montant annuel complet.
@@ -259,57 +335,43 @@ func CalculateYieldPayouts(accounts []db.Account, accountNames map[int64]string)
 	var payouts []YieldPayout
 
 	for _, acc := range accounts {
-		if acc.IsYieldActive && acc.ReinvestmentRate < 100 && acc.TargetAccountID != nil {
-			rate := effectiveRate(acc)
-			annual := annualPayout(acc)
-
-			freq := acc.PayoutFrequency
-			if freq == "" {
-				freq = "MONTHLY"
-			}
-
-			var payout float64
-			if freq == "YEARLY" {
-				payout = annual
-			} else {
-				payout = annual / 12
-			}
-
-			if payout > 0 {
-				targetName := accountNames[*acc.TargetAccountID]
-				payouts = append(payouts, YieldPayout{
-					SourceAccountID:   acc.ID,
-					SourceAccountName: accountNames[acc.ID],
-					TargetAccountID:   acc.TargetAccountID,
-					TargetAccountName: targetName,
-					Amount:            payout,
-					Rate:              rate,
-					PayoutFrequency:   freq,
-				})
-			}
+		payout, freq, ok := periodicPayout(acc)
+		if !ok {
+			continue
 		}
+		payouts = append(payouts, YieldPayout{
+			SourceAccountID:   acc.ID,
+			SourceAccountName: accountNames[acc.ID],
+			TargetAccountID:   acc.TargetAccountID,
+			TargetAccountName: accountNames[*acc.TargetAccountID],
+			Amount:            payout,
+			Rate:              effectiveRate(acc),
+			PayoutFrequency:   freq,
+		})
 	}
 
 	return payouts
 }
 
-// CalculateMonthlyYieldPayout calcule uniquement les revenus de rendement à versement mensuel
+// CalculateMonthlyYieldPayout calcule uniquement les revenus de rendement à
+// versement mensuel. Même prédicat que CalculateYieldPayouts (audit S-05).
 func CalculateMonthlyYieldPayout(accounts []db.Account) float64 {
 	var monthlyPayout float64
 	for _, acc := range accounts {
-		if acc.IsYieldActive && acc.PayoutFrequency != "YEARLY" {
-			monthlyPayout += annualPayout(acc) / 12
+		if payout, freq, ok := periodicPayout(acc); ok && freq != "YEARLY" {
+			monthlyPayout += payout
 		}
 	}
 	return monthlyPayout
 }
 
-// CalculateAnnualYieldPayout calcule les revenus de rendement à versement annuel
+// CalculateAnnualYieldPayout calcule les revenus de rendement à versement
+// annuel. Même prédicat que CalculateYieldPayouts (audit S-05).
 func CalculateAnnualYieldPayout(accounts []db.Account) float64 {
 	var total float64
 	for _, acc := range accounts {
-		if acc.IsYieldActive && acc.PayoutFrequency == "YEARLY" {
-			total += annualPayout(acc)
+		if payout, freq, ok := periodicPayout(acc); ok && freq == "YEARLY" {
+			total += payout
 		}
 	}
 	return total

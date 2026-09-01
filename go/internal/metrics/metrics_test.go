@@ -3,10 +3,13 @@ package metrics
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	_ "modernc.org/sqlite" // driver pour TestHookDBStats_WithDB
@@ -302,6 +305,141 @@ func TestGroupRoute(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("groupRoute(%q) = %q, want %q", tt.path, got, tt.want)
 		}
+	}
+}
+
+// --- S-14 : valeurs réellement enregistrées dans les métriques ---
+//
+// Les tests TestMiddleware_RecordsMetrics et TestUpdateDBMetrics ci-dessus
+// n'observent que le code HTTP / l'absence de panic : neutraliser les appels
+// .Inc(), .Observe() ou .Set() ne les faisait pas rougir. Les tests suivants
+// lisent la valeur exposée par /metrics et assertent l'état des séries.
+
+// metricValue lit la valeur courante d'une série dans l'exposition
+// Prometheus. Retourne 0 quand la série n'a pas encore été observée.
+func metricValue(t *testing.T, series string) float64 {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	rr := httptest.NewRecorder()
+	Handler().ServeHTTP(rr, req)
+
+	for _, line := range strings.Split(rr.Body.String(), "\n") {
+		rest, ok := strings.CutPrefix(line, series+" ")
+		if !ok {
+			continue
+		}
+		v, err := strconv.ParseFloat(strings.TrimSpace(rest), 64)
+		if err != nil {
+			t.Fatalf("valeur illisible pour %s : %q", series, line)
+		}
+		return v
+	}
+	return 0
+}
+
+// TestMiddleware_IncrementsCounters vérifie que chaque requête mesurée
+// incrémente exactement d'une unité le compteur et l'histogramme portant les
+// bons labels (méthode, groupe de route, classe de code).
+func TestMiddleware_IncrementsCounters(t *testing.T) {
+	resetRegistry(t)
+
+	cases := []struct {
+		name      string
+		method    string
+		path      string
+		status    int
+		wantRoute string
+		wantCode  string
+	}{
+		{"comptes_2xx", http.MethodGet, "/accounts", http.StatusOK, "accounts", "2xx"},
+		{"recurrentes_4xx", http.MethodPost, "/recurring/12", http.StatusBadRequest, "recurring", "4xx"},
+		{"admin_5xx", http.MethodDelete, "/admin/users/1", http.StatusInternalServerError, "admin", "5xx"},
+		{"inconnu_3xx", http.MethodGet, "/nulle-part", http.StatusFound, "other", "3xx"},
+		{"passkey_2xx", http.MethodPost, "/api/passkey/login/start", http.StatusOK, "api_passkey", "2xx"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			counter := fmt.Sprintf("pilot_http_requests_total{code=%q,method=%q,route=%q}", tc.wantCode, tc.method, tc.wantRoute)
+			histogram := fmt.Sprintf("pilot_http_request_duration_seconds_count{method=%q,route=%q}", tc.method, tc.wantRoute)
+			beforeCounter := metricValue(t, counter)
+			beforeHistogram := metricValue(t, histogram)
+
+			handler := Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.status)
+			}))
+			handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(tc.method, tc.path, nil))
+
+			if got, want := metricValue(t, counter), beforeCounter+1; got != want {
+				t.Errorf("%s : want %v, got %v", counter, want, got)
+			}
+			if got, want := metricValue(t, histogram), beforeHistogram+1; got != want {
+				t.Errorf("%s : want %v, got %v", histogram, want, got)
+			}
+		})
+	}
+}
+
+// TestMiddleware_SkippedPathsDoNotIncrement vérifie que /metrics et /static/
+// traversent bien le middleware SANS être comptabilisés (l'ancien test se
+// contentait de vérifier que le handler suivant était appelé).
+func TestMiddleware_SkippedPathsDoNotIncrement(t *testing.T) {
+	resetRegistry(t)
+
+	// /metrics et /static/... tombent tous deux dans le groupe "other".
+	const series = `pilot_http_requests_total{code="2xx",method="GET",route="other"}`
+
+	for _, path := range []string{"/metrics", "/static/app.js"} {
+		t.Run(path, func(t *testing.T) {
+			before := metricValue(t, series)
+
+			handler := Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+			handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, path, nil))
+
+			if got := metricValue(t, series); got != before {
+				t.Errorf("%s ne doit pas être comptabilisé : %v → %v", path, before, got)
+			}
+		})
+	}
+}
+
+// TestUpdateDBMetrics_SetsGaugeValues vérifie que chaque jauge reçoit la
+// statistique qui lui correspond. Les valeurs sont volontairement toutes
+// distinctes pour détecter un croisement de câblage entre deux jauges.
+func TestUpdateDBMetrics_SetsGaugeValues(t *testing.T) {
+	resetRegistry(t)
+	origHook := hookDBStats
+	t.Cleanup(func() { hookDBStats = origHook })
+
+	hookDBStats = func() sql.DBStats {
+		return sql.DBStats{
+			OpenConnections: 7,
+			InUse:           4,
+			Idle:            3,
+			WaitCount:       9,
+			WaitDuration:    1500 * time.Millisecond,
+		}
+	}
+	updateDBMetrics()
+
+	cases := []struct {
+		series string
+		want   float64
+	}{
+		{"pilot_db_open_connections", 7},
+		{"pilot_db_in_use_connections", 4},
+		{"pilot_db_idle_connections", 3},
+		{"pilot_db_wait_count_total", 9},
+		{"pilot_db_wait_duration_seconds_total", 1.5},
+	}
+	for _, tc := range cases {
+		t.Run(tc.series, func(t *testing.T) {
+			if got := metricValue(t, tc.series); got != tc.want {
+				t.Errorf("%s : want %v, got %v", tc.series, tc.want, got)
+			}
+		})
 	}
 }
 

@@ -4,7 +4,57 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"pilot-finance/internal/crypto"
 )
+
+// TestWriteAuditEntry_EncryptionFailureNeverStoresPlaintext couvre le
+// durcissement de l'audit S-24 : si le chiffrement échoue, writeAuditEntry
+// retombait sur la valeur EN CLAIR (fail-open), alors que le contrat annoncé
+// est « IP et UserAgent chiffrés avant stockage ». Le repli doit être la chaîne
+// vide, la trace (utilisateur/action/date) restant enregistrée.
+func TestWriteAuditEntry_EncryptionFailureNeverStoresPlaintext(t *testing.T) {
+	cleanup := setupTestDB(t)
+	defer cleanup()
+	userID := createTestUser(t)
+
+	const plainIP = "203.0.113.7"
+	const plainUA = "Mozilla/5.0 poste-de-l-utilisateur"
+
+	// Draine les écritures audit asynchrones d'éventuels tests précédents avant
+	// de toucher à l'état du paquet crypto (les workers de LogAudit survivent
+	// aux tests : ils appelleraient crypto.Encrypt en concurrence du reset).
+	FlushAuditLog()
+
+	// Neutralise le paquet crypto : crypto.Encrypt échoue (ErrNotInitialized).
+	crypto.ResetForTest()
+	t.Cleanup(func() {
+		crypto.ResetForTest()
+		if err := crypto.Init(testEncKey, testBlindKey); err != nil {
+			t.Errorf("crypto.Init (restauration): %v", err)
+		}
+	})
+
+	writeAuditEntry(auditJob{
+		userID:    userID,
+		action:    AuditLoginFail,
+		ip:        plainIP,
+		userAgent: plainUA,
+		createdAt: time.Now().Unix(),
+	})
+
+	var ip, ua string
+	if err := DB.QueryRow(`SELECT COALESCE(ip, ''), COALESCE(user_agent, '')
+		FROM audit_log WHERE user_id = ? ORDER BY id DESC LIMIT 1`, userID).Scan(&ip, &ua); err != nil {
+		t.Fatalf("lecture de l'entrée d'audit: %v", err)
+	}
+	if ip == plainIP || ua == plainUA {
+		t.Errorf("fail-open: donnée personnelle stockée en clair (ip=%q, user_agent=%q)", ip, ua)
+	}
+	if ip != "" || ua != "" {
+		t.Errorf("repli attendu = chaîne vide, got ip=%q user_agent=%q", ip, ua)
+	}
+}
 
 func TestGetAuditLogByUserID_ReturnsOnlyUserEntries(t *testing.T) {
 	cleanup := setupTestDB(t)

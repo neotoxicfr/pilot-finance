@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/go-webauthn/webauthn/webauthn"
-	qrcode "github.com/skip2/go-qrcode"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -117,7 +116,7 @@ func TestMFASetup_QREncodeError(t *testing.T) {
 	uid := newUser(t, "mfaqr_err@example.com", "ValidP@ss1!", "USER")
 
 	orig := hookQREncode
-	hookQREncode = func(content string, level qrcode.RecoveryLevel, size int) ([]byte, error) {
+	hookQREncode = func(content string, size int) ([]byte, error) {
 		return nil, errTest
 	}
 	t.Cleanup(func() { hookQREncode = orig })
@@ -289,6 +288,9 @@ func TestVerifyEmailPage_TokenInvalid(t *testing.T) {
 	t.Cleanup(func() { hookGetUserByVerificationTok = orig })
 
 	req := httptest.NewRequest(http.MethodGet, "/verify-email?token=sometoken", nil)
+	// Page non authentifiée : la langue suit Accept-Language depuis FIN-14, on
+	// la fixe pour asserter un libellé déterministe.
+	req.Header.Set("Accept-Language", "fr-FR,fr;q=0.9")
 	rr := httptest.NewRecorder()
 	VerifyEmailPage(rr, req)
 	if rr.Code != http.StatusOK {

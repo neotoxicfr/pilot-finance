@@ -3,6 +3,7 @@ package handlers
 import (
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"net/url"
 	"sync"
@@ -60,9 +61,14 @@ func parseFormAny(r *http.Request) error {
 
 // serverError logue l'erreur interne et renvoie une 500 générique au client.
 // Inclut le header X-Error-Code pour le suivi structuré.
-func serverError(w http.ResponseWriter, context string, err error) {
+// serverError journalise l'erreur technique et renvoie un 500 traduit.
+//
+// Le message est rendu tel quel par le front (setError sur responseText), donc
+// il doit suivre la langue de l'utilisateur comme tous les autres (FIN-14) :
+// un compte anglais lisait « Erreur serveur » sur chaque 500.
+func serverError(w http.ResponseWriter, r *http.Request, context string, err error) {
 	slog.Error(context, "err", err)
-	clientError(w, ErrInternal, "Erreur serveur", http.StatusInternalServerError)
+	clientErrorT(w, r, ErrInternal, "error.internal", http.StatusInternalServerError)
 }
 
 // setSessionCookie pose un cookie de session avec les flags de sécurité appropriés
@@ -119,7 +125,12 @@ func decryptAccountNames(accounts []db.Account) {
 	}
 }
 
-// summaryTotals contient les totaux mensuels/annuels pour le summary card
+// summaryTotals contient les totaux mensuels/annuels pour le summary card.
+//
+// UNITÉ : unité de devise (euros), float64 — PAS des centimes. Ces totaux sont
+// des agrégats calculés que le template multiplie (×12) et additionne avant de
+// les rendre ; ils sont donc formatés par formatUnits/formatUnitsCompact, et
+// jamais par formatCents (audit S-40).
 type summaryTotals struct {
 	MonthlyIncome   float64
 	MonthlyExpenses float64
@@ -161,15 +172,37 @@ func buildAccountMap(accounts []db.Account) map[int64]string {
 	return m
 }
 
+// unitsToCents convertit un montant en unité de devise (float64) vers le
+// centime (int64), unité canonique de l'application.
+//
+// Arrondi au centime le plus proche : les intérêts périodiques sont des
+// quotients (taux annuel ÷ 12) qui ne tombent presque jamais juste, et une
+// troncature perdrait systématiquement un centime vers le bas.
+func unitsToCents(v float64) int64 {
+	return int64(math.Round(v * 100))
+}
+
 // buildRecurringData construit la liste des opérations récurrentes pour les templates.
 // Les noms dans accountMap doivent être déjà déchiffrés.
+//
+// UNITÉ (audit S-40) : la liste MÉLANGE deux sources — les versements
+// d'intérêts calculés (projection.YieldPayout.Amount, float64 en unité de
+// devise) et les opérations stockées (db.RecurringOperation.Amount, int64
+// centimes) — et le template les rend avec le MÊME appel, sur la même clé
+// « Amount ». Tant que le formateur devinait l'unité d'après le type dynamique,
+// les deux branches s'affichaient chacune « correctement » par accident, et
+// toute inversion serait passée inaperçue.
+//
+// On normalise donc en centimes À LA SOURCE : la clé « Amount » a une unité et
+// un type uniques pour toute la liste (int64 centimes), ce qui vaut aussi pour
+// le JSON envoyé à openRecurringForm, qui divise déjà par 100.
 func buildRecurringData(payouts []projection.YieldPayout, recs []db.RecurringOperation, accountMap map[int64]string, interestPrefix string) []map[string]interface{} {
 	result := make([]map[string]interface{}, 0, len(recs)+len(payouts))
 	for _, payout := range payouts {
 		result = append(result, map[string]interface{}{
 			"ID":              int64(0),
 			"Description":     interestPrefix + " " + payout.SourceAccountName,
-			"Amount":          payout.Amount,
+			"Amount":          unitsToCents(payout.Amount),
 			"DayOfMonth":      1,
 			"AccountID":       payout.SourceAccountID,
 			"AccountName":     payout.SourceAccountName,
@@ -213,6 +246,28 @@ type accountsComputed struct {
 	accounts      []db.Account
 	summary       summaryTotals
 	recurringData []map[string]interface{}
+	// linkedCounts[id] = nombre d'opérations récurrentes que la suppression du
+	// compte id détruirait aussi (audit S-20).
+	linkedCounts map[int64]int
+}
+
+// countLinkedRecurrings compte, pour chaque compte, les opérations récurrentes
+// que sa suppression emporterait.
+//
+// db.DeleteAccount supprime les récurrentes dans LES DEUX SENS
+// (`account_id = ? OR to_account_id = ?`) : un virement dont ce compte est la
+// destination disparaît lui aussi, alors qu'il « appartient » visuellement à un
+// autre compte. L'interface ne le disait pas (audit S-20) ; on compte donc les
+// deux sens, comme la requête de suppression.
+func countLinkedRecurrings(recurrings []db.RecurringOperation) map[int64]int {
+	counts := make(map[int64]int)
+	for _, r := range recurrings {
+		counts[r.AccountID]++
+		if r.ToAccountID != nil && *r.ToAccountID != r.AccountID {
+			counts[*r.ToAccountID]++
+		}
+	}
+	return counts
 }
 
 // computeAccountsSummary déchiffre les noms de comptes, calcule les yield payouts,
@@ -226,7 +281,7 @@ func computeAccountsSummary(lang string, accounts []db.Account, recurrings []db.
 	s := calculateSummary(yieldPayouts, recurrings)
 	recurringData := buildRecurringData(yieldPayouts, recurrings, accountMap, interestPrefix)
 
-	return accountsComputed{accounts: accounts, summary: s, recurringData: recurringData}
+	return accountsComputed{accounts: accounts, summary: s, recurringData: recurringData, linkedCounts: countLinkedRecurrings(recurrings)}
 }
 
 // renderSummaryCardOOB rend la carte de résumé en fragment OOB (id + hx-swap-oob
@@ -240,6 +295,7 @@ func renderSummaryCardOOB(w io.Writer, lang, currency string, s summaryTotals) {
 		"MonthlyYield":    s.MonthlyYield,
 		"AnnualYield":     s.AnnualYield,
 		"Currency":        currency,
+		"Locale":          localeTag(lang),
 	})
 }
 
