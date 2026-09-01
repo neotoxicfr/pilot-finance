@@ -149,9 +149,23 @@ func parseAccountForm(w http.ResponseWriter, r *http.Request, user *middleware.U
 		return f, false
 	}
 
-	// Parser les valeurs de rendement
-	if yieldType == "" {
+	// Parser les valeurs de rendement.
+	//
+	// Le type de rendement n'etait pas valide : n'importe quelle chaine etait
+	// persistee telle quelle. Le stockage et l'affichage divergeaient alors, car
+	// les deux consommateurs testent des valeurs DIFFERENTES — la projection
+	// compare a "RANGE" (tout le reste = taux fixe) et le badge de la liste
+	// compare a "FIXED" (tout le reste = fourchette min-max). Une valeur hors
+	// vocabulaire etait donc CALCULEE comme fixe mais AFFICHEE comme variable.
+	// L'allowlist supprime la classe entiere de divergences.
+	switch yieldType {
+	case "":
 		yieldType = "FIXED"
+	case "FIXED", "RANGE":
+		// vocabulaire canonique
+	default:
+		clientErrorT(w, r, ErrValidation, "error.yield_type_invalid", http.StatusBadRequest)
+		return f, false
 	}
 	yieldMin := 0.0
 	yieldMax := 0.0

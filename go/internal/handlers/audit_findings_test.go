@@ -559,3 +559,59 @@ func collectErrorKeys(t *testing.T) []string {
 	}
 	return keys
 }
+
+// Le type de rendement n'etait pas valide : n'importe quelle chaine etait
+// persistee. Les deux consommateurs testent des valeurs DIFFERENTES — la
+// projection compare a "RANGE", le badge de la liste compare a "FIXED" — donc
+// une valeur hors vocabulaire etait CALCULEE comme taux fixe mais AFFICHEE
+// comme fourchette. Le test fige l'allowlist qui supprime cette divergence.
+func TestCreateAccount_YieldTypeAllowlist(t *testing.T) {
+	setupHandlerTest(t)
+	uid := newUser(t, "yieldtype@example.com", "ValidP@ss1!", "USER")
+	createAcc(t, uid)
+
+	var gotType string
+	orig := hookCreateAccountWithYield
+	hookCreateAccountWithYield = func(userID int64, name string, balance int64, color string, position int, isYieldActive bool, yieldType string, yieldMin, yieldMax float64, reinvestmentRate int, targetAccountID *int64, payoutFrequency string) error {
+		gotType = yieldType
+		return nil
+	}
+	t.Cleanup(func() { hookCreateAccountWithYield = orig })
+
+	cases := []struct {
+		name, input, max string
+		wantCode         int
+		wantStored       string
+	}{
+		{"FIXED accepte", "FIXED", "", http.StatusOK, "FIXED"},
+		{"RANGE accepte", "RANGE", "5", http.StatusOK, "RANGE"},
+		{"vide retombe sur FIXED", "", "", http.StatusOK, "FIXED"},
+		// « FIXE » est exactement la valeur qui a revele le defaut : calculee
+		// comme taux fixe par la projection, affichee comme fourchette « 3-0% »
+		// par la liste, et echappant au controle min <= max reserve au RANGE.
+		{"valeur hors vocabulaire refusee", "FIXE", "", http.StatusBadRequest, ""},
+		{"casse differente refusee", "fixed", "", http.StatusBadRequest, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotType = ""
+			req := injectUser(post("/accounts", url.Values{
+				"name":          {"Compte"},
+				"balance":       {"100"},
+				"isYieldActive": {"on"},
+				"yieldType":     {tc.input},
+				"yieldMin":      {"3"},
+				"yieldMax":      {tc.max},
+			}), mu(uid, "USER"))
+			rr := httptest.NewRecorder()
+			CreateAccount(rr, req)
+
+			if rr.Code != tc.wantCode {
+				t.Fatalf("want %d, got %d (body: %s)", tc.wantCode, rr.Code, rr.Body.String())
+			}
+			if gotType != tc.wantStored {
+				t.Errorf("type stocké : want %q, got %q", tc.wantStored, gotType)
+			}
+		})
+	}
+}
