@@ -11,6 +11,18 @@ import (
 	"pilot-finance/internal/projection"
 )
 
+// localeTag retourne l'étiquette BCP-47 d'une langue, avec repli français.
+//
+// Les partiels HTMX doivent la passer au même titre que "Currency" et "T" :
+// formatCents/formatUnits/formatUnitsCompact sont localisés depuis l'audit
+// S-23, et une donnée "Locale" absente ferait échouer le rendu du partiel.
+func localeTag(lang string) string {
+	if l := localeMap[lang]; l != "" {
+		return l
+	}
+	return "fr-FR"
+}
+
 // localeMap mappe la langue vers la locale BCP-47 pour JS Intl
 var localeMap = map[string]string{
 	"fr": "fr-FR",
@@ -20,10 +32,14 @@ var localeMap = map[string]string{
 // baseData construit les données communes à toutes les pages (i18n, devise, langue, nonce CSP)
 func baseData(r *http.Request, user *middleware.User) map[string]interface{} {
 	lang, currency := userLocale(user)
-	locale := localeMap[lang]
-	if locale == "" {
-		locale = "fr-FR"
+	// Sur les pages non authentifiées (login, inscription, mot de passe oublié),
+	// user est nil et userLocale retombait sur « fr » en dur : un navigateur
+	// anglais recevait la page en français alors que ses messages d'erreur, eux,
+	// suivaient déjà Accept-Language depuis FIN-14. On aligne les deux.
+	if user == nil {
+		lang = detectLanguage(r)
 	}
+	locale := localeTag(lang)
 	return map[string]interface{}{
 		"T":           i18n.Map(lang),
 		"Lang":        lang,
@@ -54,7 +70,7 @@ func LoginPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "login.html", data); err != nil {
-		serverError(w, "render login", err)
+		serverError(w, r, "render login", err)
 	}
 }
 
@@ -63,13 +79,24 @@ func LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	HandleLogin(w, r)
 }
 
-// RegisterPage affiche la page d'inscription
+// RegisterPage affiche la page d'inscription.
+// Le GET s'ouvre exactement dans les mêmes cas que le POST : registrationOpen()
+// est l'unique condition des deux chemins (audit S-08). CanRegister est forcé à
+// true ici, sinon la page rendue pendant le bootstrap (base vide, ALLOW_REGISTER
+// non positionné) n'afficherait aucun moyen de basculer en mode inscription.
 func RegisterPage(w http.ResponseWriter, r *http.Request) {
-	if os.Getenv("ALLOW_REGISTER") != "true" {
+	if !registrationOpen() {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
-	LoginPage(w, r)
+	data := loginPageData(r)
+	data["CanRegister"] = true
+	data["ResetSuccess"] = false
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := hookRender(w, "login.html", data); err != nil {
+		serverError(w, r, "render register", err)
+	}
 }
 
 // RegisterSubmit traite la soumission du formulaire d'inscription
@@ -104,13 +131,13 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 
 	accounts, recurrings, accErr, recErr := loadAccountsAndRecurring(user.ID)
 	if accErr != nil {
-		serverError(w, "get accounts", accErr)
+		serverError(w, r, "get accounts", accErr)
 		return
 	}
 	// Cohérent avec DashboardAPI (audit FIN-11) : une projection sans les
 	// récurrentes est trompeuse — échouer plutôt que rendre en silence.
 	if recErr != nil {
-		serverError(w, "get recurring", recErr)
+		serverError(w, r, "get recurring", recErr)
 		return
 	}
 
@@ -130,6 +157,10 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 	accountColors := make([]map[string]interface{}, 0)
 	for _, acc := range accounts {
 		accountColors = append(accountColors, map[string]interface{}{
+			// L'ID est la clé des séries de projection (audit S-30 : YearData.Accounts
+			// est indexé par ID et non plus par nom, deux comptes homonymes se
+			// double-comptaient). charts.js lit d.accounts[a.id].
+			"id":    acc.ID,
 			"name":  acc.Name,
 			"color": acc.Color,
 		})
@@ -150,7 +181,7 @@ func Dashboard(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "dashboard.html", data); err != nil {
-		serverError(w, "render dashboard", err)
+		serverError(w, r, "render dashboard", err)
 	}
 }
 
@@ -168,11 +199,11 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	// compte » sur une erreur DB transitoire est trompeur et anxiogène pour une
 	// app de finances (audit FIN-17).
 	if accErr != nil {
-		serverError(w, "AccountsPage: accounts", accErr)
+		serverError(w, r, "AccountsPage: accounts", accErr)
 		return
 	}
 	if recErr != nil {
-		serverError(w, "AccountsPage: recurring", recErr)
+		serverError(w, r, "AccountsPage: recurring", recErr)
 		return
 	}
 
@@ -191,6 +222,9 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 	data["User"] = map[string]interface{}{"ID": user.ID, "Email": user.Email, "Role": user.Role, "EmailVerified": user.EmailVerified}
 	data["Accounts"] = accounts
 	data["AccountLastIdx"] = len(accounts) - 1
+	// Nombre d'opérations récurrentes emportées par la suppression de chaque
+	// compte, affiché dans la confirmation (audit S-20).
+	data["LinkedCounts"] = countLinkedRecurrings(recurrings)
 	data["Recurrings"] = recurringData
 	data["MonthlyIncome"] = s.MonthlyIncome
 	data["MonthlyExpenses"] = s.MonthlyExpenses
@@ -200,7 +234,7 @@ func AccountsPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "accounts.html", data); err != nil {
-		serverError(w, "render accounts", err)
+		serverError(w, r, "render accounts", err)
 	}
 }
 
@@ -250,7 +284,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 	if isAdmin {
 		users, err := hookGetAllUsers()
 		if err != nil {
-			serverError(w, "get all users", err)
+			serverError(w, r, "get all users", err)
 			return
 		}
 		var usersWithEmail []map[string]interface{}
@@ -271,7 +305,7 @@ func SettingsPage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "settings.html", data); err != nil {
-		serverError(w, "render settings", err)
+		serverError(w, r, "render settings", err)
 	}
 }
 
@@ -346,7 +380,7 @@ func PrivacyPage(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "privacy.html", data); err != nil {
-		serverError(w, "render privacy", err)
+		serverError(w, r, "render privacy", err)
 	}
 }
 
@@ -361,6 +395,6 @@ func LegalPage(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := hookRender(w, "legal.html", data); err != nil {
-		serverError(w, "render legal", err)
+		serverError(w, r, "render legal", err)
 	}
 }

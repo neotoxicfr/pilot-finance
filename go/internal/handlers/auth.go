@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"pilot-finance/internal/auth"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
@@ -49,7 +50,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	result := hookRateLimitCheck(clientIP, "login")
 	if !result.Allowed {
 		waitMin := (result.RetryAfterMs / 60000) + 1
-		clientError(w, ErrRateLimited, "Trop de tentatives. Réessayez dans "+strconv.FormatInt(waitMin, 10)+" min.", http.StatusTooManyRequests)
+		clientErrorTn(w, r, ErrRateLimited, "error.rate_limited_min", http.StatusTooManyRequests, waitMin)
 		return
 	}
 
@@ -62,37 +63,49 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		twoFAResult := hookRateLimitCheck(clientIP, "twoFactor")
 		if !twoFAResult.Allowed {
 			waitMin := (twoFAResult.RetryAfterMs / 60000) + 1
-			clientError(w, ErrRateLimited, "Trop de tentatives 2FA. Réessayez dans "+strconv.FormatInt(waitMin, 10)+" min.", http.StatusTooManyRequests)
+			clientErrorTn(w, r, ErrRateLimited, "error.rate_limited_2fa_min", http.StatusTooManyRequests, waitMin)
 			return
 		}
 
 		// Validation du code 2FA
 		pendingUserID, err := hookValidatePending2FAToken(pendingCookie.Value)
 		if err != nil {
-			clientError(w, ErrAuthInvalid, "Session expirée, veuillez vous reconnecter", http.StatusUnauthorized)
+			clientErrorT(w, r, ErrAuthInvalid, "error.session_expired_relogin", http.StatusUnauthorized)
 			return
 		}
 
 		user, err := hookGetUserByID(pendingUserID)
 		if err != nil || user == nil {
-			clientError(w, ErrAuthInvalid, "Utilisateur non trouvé", http.StatusUnauthorized)
+			clientErrorT(w, r, ErrAuthInvalid, "error.user_not_found", http.StatusUnauthorized)
 			return
 		}
 
 		// Déchiffrer le secret MFA
 		if user.MFASecret == nil {
-			clientError(w, ErrAuthInvalid, "Configuration MFA incomplète", http.StatusUnauthorized)
+			clientErrorT(w, r, ErrAuthInvalid, "error.mfa_config_incomplete", http.StatusUnauthorized)
 			return
 		}
 		secret, err := hookDecryptStr(*user.MFASecret)
 		if err != nil {
-			serverError(w, "decrypt MFA secret", err)
+			serverError(w, r, "decrypt MFA secret", err)
 			return
 		}
 
+		// Un code de récupération est accepté À LA PLACE du code TOTP
+		// (audit S-22). Il est tenté seulement après l'échec du TOTP, et
+		// SURTOUT après le hookRateLimitCheck(clientIP, "twoFactor") ci-dessus,
+		// qui garde donc les deux formes de vérification sous le même compteur
+		// (5 tentatives / 5 min, blocage 15 min). Aucun chemin ne permet
+		// d'essayer un code de récupération sans avoir consommé un jeton de ce
+		// rate limiter : sans cela, l'ajout des codes ouvrirait un
+		// contournement du garde-fou anti-force-brute du TOTP.
+		usedRecoveryCode := false
 		if !hookValidateTOTP(secret, twoFactorCode) {
-			clientError(w, ErrAuthInvalid, "Code 2FA invalide", http.StatusUnauthorized)
-			return
+			if !consumeRecoveryCode(user.ID, twoFactorCode) {
+				clientErrorT(w, r, ErrAuthInvalid, "error.totp_invalid", http.StatusUnauthorized)
+				return
+			}
+			usedRecoveryCode = true
 		}
 
 		clearCookie(w, "pending_2fa")
@@ -100,7 +113,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		// Générer le token JWT
 		token, err := hookGenerateToken(user.ID, user.Role, user.Language, user.Currency, user.SessionVersion)
 		if err != nil {
-			serverError(w, "generate token", err)
+			serverError(w, r, "generate token", err)
 			return
 		}
 
@@ -110,6 +123,9 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		hookRateLimitReset(clientIP, "login")
 		hookRateLimitReset(strconv.FormatInt(user.ID, 10), "loginAccount")
 
+		if usedRecoveryCode {
+			hookLogAudit(user.ID, db.AuditMFARecoveryUsed, clientIP, r.UserAgent())
+		}
 		hookLogAudit(user.ID, db.AuditLoginSuccess, clientIP, r.UserAgent())
 
 		// Rediriger vers le dashboard
@@ -122,7 +138,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 
 	if email == "" || password == "" {
-		clientError(w, ErrValidation, "Email et mot de passe requis", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.email_password_required", http.StatusBadRequest)
 		return
 	}
 
@@ -130,7 +146,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	blindIndex := hookComputeBlindIndex(email)
 	user, err := hookGetUserByBlindIndex(blindIndex)
 	if err != nil {
-		serverError(w, "get user", err)
+		serverError(w, r, "get user", err)
 		return
 	}
 
@@ -139,7 +155,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		// la détection d'email existant via timing oracle (~100ms vs ~1ms).
 		// Le résultat est ignoré.
 		_ = hookVerifyPassword(password, dummyPasswordHash)
-		clientError(w, ErrAuthInvalid, "Identifiants incorrects", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthInvalid, "error.credentials_invalid", http.StatusUnauthorized)
 		return
 	}
 
@@ -148,14 +164,14 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	acctResult := hookRateLimitCheck(accountKey, "loginAccount")
 	if !acctResult.Allowed {
 		waitMin := (acctResult.RetryAfterMs / 60000) + 1
-		clientError(w, ErrRateLimited, "Trop de tentatives sur ce compte. Réessayez dans "+strconv.FormatInt(waitMin, 10)+" min.", http.StatusTooManyRequests)
+		clientErrorTn(w, r, ErrRateLimited, "error.rate_limited_account_min", http.StatusTooManyRequests, waitMin)
 		return
 	}
 
 	// Vérifier le verrouillage
 	if user.LockUntil != nil && user.LockUntil.After(time.Now()) {
-		waitMin := int(time.Until(*user.LockUntil).Minutes()) + 1
-		clientError(w, ErrAccountLocked, "Compte verrouillé. Réessayez dans "+strconv.Itoa(waitMin)+" min.", http.StatusTooManyRequests)
+		waitMin := int64(time.Until(*user.LockUntil).Minutes()) + 1
+		clientErrorTn(w, r, ErrAccountLocked, "error.account_locked_min", http.StatusTooManyRequests, waitMin)
 		return
 	}
 
@@ -163,7 +179,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if !hookVerifyPassword(password, user.Password) {
 		hookLogAudit(user.ID, db.AuditLoginFail, clientIP, r.UserAgent())
 		handleFailedLogin(user)
-		clientError(w, ErrAuthInvalid, "Identifiants incorrects", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthInvalid, "error.credentials_invalid", http.StatusUnauthorized)
 		return
 	}
 
@@ -186,7 +202,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		// Stocker l'ID utilisateur validé dans un cookie temporaire signé
 		pendingToken, err := hookGeneratePending2FAToken(user.ID)
 		if err != nil {
-			serverError(w, "generate pending 2FA token", err)
+			serverError(w, r, "generate pending 2FA token", err)
 			return
 		}
 
@@ -203,7 +219,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// Générer le token JWT
 	token, err := hookGenerateToken(user.ID, user.Role, user.Language, user.Currency, user.SessionVersion)
 	if err != nil {
-		serverError(w, "generate token", err)
+		serverError(w, r, "generate token", err)
 		return
 	}
 
@@ -219,14 +235,52 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 	htmxRedirect(w, r, "/")
 }
 
+// consumeRecoveryCode tente de consommer la saisie comme code de récupération
+// 2FA à usage unique (audit S-22).
+//
+// NormalizeRecoveryCode fait office de filtre : une saisie qui n'a pas la forme
+// d'un code (un TOTP à 6 chiffres, typiquement) est écartée sans requête. Un
+// code consommé est marqué utilisé côté base et ne peut plus resservir ; une
+// erreur SQL est journalisée et traitée comme un échec de vérification.
+func consumeRecoveryCode(userID int64, input string) bool {
+	normalized := auth.NormalizeRecoveryCode(input)
+	if normalized == "" {
+		return false
+	}
+
+	ok, err := hookConsumeRecoveryCode(userID, hookHashToken(normalized))
+	if err != nil {
+		slog.Error("consume recovery code", "err", err, "userID", userID)
+		return false
+	}
+	return ok
+}
+
+// registrationOpen indique si l'inscription est autorisée, et constitue l'unique
+// source de vérité partagée par le GET (RegisterPage) et le POST
+// (HandleRegister) — avant, l'UI annonçait « fermé » là où l'endpoint acceptait
+// encore (audit S-08).
+//
+// Deux cas seulement :
+//   - ALLOW_REGISTER=true : inscription ouverte en permanence ;
+//   - base sans aucun utilisateur : bootstrap du premier compte (qui reçoit
+//     ADMIN). Sans cette dérogation une instance fraîche serait ininstallable ;
+//     elle se referme d'elle-même dès que ce compte existe.
+//
+// Fail-closed : toute erreur de comptage referme l'inscription.
+func registrationOpen() bool {
+	if os.Getenv("ALLOW_REGISTER") == "true" {
+		return true
+	}
+	count, err := hookCountUsers()
+	return err == nil && count == 0
+}
+
 // HandleRegister gère l'inscription
 func HandleRegister(w http.ResponseWriter, r *http.Request) {
-	if os.Getenv("ALLOW_REGISTER") != "true" {
-		count, err := hookCountUsers()
-		if err != nil || count > 0 {
-			clientError(w, ErrForbidden, "Inscription désactivée", http.StatusForbidden)
-			return
-		}
+	if !registrationOpen() {
+		clientErrorT(w, r, ErrForbidden, "error.register_disabled", http.StatusForbidden)
+		return
 	}
 
 	clientIP := getClientIP(r)
@@ -234,7 +288,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	// Rate limiting
 	result := hookRateLimitCheck(clientIP, "register")
 	if !result.Allowed {
-		clientError(w, ErrRateLimited, "Trop de tentatives. Réessayez plus tard.", http.StatusTooManyRequests)
+		clientErrorT(w, r, ErrRateLimited, "error.rate_limited_later", http.StatusTooManyRequests)
 		return
 	}
 
@@ -244,17 +298,17 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	// Validation
 	if email == "" || password == "" {
-		clientError(w, ErrValidation, "Email et mot de passe requis", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.email_password_required", http.StatusBadRequest)
 		return
 	}
 
 	if !strings.Contains(email, "@") || len(email) < 3 || len(email) > 254 {
-		clientError(w, ErrValidation, "Email invalide", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.email_invalid", http.StatusBadRequest)
 		return
 	}
 
 	if password != confirmPassword {
-		clientError(w, ErrValidation, "Les mots de passe ne correspondent pas", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.passwords_mismatch", http.StatusBadRequest)
 		return
 	}
 
@@ -270,26 +324,26 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	blindIndex := hookComputeBlindIndex(email)
 	existingUser, err := hookGetUserByBlindIndex(blindIndex)
 	if err != nil {
-		serverError(w, "get user", err)
+		serverError(w, r, "get user", err)
 		return
 	}
 
 	if existingUser != nil {
-		clientError(w, ErrConflict, "Email déjà utilisé", http.StatusConflict)
+		clientErrorT(w, r, ErrConflict, "error.email_taken", http.StatusConflict)
 		return
 	}
 
 	// Hasher le mot de passe
 	hashedPassword, err := hookHashPassword(password)
 	if err != nil {
-		serverError(w, "hash password", err)
+		serverError(w, r, "hash password", err)
 		return
 	}
 
 	// Chiffrer l'email
 	encryptedEmail, err := hookEncryptStr(email)
 	if err != nil {
-		serverError(w, "encrypt email", err)
+		serverError(w, r, "encrypt email", err)
 		return
 	}
 
@@ -298,7 +352,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	// même sous deux inscriptions concurrentes).
 	userID, role, err := hookCreateUserAtomic(encryptedEmail, blindIndex, hashedPassword)
 	if err != nil {
-		serverError(w, "create user", err)
+		serverError(w, r, "create user", err)
 		return
 	}
 
@@ -318,7 +372,7 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 	// Générer le token et connecter (langue détectée depuis Accept-Language, devise par défaut)
 	token, err := hookGenerateToken(userID, role, detectedLang, "EUR", 1)
 	if err != nil {
-		serverError(w, "generate token", err)
+		serverError(w, r, "generate token", err)
 		return
 	}
 

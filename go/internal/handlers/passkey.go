@@ -22,14 +22,14 @@ import (
 func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	// Récupérer les passkeys existantes
 	authenticators, err := hookGetAuthenticatorsByUserID(user.ID)
 	if err != nil {
-		serverError(w, "get authenticators", err)
+		serverError(w, r, "get authenticators", err)
 		return
 	}
 
@@ -59,7 +59,7 @@ func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 
 	options, sessionData, err := hookBeginRegistration(passkeyUser)
 	if err != nil {
-		serverError(w, "begin registration", err)
+		serverError(w, r, "begin registration", err)
 		return
 	}
 
@@ -74,27 +74,27 @@ func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	// Récupérer la session
 	cookie, err := r.Cookie("passkey_challenge")
 	if err != nil {
-		clientError(w, ErrValidation, "Session expirée", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.session_expired", http.StatusBadRequest)
 		return
 	}
 
 	// Parser la réponse WebAuthn
 	var response protocol.CredentialCreationResponse
 	if err := json.NewDecoder(r.Body).Decode(&response); err != nil {
-		clientError(w, ErrValidation, "Réponse invalide", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.passkey_response_invalid", http.StatusBadRequest)
 		return
 	}
 
 	parsedResponse, err := hookParseCCR(&response)
 	if err != nil {
-		clientError(w, ErrValidation, "Réponse invalide", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.passkey_response_invalid", http.StatusBadRequest)
 		return
 	}
 
@@ -105,7 +105,7 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 
 	credential, err := hookFinishRegistration(passkeyUser, cookie.Value, parsedResponse)
 	if err != nil {
-		clientError(w, ErrValidation, "Enregistrement échoué", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.passkey_registration_failed", http.StatusBadRequest)
 		return
 	}
 
@@ -122,7 +122,7 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 		user.ID,
 	)
 	if err != nil {
-		serverError(w, "save authenticator", err)
+		serverError(w, r, "save authenticator", err)
 		return
 	}
 
@@ -137,7 +137,7 @@ func PasskeyRegistrationFinish(w http.ResponseWriter, r *http.Request) {
 func PasskeyLoginStart(w http.ResponseWriter, r *http.Request) {
 	options, sessionData, err := hookBeginLogin()
 	if err != nil {
-		serverError(w, "begin login", err)
+		serverError(w, r, "begin login", err)
 		return
 	}
 
@@ -152,13 +152,13 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 	clientIP := getClientIP(r)
 	result := hookRateLimitCheck(clientIP, "login")
 	if !result.Allowed {
-		clientError(w, ErrRateLimited, "Too many attempts", http.StatusTooManyRequests)
+		clientErrorT(w, r, ErrRateLimited, "error.rate_limited", http.StatusTooManyRequests)
 		return
 	}
 
 	cookie, err := r.Cookie("passkey_auth_challenge")
 	if err != nil {
-		clientError(w, ErrValidation, "Session expirée", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.session_expired", http.StatusBadRequest)
 		return
 	}
 
@@ -213,7 +213,7 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 
 	passkeyUser, credential, err := hookFinishLogin(cookie.Value, r, userHandler)
 	if err != nil {
-		clientError(w, ErrAuthInvalid, "Authentification échouée", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthInvalid, "error.authentication_failed", http.StatusUnauthorized)
 		return
 	}
 
@@ -225,7 +225,7 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 	// Récupérer l'utilisateur complet
 	user, err := hookGetUserByID(passkeyUser.ID)
 	if err != nil || user == nil {
-		serverError(w, "get user", fmt.Errorf("user %d not found", passkeyUser.ID))
+		serverError(w, r, "get user", fmt.Errorf("user %d not found", passkeyUser.ID))
 		return
 	}
 
@@ -233,14 +233,14 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 	userIDStr := strconv.FormatInt(user.ID, 10)
 	acctResult := hookRateLimitCheck(userIDStr, "loginAccount")
 	if !acctResult.Allowed {
-		clientError(w, ErrRateLimited, "Too many attempts", http.StatusTooManyRequests)
+		clientErrorT(w, r, ErrRateLimited, "error.rate_limited", http.StatusTooManyRequests)
 		return
 	}
 
 	// Générer le token JWT
 	token, err := hookGenerateToken(user.ID, user.Role, user.Language, user.Currency, user.SessionVersion)
 	if err != nil {
-		serverError(w, "generate token", err)
+		serverError(w, r, "generate token", err)
 		return
 	}
 
@@ -259,20 +259,20 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 func DeletePasskey(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_id", http.StatusBadRequest)
 		return
 	}
 
 	err = hookDeleteAuthenticator(id, user.ID)
 	if err != nil {
-		serverError(w, "delete authenticator", err)
+		serverError(w, r, "delete authenticator", err)
 		return
 	}
 
@@ -285,14 +285,14 @@ func DeletePasskey(w http.ResponseWriter, r *http.Request) {
 func RenamePasskey(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
-		clientError(w, ErrAuthRequired, "Non authentifié", http.StatusUnauthorized)
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
 		return
 	}
 
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		clientError(w, ErrValidation, "ID invalide", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_id", http.StatusBadRequest)
 		return
 	}
 
@@ -300,19 +300,19 @@ func RenamePasskey(w http.ResponseWriter, r *http.Request) {
 		Name string `json:"name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		clientError(w, ErrValidation, "Données invalides", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.invalid_data", http.StatusBadRequest)
 		return
 	}
 
 	req.Name = strings.TrimSpace(req.Name)
 	if req.Name == "" || len([]rune(req.Name)) > 100 {
-		clientError(w, ErrValidation, "Nom invalide (1-100 caractères)", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.passkey_name_invalid", http.StatusBadRequest)
 		return
 	}
 
 	err = hookRenameAuthenticator(id, user.ID, req.Name)
 	if err != nil {
-		serverError(w, "rename authenticator", err)
+		serverError(w, r, "rename authenticator", err)
 		return
 	}
 

@@ -37,9 +37,16 @@ func CreateUserAtomic(emailEncrypted, emailBlindIndex, password string) (int64, 
 	}
 	defer tx.Rollback()
 
-	// SELECT EXISTS dans la même transaction → sérialise l'attribution ADMIN.
-	// SQLite est single-writer (BEGIN IMMEDIATE/EXCLUSIVE pris implicitement
-	// au premier write), donc deux INSERT concurrents seront sérialisés.
+	// COUNT dans la même transaction → sérialise l'attribution ADMIN.
+	//
+	// Correction du commentaire d'origine (audit S-33), qui affirmait à tort que
+	// « BEGIN IMMEDIATE/EXCLUSIVE est pris implicitement au premier write » :
+	// SQLite ouvre un BEGIN DEFERRED et ne prend le verrou d'écriture qu'au
+	// premier write, ce qui expose la séquence lecture→écriture ci-dessous à un
+	// SQLITE_BUSY_SNAPSHOT que busy_timeout ne rattrape pas. La sérialisation
+	// réelle vient de `_txlock=immediate` posé dans le DSN (sqlite.go) : le
+	// verrou d'écriture est pris dès DB.Begin(), donc deux inscriptions
+	// concurrentes s'attendent au lieu de courir.
 	var adminCount int
 	if err := tx.QueryRow(`SELECT COUNT(*) FROM users WHERE role = 'ADMIN'`).Scan(&adminCount); err != nil {
 		return 0, "", err
@@ -153,14 +160,29 @@ func EnableMFA(userID int64, encryptedSecret string) error {
 	return err
 }
 
-// DisableMFA désactive le 2FA
+// DisableMFA désactive le 2FA et détruit les codes de récupération associés
+// (audit S-22), dans une seule transaction : des codes qui survivraient à la
+// désactivation redeviendraient valides à la prochaine activation du TOTP, sans
+// que l'utilisateur ait jamais vu ce lot-là.
 func DisableMFA(userID int64) error {
-	_, err := DB.Exec(`
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`
 		UPDATE users SET mfa_enabled = 0, mfa_secret = NULL, session_version = session_version + 1
 		WHERE id = ?
-	`, userID)
+	`, userID); err != nil {
+		return err
+	}
 
-	return err
+	if _, err := tx.Exec(`DELETE FROM mfa_recovery_codes WHERE user_id = ?`, userID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // SetResetToken définit le token de réinitialisation de mot de passe
@@ -218,6 +240,9 @@ func DeleteUserAndData(userID int64) error {
 		`DELETE FROM recurring_operations WHERE user_id = ?`,
 		`DELETE FROM accounts WHERE user_id = ?`,
 		`DELETE FROM authenticators WHERE user_id = ?`,
+		// Explicite bien que la FK ON DELETE CASCADE le ferait aussi : la
+		// liste ci-dessus est la référence lisible de ce qu'emporte un compte.
+		`DELETE FROM mfa_recovery_codes WHERE user_id = ?`,
 		`DELETE FROM users WHERE id = ?`,
 	} {
 		if _, err := tx.Exec(q, userID); err != nil {

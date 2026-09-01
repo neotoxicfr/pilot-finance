@@ -8,3 +8,12 @@ LICENSE
 *_test.go
 **/*_test.go
 Makefile
+# Asset toolchain installed locally — the `css` stage installs its own copy
+node_modules/
+# Local build artefacts at the context root (coverage reports, dev binaries).
+# Note: these patterns match the root level only — templates/ and static/ are
+# untouched.
+*.exe
+*.out
+cover*.html
+coverage.html

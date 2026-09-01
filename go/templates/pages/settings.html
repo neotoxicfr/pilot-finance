@@ -39,6 +39,15 @@ document.addEventListener('alpine:init', () => {
 });
 {{end}}
 
+// FIX (S-25): every one of these handlers used to do `if (!r.ok) throw` BEFORE reading
+// the body, replacing the server's precise message ("Code invalide", "Session de
+// configuration MFA expirée", "Fichier manquant", "CSV vide" — all emitted as
+// {code, error} by jsonError) with a generic network error. readJson() reads the body
+// first so the caller can prefer the server's own wording whenever there is one.
+async function readJson(r) {
+    try { return await r.json(); } catch (e) { return {}; }
+}
+
 // Composant MFA
 function mfaData() {
     return {
@@ -47,24 +56,137 @@ function mfaData() {
         mfaError: '',
         mfaLoading: false,
         mfaDisableForm: false,
-        setupMfa() {
+        // Codes de récupération (audit S-22). Ils ne transitent qu'une seule
+        // fois, dans la réponse d'activation : le serveur n'en garde que des
+        // condensats. Tant qu'ils sont à l'écran, on NE recharge pas la page.
+        recoveryCodes: null,
+        recoverySaved: false,
+        recoveryRegenForm: false,
+        recoveryPassword: '',
+        async setupMfa() {
             this.mfaLoading = true;
-            fetch('/settings/mfa/setup')
-                .then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); })
-                .then(d => { this.mfaSetup = d; this.mfaLoading = false; })
-                .catch(() => { this.mfaLoading = false; this.mfaError = '{{index .T "common.network_error"}}'; });
+            this.mfaError = '';
+            try {
+                const r = await fetch('/settings/mfa/setup');
+                const d = await readJson(r);
+                if (!r.ok) { this.mfaError = d.error || '{{index .T "common.network_error"}}'; return; }
+                this.mfaSetup = d;
+            } catch (e) {
+                this.mfaError = '{{index .T "common.network_error"}}';
+            } finally {
+                this.mfaLoading = false;
+            }
         },
-        enableMfa() {
+        async enableMfa() {
             // Le secret est désormais stocké côté serveur dans un cookie signé
             // (mfa_setup), posé par /settings/mfa/setup. On n'envoie que le code.
-            fetch('/settings/mfa/enable', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code: this.mfaCode })
-            }).then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); }).then(d => {
-                if (d.error) this.mfaError = d.error;
-                else location.reload();
-            }).catch(() => { this.mfaError = '{{index .T "common.network_error"}}'; });
+            this.mfaError = '';
+            try {
+                const r = await fetch('/settings/mfa/enable', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: this.mfaCode })
+                });
+                const d = await readJson(r);
+                if (!r.ok || d.error) {
+                    this.mfaError = d.error || '{{index .T "common.network_error"}}';
+                    return;
+                }
+                // Ne JAMAIS recharger tant que les codes sont affichés : ils ne
+                // sont transmis qu'ici et ne pourront plus être récupérés.
+                if (d.recoveryCodes && d.recoveryCodes.length) {
+                    this.recoveryCodes = d.recoveryCodes;
+                    this.mfaSetup = null;
+                    return;
+                }
+                location.reload();
+            } catch (e) {
+                this.mfaError = '{{index .T "common.network_error"}}';
+            }
+        },
+        async copyRecovery() {
+            const text = (this.recoveryCodes || []).join(String.fromCharCode(10));
+            try {
+                await navigator.clipboard.writeText(text);
+                window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: '{{index .T "settings.mfa_recovery_copied"}}' } }));
+            } catch (e) {
+                // Presse-papiers refusé (contexte non sécurisé, permission) : on
+                // le dit au lieu d'échouer en silence, les codes restent à l'écran.
+                window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: '{{index .T "settings.mfa_recovery_copy_failed"}}', isError: true } }));
+            }
+        },
+        finishRecovery() {
+            location.reload();
+        },
+        openRecoveryRegen() {
+            this.recoveryRegenForm = true;
+            this.mfaError = '';
+            this.$nextTick(() => document.querySelector('#mfa-regen-form input[name="current_password"]')?.focus());
+        },
+        closeRecoveryRegen() {
+            this.recoveryRegenForm = false;
+            this.recoveryPassword = '';
+            this.mfaError = '';
+        },
+        async regenerateRecovery() {
+            this.mfaError = '';
+            try {
+                // Le handler décode du JSON avec la clé currentPassword
+                // (MFARecoveryRegenerate) — pas un formulaire URL-encodé.
+                const r = await fetch('/settings/mfa/recovery/regenerate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ currentPassword: this.recoveryPassword })
+                });
+                const d = await readJson(r);
+                if (!r.ok || d.error) {
+                    this.mfaError = d.error || '{{index .T "common.network_error"}}';
+                    return;
+                }
+                this.recoveryPassword = '';
+                this.recoveryRegenForm = false;
+                this.recoveryCodes = d.recoveryCodes || null;
+                this.recoverySaved = false;
+                // Le compteur est un fragment HTMX charge une seule fois : sans ce
+                // rappel il continue d'afficher l'ancien reste alors que le lot
+                // vient d'etre remplace. `htmx.trigger(el, 'load')` ne suffit PAS
+                // — le declencheur « load » de HTMX correspond a l'insertion du
+                // noeud dans le DOM, un evenement synthetique ne le rejoue pas ;
+                // il faut redemander le fragment explicitement.
+                if (window.htmx) {
+                    window.htmx.ajax('GET', '/settings/mfa/recovery/count', '#mfa-recovery-count');
+                }
+            } catch (e) {
+                this.mfaError = '{{index .T "common.network_error"}}';
+            }
+        },
+        // Le build Alpine CSP ne parse PAS les expressions multi-instructions
+        // (« a = 1; b = 2 » leve « CSP Parser Error ») et ignore alors
+        // l'attribut en entier — le bouton « Annuler » du QR ne faisait donc
+        // strictement rien, et le message de la tentative precedente restait
+        // affiche pendant la suivante.
+        startPwdSubmit() {
+            this.pwdLoading = true;
+            this.pwdError = '';
+            this.pwdSuccess = false;
+        },
+        cancelMfaSetup() {
+            this.mfaSetup = null;
+            this.mfaCode = '';
+            this.mfaError = '';
+        },
+        // FIX (S-19): mfaDisableForm lives in a <template x-if>, so its `autofocus`
+        // attribute never fires (the node is inserted after parsing) and the focus
+        // stayed on a button that x-if had just removed.
+        openMfaDisable() {
+            this.mfaDisableForm = true;
+            this.mfaError = '';
+            this.$nextTick(() => document.querySelector('#mfa-disable-form input[name="current_password"]')?.focus());
+        },
+        closeMfaDisable() {
+            this.mfaDisableForm = false;
+            this.mfaError = '';
+            this.$nextTick(() => this.$refs.mfaDisableBtn?.focus());
         },
         reload() { location.reload(); }
     };
@@ -92,14 +214,33 @@ function passkeyData() {
             this.renameId = null;
             this.$nextTick(() => this._renameTrigger?.focus());
         },
-        submitRename() {
+        async submitRename() {
             if (!this.renameId) return;
+            // Capture before closing: onRenameDialogClose() resets renameId to null.
+            const id = this.renameId;
+            const name = this.renameName;
             this.closeRenameDialog();
-            fetch('/api/passkey/' + this.renameId + '/rename', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: this.renameName })
-            }).then(function(r) { if (!r.ok) throw new Error(r.statusText); }).then(() => location.reload()).catch(() => location.reload());
+            try {
+                const r = await fetch('/api/passkey/' + id + '/rename', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name })
+                });
+                if (!r.ok) {
+                    // FIX (S-25): previously reloaded identically on success AND failure,
+                    // so a rejected rename looked exactly like an accepted one.
+                    const d = await readJson(r);
+                    window.dispatchEvent(new CustomEvent('pilot:toast', {
+                        detail: { message: d.error || '{{index .T "common.network_error"}}', isError: true }
+                    }));
+                    return;
+                }
+                location.reload();
+            } catch (e) {
+                window.dispatchEvent(new CustomEvent('pilot:toast', {
+                    detail: { message: '{{index .T "common.network_error"}}', isError: true }
+                }));
+            }
         }
     };
 }
@@ -132,34 +273,176 @@ function dangerData() {
         selfDeleteConfirm: false,
         importMsg: '',
         importErrMsg: '',
+        // Apercu avant application (audit S-21). `importFile` retient le File
+        // choisi : l'import se fait en DEUX requetes (simulation puis
+        // confirmation) et l'input est vide entre les deux, sinon rechoisir le
+        // meme fichier ne redeclencherait pas l'evenement « change ».
+        importPreview: null,
+        importFile: null,
+        importLoading: false,
         triggerImport() {
             document.getElementById('import-file').click();
         },
-        importBalances(event) {
+        // FIX (S-19): the confirm form is inside a <template x-if>, so its `autofocus`
+        // never fired and focus fell back to <body> right after the user asked for the
+        // most destructive action in the app.
+        askSelfDelete() {
+            this.selfDeleteConfirm = true;
+            this.$nextTick(() => document.querySelector('#self-delete-form input[name="current_password"]')?.focus());
+        },
+        cancelSelfDelete() {
+            this.selfDeleteConfirm = false;
+            this.$nextTick(() => this.$refs.selfDeleteBtn?.focus());
+        },
+        // Envoie le fichier au serveur. `dryRun` demande une SIMULATION : le
+        // serveur calcule tout mais n'ecrit rien et ne journalise rien.
+        async postImport(file, dryRun) {
+            var fd = new FormData();
+            fd.append('file', file);
+            if (dryRun) fd.append('dry_run', '1');
+            const r = await fetch('/settings/import', { method: 'POST', body: fd });
+            const d = await readJson(r);
+            return { ok: r.ok, data: d };
+        },
+        // Etape 1 : choisir un fichier ne modifie plus rien, cela ouvre un
+        // apercu. Auparavant les soldes etaient ecrases des le choix du
+        // fichier, sans confirmation ni retour arriere possible (audit S-21).
+        async importBalances(event) {
             var input = event.target;
             if (!input.files || !input.files.length) return;
+            var file = input.files[0];
+            input.value = '';
             this.importMsg = '';
             this.importErrMsg = '';
-            var fd = new FormData();
-            fd.append('file', input.files[0]);
-            input.value = '';
-            fetch('/settings/import', { method: 'POST', body: fd })
-                .then(function(r) {
-                    if (!r.ok) throw new Error(r.statusText);
-                    return r.json();
-                })
-                .then(d => {
-                    var parts = ['{{index .T "settings.import_success"}}'.replace('{n}', d.updated)];
-                    if (d.unknown && d.unknown.length) parts.push('{{index .T "settings.import_unknown"}}'.replace('{list}', d.unknown.join(', ')));
-                    if (d.ambiguous && d.ambiguous.length) parts.push('{{index .T "settings.import_ambiguous"}}'.replace('{list}', d.ambiguous.join(', ')));
-                    if (d.invalid_lines && d.invalid_lines.length) parts.push('{{index .T "settings.import_invalid_lines"}}'.replace('{list}', d.invalid_lines.join(', ')));
-                    this.importMsg = parts.join(' — ');
-                    window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.importMsg } }));
-                })
-                .catch(() => {
-                    this.importErrMsg = '{{index .T "settings.import_error"}}';
+            this.importLoading = true;
+            try {
+                const res = await this.postImport(file, true);
+                if (!res.ok) {
+                    // FIX (S-25): montrer ce que le serveur a REELLEMENT dit
+                    // (« Fichier manquant », « CSV vide »...) plutot qu'un
+                    // « Echec de l'import » generique.
+                    this.importErrMsg = res.data.error || '{{index .T "settings.import_error"}}';
                     window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.importErrMsg, isError: true } }));
-                });
+                    return;
+                }
+                this.importFile = file;
+                this.importPreview = res.data;
+                this.$nextTick(() => document.getElementById('import-preview-dialog').showModal());
+            } catch (e) {
+                this.importErrMsg = '{{index .T "settings.import_error"}}';
+                window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.importErrMsg, isError: true } }));
+            } finally {
+                this.importLoading = false;
+            }
+        },
+        // Etape 2 : appliquer. Le MEME fichier est repost sans le drapeau de
+        // simulation, donc le serveur refait exactement le meme calcul et
+        // applique ce que l'apercu annoncait.
+        async confirmImport() {
+            if (!this.importFile) return;
+            this.importLoading = true;
+            var file = this.importFile;
+            try {
+                const res = await this.postImport(file, false);
+                this.closeImportPreview();
+                if (!res.ok) {
+                    this.importErrMsg = res.data.error || '{{index .T "settings.import_error"}}';
+                    window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.importErrMsg, isError: true } }));
+                    return;
+                }
+                this.showImportResult(res.data);
+            } catch (e) {
+                this.closeImportPreview();
+                this.importErrMsg = '{{index .T "settings.import_error"}}';
+                window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.importErrMsg, isError: true } }));
+            } finally {
+                this.importLoading = false;
+            }
+        },
+        closeImportPreview() {
+            const dlg = document.getElementById('import-preview-dialog');
+            if (dlg && dlg.open) dlg.close();
+            this.importPreview = null;
+            this.importFile = null;
+        },
+        // « 0 solde mis a jour » n'est pas une reussite : c'est un import qui
+        // n'a rien fait, presque toujours parce qu'aucun nom ne correspond. Il
+        // s'affichait en VERT sur le ton du succes (audit S-21).
+        showImportResult(d) {
+            var parts = [];
+            var failed = !d.updated;
+            if (failed) {
+                parts.push('{{index .T "settings.import_nothing"}}');
+            } else {
+                parts.push('{{index .T "settings.import_success"}}'.replace('{n}', d.updated));
+            }
+            if (d.unknown && d.unknown.length) parts.push('{{index .T "settings.import_unknown"}}'.replace('{list}', d.unknown.join(', ')));
+            if (d.ambiguous && d.ambiguous.length) parts.push('{{index .T "settings.import_ambiguous"}}'.replace('{list}', d.ambiguous.join(', ')));
+            if (d.invalid_lines && d.invalid_lines.length) parts.push('{{index .T "settings.import_invalid_lines"}}'.replace('{list}', d.invalid_lines.join(', ')));
+            var msg = parts.join(' \u2014 ');
+            if (failed) {
+                this.importMsg = '';
+                this.importErrMsg = msg;
+            } else {
+                this.importErrMsg = '';
+                this.importMsg = msg;
+            }
+            window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: msg, isError: failed } }));
+        },
+        // Le build Alpine CSP n'evalue pas d'appel de methode sur un litteral
+        // (« '...'.replace(...) ») : ces libelles sont donc construits ici, ce
+        // qui evite en prime une chaine d'acces sur un importPreview nul.
+        // Le build Alpine CSP n'accepte pas un chemin de propriete imbrique
+        // dans « x-for » (« c in importPreview.changes ») : l'expression leve
+        // une erreur de parsing qui casse la mise en place des directives de
+        // TOUTE la page — les x-show y restaient figes sur leur valeur
+        // initiale. Le tableau itere donc sur un getter simple.
+        get previewChanges() {
+            const raw = (this.importPreview && this.importPreview.changes) || [];
+            // Les montants sont formates ICI, pas dans le template : le build
+            // Alpine CSP ne parse pas un chemin de propriete passe en ARGUMENT
+            // d'appel (« importAmount(c.from) »), et l'erreur ne se limite pas a
+            // l'attribut fautif — elle casse la mise en place des directives de
+            // tout le composant, figeant ses x-show sur leur valeur initiale.
+            return raw.map(c => ({
+                name: c.name,
+                fromLabel: this.importAmount(c.from),
+                toLabel: this.importAmount(c.to),
+            }));
+        },
+        get hasPreviewChanges() {
+            return !!(this.importPreview && this.importPreview.changes && this.importPreview.changes.length);
+        },
+        get confirmDisabled() {
+            return this.importLoading || !this.hasPreviewChanges;
+        },
+        previewList(field, template) {
+            const v = this.importPreview && this.importPreview[field];
+            if (!v || !v.length) return '';
+            return template.replace('{list}', v.join(', '));
+        },
+        previewUnknown() {
+            return this.previewList('unknown', '{{index .T "settings.import_unknown"}}');
+        },
+        previewAmbiguous() {
+            return this.previewList('ambiguous', '{{index .T "settings.import_ambiguous"}}');
+        },
+        previewInvalidLines() {
+            return this.previewList('invalid_lines', '{{index .T "settings.import_invalid_lines"}}');
+        },
+        previewConfirmLabel() {
+            const n = this.importPreview ? this.importPreview.updated : 0;
+            return '{{index .T "settings.import_preview_confirm"}}'.replace('{n}', n);
+        },
+        // Formate des CENTIMES : unite canonique renvoyee par le serveur (S-40).
+        // exact() et non currency() : celui-ci arrondit a l'unite, ce qui
+        // afficherait « 12 346 € » pour un solde de 12 345,67 € — illisible sur
+        // un ecran dont le seul role est de faire verifier des montants.
+        importAmount(cents) {
+            return window.PILOT_FMT.exact(cents / 100);
+        },
+        downloadTemplate() {
+            window.location.href = '/settings/import/template';
         },
         exportData() {
             fetch('/settings/export')
@@ -199,7 +482,7 @@ document.addEventListener('alpine:init', () => {
 
     <!-- Header -->
     <div class="flex items-center gap-3 border-b border-border pb-4">
-        <span class="text-blue-500">{{template "icon-settings" dict "Size" 32}}</span>
+        <span class="text-blue-600 dark:text-blue-400">{{template "icon-settings" dict "Size" 32}}</span>
         <h1 class="text-2xl font-bold text-foreground">{{index .T "settings.title"}}</h1>
     </div>
 
@@ -212,7 +495,7 @@ document.addEventListener('alpine:init', () => {
         </h2>
         <p class="text-sm text-muted-foreground mb-4">{{index .T "verify_email.settings_description"}}</p>
         {{if not .MailEnabled}}
-            <p class="text-sm text-orange-500 bg-orange-500/10 border border-orange-500/20 rounded-xl p-3">{{index .T "verify_email.mail_disabled"}}</p>
+            <p class="text-sm text-orange-700 dark:text-orange-300 bg-orange-500/10 border border-orange-500/20 rounded-xl p-3">{{index .T "verify_email.mail_disabled"}}</p>
         {{else}}
             <button type="button" @click="resend()" :disabled="sending"
                     class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
@@ -220,7 +503,7 @@ document.addEventListener('alpine:init', () => {
                 <span x-show="sending" x-cloak>{{index .T "verify_email.resend_sending"}}</span>
             </button>
             <template x-if="error">
-                <p class="mt-3 text-sm text-red-500" x-text="error"></p>
+                <p role="alert" class="mt-3 text-sm text-red-700 dark:text-red-400" x-text="error"></p>
             </template>
         {{end}}
     </div>
@@ -235,12 +518,12 @@ document.addEventListener('alpine:init', () => {
             <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden" x-data="prefsData">
                 <div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></div>
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
-                    <span class="text-blue-500">{{template "icon-settings" dict "Size" 20}}</span>
+                    <span class="text-blue-600 dark:text-blue-400">{{template "icon-settings" dict "Size" 20}}</span>
                     {{index .T "settings.preferences_title"}}
                 </h2>
                 <form hx-post="/settings/preferences"
                       hx-swap="none"
-                      @htmx:after-request="event.detail.successful && reload()"
+                      @htmx:after-request="$event.detail.successful && reload()"
                       class="space-y-5">
                     <div>
                         <label for="language" class="text-xs uppercase font-bold text-muted-foreground mb-2 block tracking-wider">{{index .T "settings.language_label"}}</label>
@@ -279,16 +562,16 @@ document.addEventListener('alpine:init', () => {
                 </h2>
 
                 <template x-if="pwdSuccess">
-                    <div class="mb-6 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-3 text-emerald-600 dark:text-emerald-400 text-sm">
+                    <div class="mb-6 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-3 text-emerald-700 dark:text-emerald-400 text-sm">
                         {{template "icon-check-circle" dict "Size" 20}} {{index .T "settings.password_success"}}
                     </div>
                 </template>
 
                 <form hx-post="/settings/password"
                       hx-swap="none"
-                      @htmx:before-request="pwdLoading = true; pwdError = ''; pwdSuccess = false"
+                      @htmx:before-request="startPwdSubmit()"
                       @htmx:after-request="pwdLoading = false"
-                      @htmx:response-error="pwdError = event.detail.xhr.responseText"
+                      @htmx:response-error="pwdError = $event.detail.xhr.responseText"
                       @htmx:after-settle="afterPwdSettle($event)"
                       class="space-y-5">
                     <div>
@@ -310,12 +593,12 @@ document.addEventListener('alpine:init', () => {
                     {{template "password-feedback" .}}
 
                     <template x-if="pwdError">
-                        <div class="text-red-500 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="pwdError"></div>
+                        <div role="alert" class="text-red-700 dark:text-red-300 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="pwdError"></div>
                     </template>
 
                     <button type="submit" :disabled="submitDisabled"
                             class="w-full btn-primary text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                        <span x-show="pwdLoading">{{index .T "settings.password_saving"}}</span>
+                        <span x-show="pwdLoading" x-cloak>{{index .T "settings.password_saving"}}</span>
                         <span x-show="!pwdLoading">{{index .T "settings.password_change_btn"}}</span>
                     </button>
                 </form>
@@ -330,35 +613,67 @@ document.addEventListener('alpine:init', () => {
             <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden" x-data="mfaData">
                 <div class="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"></div>
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
-                    <span class="text-blue-500">{{template "icon-smartphone" dict "Size" 20}}</span>
+                    <span class="text-blue-600 dark:text-blue-400">{{template "icon-smartphone" dict "Size" 20}}</span>
                     {{index .T "settings.mfa_title"}}
                 </h2>
+
+                <!-- Affichage UNIQUE des codes de recuperation (audit S-22).
+                     Le serveur ne stocke que des condensats : ces valeurs ne
+                     seront plus jamais disponibles. Le composant ne recharge
+                     donc pas la page tant que ce panneau est ouvert. -->
+                <template x-if="recoveryCodes">
+                    <div class="mb-6 border border-amber-500/40 bg-amber-500/10 rounded-xl p-4 space-y-3" role="alert">
+                        <h3 class="font-bold text-sm text-foreground">{{index .T "settings.mfa_recovery_heading"}}</h3>
+                        <p class="text-xs text-foreground">{{index .T "settings.mfa_recovery_intro"}}</p>
+                        <ul class="grid grid-cols-2 gap-2 font-mono text-sm text-foreground">
+                            <template x-for="code in recoveryCodes">
+                                <li class="bg-background border border-border rounded-lg px-2 py-1 text-center tabular-nums" x-text="code"></li>
+                            </template>
+                        </ul>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" @click="copyRecovery()"
+                                    class="text-xs px-3 py-2 rounded-xl border border-border bg-background hover:bg-accent font-bold text-foreground">
+                                {{index .T "settings.mfa_recovery_copy"}}
+                            </button>
+                        </div>
+                        <label class="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
+                            <input type="checkbox" x-model="recoverySaved" class="w-4 h-4 rounded border-border accent-emerald-500">
+                            {{index .T "settings.mfa_recovery_saved_confirm"}}
+                        </label>
+                        <button type="button" @click="finishRecovery()" :disabled="!recoverySaved"
+                                :class="recoverySaved ? '' : 'opacity-50 cursor-not-allowed'"
+                                class="w-full btn-primary text-white font-bold py-2.5 rounded-xl text-sm">
+                            {{index .T "settings.mfa_recovery_done"}}
+                        </button>
+                    </div>
+                </template>
 
                 {{if .MFAEnabled}}
                 <div class="space-y-4">
                     <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 flex items-center justify-between">
-                        <div class="flex items-center gap-3 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
+                        <div class="flex items-center gap-3 text-emerald-700 dark:text-emerald-400 font-bold text-sm">
                             {{template "icon-shield" dict "Size" 24}} {{index .T "settings.mfa_active"}}
                         </div>
-                        <button type="button" @click="mfaDisableForm = !mfaDisableForm"
-                                class="text-xs bg-background hover:bg-red-500/10 text-muted-foreground hover:text-red-500 px-3 py-2 rounded-lg border border-border hover:border-red-500/50 transition-colors">
+                        <button type="button" x-ref="mfaDisableBtn"
+                                @click="mfaDisableForm ? closeMfaDisable() : openMfaDisable()"
+                                class="text-xs bg-background hover:bg-red-500/10 text-muted-foreground hover:text-red-600 dark:hover:text-red-400 px-3 py-2 rounded-lg border border-border hover:border-red-500/50 transition-colors">
                             {{index .T "settings.mfa_disable_btn"}}
                         </button>
                     </div>
                     <template x-if="mfaDisableForm">
-                        <form hx-post="/settings/mfa/disable" hx-swap="none"
-                              @htmx:after-request="event.detail.successful && reload()"
+                        <form id="mfa-disable-form" hx-post="/settings/mfa/disable" hx-swap="none"
+                              @htmx:after-request="$event.detail.successful && reload()"
                               @htmx:response-error="mfaError = $event.detail.xhr.responseText"
                               class="bg-red-500/5 border border-red-500/20 rounded-xl p-4 space-y-3">
                             <p class="text-sm text-muted-foreground">{{index .T "settings.mfa_disable_password"}}</p>
-                            <input type="password" name="current_password" required autofocus
+                            <input type="password" name="current_password" required
                                    class="w-full bg-accent border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-red-500 transition-colors text-sm"
                                    placeholder="{{index .T "settings.current_password"}}">
                             <template x-if="mfaError">
-                                <div class="text-red-500 text-xs text-center bg-red-500/10 p-2 rounded-lg border border-red-500/20" x-text="mfaError"></div>
+                                <div role="alert" class="text-red-700 dark:text-red-300 text-xs text-center bg-red-500/10 p-2 rounded-lg border border-red-500/20" x-text="mfaError"></div>
                             </template>
                             <div class="flex gap-2">
-                                <button type="button" @click="mfaDisableForm = false; mfaError = ''"
+                                <button type="button" @click="closeMfaDisable()"
                                         class="flex-1 bg-accent hover:bg-border text-muted-foreground font-medium py-3 rounded-xl transition-colors text-sm">
                                     {{index .T "common.cancel"}}
                                 </button>
@@ -369,15 +684,50 @@ document.addEventListener('alpine:init', () => {
                             </div>
                         </form>
                     </template>
+
+                    <!-- Codes de recuperation : compteur charge en HTMX et
+                         regeneration protegee par mot de passe (audit S-22). -->
+                    <div class="border-t border-border pt-4 space-y-3">
+                        <h3 class="text-sm font-bold text-foreground">{{index .T "settings.mfa_recovery_title"}}</h3>
+                        <p class="text-xs text-muted-foreground">{{index .T "settings.mfa_recovery_description"}}</p>
+                        <div id="mfa-recovery-count" hx-get="/settings/mfa/recovery/count" hx-trigger="load" hx-swap="innerHTML"></div>
+                        <button type="button" @click="recoveryRegenForm ? closeRecoveryRegen() : openRecoveryRegen()"
+                                class="text-xs px-3 py-2 rounded-xl border border-border bg-background hover:bg-accent font-bold text-foreground">
+                            {{index .T "settings.mfa_recovery_regen_btn"}}
+                        </button>
+                        <template x-if="recoveryRegenForm">
+                            <div id="mfa-regen-form" class="space-y-3 bg-accent/50 border border-border rounded-xl p-3">
+                                <p class="text-xs text-red-700 dark:text-red-400 font-medium">{{index .T "settings.mfa_recovery_regen_warning"}}</p>
+                                <label for="mfa-regen-password" class="sr-only">{{index .T "settings.mfa_recovery_regen_password"}}</label>
+                                <input id="mfa-regen-password" type="password" name="current_password" x-model="recoveryPassword"
+                                       placeholder="{{index .T "settings.mfa_recovery_regen_password"}}" autocomplete="current-password"
+                                       class="bg-background border border-border rounded-xl p-2.5 text-sm w-full outline-hidden focus:border-blue-500 text-foreground">
+                                <template x-if="mfaError">
+                                    <div role="alert" class="text-red-700 dark:text-red-300 text-xs text-center bg-red-500/10 p-2 rounded-lg border border-red-500/20" x-text="mfaError"></div>
+                                </template>
+                                <button type="button" @click="regenerateRecovery()"
+                                        class="w-full btn-danger text-white font-bold py-2.5 rounded-xl text-sm">
+                                    {{index .T "settings.mfa_recovery_regen_confirm"}}
+                                </button>
+                            </div>
+                        </template>
+                    </div>
                 </div>
                 {{else}}
-                <template x-if="!mfaSetup">
+                <!-- La condition MFAEnabled ci-dessus est evaluee au rendu
+                     serveur : apres une activation reussie la page n'a PAS ete
+                     rechargee (les codes
+                     de recuperation ne sont affichables qu'une fois), donc cette
+                     branche « 2FA inactive » est toujours dans le DOM. Sans le
+                     garde `!recoveryCodes`, l'utilisateur qui vient d'activer le
+                     2FA voit le bouton « Configurer A2F » juste sous ses codes. -->
+                <template x-if="!mfaSetup && !recoveryCodes">
                     <div class="space-y-4">
                         <p class="text-sm text-muted-foreground">{{index .T "settings.mfa_description"}}</p>
                         <button @click="setupMfa()"
                                 :disabled="mfaLoading"
                                 class="w-full btn-primary text-white font-bold py-3 rounded-xl text-sm">
-                            <span x-show="mfaLoading">{{index .T "settings.mfa_loading"}}</span>
+                            <span x-show="mfaLoading" x-cloak>{{index .T "settings.mfa_loading"}}</span>
                             <span x-show="!mfaLoading">{{index .T "settings.mfa_setup_btn"}}</span>
                         </button>
                     </div>
@@ -395,10 +745,10 @@ document.addEventListener('alpine:init', () => {
                                    placeholder="000000">
                         </div>
                         <template x-if="mfaError">
-                            <div class="text-red-500 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="mfaError"></div>
+                            <div role="alert" class="text-red-700 dark:text-red-300 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="mfaError"></div>
                         </template>
                         <div class="flex gap-2">
-                            <button @click="mfaSetup = null; mfaCode = ''; mfaError = ''"
+                            <button @click="cancelMfaSetup()"
                                     class="flex-1 bg-accent hover:bg-border text-muted-foreground font-medium py-3 rounded-xl transition-colors text-sm">
                                 {{index .T "settings.mfa_cancel"}}
                             </button>
@@ -418,7 +768,7 @@ document.addEventListener('alpine:init', () => {
             <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden" x-data="passkeyData">
                 <div class="absolute left-0 top-0 bottom-0 w-1 bg-purple-500"></div>
                 <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
-                    <span class="text-purple-500">{{template "icon-fingerprint" dict "Size" 20}}</span>
+                    <span class="text-purple-700 dark:text-purple-400">{{template "icon-fingerprint" dict "Size" 20}}</span>
                     {{index .T "settings.passkeys_title"}}
                 </h2>
                 <p class="text-sm text-muted-foreground mb-4">{{index .T "settings.passkeys_description"}}</p>
@@ -428,7 +778,7 @@ document.addEventListener('alpine:init', () => {
                     {{range .Passkeys}}
                     <div class="flex items-center justify-between p-3 bg-accent rounded-xl border border-border">
                         <div class="flex items-center gap-3">
-                            <div class="p-2 bg-purple-500/10 text-purple-500 rounded-lg">{{template "icon-fingerprint" dict "Size" 16}}</div>
+                            <div class="p-2 bg-purple-500/10 text-purple-700 dark:text-purple-400 rounded-lg">{{template "icon-fingerprint" dict "Size" 16}}</div>
                             <div>
                                 <div class="font-bold text-sm text-foreground">{{or .Name (index $.T "settings.passkey_unnamed")}}</div>
                                 <div class="text-xs text-muted-foreground uppercase font-semibold">
@@ -446,7 +796,7 @@ document.addEventListener('alpine:init', () => {
                             <button hx-delete="/api/passkey/{{.ID}}"
                                     hx-confirm="{{index $.T "settings.passkey_delete_confirm"}}"
                                     hx-swap="none"
-                                    @htmx:after-request="event.detail.successful && reload()"
+                                    @htmx:after-request="$event.detail.successful && reload()"
                                     aria-label="{{index $.T "common.delete"}}"
                                     class="p-2.5 text-muted-foreground hover:text-red-500 hover:bg-background rounded-lg transition-colors">
                                 {{template "icon-trash" dict "Size" 14}}
@@ -488,7 +838,7 @@ document.addEventListener('alpine:init', () => {
                         :disabled="passkeyLoading"
                         class="w-full btn-purple text-white font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
                     {{template "icon-fingerprint" dict "Size" 18}}
-                    <span x-show="passkeyLoading">{{index .T "settings.passkey_registering"}}</span>
+                    <span x-show="passkeyLoading" x-cloak>{{index .T "settings.passkey_registering"}}</span>
                     <span x-show="!passkeyLoading">{{index .T "settings.passkey_add_btn"}}</span>
                 </button>
             </div>
@@ -506,36 +856,101 @@ document.addEventListener('alpine:init', () => {
                         {{index .T "settings.export_data"}}
                     </button>
                     <input type="file" id="import-file" accept=".csv,text/csv" class="hidden" @change="importBalances($event)">
-                    <button @click="triggerImport()" class="w-full mt-3 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border bg-background hover:bg-accent text-sm font-bold text-foreground transition-colors">
+                    <button @click="triggerImport()" :disabled="importLoading" class="w-full mt-3 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border bg-background hover:bg-accent text-sm font-bold text-foreground transition-colors disabled:opacity-50">
                         {{template "icon-refresh" dict "Size" 16}}
                         {{index .T "settings.import_data"}}
                     </button>
+                    <button @click="downloadTemplate()" class="w-full mt-2 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-background hover:bg-accent text-xs font-bold text-foreground transition-colors">
+                        {{template "icon-save" dict "Size" 14}}
+                        {{index .T "settings.import_template_btn"}}
+                    </button>
                     <p class="text-xs text-foreground/70 mt-2">{{index .T "settings.import_hint"}}</p>
-                    <p x-show="importMsg" x-text="importMsg" class="text-sm mt-2 text-emerald-600"></p>
-                    <p x-show="importErrMsg" x-text="importErrMsg" class="text-sm mt-2 text-red-500"></p>
+                    <p x-show="importMsg" x-cloak x-text="importMsg" class="text-sm mt-2 text-emerald-700 dark:text-emerald-400"></p>
+                    <p role="alert" x-show="importErrMsg" x-cloak x-text="importErrMsg" class="text-sm mt-2 text-red-700 dark:text-red-400"></p>
+
+                    <!-- Apercu de l'import (audit S-21). Rendu en <dialog> natif :
+                         focus piege et Echap pour fermer sans rien appliquer. -->
+                    <dialog id="import-preview-dialog" @close="closeImportPreview()"
+                            class="bg-background text-foreground border border-border rounded-2xl p-0 w-[min(34rem,92vw)] backdrop:bg-black/50">
+                        <template x-if="importPreview">
+                            <div class="p-6 space-y-4">
+                                <h3 class="text-lg font-bold text-foreground">{{index .T "settings.import_preview_title"}}</h3>
+                                <p class="text-xs text-muted-foreground">{{index .T "settings.import_preview_intro"}}</p>
+
+                                <template x-if="hasPreviewChanges">
+                                    <div class="overflow-x-auto max-h-64 overflow-y-auto border border-border rounded-xl">
+                                        <table class="w-full text-sm">
+                                            <thead class="bg-accent/50 sticky top-0">
+                                                <tr>
+                                                    <th scope="col" class="text-left px-3 py-2 font-bold text-xs uppercase tracking-wider text-muted-foreground">{{index .T "settings.import_preview_col_account"}}</th>
+                                                    <th scope="col" class="text-right px-3 py-2 font-bold text-xs uppercase tracking-wider text-muted-foreground">{{index .T "settings.import_preview_col_from"}}</th>
+                                                    <th scope="col" class="text-right px-3 py-2 font-bold text-xs uppercase tracking-wider text-muted-foreground">{{index .T "settings.import_preview_col_to"}}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <template x-for="c in previewChanges">
+                                                    <tr class="border-t border-border">
+                                                        <td class="px-3 py-2 text-foreground" x-text="c.name"></td>
+                                                        <td class="px-3 py-2 text-right font-mono text-muted-foreground tabular-nums" x-text="c.fromLabel"></td>
+                                                        <td class="px-3 py-2 text-right font-mono text-foreground font-bold tabular-nums" x-text="c.toLabel"></td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </template>
+
+                                <template x-if="!hasPreviewChanges">
+                                    <p role="alert" class="text-sm text-red-700 dark:text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl p-3">{{index .T "settings.import_preview_none"}}</p>
+                                </template>
+
+                                <template x-if="previewUnknown()">
+                                    <p class="text-xs text-amber-700 dark:text-amber-400" x-text="previewUnknown()"></p>
+                                </template>
+                                <template x-if="previewAmbiguous()">
+                                    <p class="text-xs text-amber-700 dark:text-amber-400" x-text="previewAmbiguous()"></p>
+                                </template>
+                                <template x-if="previewInvalidLines()">
+                                    <p class="text-xs text-amber-700 dark:text-amber-400" x-text="previewInvalidLines()"></p>
+                                </template>
+
+                                <div class="flex gap-2 pt-1">
+                                    <button type="button" @click="closeImportPreview()"
+                                            class="flex-1 bg-accent hover:bg-border text-muted-foreground font-medium py-3 rounded-xl transition-colors text-sm">
+                                        {{index .T "common.cancel"}}
+                                    </button>
+                                    <button type="button" @click="confirmImport()"
+                                            :disabled="confirmDisabled"
+                                            class="flex-1 btn-primary text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                            x-text="previewConfirmLabel()">
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </dialog>
                 </div>
 
                 <!-- Danger Zone -->
                 <div class="dashboard-card bg-background border border-red-500/20 rounded-2xl p-6 relative overflow-hidden mt-6">
                     <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
-                    <h2 class="text-lg font-bold text-red-500 mb-6 flex items-center gap-2">
+                    <h2 class="text-lg font-bold text-red-700 dark:text-red-400 mb-6 flex items-center gap-2">
                         {{template "icon-trash" dict "Size" 18}}
                         {{index .T "settings.danger_zone"}}
                     </h2>
-                    <button x-show="!selfDeleteConfirm" @click="selfDeleteConfirm = true"
-                            class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-bold text-red-500 transition-colors">
+                    <button x-show="!selfDeleteConfirm" x-ref="selfDeleteBtn" @click="askSelfDelete()"
+                            class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm font-bold text-red-700 dark:text-red-400 transition-colors">
                         {{template "icon-trash" dict "Size" 16}}
                         {{index .T "settings.delete_account"}}
                     </button>
                     <template x-if="selfDeleteConfirm">
-                        <form hx-delete="/settings/account" hx-target="body"
+                        <form id="self-delete-form" hx-delete="/settings/account" hx-target="body"
                               class="bg-red-500/5 border border-red-500/20 rounded-xl p-4 space-y-3 mt-4">
                             <p class="text-sm text-muted-foreground">{{index .T "settings.delete_account_password"}}</p>
-                            <input type="password" name="current_password" required autofocus
+                            <input type="password" name="current_password" required
                                    class="w-full bg-accent border border-border rounded-xl p-3 text-foreground outline-hidden focus:border-red-500 transition-colors text-sm"
                                    placeholder="{{index .T "settings.current_password"}}">
                             <div class="flex gap-2">
-                                <button type="button" @click="selfDeleteConfirm = false"
+                                <button type="button" @click="cancelSelfDelete()"
                                         class="flex-1 bg-accent hover:bg-border text-muted-foreground font-medium py-3 rounded-xl transition-colors text-sm">
                                     {{index .T "common.cancel"}}
                                 </button>
@@ -573,7 +988,7 @@ document.addEventListener('alpine:init', () => {
     <div class="dashboard-card bg-background border rounded-2xl p-6 relative overflow-hidden">
         <div class="absolute left-0 top-0 bottom-0 w-1 bg-purple-500"></div>
         <h2 class="text-lg font-bold text-foreground mb-6 flex items-center gap-2">
-            <span class="text-purple-500">{{template "icon-shield" dict "Size" 20}}</span>
+            <span class="text-purple-700 dark:text-purple-400">{{template "icon-shield" dict "Size" 20}}</span>
             {{index .T "settings.admin_title"}} ({{len .Users}})
         </h2>
         <div class="overflow-x-auto rounded-xl border border-border" tabindex="0" role="region" aria-label="{{index .T "settings.admin_title"}}">
@@ -590,7 +1005,7 @@ document.addEventListener('alpine:init', () => {
                     <tr class="hover:bg-accent transition-colors">
                         <td class="px-4 py-3">
                             <div class="flex items-center gap-2 sm:gap-3">
-                                <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 {{if eq .Role "ADMIN"}}bg-purple-500/10 text-purple-500{{else}}bg-blue-500/10 text-blue-500{{end}}">
+                                <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 {{if eq .Role "ADMIN"}}bg-purple-500/10 text-purple-700 dark:text-purple-400{{else}}bg-blue-500/10 text-blue-600 dark:text-blue-400{{end}}">
                                     {{template "icon-mail" dict "Size" 14}}
                                 </div>
                                 <div class="min-w-0">
@@ -600,7 +1015,7 @@ document.addEventListener('alpine:init', () => {
                             </div>
                         </td>
                         <td class="hidden sm:table-cell px-4 py-3">
-                            <span class="px-2 py-1 rounded text-xs font-bold uppercase tracking-wide {{if eq .Role "ADMIN"}}bg-purple-500/10 text-purple-500 border border-purple-500/20{{else}}bg-accent text-muted-foreground border border-border{{end}}">
+                            <span class="px-2 py-1 rounded text-xs font-bold uppercase tracking-wide {{if eq .Role "ADMIN"}}bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20{{else}}bg-accent text-muted-foreground border border-border{{end}}">
                                 {{.Role}}
                             </span>
                         </td>
@@ -621,7 +1036,7 @@ document.addEventListener('alpine:init', () => {
                 </tbody>
             </table>
         </div>
-        <a href="/admin/audit" class="mt-4 inline-flex items-center gap-1.5 text-sm text-purple-500 hover:text-purple-400 transition-colors font-medium">
+        <a href="/admin/audit" class="mt-4 inline-flex items-center gap-1.5 text-sm text-purple-700 dark:text-purple-400 hover:text-purple-400 transition-colors font-medium">
             {{template "icon-shield" dict "Size" 14}}
             {{index .T "settings.admin_audit_link"}}
         </a>
@@ -636,4 +1051,12 @@ document.addEventListener('alpine:init', () => {
     </div>
 
 </div>
+{{end}}
+
+{{define "mfa-recovery-count"}}
+{{if .Depleted}}
+<p class="text-xs text-red-700 dark:text-red-400 font-medium">{{index .T "settings.mfa_recovery_depleted"}}</p>
+{{else}}
+<p class="text-xs text-muted-foreground">{{replace (index .T "settings.mfa_recovery_remaining") "{n}" .Remaining}}</p>
+{{end}}
 {{end}}

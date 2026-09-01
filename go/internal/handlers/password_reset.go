@@ -42,7 +42,7 @@ func FlushForgotPassword() {
 // "user inconnu" via un timing oracle, même résiduel (~1-5ms d'UPDATE DB).
 func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	if !hookMailIsEnabled() {
-		clientError(w, ErrDisabled, "Feature disabled", http.StatusBadRequest)
+		clientErrorT(w, r, ErrDisabled, "error.feature_disabled", http.StatusBadRequest)
 		return
 	}
 
@@ -51,13 +51,13 @@ func ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	// Rate limiting
 	result := hookRateLimitCheck(clientIP, "forgotPassword")
 	if !result.Allowed {
-		clientError(w, ErrRateLimited, "Too many attempts", http.StatusTooManyRequests)
+		clientErrorT(w, r, ErrRateLimited, "error.rate_limited", http.StatusTooManyRequests)
 		return
 	}
 
 	email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
 	if email == "" {
-		clientError(w, ErrValidation, "Email required", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.email_required", http.StatusBadRequest)
 		return
 	}
 
@@ -156,7 +156,7 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	// Rate limiting
 	result := hookRateLimitCheck(clientIP, "resetPassword")
 	if !result.Allowed {
-		clientError(w, ErrRateLimited, "Too many attempts", http.StatusTooManyRequests)
+		clientErrorT(w, r, ErrRateLimited, "error.rate_limited", http.StatusTooManyRequests)
 		return
 	}
 
@@ -165,7 +165,7 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	confirmPassword := r.FormValue("confirmPassword")
 
 	if token == "" || password == "" {
-		clientError(w, ErrValidation, "Missing data", http.StatusBadRequest)
+		clientErrorT(w, r, ErrValidation, "error.missing_data", http.StatusBadRequest)
 		return
 	}
 
@@ -209,7 +209,7 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	// Hasher le nouveau mot de passe
 	hashedPassword, err := hookHashPassword(password)
 	if err != nil {
-		serverError(w, "hash password", err)
+		serverError(w, r, "hash password", err)
 		return
 	}
 
@@ -217,7 +217,7 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	// transaction. Évite la fenêtre où le token resterait valide en DB si
 	// l'effacement échouait après un update réussi.
 	if err := hookUpdatePasswordAndClearReset(user.ID, hashedPassword); err != nil {
-		serverError(w, "update password and clear reset token", err)
+		serverError(w, r, "update password and clear reset token", err)
 		return
 	}
 

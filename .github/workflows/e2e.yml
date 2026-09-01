@@ -3,16 +3,27 @@ name: E2E Tests
 on:
   push:
     branches: [develop]
+    # Les tags sont couverts pour que l'image :latest passe par le même
+    # garde-fou E2E que develop (audit S-13).
+    tags: ['v*.*.*']
     paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
   pull_request:
     branches: [main, develop]
     paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
 
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+permissions: {}
+
 jobs:
   e2e:
     name: Playwright E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 25 min : l'audit axe-core couvre désormais 2 thèmes (clair/sombre) et
+    # davantage de pages, sur 3 navigateurs (audit S-16).
+    timeout-minutes: 25
     permissions:
       contents: read
 

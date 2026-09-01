@@ -7,11 +7,11 @@ package handlers
 import (
 	"context"
 	"crypto/rand"
+	"image/png"
 	"io"
 	"time"
 
 	"github.com/go-webauthn/webauthn/protocol"
-	qrcode "github.com/skip2/go-qrcode"
 
 	"pilot-finance/internal/auth"
 	"pilot-finance/internal/crypto"
@@ -38,6 +38,11 @@ var (
 	hookGenerateTOTPSecret       = auth.GenerateTOTPSecret
 	hookEnableMFA                = db.EnableMFA
 	hookDisableMFA               = db.DisableMFA
+	hookGenerateRecoveryCodes    = auth.GenerateRecoveryCodes
+	hookReplaceRecoveryCodes     = db.ReplaceRecoveryCodes
+	hookConsumeRecoveryCode      = db.ConsumeRecoveryCode
+	hookCountRecoveryCodes       = db.CountUnusedRecoveryCodes
+	hookDeleteRecoveryCodes      = db.DeleteRecoveryCodes
 	hookDeleteUserAndData        = db.DeleteUserAndData
 	hookGetAllUsers              = db.GetAllUsers
 	hookGetUserByID              = db.GetUserByID
@@ -58,7 +63,7 @@ var (
 	hookCountAuditLog            = db.CountAuditLog
 	hookRender                   = func(w io.Writer, name string, data interface{}) error { return templates.Render(w, name, data) }
 	hookRenderPartial            = templates.RenderPartial
-	hookQREncode                 = qrcode.Encode
+	hookQREncode                 = qrEncodePNG
 	hookReorderAccounts          = db.ReorderAccounts
 	hookDeleteAuthenticator      = db.DeleteAuthenticator
 	hookRenameAuthenticator      = db.RenameAuthenticator
@@ -119,4 +124,7 @@ var (
 
 	// --- stdlib ---
 	hookRandRead = rand.Read
+	// Injectable pour couvrir la branche d'erreur d'encodage PNG de
+	// qrEncodePNG, inatteignable avec un bytes.Buffer.
+	hookPNGEncode = png.Encode
 )

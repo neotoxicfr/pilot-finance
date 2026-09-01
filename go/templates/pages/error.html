@@ -5,13 +5,13 @@
         <!-- Code erreur -->
         <div class="relative">
             <div class="text-[8rem] md:text-[10rem] font-black leading-none select-none
-                        {{if eq .Code "404"}}text-blue-500/10
+                        {{if eq .Code "404"}}text-blue-600 dark:text-blue-400/10
                         {{else if eq .Code "500"}}text-red-500/10
                         {{else}}text-muted-foreground/10{{end}}">
                 {{.Code}}
             </div>
             <div class="absolute inset-0 flex items-center justify-center opacity-40
-                        {{if eq .Code "404"}}text-blue-500
+                        {{if eq .Code "404"}}text-blue-600 dark:text-blue-400
                         {{else if eq .Code "500"}}text-red-500
                         {{else}}text-muted-foreground{{end}}">
                 {{if eq .Code "404"}}
