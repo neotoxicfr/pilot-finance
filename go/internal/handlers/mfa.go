@@ -12,7 +12,9 @@ import (
 
 	"github.com/pquerna/otp"
 
+	"pilot-finance/internal/auth"
 	"pilot-finance/internal/db"
+	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
 )
 
@@ -162,6 +164,18 @@ func MFAEnable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Codes de récupération (audit S-22) : générés et stockés AVANT
+	// l'activation du TOTP. Dans cet ordre, un échec d'écriture laisse le
+	// compte exactement dans son état d'origine (2FA toujours inactive) ;
+	// l'ordre inverse pouvait activer le TOTP sans le moindre code de secours,
+	// c'est-à-dire recréer précisément la situation que S-22 corrige.
+	codes, err := generateAndStoreRecoveryCodes(user.ID)
+	if err != nil {
+		slog.Error("generate recovery codes", "err", err, "userID", user.ID)
+		jsonErrorT(w, r, ErrInternal, "error.mfa_save_failed", http.StatusInternalServerError)
+		return
+	}
+
 	if err := hookEnableMFA(user.ID, encryptedSecret); err != nil {
 		jsonErrorT(w, r, ErrInternal, "error.mfa_save_failed", http.StatusInternalServerError)
 		return
@@ -173,7 +187,52 @@ func MFAEnable(w http.ResponseWriter, r *http.Request) {
 
 	hookLogAudit(user.ID, db.AuditMFAEnable, getClientIP(r), r.UserAgent())
 
-	jsonSuccess(w, map[string]bool{"success": true})
+	// Unique occasion où les codes transitent en clair : la base n'en garde
+	// que le hash, ils ne pourront plus jamais être réaffichés.
+	jsonSuccess(w, map[string]interface{}{
+		"success":       true,
+		"recoveryCodes": codes,
+	})
+}
+
+// generateAndStoreRecoveryCodes tire un lot de codes de récupération, n'en
+// persiste que les hashes et retourne les codes en clair à l'appelant.
+//
+// CHOIX DU HACHAGE — SHA-256 (crypto.HashToken), pas bcrypt, contrairement aux
+// mots de passe. Deux raisons, toutes deux propres à ces codes :
+//
+//  1. Entropie. Un code fait 60 bits tirés de crypto/rand, là où un mot de
+//     passe humain en vaut couramment moins de 30 et se retrouve dans les
+//     dictionnaires. Le facteur de travail de bcrypt sert exactement à rendre
+//     une attaque par dictionnaire coûteuse ; sur un secret uniformément
+//     aléatoire de 60 bits il n'y a pas de dictionnaire, et l'énumération est
+//     hors de portée même à des milliards de hashes par seconde. Le bénéfice de
+//     bcrypt est donc quasi nul ici.
+//
+//  2. Coût. bcrypt est salé, donc non consultable : vérifier une saisie
+//     imposerait de comparer contre LES DIX hashes de l'utilisateur, soit
+//     ~10 × 250 ms de CPU serveur par tentative — une amplification de déni de
+//     service offerte à un endpoint non authentifié. Le hash déterministe
+//     SHA-256 se résout en un seul UPDATE indexé.
+//
+// Le garde-fou anti-force-brute ne repose de toute façon pas sur le coût du
+// hachage mais sur le rate limiting « twoFactor » partagé avec le TOTP
+// (5 tentatives / 5 min, blocage 15 min), appliqué dans HandleLogin.
+func generateAndStoreRecoveryCodes(userID int64) ([]string, error) {
+	codes, err := hookGenerateRecoveryCodes()
+	if err != nil {
+		return nil, err
+	}
+
+	hashes := make([]string, len(codes))
+	for i, c := range codes {
+		hashes[i] = hookHashToken(auth.NormalizeRecoveryCode(c))
+	}
+
+	if err := hookReplaceRecoveryCodes(userID, hashes); err != nil {
+		return nil, err
+	}
+	return codes, nil
 }
 
 // MFADisable desactive le 2FA after verifying the user's current password
@@ -213,8 +272,106 @@ func MFADisable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Les codes de récupération ne servent QU'À contourner le second facteur :
+	// les laisser vivre après une désactivation du 2FA reviendrait à garder des
+	// identifiants de secours valides pour un compte qui n'a plus de 2FA, et à
+	// les voir ressusciter à la réactivation. On les supprime dans la foulée.
+	// L'échec n'annule pas la désactivation (déjà persistée) mais doit être
+	// tracé : il laisse des codes orphelins.
+	if err := hookDeleteRecoveryCodes(user.ID); err != nil {
+		slog.Error("suppression des codes de récupération après désactivation MFA",
+			"err", err, "userID", user.ID)
+	}
+
 	hookLogAudit(user.ID, db.AuditMFADisable, getClientIP(r), r.UserAgent())
 
 	// Rediriger vers settings pour recharger la page
 	http.Redirect(w, r, "/settings", http.StatusSeeOther)
+}
+
+// MFARecoveryCount rend le compteur de codes de récupération inutilisés sous
+// forme de fragment HTMX.
+//
+// Le compte n'est pas injecté par SettingsPage : le fragment est chargé par la
+// page via hx-trigger="load", ce qui évite d'alourdir le rendu initial et
+// permet de rafraîchir le compteur après une régénération sans recharger.
+func MFARecoveryCount(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUser(r)
+	if user == nil {
+		clientErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
+		return
+	}
+
+	remaining, err := hookCountRecoveryCodes(user.ID)
+	if err != nil {
+		serverError(w, r, "count recovery codes", err)
+		return
+	}
+
+	lang, currency := userLocale(user)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	hookRenderPartial(w, "settings.html", "mfa-recovery-count", map[string]interface{}{ //nolint:errcheck
+		"T":         i18n.Map(lang),
+		"Currency":  currency,
+		"Remaining": remaining,
+		"Depleted":  remaining == 0,
+	})
+}
+
+// MFARecoveryRegenerate remplace le lot de codes de récupération après
+// re-vérification du mot de passe, et renvoie le nouveau lot en clair.
+//
+// La ré-authentification est exigée pour la même raison que sur MFADisable :
+// une session volée ne doit pas suffire à se fabriquer un jeu de codes qui
+// contournera durablement le TOTP.
+func MFARecoveryRegenerate(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUser(r)
+	if user == nil {
+		jsonErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
+		return
+	}
+
+	var req struct {
+		CurrentPassword string `json:"currentPassword"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonErrorT(w, r, ErrValidation, "error.invalid_data", http.StatusBadRequest)
+		return
+	}
+	if req.CurrentPassword == "" {
+		jsonErrorT(w, r, ErrValidation, "error.password_required", http.StatusBadRequest)
+		return
+	}
+
+	dbUser, err := hookGetUserByID(user.ID)
+	if err != nil || dbUser == nil {
+		jsonErrorT(w, r, ErrNotFound, "error.user_not_found", http.StatusNotFound)
+		return
+	}
+
+	if !hookVerifyPassword(req.CurrentPassword, dbUser.Password) {
+		jsonErrorT(w, r, ErrAuthInvalid, "error.password_incorrect", http.StatusUnauthorized)
+		return
+	}
+
+	// Sans 2FA active, un lot de codes n'aurait aucune contrepartie à
+	// contourner : refuser évite de laisser traîner des secrets inutiles.
+	if !dbUser.MFAEnabled {
+		jsonErrorT(w, r, ErrConflict, "error.mfa_not_enabled", http.StatusConflict)
+		return
+	}
+
+	codes, err := generateAndStoreRecoveryCodes(user.ID)
+	if err != nil {
+		slog.Error("regenerate recovery codes", "err", err, "userID", user.ID)
+		jsonErrorT(w, r, ErrInternal, "error.mfa_save_failed", http.StatusInternalServerError)
+		return
+	}
+
+	hookLogAudit(user.ID, db.AuditMFARecoveryRegen, getClientIP(r), r.UserAgent())
+
+	jsonSuccess(w, map[string]interface{}{
+		"success":       true,
+		"recoveryCodes": codes,
+	})
 }

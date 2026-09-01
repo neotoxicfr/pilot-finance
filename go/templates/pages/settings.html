@@ -56,6 +56,13 @@ function mfaData() {
         mfaError: '',
         mfaLoading: false,
         mfaDisableForm: false,
+        // Codes de récupération (audit S-22). Ils ne transitent qu'une seule
+        // fois, dans la réponse d'activation : le serveur n'en garde que des
+        // condensats. Tant qu'ils sont à l'écran, on NE recharge pas la page.
+        recoveryCodes: null,
+        recoverySaved: false,
+        recoveryRegenForm: false,
+        recoveryPassword: '',
         async setupMfa() {
             this.mfaLoading = true;
             this.mfaError = '';
@@ -85,10 +92,88 @@ function mfaData() {
                     this.mfaError = d.error || '{{index .T "common.network_error"}}';
                     return;
                 }
+                // Ne JAMAIS recharger tant que les codes sont affichés : ils ne
+                // sont transmis qu'ici et ne pourront plus être récupérés.
+                if (d.recoveryCodes && d.recoveryCodes.length) {
+                    this.recoveryCodes = d.recoveryCodes;
+                    this.mfaSetup = null;
+                    return;
+                }
                 location.reload();
             } catch (e) {
                 this.mfaError = '{{index .T "common.network_error"}}';
             }
+        },
+        async copyRecovery() {
+            const text = (this.recoveryCodes || []).join(String.fromCharCode(10));
+            try {
+                await navigator.clipboard.writeText(text);
+                window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: '{{index .T "settings.mfa_recovery_copied"}}' } }));
+            } catch (e) {
+                // Presse-papiers refusé (contexte non sécurisé, permission) : on
+                // le dit au lieu d'échouer en silence, les codes restent à l'écran.
+                window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: '{{index .T "settings.mfa_recovery_copy_failed"}}', isError: true } }));
+            }
+        },
+        finishRecovery() {
+            location.reload();
+        },
+        openRecoveryRegen() {
+            this.recoveryRegenForm = true;
+            this.mfaError = '';
+            this.$nextTick(() => document.querySelector('#mfa-regen-form input[name="current_password"]')?.focus());
+        },
+        closeRecoveryRegen() {
+            this.recoveryRegenForm = false;
+            this.recoveryPassword = '';
+            this.mfaError = '';
+        },
+        async regenerateRecovery() {
+            this.mfaError = '';
+            try {
+                // Le handler décode du JSON avec la clé currentPassword
+                // (MFARecoveryRegenerate) — pas un formulaire URL-encodé.
+                const r = await fetch('/settings/mfa/recovery/regenerate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ currentPassword: this.recoveryPassword })
+                });
+                const d = await readJson(r);
+                if (!r.ok || d.error) {
+                    this.mfaError = d.error || '{{index .T "common.network_error"}}';
+                    return;
+                }
+                this.recoveryPassword = '';
+                this.recoveryRegenForm = false;
+                this.recoveryCodes = d.recoveryCodes || null;
+                this.recoverySaved = false;
+                // Le compteur est un fragment HTMX charge une seule fois : sans ce
+                // rappel il continue d'afficher l'ancien reste alors que le lot
+                // vient d'etre remplace. `htmx.trigger(el, 'load')` ne suffit PAS
+                // — le declencheur « load » de HTMX correspond a l'insertion du
+                // noeud dans le DOM, un evenement synthetique ne le rejoue pas ;
+                // il faut redemander le fragment explicitement.
+                if (window.htmx) {
+                    window.htmx.ajax('GET', '/settings/mfa/recovery/count', '#mfa-recovery-count');
+                }
+            } catch (e) {
+                this.mfaError = '{{index .T "common.network_error"}}';
+            }
+        },
+        // Le build Alpine CSP ne parse PAS les expressions multi-instructions
+        // (« a = 1; b = 2 » leve « CSP Parser Error ») et ignore alors
+        // l'attribut en entier — le bouton « Annuler » du QR ne faisait donc
+        // strictement rien, et le message de la tentative precedente restait
+        // affiche pendant la suivante.
+        startPwdSubmit() {
+            this.pwdLoading = true;
+            this.pwdError = '';
+            this.pwdSuccess = false;
+        },
+        cancelMfaSetup() {
+            this.mfaSetup = null;
+            this.mfaCode = '';
+            this.mfaError = '';
         },
         // FIX (S-19): mfaDisableForm lives in a <template x-if>, so its `autofocus`
         // attribute never fires (the node is inserted after parsing) and the focus
@@ -356,7 +441,7 @@ document.addEventListener('alpine:init', () => {
 
                 <form hx-post="/settings/password"
                       hx-swap="none"
-                      @htmx:before-request="pwdLoading = true; pwdError = ''; pwdSuccess = false"
+                      @htmx:before-request="startPwdSubmit()"
                       @htmx:after-request="pwdLoading = false"
                       @htmx:response-error="pwdError = $event.detail.xhr.responseText"
                       @htmx:after-settle="afterPwdSettle($event)"
@@ -404,6 +489,37 @@ document.addEventListener('alpine:init', () => {
                     {{index .T "settings.mfa_title"}}
                 </h2>
 
+                <!-- Affichage UNIQUE des codes de recuperation (audit S-22).
+                     Le serveur ne stocke que des condensats : ces valeurs ne
+                     seront plus jamais disponibles. Le composant ne recharge
+                     donc pas la page tant que ce panneau est ouvert. -->
+                <template x-if="recoveryCodes">
+                    <div class="mb-6 border border-amber-500/40 bg-amber-500/10 rounded-xl p-4 space-y-3" role="alert">
+                        <h3 class="font-bold text-sm text-foreground">{{index .T "settings.mfa_recovery_heading"}}</h3>
+                        <p class="text-xs text-foreground">{{index .T "settings.mfa_recovery_intro"}}</p>
+                        <ul class="grid grid-cols-2 gap-2 font-mono text-sm text-foreground">
+                            <template x-for="code in recoveryCodes">
+                                <li class="bg-background border border-border rounded-lg px-2 py-1 text-center tabular-nums" x-text="code"></li>
+                            </template>
+                        </ul>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" @click="copyRecovery()"
+                                    class="text-xs px-3 py-2 rounded-xl border border-border bg-background hover:bg-accent font-bold text-foreground">
+                                {{index .T "settings.mfa_recovery_copy"}}
+                            </button>
+                        </div>
+                        <label class="flex items-center gap-2 text-xs font-medium text-foreground cursor-pointer">
+                            <input type="checkbox" x-model="recoverySaved" class="w-4 h-4 rounded border-border accent-emerald-500">
+                            {{index .T "settings.mfa_recovery_saved_confirm"}}
+                        </label>
+                        <button type="button" @click="finishRecovery()" :disabled="!recoverySaved"
+                                :class="recoverySaved ? '' : 'opacity-50 cursor-not-allowed'"
+                                class="w-full btn-primary text-white font-bold py-2.5 rounded-xl text-sm">
+                            {{index .T "settings.mfa_recovery_done"}}
+                        </button>
+                    </div>
+                </template>
+
                 {{if .MFAEnabled}}
                 <div class="space-y-4">
                     <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 flex items-center justify-between">
@@ -440,9 +556,44 @@ document.addEventListener('alpine:init', () => {
                             </div>
                         </form>
                     </template>
+
+                    <!-- Codes de recuperation : compteur charge en HTMX et
+                         regeneration protegee par mot de passe (audit S-22). -->
+                    <div class="border-t border-border pt-4 space-y-3">
+                        <h3 class="text-sm font-bold text-foreground">{{index .T "settings.mfa_recovery_title"}}</h3>
+                        <p class="text-xs text-muted-foreground">{{index .T "settings.mfa_recovery_description"}}</p>
+                        <div id="mfa-recovery-count" hx-get="/settings/mfa/recovery/count" hx-trigger="load" hx-swap="innerHTML"></div>
+                        <button type="button" @click="recoveryRegenForm ? closeRecoveryRegen() : openRecoveryRegen()"
+                                class="text-xs px-3 py-2 rounded-xl border border-border bg-background hover:bg-accent font-bold text-foreground">
+                            {{index .T "settings.mfa_recovery_regen_btn"}}
+                        </button>
+                        <template x-if="recoveryRegenForm">
+                            <div id="mfa-regen-form" class="space-y-3 bg-accent/50 border border-border rounded-xl p-3">
+                                <p class="text-xs text-red-700 dark:text-red-400 font-medium">{{index .T "settings.mfa_recovery_regen_warning"}}</p>
+                                <label for="mfa-regen-password" class="sr-only">{{index .T "settings.mfa_recovery_regen_password"}}</label>
+                                <input id="mfa-regen-password" type="password" name="current_password" x-model="recoveryPassword"
+                                       placeholder="{{index .T "settings.mfa_recovery_regen_password"}}" autocomplete="current-password"
+                                       class="bg-background border border-border rounded-xl p-2.5 text-sm w-full outline-hidden focus:border-blue-500 text-foreground">
+                                <template x-if="mfaError">
+                                    <div role="alert" class="text-red-700 dark:text-red-300 text-xs text-center bg-red-500/10 p-2 rounded-lg border border-red-500/20" x-text="mfaError"></div>
+                                </template>
+                                <button type="button" @click="regenerateRecovery()"
+                                        class="w-full btn-danger text-white font-bold py-2.5 rounded-xl text-sm">
+                                    {{index .T "settings.mfa_recovery_regen_confirm"}}
+                                </button>
+                            </div>
+                        </template>
+                    </div>
                 </div>
                 {{else}}
-                <template x-if="!mfaSetup">
+                <!-- La condition MFAEnabled ci-dessus est evaluee au rendu
+                     serveur : apres une activation reussie la page n'a PAS ete
+                     rechargee (les codes
+                     de recuperation ne sont affichables qu'une fois), donc cette
+                     branche « 2FA inactive » est toujours dans le DOM. Sans le
+                     garde `!recoveryCodes`, l'utilisateur qui vient d'activer le
+                     2FA voit le bouton « Configurer A2F » juste sous ses codes. -->
+                <template x-if="!mfaSetup && !recoveryCodes">
                     <div class="space-y-4">
                         <p class="text-sm text-muted-foreground">{{index .T "settings.mfa_description"}}</p>
                         <button @click="setupMfa()"
@@ -469,7 +620,7 @@ document.addEventListener('alpine:init', () => {
                             <div role="alert" class="text-red-700 dark:text-red-300 text-xs text-center bg-red-500/10 p-3 rounded-xl border border-red-500/20" x-text="mfaError"></div>
                         </template>
                         <div class="flex gap-2">
-                            <button @click="mfaSetup = null; mfaCode = ''; mfaError = ''"
+                            <button @click="cancelMfaSetup()"
                                     class="flex-1 bg-accent hover:bg-border text-muted-foreground font-medium py-3 rounded-xl transition-colors text-sm">
                                 {{index .T "settings.mfa_cancel"}}
                             </button>
@@ -707,4 +858,12 @@ document.addEventListener('alpine:init', () => {
     </div>
 
 </div>
+{{end}}
+
+{{define "mfa-recovery-count"}}
+{{if .Depleted}}
+<p class="text-xs text-red-700 dark:text-red-400 font-medium">{{index .T "settings.mfa_recovery_depleted"}}</p>
+{{else}}
+<p class="text-xs text-muted-foreground">{{replace (index .T "settings.mfa_recovery_remaining") "{n}" .Remaining}}</p>
+{{end}}
 {{end}}

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"pilot-finance/internal/auth"
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
@@ -90,9 +91,21 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Un code de récupération est accepté À LA PLACE du code TOTP
+		// (audit S-22). Il est tenté seulement après l'échec du TOTP, et
+		// SURTOUT après le hookRateLimitCheck(clientIP, "twoFactor") ci-dessus,
+		// qui garde donc les deux formes de vérification sous le même compteur
+		// (5 tentatives / 5 min, blocage 15 min). Aucun chemin ne permet
+		// d'essayer un code de récupération sans avoir consommé un jeton de ce
+		// rate limiter : sans cela, l'ajout des codes ouvrirait un
+		// contournement du garde-fou anti-force-brute du TOTP.
+		usedRecoveryCode := false
 		if !hookValidateTOTP(secret, twoFactorCode) {
-			clientErrorT(w, r, ErrAuthInvalid, "error.totp_invalid", http.StatusUnauthorized)
-			return
+			if !consumeRecoveryCode(user.ID, twoFactorCode) {
+				clientErrorT(w, r, ErrAuthInvalid, "error.totp_invalid", http.StatusUnauthorized)
+				return
+			}
+			usedRecoveryCode = true
 		}
 
 		clearCookie(w, "pending_2fa")
@@ -110,6 +123,9 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		hookRateLimitReset(clientIP, "login")
 		hookRateLimitReset(strconv.FormatInt(user.ID, 10), "loginAccount")
 
+		if usedRecoveryCode {
+			hookLogAudit(user.ID, db.AuditMFARecoveryUsed, clientIP, r.UserAgent())
+		}
 		hookLogAudit(user.ID, db.AuditLoginSuccess, clientIP, r.UserAgent())
 
 		// Rediriger vers le dashboard
@@ -217,6 +233,27 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 
 	// Rediriger vers le dashboard
 	htmxRedirect(w, r, "/")
+}
+
+// consumeRecoveryCode tente de consommer la saisie comme code de récupération
+// 2FA à usage unique (audit S-22).
+//
+// NormalizeRecoveryCode fait office de filtre : une saisie qui n'a pas la forme
+// d'un code (un TOTP à 6 chiffres, typiquement) est écartée sans requête. Un
+// code consommé est marqué utilisé côté base et ne peut plus resservir ; une
+// erreur SQL est journalisée et traitée comme un échec de vérification.
+func consumeRecoveryCode(userID int64, input string) bool {
+	normalized := auth.NormalizeRecoveryCode(input)
+	if normalized == "" {
+		return false
+	}
+
+	ok, err := hookConsumeRecoveryCode(userID, hookHashToken(normalized))
+	if err != nil {
+		slog.Error("consume recovery code", "err", err, "userID", userID)
+		return false
+	}
+	return ok
 }
 
 // registrationOpen indique si l'inscription est autorisée, et constitue l'unique

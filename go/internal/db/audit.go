@@ -20,6 +20,11 @@ const (
 	AuditPasswordChange = "PASSWORD_CHANGE"
 	AuditMFAEnable     = "MFA_ENABLE"
 	AuditMFADisable    = "MFA_DISABLE"
+	// Codes de récupération 2FA (audit S-22). MFA_RECOVERY_USED est
+	// délibérément journalisé : la consommation d'un code contourne le
+	// téléphone de l'utilisateur, elle doit rester visible dans l'audit.
+	AuditMFARecoveryRegen = "MFA_RECOVERY_REGENERATE"
+	AuditMFARecoveryUsed  = "MFA_RECOVERY_USED"
 	AuditPasskeyAdd    = "PASSKEY_ADD"
 	AuditPasskeyRemove = "PASSKEY_REMOVE"
 	AuditPasskeyRename = "PASSKEY_RENAME"

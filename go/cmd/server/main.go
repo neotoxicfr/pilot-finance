@@ -238,6 +238,8 @@ func main() {
 		r.Get("/settings/mfa/setup", handlers.MFASetup)
 		r.Post("/settings/mfa/enable", handlers.MFAEnable)
 		r.Post("/settings/mfa/disable", handlers.MFADisable)
+		r.Get("/settings/mfa/recovery/count", handlers.MFARecoveryCount)
+		r.Post("/settings/mfa/recovery/regenerate", handlers.MFARecoveryRegenerate)
 
 		// Routes Passkey (protégées pour l'enregistrement)
 		r.Post("/api/passkey/register/start", handlers.PasskeyRegistrationStart)
