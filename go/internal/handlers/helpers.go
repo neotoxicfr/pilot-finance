@@ -3,6 +3,7 @@ package handlers
 import (
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"net/url"
 	"sync"
@@ -124,7 +125,12 @@ func decryptAccountNames(accounts []db.Account) {
 	}
 }
 
-// summaryTotals contient les totaux mensuels/annuels pour le summary card
+// summaryTotals contient les totaux mensuels/annuels pour le summary card.
+//
+// UNITÉ : unité de devise (euros), float64 — PAS des centimes. Ces totaux sont
+// des agrégats calculés que le template multiplie (×12) et additionne avant de
+// les rendre ; ils sont donc formatés par formatUnits/formatUnitsCompact, et
+// jamais par formatCents (audit S-40).
 type summaryTotals struct {
 	MonthlyIncome   float64
 	MonthlyExpenses float64
@@ -166,15 +172,37 @@ func buildAccountMap(accounts []db.Account) map[int64]string {
 	return m
 }
 
+// unitsToCents convertit un montant en unité de devise (float64) vers le
+// centime (int64), unité canonique de l'application.
+//
+// Arrondi au centime le plus proche : les intérêts périodiques sont des
+// quotients (taux annuel ÷ 12) qui ne tombent presque jamais juste, et une
+// troncature perdrait systématiquement un centime vers le bas.
+func unitsToCents(v float64) int64 {
+	return int64(math.Round(v * 100))
+}
+
 // buildRecurringData construit la liste des opérations récurrentes pour les templates.
 // Les noms dans accountMap doivent être déjà déchiffrés.
+//
+// UNITÉ (audit S-40) : la liste MÉLANGE deux sources — les versements
+// d'intérêts calculés (projection.YieldPayout.Amount, float64 en unité de
+// devise) et les opérations stockées (db.RecurringOperation.Amount, int64
+// centimes) — et le template les rend avec le MÊME appel, sur la même clé
+// « Amount ». Tant que le formateur devinait l'unité d'après le type dynamique,
+// les deux branches s'affichaient chacune « correctement » par accident, et
+// toute inversion serait passée inaperçue.
+//
+// On normalise donc en centimes À LA SOURCE : la clé « Amount » a une unité et
+// un type uniques pour toute la liste (int64 centimes), ce qui vaut aussi pour
+// le JSON envoyé à openRecurringForm, qui divise déjà par 100.
 func buildRecurringData(payouts []projection.YieldPayout, recs []db.RecurringOperation, accountMap map[int64]string, interestPrefix string) []map[string]interface{} {
 	result := make([]map[string]interface{}, 0, len(recs)+len(payouts))
 	for _, payout := range payouts {
 		result = append(result, map[string]interface{}{
 			"ID":              int64(0),
 			"Description":     interestPrefix + " " + payout.SourceAccountName,
-			"Amount":          payout.Amount,
+			"Amount":          unitsToCents(payout.Amount),
 			"DayOfMonth":      1,
 			"AccountID":       payout.SourceAccountID,
 			"AccountName":     payout.SourceAccountName,

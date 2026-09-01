@@ -20,8 +20,10 @@
 // partagé avec dashboard.html.
 const fmt = v => window.PILOT_FMT.currency(v);
 
-// compactMoney — miroir STRICT de templates.formatMoneyCompact (Go), figé par
-// TestFormatMoneyCompact_JSMirror (internal/templates/templates_test.go).
+// compactMoney — miroir STRICT de templates.formatUnitsCompact (Go), figé par
+// TestFormatUnitsCompact_JSMirror (internal/templates/templates_test.go).
+// Comme son homologue Go, il reçoit un montant DÉJÀ dans l'unité de la devise
+// (les séries de projection sont en euros), jamais des centimes (audit S-40).
 // Audit S-26 : l'implémentation de base.html avait perdu la branche « négatif »
 // de son homologue Go — compact(-12400) rendait « -12400 EUR » au lieu de
 // « -12k EUR », donc l'axe Y basculait en nombres bruts non groupés côté

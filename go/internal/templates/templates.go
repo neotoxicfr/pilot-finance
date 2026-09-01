@@ -22,9 +22,27 @@ var (
 )
 
 // FuncMap contient les fonctions personnalisees pour les templates
+//
+// UNITÉ MONÉTAIRE (audit S-40) — deux formateurs TYPÉS, jamais un seul générique :
+//
+//	formatCents        montant stocké, int64 centimes (db.Account.Balance,
+//	                   db.RecurringOperation.Amount, buildRecurringData)
+//	formatUnits        montant calculé, float64 en unité de devise (les totaux
+//	                   agrégés du résumé mensuel, qui alimentent aussi mult/add)
+//	formatUnitsCompact idem en notation compacte (k, M)
+//
+// L'ancien formatMoney(interface{}) déduisait l'unité du TYPE DYNAMIQUE
+// (int64 ⇒ centimes, float64 ⇒ unités) : brancher la mauvaise source sur la
+// même clé de template affichait un montant faux ×100 sans le moindre signal.
+// Les signatures typées déplacent la décision côté appelant, et une erreur de
+// câblage devient une erreur d'exécution du template au lieu d'un chiffre faux.
+// Les noms disparus (formatMoney, formatMoneyCompact) font en outre échouer le
+// PARSING au démarrage — « function not defined » — si un template les utilise
+// encore.
 var FuncMap = template.FuncMap{
-	"formatMoney":        formatMoney,
-	"formatMoneyCompact": formatMoneyCompact,
+	"formatCents":        formatCents,
+	"formatUnits":        formatUnits,
+	"formatUnitsCompact": formatUnitsCompact,
 	"formatBalance":      formatBalance,
 	"dict":               dict,
 	"or":                 orFunc,
@@ -137,20 +155,43 @@ func RenderPartial(w io.Writer, pageName, blockName string, data interface{}) er
 	return tmpl.ExecuteTemplate(w, blockName, data)
 }
 
-// toFloat64 converts numeric types for template use.
-// int64 is treated as centimes (divided by 100).
-// float64 and int are used as-is.
-func toFloat64(v interface{}) float64 {
+// toNumber convertit une valeur de template en float64 SANS interpréter
+// d'unité (audit S-40).
+//
+// L'ancienne toFloat64 divisait les int64 par 100 « parce qu'un int64 est un
+// montant en centimes » : la conversion arithmétique portait donc une
+// sémantique monétaire, alors qu'elle sert aussi à comparer un numéro de page
+// ou un compteur de lignes. Ici 12345 vaut 12345, quel que soit son type ; la
+// conversion centimes → unités appartient au seul formatCents.
+//
+// Un type non numérique retourne une erreur au lieu de 0 : les fonctions de
+// template propagent l'erreur, l'exécution s'arrête et le handler renvoie une
+// 500 tracée. Un `return 0` silencieux transformait un mauvais câblage en
+// « 0 EUR » parfaitement crédible à l'écran.
+func toNumber(v interface{}) (float64, error) {
 	switch n := v.(type) {
 	case int64:
-		return float64(n) / 100.0
+		return float64(n), nil
 	case float64:
-		return n
+		return n, nil
 	case int:
-		return float64(n)
+		return float64(n), nil
 	default:
-		return 0
+		return 0, fmt.Errorf("valeur numérique attendue, reçu %T (%v)", v, v)
 	}
+}
+
+// twoNumbers convertit les deux opérandes d'une fonction binaire.
+func twoNumbers(a, b interface{}) (float64, float64, error) {
+	x, err := toNumber(a)
+	if err != nil {
+		return 0, 0, err
+	}
+	y, err := toNumber(b)
+	if err != nil {
+		return 0, 0, err
+	}
+	return x, y, nil
 }
 
 // moneySeparators retourne les séparateurs de milliers et de décimales de la
@@ -177,9 +218,23 @@ func currencyDecimals(currency string) int {
 	return 2
 }
 
-// formatMoney formate un montant avec la devise et la locale données.
-func formatMoney(amount interface{}, currency string, locale string) string {
-	f := toFloat64(amount)
+// formatCents formate un montant STOCKÉ, exprimé en centimes (int64), unité
+// canonique de l'application (voir CLAUDE.md « Monetary amounts: int64
+// centimes »). C'est le formateur des montants qui viennent de la base :
+// db.Account.Balance, db.RecurringOperation.Amount, et la liste unifiée des
+// opérations récurrentes construite par buildRecurringData.
+//
+// Le paramètre est typé int64 : passer un float64 est refusé par l'exécution du
+// template, ce qui rend impossible la confusion ×100 de l'audit S-40.
+func formatCents(cents int64, currency string, locale string) string {
+	return formatUnits(float64(cents)/100.0, currency, locale)
+}
+
+// formatUnits formate un montant CALCULÉ, déjà exprimé dans l'unité de la
+// devise (float64) : les totaux agrégés du résumé mensuel, qui alimentent aussi
+// mult/add côté template et ne peuvent donc pas rester entiers.
+func formatUnits(amount float64, currency string, locale string) string {
+	f := amount
 	if currency == "" {
 		currency = "EUR"
 	}
@@ -196,9 +251,11 @@ func formatMoney(amount interface{}, currency string, locale string) string {
 	return fmt.Sprintf("%s %s", formatDecimal(f, thousands, decimal), currency)
 }
 
-// formatMoneyCompact formate un montant en notation compacte (k, M) avec devise.
+// formatUnitsCompact formate un montant en notation compacte (k, M) avec devise.
+// Comme formatUnits, l'argument est déjà dans l'unité de la devise (float64) :
+// tous ses appels viennent d'un calcul de template (mult/add sur les totaux).
 //
-// Séparateur décimal : la virgule, comme formatFloat/formatMoney. Les deux
+// Séparateur décimal : la virgule, comme formatFloat/formatUnits. Les deux
 // formateurs Go divergeaient (« +2 800,50 EUR » au-dessus de « +2.8k EUR/an »
 // sur la même carte, audit S-26) ; le point se lisait en outre comme un
 // séparateur de milliers en français. La notation reste figée en français,
@@ -207,13 +264,13 @@ func formatMoney(amount interface{}, currency string, locale string) string {
 // Ce formateur a un miroir JS strict dans go/static/js/charts.js
 // (compactMoney) : toute modification de tiers, d'arrondi ou de séparateur
 // doit être répercutée dans les deux.
-func formatMoneyCompact(amount interface{}, currency string, locale string) string {
-	f := toFloat64(amount)
+func formatUnitsCompact(amount float64, currency string, locale string) string {
+	f := amount
 	if currency == "" {
 		currency = "EUR"
 	}
 	if f < 0 {
-		return "-" + formatMoneyCompact(-f, currency, locale)
+		return "-" + formatUnitsCompact(-f, currency, locale)
 	}
 	_, decimal := moneySeparators(locale)
 	if f >= 1000000 {
@@ -272,9 +329,11 @@ func formatDecimal(f float64, thousands, decimal string) string {
 	return s
 }
 
-// formatBalance formate un solde pour l'input
-func formatBalance(amount interface{}) string {
-	f := toFloat64(amount)
+// formatBalance formate un solde stocké (int64 centimes) pour l'input éditable
+// de la ligne de compte, sans devise ni séparateur de milliers — la valeur est
+// re-postée telle quelle. Typé int64 pour la même raison que formatCents.
+func formatBalance(cents int64) string {
+	f := float64(cents) / 100.0
 	if f == float64(int64(f)) {
 		return fmt.Sprintf("%.0f", f)
 	}
@@ -353,22 +412,68 @@ func toJSON(v interface{}) template.JS {
 	return template.JS(strings.TrimSuffix(buf.String(), "\n"))
 }
 
-// Fonctions arithmetiques
-func mult(a, b interface{}) float64 { return toFloat64(a) * toFloat64(b) }
-func add(a, b interface{}) float64  { return toFloat64(a) + toFloat64(b) }
-func sub(a, b interface{}) float64  { return toFloat64(a) - toFloat64(b) }
+// Fonctions arithmetiques.
+//
+// Elles opèrent sur des NOMBRES, pas sur des montants : elles ne convertissent
+// aucune unité et rendent le résultat dans l'unité des opérandes (audit S-40).
+// Mélanger des centimes et des unités de devise dans un même calcul reste donc
+// une erreur d'appelant — mais elle ne peut plus se produire silencieusement au
+// moment du FORMATAGE, qui exige désormais un type par unité.
+//
+// La seconde valeur de retour interrompt l'exécution du template sur un
+// opérande non numérique.
+func mult(a, b interface{}) (float64, error) {
+	x, y, err := twoNumbers(a, b)
+	if err != nil {
+		return 0, err
+	}
+	return x * y, nil
+}
+
+func add(a, b interface{}) (float64, error) {
+	x, y, err := twoNumbers(a, b)
+	if err != nil {
+		return 0, err
+	}
+	return x + y, nil
+}
+
+func sub(a, b interface{}) (float64, error) {
+	x, y, err := twoNumbers(a, b)
+	if err != nil {
+		return 0, err
+	}
+	return x - y, nil
+}
 
 // Fonctions de comparaison
-func ge(a, b interface{}) bool     { return toFloat64(a) >= toFloat64(b) }
-func gt(a, b interface{}) bool     { return toFloat64(a) > toFloat64(b) }
+func ge(a, b interface{}) (bool, error) {
+	x, y, err := twoNumbers(a, b)
+	if err != nil {
+		return false, err
+	}
+	return x >= y, nil
+}
+
+func gt(a, b interface{}) (bool, error) {
+	x, y, err := twoNumbers(a, b)
+	if err != nil {
+		return false, err
+	}
+	return x > y, nil
+}
+
 func eqFunc(a, b interface{}) bool { return a == b }
 func neFunc(a, b interface{}) bool { return a != b }
 
 // Fonction valeur absolue
-func absFunc(a interface{}) float64 {
-	f := toFloat64(a)
-	if f < 0 {
-		return -f
+func absFunc(a interface{}) (float64, error) {
+	f, err := toNumber(a)
+	if err != nil {
+		return 0, err
 	}
-	return f
+	if f < 0 {
+		return -f, nil
+	}
+	return f, nil
 }

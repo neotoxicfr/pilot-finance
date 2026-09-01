@@ -699,7 +699,7 @@ document.addEventListener('alpine:init', () => {
             </div>
         </div>
         <div class="text-right shrink-0">
-            <div class="font-mono font-bold text-sm text-emerald-700 dark:text-emerald-400 tabular-nums">+{{formatMoney .Amount $.Currency $.Locale}}</div>
+            <div class="font-mono font-bold text-sm text-emerald-700 dark:text-emerald-400 tabular-nums">+{{formatCents .Amount $.Currency $.Locale}}</div>
             <div class="text-xs text-muted-foreground italic mt-0.5">
                 {{if eq .PayoutFrequency "YEARLY"}}{{index $.T "recurring.auto_badge_annual"}}{{else}}{{index $.T "recurring.auto_badge"}}{{end}}
             </div>
@@ -708,8 +708,8 @@ document.addEventListener('alpine:init', () => {
     </div>
     {{else}}
     <div class="group flex items-center gap-3 px-4 py-3 hover:bg-accent transition-colors" x-data="recurringRow" data-recurring-id="{{.ID}}">
-        <div class="w-1 self-stretch rounded-full shrink-0 {{if .ToAccountID}}bg-blue-500{{else if gt .Amount 0.0}}bg-emerald-500{{else}}bg-red-400{{end}}"></div>
-        <div class="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center text-xs font-mono font-bold {{if .ToAccountID}}bg-blue-500/10 text-blue-700 dark:text-blue-300{{else if gt .Amount 0.0}}bg-emerald-500/10 text-emerald-700 dark:text-emerald-300{{else}}bg-red-500/10 text-red-700 dark:text-red-300{{end}}">
+        <div class="w-1 self-stretch rounded-full shrink-0 {{if .ToAccountID}}bg-blue-500{{else if gt .Amount 0}}bg-emerald-500{{else}}bg-red-400{{end}}"></div>
+        <div class="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center text-xs font-mono font-bold {{if .ToAccountID}}bg-blue-500/10 text-blue-700 dark:text-blue-300{{else if gt .Amount 0}}bg-emerald-500/10 text-emerald-700 dark:text-emerald-300{{else}}bg-red-500/10 text-red-700 dark:text-red-300{{end}}">
             {{.DayOfMonth}}
         </div>
         <div class="flex-1 min-w-0">
@@ -724,8 +724,8 @@ document.addEventListener('alpine:init', () => {
                 {{end}}
             </div>
         </div>
-        <div class="font-mono font-bold text-sm tabular-nums shrink-0 {{if .ToAccountID}}text-blue-600 dark:text-blue-400{{else if gt .Amount 0.0}}text-emerald-700 dark:text-emerald-400{{else}}text-foreground{{end}}">
-            {{if not .ToAccountID}}{{if gt .Amount 0.0}}+{{end}}{{end}}{{formatMoney .Amount $.Currency $.Locale}}
+        <div class="font-mono font-bold text-sm tabular-nums shrink-0 {{if .ToAccountID}}text-blue-600 dark:text-blue-400{{else if gt .Amount 0}}text-emerald-700 dark:text-emerald-400{{else}}text-foreground{{end}}">
+            {{if not .ToAccountID}}{{if gt .Amount 0}}+{{end}}{{end}}{{formatCents .Amount $.Currency $.Locale}}
         </div>
         <div class="flex items-center gap-0.5 shrink-0" x-show="!del">
             <button @click="openRecurringForm({{. | json}})" aria-label="{{index $.T "common.edit"}}"
@@ -782,14 +782,14 @@ document.addEventListener('alpine:init', () => {
                 {{index $.T "summary.income"}}
             </div>
             <div class="font-mono font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
-                <span class="text-lg sm:text-xl">+{{formatMoney .MonthlyIncome $.Currency $.Locale}}</span>
+                <span class="text-lg sm:text-xl">+{{formatUnits .MonthlyIncome $.Currency $.Locale}}</span>
                 <span class="text-xs text-muted-foreground font-medium">{{index $.T "summary.per_month"}}</span>
             </div>
             <div class="font-mono text-sm text-emerald-700 dark:text-emerald-400 whitespace-nowrap mt-0.5">
-                +{{formatMoneyCompact (add (mult .MonthlyIncome 12) .AnnualYield) $.Currency $.Locale}}{{index $.T "summary.per_year"}}
+                +{{formatUnitsCompact (add (mult .MonthlyIncome 12) .AnnualYield) $.Currency $.Locale}}{{index $.T "summary.per_year"}}
             </div>
             {{if gt (add .MonthlyYield .AnnualYield) 0.0}}
-            <div class="text-xs text-emerald-700 dark:text-emerald-400 mt-1.5 font-medium whitespace-nowrap">{{index $.T "summary.yield_auto"}} +{{formatMoneyCompact (add (mult .MonthlyYield 12) .AnnualYield) $.Currency $.Locale}}{{index $.T "summary.per_year"}}</div>
+            <div class="text-xs text-emerald-700 dark:text-emerald-400 mt-1.5 font-medium whitespace-nowrap">{{index $.T "summary.yield_auto"}} +{{formatUnitsCompact (add (mult .MonthlyYield 12) .AnnualYield) $.Currency $.Locale}}{{index $.T "summary.per_year"}}</div>
             {{end}}
         </div>
         <!-- Expenses -->
@@ -799,11 +799,11 @@ document.addEventListener('alpine:init', () => {
                 {{index $.T "summary.expenses"}}
             </div>
             <div class="font-mono font-bold text-red-700 dark:text-red-400 whitespace-nowrap">
-                <span class="text-lg sm:text-xl">-{{formatMoney .MonthlyExpenses $.Currency $.Locale}}</span>
+                <span class="text-lg sm:text-xl">-{{formatUnits .MonthlyExpenses $.Currency $.Locale}}</span>
                 <span class="text-xs text-muted-foreground font-medium">{{index $.T "summary.per_month"}}</span>
             </div>
             <div class="font-mono text-sm text-red-700 dark:text-red-400 whitespace-nowrap mt-0.5">
-                -{{formatMoneyCompact (mult .MonthlyExpenses 12) $.Currency $.Locale}}{{index $.T "summary.per_year"}}
+                -{{formatUnitsCompact (mult .MonthlyExpenses 12) $.Currency $.Locale}}{{index $.T "summary.per_year"}}
             </div>
         </div>
         <!-- Net -->
@@ -813,11 +813,11 @@ document.addEventListener('alpine:init', () => {
                 {{index $.T "summary.balance"}}
             </div>
             <div class="font-mono font-bold whitespace-nowrap {{if ge .MonthlyNet 0.0}}text-blue-600 dark:text-blue-400{{else}}text-red-700 dark:text-red-400{{end}}">
-                <span class="text-lg sm:text-xl">{{if gt .MonthlyNet 0.0}}+{{end}}{{formatMoney .MonthlyNet $.Currency $.Locale}}</span>
+                <span class="text-lg sm:text-xl">{{if gt .MonthlyNet 0.0}}+{{end}}{{formatUnits .MonthlyNet $.Currency $.Locale}}</span>
                 <span class="text-xs text-muted-foreground font-medium">{{index $.T "summary.per_month"}}</span>
             </div>
             <div class="font-mono text-sm whitespace-nowrap mt-0.5 {{if ge .MonthlyNet 0.0}}text-blue-600 dark:text-blue-400{{else}}text-red-700 dark:text-red-400{{end}}">
-                {{if gt (add (mult .MonthlyNet 12) .AnnualYield) 0.0}}+{{end}}{{formatMoneyCompact (add (mult .MonthlyNet 12) .AnnualYield) $.Currency $.Locale}}{{index $.T "summary.per_year"}}
+                {{if gt (add (mult .MonthlyNet 12) .AnnualYield) 0.0}}+{{end}}{{formatUnitsCompact (add (mult .MonthlyNet 12) .AnnualYield) $.Currency $.Locale}}{{index $.T "summary.per_year"}}
             </div>
         </div>
     </div>
