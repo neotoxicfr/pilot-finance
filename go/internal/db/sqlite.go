@@ -45,11 +45,52 @@ func Init(cfg Config) error {
 }
 
 // initDB performs the actual database initialization (called via sync.Once).
+// checkDirWritable écrit puis supprime un fichier témoin pour prouver que le
+// dossier est inscriptible par l'utilisateur courant.
+func checkDirWritable(dir string) error {
+	probe := filepath.Join(dir, ".pilot-write-probe")
+	f, err := os.OpenFile(probe, os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	f.Close()
+	return os.Remove(probe)
+}
+
+// newDataDirPermError enrichit une erreur d'accès au dossier de données avec
+// l'uid/gid effectif et la commande exacte qui corrige la situation.
+//
+// Depuis que l'image tourne en utilisateur non privilégié (audit S-34), un
+// volume hérité d'une version antérieure appartient encore à root : le serveur
+// sortait alors en boucle sur une erreur SQLite illisible. Le message porte
+// désormais tout ce qu'il faut pour agir, sans avoir à lire le Dockerfile.
+func newDataDirPermError(dir string, cause error) error {
+	// os.Getuid renvoie -1 sur les plateformes sans uid POSIX (Windows) : on
+	// n'affiche alors ni identité ni commande chown, qui seraient absurdes.
+	uid, gid := os.Getuid(), os.Getgid()
+	if uid < 0 || gid < 0 {
+		return fmt.Errorf("dossier de données %q inaccessible en écriture : %w", dir, cause)
+	}
+	return fmt.Errorf(
+		"dossier de données %q inaccessible en écriture pour l'uid %d:%d — "+
+			"corriger côté hôte avec `chown -R %d:%d <volume>`, "+
+			"ou faire tourner le conteneur sous l'uid propriétaire "+
+			"(`user: \"<uid>:<gid>\"` dans docker-compose.yml) : %w",
+		dir, uid, gid, uid, gid, cause)
+}
+
 func initDB(cfg Config) error {
 	// S'assurer que le dossier existe
 	dir := filepath.Dir(cfg.Path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("création dossier DB: %w", err)
+		return fmt.Errorf("%w", newDataDirPermError(dir, err))
+	}
+	// Vérifier que le dossier est RÉELLEMENT inscriptible avant d'ouvrir SQLite.
+	// Sans ce contrôle, un volume dont l'utilisateur du conteneur n'est pas
+	// propriétaire produit un « unable to open database file » opaque, à des
+	// couches de distance de la cause réelle.
+	if err := checkDirWritable(dir); err != nil {
+		return fmt.Errorf("%w", newDataDirPermError(dir, err))
 	}
 
 	// PRAGMAs via DSN ensure they apply to every connection in the pool
