@@ -38,6 +38,11 @@ var (
 	hookGenerateTOTPSecret       = auth.GenerateTOTPSecret
 	hookEnableMFA                = db.EnableMFA
 	hookDisableMFA               = db.DisableMFA
+	hookGenerateRecoveryCodes    = auth.GenerateRecoveryCodes
+	hookReplaceRecoveryCodes     = db.ReplaceRecoveryCodes
+	hookConsumeRecoveryCode      = db.ConsumeRecoveryCode
+	hookCountRecoveryCodes       = db.CountUnusedRecoveryCodes
+	hookDeleteRecoveryCodes      = db.DeleteRecoveryCodes
 	hookDeleteUserAndData        = db.DeleteUserAndData
 	hookGetAllUsers              = db.GetAllUsers
 	hookGetUserByID              = db.GetUserByID

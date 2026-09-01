@@ -704,6 +704,43 @@ func runMigrations(dbPath string) error {
 			}
 			return tx.Commit()
 		}},
+		{Name: "014_mfa_recovery_codes", Run: func(d *sql.DB) error {
+			// Codes de récupération 2FA (audit S-22) : sans eux, un téléphone
+			// perdu obligeait à éditer le fichier SQLite à la main — aucune
+			// route admin ni outil CLI ne permettait de réinitialiser le TOTP.
+			//
+			// Seul le hash du code est stocké (code_hash) ; used_at marque la
+			// consommation d'un code à usage unique. La FK ON DELETE CASCADE
+			// aligne la purge sur celle des autres tables utilisateur
+			// (migration 013) : supprimer un compte emporte ses codes.
+			//
+			// Transactionnelle et rejouable : IF NOT EXISTS partout, donc un
+			// rejeu après crash (migration appliquée mais non enregistrée dans
+			// schema_migrations) est un no-op, et la moindre erreur annule tout.
+			tx, err := d.Begin()
+			if err != nil {
+				return err
+			}
+			defer tx.Rollback()
+
+			for _, stmt := range []string{
+				`CREATE TABLE IF NOT EXISTS mfa_recovery_codes (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+					code_hash TEXT NOT NULL,
+					created_at INTEGER NOT NULL,
+					used_at INTEGER
+				)`,
+				// Index de la requête de consommation (user_id + hash) ; il
+				// sert aussi au comptage des codes restants d'un utilisateur.
+				`CREATE INDEX IF NOT EXISTS idx_mfa_recovery_lookup ON mfa_recovery_codes(user_id, code_hash)`,
+			} {
+				if _, err := tx.Exec(stmt); err != nil {
+					return fmt.Errorf("014_mfa_recovery_codes: %w", err)
+				}
+			}
+			return tx.Commit()
+		}},
 	}
 
 	// Charger en une seule requête la liste des migrations déjà appliquées
