@@ -211,8 +211,15 @@ function dashboardData() {
             this.countUp(initial.totalInterests || 0, v => this.totalInterests = v);
             this.countUp(initial.projectionTotal || 0, v => this.projectionTotal = v);
             this.$nextTick(() => {
-                window.initProjectionChart(initial.projectionData, this.accountColors);
-                window.initPieChart(initial.pieData);
+                // base.html ne charge chart.umd.js/charts.js que sur le
+                // dashboard AYANT des comptes. Sur l'etat vide ces fonctions
+                // n'existent donc pas, et l'appel levait une TypeError non
+                // rattrapee qui interrompait init() AVANT `ready = true` —
+                // laissant tout ce qui depend de `ready` masque en permanence.
+                if (typeof window.initProjectionChart === 'function') {
+                    window.initProjectionChart(initial.projectionData, this.accountColors);
+                    window.initPieChart(initial.pieData);
+                }
                 this.ready = true;
             });
         }

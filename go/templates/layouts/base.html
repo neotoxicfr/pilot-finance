@@ -257,7 +257,17 @@
 
 {{define "htmx-config"}}
 <script nonce="{{.Nonce}}">
-document.body.addEventListener('htmx:beforeSwap', e => { if (e.detail.xhr.status === 401) location.href = '/login'; });
+// Un 401 signifie « session expiree » sur une page authentifiee, mais
+// « identifiants refuses » sur la page de connexion elle-meme. Sans cette
+// exclusion, un code 2FA errone (TOTP comme code de recuperation) rechargeait
+// /login : l'etape 2FA disparaissait et le message d'erreur avec elle, laissant
+// l'utilisateur revenu au depart sans la moindre explication.
+document.body.addEventListener('htmx:beforeSwap', e => {
+    if (e.detail.xhr.status !== 401) return;
+    const p = location.pathname;
+    if (p === '/login' || p === '/register') return;
+    location.href = '/login';
+});
 document.body.addEventListener('htmx:responseError', e => {
     const msg = e.detail.xhr.responseText || '{{index .T "common.network_error"}}';
     window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: msg.substring(0, 100), isError: true } }));
