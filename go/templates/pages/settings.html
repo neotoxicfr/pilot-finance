@@ -273,6 +273,13 @@ function dangerData() {
         selfDeleteConfirm: false,
         importMsg: '',
         importErrMsg: '',
+        // Apercu avant application (audit S-21). `importFile` retient le File
+        // choisi : l'import se fait en DEUX requetes (simulation puis
+        // confirmation) et l'input est vide entre les deux, sinon rechoisir le
+        // meme fichier ne redeclencherait pas l'evenement « change ».
+        importPreview: null,
+        importFile: null,
+        importLoading: false,
         triggerImport() {
             document.getElementById('import-file').click();
         },
@@ -287,34 +294,155 @@ function dangerData() {
             this.selfDeleteConfirm = false;
             this.$nextTick(() => this.$refs.selfDeleteBtn?.focus());
         },
+        // Envoie le fichier au serveur. `dryRun` demande une SIMULATION : le
+        // serveur calcule tout mais n'ecrit rien et ne journalise rien.
+        async postImport(file, dryRun) {
+            var fd = new FormData();
+            fd.append('file', file);
+            if (dryRun) fd.append('dry_run', '1');
+            const r = await fetch('/settings/import', { method: 'POST', body: fd });
+            const d = await readJson(r);
+            return { ok: r.ok, data: d };
+        },
+        // Etape 1 : choisir un fichier ne modifie plus rien, cela ouvre un
+        // apercu. Auparavant les soldes etaient ecrases des le choix du
+        // fichier, sans confirmation ni retour arriere possible (audit S-21).
         async importBalances(event) {
             var input = event.target;
             if (!input.files || !input.files.length) return;
+            var file = input.files[0];
+            input.value = '';
             this.importMsg = '';
             this.importErrMsg = '';
-            var fd = new FormData();
-            fd.append('file', input.files[0]);
-            input.value = '';
+            this.importLoading = true;
             try {
-                const r = await fetch('/settings/import', { method: 'POST', body: fd });
-                const d = await readJson(r);
-                if (!r.ok) {
-                    // FIX (S-25): show what the server actually said ("Fichier manquant",
-                    // "CSV vide", …) instead of a blanket "Échec de l'import".
-                    this.importErrMsg = d.error || '{{index .T "settings.import_error"}}';
+                const res = await this.postImport(file, true);
+                if (!res.ok) {
+                    // FIX (S-25): montrer ce que le serveur a REELLEMENT dit
+                    // (« Fichier manquant », « CSV vide »...) plutot qu'un
+                    // « Echec de l'import » generique.
+                    this.importErrMsg = res.data.error || '{{index .T "settings.import_error"}}';
                     window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.importErrMsg, isError: true } }));
                     return;
                 }
-                var parts = ['{{index .T "settings.import_success"}}'.replace('{n}', d.updated)];
-                if (d.unknown && d.unknown.length) parts.push('{{index .T "settings.import_unknown"}}'.replace('{list}', d.unknown.join(', ')));
-                if (d.ambiguous && d.ambiguous.length) parts.push('{{index .T "settings.import_ambiguous"}}'.replace('{list}', d.ambiguous.join(', ')));
-                if (d.invalid_lines && d.invalid_lines.length) parts.push('{{index .T "settings.import_invalid_lines"}}'.replace('{list}', d.invalid_lines.join(', ')));
-                this.importMsg = parts.join(' — ');
-                window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.importMsg } }));
+                this.importFile = file;
+                this.importPreview = res.data;
+                this.$nextTick(() => document.getElementById('import-preview-dialog').showModal());
             } catch (e) {
                 this.importErrMsg = '{{index .T "settings.import_error"}}';
                 window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.importErrMsg, isError: true } }));
+            } finally {
+                this.importLoading = false;
             }
+        },
+        // Etape 2 : appliquer. Le MEME fichier est repost sans le drapeau de
+        // simulation, donc le serveur refait exactement le meme calcul et
+        // applique ce que l'apercu annoncait.
+        async confirmImport() {
+            if (!this.importFile) return;
+            this.importLoading = true;
+            var file = this.importFile;
+            try {
+                const res = await this.postImport(file, false);
+                this.closeImportPreview();
+                if (!res.ok) {
+                    this.importErrMsg = res.data.error || '{{index .T "settings.import_error"}}';
+                    window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.importErrMsg, isError: true } }));
+                    return;
+                }
+                this.showImportResult(res.data);
+            } catch (e) {
+                this.closeImportPreview();
+                this.importErrMsg = '{{index .T "settings.import_error"}}';
+                window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: this.importErrMsg, isError: true } }));
+            } finally {
+                this.importLoading = false;
+            }
+        },
+        closeImportPreview() {
+            const dlg = document.getElementById('import-preview-dialog');
+            if (dlg && dlg.open) dlg.close();
+            this.importPreview = null;
+            this.importFile = null;
+        },
+        // « 0 solde mis a jour » n'est pas une reussite : c'est un import qui
+        // n'a rien fait, presque toujours parce qu'aucun nom ne correspond. Il
+        // s'affichait en VERT sur le ton du succes (audit S-21).
+        showImportResult(d) {
+            var parts = [];
+            var failed = !d.updated;
+            if (failed) {
+                parts.push('{{index .T "settings.import_nothing"}}');
+            } else {
+                parts.push('{{index .T "settings.import_success"}}'.replace('{n}', d.updated));
+            }
+            if (d.unknown && d.unknown.length) parts.push('{{index .T "settings.import_unknown"}}'.replace('{list}', d.unknown.join(', ')));
+            if (d.ambiguous && d.ambiguous.length) parts.push('{{index .T "settings.import_ambiguous"}}'.replace('{list}', d.ambiguous.join(', ')));
+            if (d.invalid_lines && d.invalid_lines.length) parts.push('{{index .T "settings.import_invalid_lines"}}'.replace('{list}', d.invalid_lines.join(', ')));
+            var msg = parts.join(' \u2014 ');
+            if (failed) {
+                this.importMsg = '';
+                this.importErrMsg = msg;
+            } else {
+                this.importErrMsg = '';
+                this.importMsg = msg;
+            }
+            window.dispatchEvent(new CustomEvent('pilot:toast', { detail: { message: msg, isError: failed } }));
+        },
+        // Le build Alpine CSP n'evalue pas d'appel de methode sur un litteral
+        // (« '...'.replace(...) ») : ces libelles sont donc construits ici, ce
+        // qui evite en prime une chaine d'acces sur un importPreview nul.
+        // Le build Alpine CSP n'accepte pas un chemin de propriete imbrique
+        // dans « x-for » (« c in importPreview.changes ») : l'expression leve
+        // une erreur de parsing qui casse la mise en place des directives de
+        // TOUTE la page — les x-show y restaient figes sur leur valeur
+        // initiale. Le tableau itere donc sur un getter simple.
+        get previewChanges() {
+            const raw = (this.importPreview && this.importPreview.changes) || [];
+            // Les montants sont formates ICI, pas dans le template : le build
+            // Alpine CSP ne parse pas un chemin de propriete passe en ARGUMENT
+            // d'appel (« importAmount(c.from) »), et l'erreur ne se limite pas a
+            // l'attribut fautif — elle casse la mise en place des directives de
+            // tout le composant, figeant ses x-show sur leur valeur initiale.
+            return raw.map(c => ({
+                name: c.name,
+                fromLabel: this.importAmount(c.from),
+                toLabel: this.importAmount(c.to),
+            }));
+        },
+        get hasPreviewChanges() {
+            return !!(this.importPreview && this.importPreview.changes && this.importPreview.changes.length);
+        },
+        get confirmDisabled() {
+            return this.importLoading || !this.hasPreviewChanges;
+        },
+        previewList(field, template) {
+            const v = this.importPreview && this.importPreview[field];
+            if (!v || !v.length) return '';
+            return template.replace('{list}', v.join(', '));
+        },
+        previewUnknown() {
+            return this.previewList('unknown', '{{index .T "settings.import_unknown"}}');
+        },
+        previewAmbiguous() {
+            return this.previewList('ambiguous', '{{index .T "settings.import_ambiguous"}}');
+        },
+        previewInvalidLines() {
+            return this.previewList('invalid_lines', '{{index .T "settings.import_invalid_lines"}}');
+        },
+        previewConfirmLabel() {
+            const n = this.importPreview ? this.importPreview.updated : 0;
+            return '{{index .T "settings.import_preview_confirm"}}'.replace('{n}', n);
+        },
+        // Formate des CENTIMES : unite canonique renvoyee par le serveur (S-40).
+        // exact() et non currency() : celui-ci arrondit a l'unite, ce qui
+        // afficherait « 12 346 € » pour un solde de 12 345,67 € — illisible sur
+        // un ecran dont le seul role est de faire verifier des montants.
+        importAmount(cents) {
+            return window.PILOT_FMT.exact(cents / 100);
+        },
+        downloadTemplate() {
+            window.location.href = '/settings/import/template';
         },
         exportData() {
             fetch('/settings/export')
@@ -728,13 +856,78 @@ document.addEventListener('alpine:init', () => {
                         {{index .T "settings.export_data"}}
                     </button>
                     <input type="file" id="import-file" accept=".csv,text/csv" class="hidden" @change="importBalances($event)">
-                    <button @click="triggerImport()" class="w-full mt-3 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border bg-background hover:bg-accent text-sm font-bold text-foreground transition-colors">
+                    <button @click="triggerImport()" :disabled="importLoading" class="w-full mt-3 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-border bg-background hover:bg-accent text-sm font-bold text-foreground transition-colors disabled:opacity-50">
                         {{template "icon-refresh" dict "Size" 16}}
                         {{index .T "settings.import_data"}}
+                    </button>
+                    <button @click="downloadTemplate()" class="w-full mt-2 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-background hover:bg-accent text-xs font-bold text-foreground transition-colors">
+                        {{template "icon-save" dict "Size" 14}}
+                        {{index .T "settings.import_template_btn"}}
                     </button>
                     <p class="text-xs text-foreground/70 mt-2">{{index .T "settings.import_hint"}}</p>
                     <p x-show="importMsg" x-cloak x-text="importMsg" class="text-sm mt-2 text-emerald-700 dark:text-emerald-400"></p>
                     <p role="alert" x-show="importErrMsg" x-cloak x-text="importErrMsg" class="text-sm mt-2 text-red-700 dark:text-red-400"></p>
+
+                    <!-- Apercu de l'import (audit S-21). Rendu en <dialog> natif :
+                         focus piege et Echap pour fermer sans rien appliquer. -->
+                    <dialog id="import-preview-dialog" @close="closeImportPreview()"
+                            class="bg-background text-foreground border border-border rounded-2xl p-0 w-[min(34rem,92vw)] backdrop:bg-black/50">
+                        <template x-if="importPreview">
+                            <div class="p-6 space-y-4">
+                                <h3 class="text-lg font-bold text-foreground">{{index .T "settings.import_preview_title"}}</h3>
+                                <p class="text-xs text-muted-foreground">{{index .T "settings.import_preview_intro"}}</p>
+
+                                <template x-if="hasPreviewChanges">
+                                    <div class="overflow-x-auto max-h-64 overflow-y-auto border border-border rounded-xl">
+                                        <table class="w-full text-sm">
+                                            <thead class="bg-accent/50 sticky top-0">
+                                                <tr>
+                                                    <th scope="col" class="text-left px-3 py-2 font-bold text-xs uppercase tracking-wider text-muted-foreground">{{index .T "settings.import_preview_col_account"}}</th>
+                                                    <th scope="col" class="text-right px-3 py-2 font-bold text-xs uppercase tracking-wider text-muted-foreground">{{index .T "settings.import_preview_col_from"}}</th>
+                                                    <th scope="col" class="text-right px-3 py-2 font-bold text-xs uppercase tracking-wider text-muted-foreground">{{index .T "settings.import_preview_col_to"}}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <template x-for="c in previewChanges">
+                                                    <tr class="border-t border-border">
+                                                        <td class="px-3 py-2 text-foreground" x-text="c.name"></td>
+                                                        <td class="px-3 py-2 text-right font-mono text-muted-foreground tabular-nums" x-text="c.fromLabel"></td>
+                                                        <td class="px-3 py-2 text-right font-mono text-foreground font-bold tabular-nums" x-text="c.toLabel"></td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </template>
+
+                                <template x-if="!hasPreviewChanges">
+                                    <p role="alert" class="text-sm text-red-700 dark:text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl p-3">{{index .T "settings.import_preview_none"}}</p>
+                                </template>
+
+                                <template x-if="previewUnknown()">
+                                    <p class="text-xs text-amber-700 dark:text-amber-400" x-text="previewUnknown()"></p>
+                                </template>
+                                <template x-if="previewAmbiguous()">
+                                    <p class="text-xs text-amber-700 dark:text-amber-400" x-text="previewAmbiguous()"></p>
+                                </template>
+                                <template x-if="previewInvalidLines()">
+                                    <p class="text-xs text-amber-700 dark:text-amber-400" x-text="previewInvalidLines()"></p>
+                                </template>
+
+                                <div class="flex gap-2 pt-1">
+                                    <button type="button" @click="closeImportPreview()"
+                                            class="flex-1 bg-accent hover:bg-border text-muted-foreground font-medium py-3 rounded-xl transition-colors text-sm">
+                                        {{index .T "common.cancel"}}
+                                    </button>
+                                    <button type="button" @click="confirmImport()"
+                                            :disabled="confirmDisabled"
+                                            class="flex-1 btn-primary text-white font-bold py-3 rounded-xl text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                            x-text="previewConfirmLabel()">
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </dialog>
                 </div>
 
                 <!-- Danger Zone -->

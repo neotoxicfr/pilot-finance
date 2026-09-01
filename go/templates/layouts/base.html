@@ -137,12 +137,22 @@
     </script>
     <script nonce="{{.Nonce}}">window.PILOT_LOCALE="{{.Locale}}";window.PILOT_CURRENCY="{{.Currency}}";
         // Shared money formatters — single source of truth for dashboard.html and charts.js.
-        // compact() mirrors Go's formatMoneyCompact (k/M tiers, incl. the 10k tier) so axis
-        // labels and the pie-center value stay in sync. currency() is the full localized format.
+        // compact() mirrors Go's formatUnitsCompact (k/M tiers, incl. the 10k tier) so axis
+        // labels and the pie-center value stay in sync.
+        //
+        // currency() ARRONDIT À L'UNITÉ : c'est voulu pour les axes, les
+        // info-bulles et les grands chiffres du tableau de bord. exact() garde
+        // les décimales — un écran qui fait confirmer l'écrasement de soldes
+        // précis ne peut pas afficher « 12 346 € » là où la valeur est
+        // 12 345,67 € (audit S-21). Aucune option de décimales n'est forcée sur
+        // exact() : Intl applique celles de la devise, donc 2 pour EUR et 0
+        // pour JPY, au lieu d'inventer des centimes qui n'existent pas.
         window.PILOT_FMT = {
             _cur() { return window.PILOT_CURRENCY || 'EUR'; },
             _ccy: new Intl.NumberFormat(window.PILOT_LOCALE || 'fr-FR', { style: 'currency', currency: window.PILOT_CURRENCY || 'EUR', maximumFractionDigits: 0 }),
+            _exact: new Intl.NumberFormat(window.PILOT_LOCALE || 'fr-FR', { style: 'currency', currency: window.PILOT_CURRENCY || 'EUR' }),
             currency(value) { return this._ccy.format(value); },
+            exact(value) { return this._exact.format(value); },
             compact(value) {
                 const c = this._cur();
                 if (value >= 1000000) return (value / 1000000).toFixed(1) + 'M ' + c;
