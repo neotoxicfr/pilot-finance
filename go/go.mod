@@ -9,8 +9,8 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/pquerna/otp v1.5.0
 	github.com/prometheus/client_golang v1.24.1
-	golang.org/x/crypto v0.55.0
-	modernc.org/sqlite v1.57.0
+	golang.org/x/crypto v0.56.0
+	modernc.org/sqlite v1.58.0
 )
 
 require (
