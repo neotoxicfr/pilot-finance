@@ -741,6 +741,20 @@ func runMigrations(dbPath string) error {
 			}
 			return tx.Commit()
 		}},
+		// PERF-07 : account_id (CASCADE) et to_account_id (SET NULL) n'avaient
+		// pas d'index ; avec foreign_keys(1), chaque compte supprimé déclenchait
+		// deux SCAN complets de recurring_operations (tous utilisateurs).
+		{Name: "015_recurring_account_indexes", Run: func(d *sql.DB) error {
+			for _, idx := range []string{
+				`CREATE INDEX IF NOT EXISTS idx_recurring_account ON recurring_operations(account_id)`,
+				`CREATE INDEX IF NOT EXISTS idx_recurring_to_account ON recurring_operations(to_account_id)`,
+			} {
+				if _, err := d.Exec(idx); err != nil {
+					return err
+				}
+			}
+			return nil
+		}},
 	}
 
 	// Charger en une seule requête la liste des migrations déjà appliquées
