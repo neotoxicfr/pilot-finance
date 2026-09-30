@@ -53,9 +53,8 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verifier le mot de passe actuel
-	if !hookVerifyPassword(currentPassword, dbUser.Password) {
-		clientErrorT(w, r, ErrAuthInvalid, "error.current_password_incorrect", http.StatusUnauthorized)
+	// Verifier le mot de passe actuel (SEC-03 : limiteur par compte + audit d'échec)
+	if !verifyCurrentPassword(w, r, dbUser, currentPassword) {
 		return
 	}
 
@@ -247,8 +246,8 @@ func DeleteSelfAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !hookVerifyPassword(currentPassword, dbUser.Password) {
-		clientErrorT(w, r, ErrAuthInvalid, "error.password_incorrect", http.StatusUnauthorized)
+	// SEC-03 : limiteur par compte + audit d'échec
+	if !verifyCurrentPassword(w, r, dbUser, currentPassword) {
 		return
 	}
 

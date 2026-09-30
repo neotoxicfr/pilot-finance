@@ -50,6 +50,20 @@ var Configs = map[string]Config{
 		WindowMs:    300000, // 5 minutes
 		BlockMs:     900000, // 15 minutes
 	},
+	// SEC-01 : borne par COMPTE l'étape 2FA ; le limiteur « twoFactor » par IP
+	// seul se contourne en multipliant les IP (N×5 essais / 20 min).
+	"twoFactorAccount": {
+		MaxAttempts: 10,
+		WindowMs:    900000,  // 15 minutes
+		BlockMs:     3600000, // 1 heure
+	},
+	// SEC-03 : ré-authentification par mot de passe courant (session déjà
+	// ouverte), par compte : une session volée ne brute-force pas le mot de passe.
+	"reauth": {
+		MaxAttempts: 5,
+		WindowMs:    900000,  // 15 minutes
+		BlockMs:     1800000, // 30 minutes
+	},
 	"resetPassword": {
 		MaxAttempts: 5,
 		WindowMs:    900000,  // 15 minutes

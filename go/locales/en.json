@@ -125,7 +125,6 @@
   "error.passkey_name_invalid": "Invalid name (1-100 characters)",
   "error.passkey_registration_failed": "Registration failed",
   "error.passkey_response_invalid": "Invalid response",
-  "error.password_incorrect": "Incorrect password",
   "error.password_required": "Password required",
   "error.password_required_disable_mfa": "Password required to disable 2FA",
   "error.passwords_mismatch": "Passwords do not match",

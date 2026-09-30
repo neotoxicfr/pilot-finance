@@ -6,6 +6,8 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 	"sync"
 
 	"pilot-finance/internal/db"
@@ -111,6 +113,48 @@ func clearScopedCookie(w http.ResponseWriter, name, path string) {
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	})
+}
+
+// verifyCurrentPassword ré-authentifie l'utilisateur connecté sur son mot de
+// passe courant avant une action sensible (changement de mot de passe,
+// suppression du compte, désactivation 2FA, codes de secours, passkey).
+//
+// SEC-03 : une session volée ne doit pas permettre de brute-forcer le mot de
+// passe courant au seul rythme du limiteur global (120/min/IP) : limiteur
+// « reauth » par compte (indépendant de l'IP) et échec journalisé
+// (LOGIN_FAIL) pour rester visible dans /admin/audit. On n'appelle pas
+// handleFailedLogin : le verrou LockUntil bloquerait la connexion de la
+// victime elle-même, sans rien retirer à l'attaquant déjà en session.
+//
+// Écrit la réponse d'erreur (JSON si la requête est JSON, texte sinon) et
+// renvoie false ; renvoie true si le mot de passe est correct.
+func verifyCurrentPassword(w http.ResponseWriter, r *http.Request, user *db.User, password string) bool {
+	isJSON := strings.HasPrefix(r.Header.Get("Content-Type"), "application/json")
+	fail := func(code, msg string, status int) {
+		if isJSON {
+			jsonError(w, code, msg, status)
+		} else {
+			clientError(w, code, msg, status)
+		}
+	}
+	lang := requestLang(r)
+
+	key := strconv.FormatInt(user.ID, 10)
+	if res := hookRateLimitCheck(key, "reauth"); !res.Allowed {
+		waitMin := (res.RetryAfterMs / 60000) + 1
+		msg := strings.ReplaceAll(i18n.T(lang, "error.rate_limited_min"), "{n}", strconv.FormatInt(waitMin, 10))
+		fail(ErrRateLimited, msg, http.StatusTooManyRequests)
+		return false
+	}
+
+	if !hookVerifyPassword(password, user.Password) {
+		hookLogAudit(user.ID, db.AuditLoginFail, getClientIP(r), r.UserAgent())
+		fail(ErrAuthInvalid, i18n.T(lang, "error.current_password_incorrect"), http.StatusUnauthorized)
+		return false
+	}
+
+	hookRateLimitReset(key, "reauth")
+	return true
 }
 
 // decryptAccountNames déchiffre les noms de comptes en place
