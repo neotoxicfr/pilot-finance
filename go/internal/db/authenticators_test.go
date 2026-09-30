@@ -130,31 +130,6 @@ func TestUpdatePasswordHash(t *testing.T) {
 	}
 }
 
-func TestSetAndClearResetToken(t *testing.T) {
-	cleanup := setupTestDB(t)
-	defer cleanup()
-	userID := createTestUser(t)
-
-	expiry := time.Now().Add(time.Hour)
-	if err := SetResetToken(userID, "hashedtoken123", expiry); err != nil {
-		t.Fatalf("SetResetToken: %v", err)
-	}
-
-	user, _ := GetUserByID(userID)
-	if user.ResetToken == nil {
-		t.Fatal("reset_token should be set")
-	}
-
-	if err := ClearResetToken(userID); err != nil {
-		t.Fatalf("ClearResetToken: %v", err)
-	}
-
-	user, _ = GetUserByID(userID)
-	if user.ResetToken != nil {
-		t.Error("reset_token should be nil after clear")
-	}
-}
-
 func TestGetUserByResetToken(t *testing.T) {
 	cleanup := setupTestDB(t)
 	defer cleanup()

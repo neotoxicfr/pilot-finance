@@ -41,7 +41,7 @@ export default function () {
     email: __ENV.TEST_EMAIL || 'loadtest@test.local',
     password: __ENV.TEST_PASSWORD || 'LoadTest1!secure',
   }, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', Origin: BASE_URL },
     redirects: 0,
   });
   loginDuration.add(Date.now() - start);

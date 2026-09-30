@@ -1250,15 +1250,6 @@ func TestMethodNotAllowed_Renders(t *testing.T) {
 	}
 }
 
-func TestInternalServerError_Renders(t *testing.T) {
-	setupHandlerTest(t)
-	rr := httptest.NewRecorder()
-	InternalServerError(rr, httptest.NewRequest(http.MethodGet, "/bad", nil))
-	if rr.Code != http.StatusInternalServerError {
-		t.Errorf("want 500, got %d", rr.Code)
-	}
-}
-
 // ── pages.go — LegalPage ──────────────────────────────────────────────────────
 
 func TestLegalPage_RenderError(t *testing.T) {

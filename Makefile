@@ -24,7 +24,7 @@ build:
 	cd go && go build ./...
 
 docker:
-	docker compose build
+	cd go && docker compose build
 
 dev:
 	cd go && go run ./cmd/server

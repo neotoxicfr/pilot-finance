@@ -44,7 +44,6 @@ func Init(cfg Config) error {
 	return dbInitErr
 }
 
-// initDB performs the actual database initialization (called via sync.Once).
 // checkDirWritable écrit puis supprime un fichier témoin pour prouver que le
 // dossier est inscriptible par l'utilisateur courant.
 func checkDirWritable(dir string) error {
@@ -79,6 +78,7 @@ func newDataDirPermError(dir string, cause error) error {
 		dir, uid, gid, uid, gid, cause)
 }
 
+// initDB performs the actual database initialization (called via sync.Once).
 func initDB(cfg Config) error {
 	// S'assurer que le dossier existe
 	dir := filepath.Dir(cfg.Path)
