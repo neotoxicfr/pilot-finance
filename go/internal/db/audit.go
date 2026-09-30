@@ -35,6 +35,9 @@ const (
 	AuditGDPRExport         = "GDPR_EXPORT"
 	AuditGDPRDelete         = "GDPR_DELETE"
 	AuditAdminDeleteUser    = "ADMIN_DELETE_USER"
+	// SEC-08 : une réinitialisation par e-mail change le mot de passe sans
+	// session ; sans trace, une prise de contrôle par la boîte mail est invisible.
+	AuditPasswordReset = "PASSWORD_RESET"
 )
 
 // AuditEntry représente une entrée dans le journal d'audit
