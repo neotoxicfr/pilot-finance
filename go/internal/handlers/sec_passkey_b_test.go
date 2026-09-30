@@ -57,8 +57,8 @@ func TestSEC03_PasskeyStart_UserGone(t *testing.T) {
 	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/start", pkPwdBody()), mu(987654, "USER"))
 	rr := httptest.NewRecorder()
 	PasskeyRegistrationStart(rr, req)
-	if rr.Code != http.StatusUnauthorized {
-		t.Errorf("want 401, got %d", rr.Code)
+	if rr.Code != http.StatusNotFound {
+		t.Errorf("want 404, got %d", rr.Code)
 	}
 }
 

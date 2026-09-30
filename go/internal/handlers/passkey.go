@@ -35,7 +35,12 @@ func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 		clientErrorT(w, r, ErrValidation, "error.current_password_incorrect", http.StatusBadRequest)
 		return
 	}
-	if !verifyCurrentPassword(w, r, user, req.Password) {
+	dbUser, err := hookGetUserByID(user.ID)
+	if err != nil || dbUser == nil {
+		clientErrorT(w, r, ErrNotFound, "error.user_not_found", http.StatusNotFound)
+		return
+	}
+	if !verifyCurrentPassword(w, r, dbUser, req.Password) {
 		return
 	}
 
