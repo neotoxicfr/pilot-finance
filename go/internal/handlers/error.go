@@ -27,13 +27,3 @@ func MethodNotAllowed(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusMethodNotAllowed)
 	hookRender(w, "error.html", data) //nolint:errcheck
 }
-
-// InternalServerError affiche la page d'erreur 500
-func InternalServerError(w http.ResponseWriter, r *http.Request) {
-	user := middleware.GetUser(r)
-	data := baseData(r, user)
-	data["Title"] = "500"
-	data["Code"] = "500"
-	w.WriteHeader(http.StatusInternalServerError)
-	hookRender(w, "error.html", data) //nolint:errcheck
-}

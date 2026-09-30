@@ -1,7 +1,6 @@
 package db
 
 import (
-	"fmt"
 	"time"
 
 	"pilot-finance/internal/crypto"
@@ -200,16 +199,6 @@ func GetUserByResetToken(hashedToken string) (*User, error) {
 	return scanUser(DB.QueryRow(userSelectCols+` WHERE reset_token = ? AND reset_token_expiry > ?`, hashedToken, time.Now().Unix()))
 }
 
-// ClearResetToken efface le reset token
-func ClearResetToken(userID int64) error {
-	_, err := DB.Exec(`
-		UPDATE users SET reset_token = NULL, reset_token_expiry = NULL
-		WHERE id = ?
-	`, userID)
-
-	return err
-}
-
 // UpdateUserPreferences met à jour la langue et la devise de l'utilisateur
 func UpdateUserPreferences(userID int64, language, currency string) error {
 	_, err := DB.Exec(`
@@ -250,28 +239,6 @@ func DeleteUserAndData(userID int64) error {
 		}
 	}
 	return tx.Commit()
-}
-
-// VerifyEmailByToken vérifie l'email avec le token
-func VerifyEmailByToken(hashedToken string) error {
-	result, err := DB.Exec(`
-		UPDATE users SET email_verified = 1, verification_token = NULL
-		WHERE verification_token = ?
-	`, hashedToken)
-
-	if err != nil {
-		return err
-	}
-
-	rows, err2 := result.RowsAffected()
-	if err2 != nil {
-		return fmt.Errorf("RowsAffected: %w", err2)
-	}
-	if rows == 0 {
-		return ErrTokenInvalid
-	}
-
-	return nil
 }
 
 // SetVerificationToken stocke le hash SHA-256 du token de vérification d'email.

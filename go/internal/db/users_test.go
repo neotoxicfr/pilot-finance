@@ -342,35 +342,3 @@ func TestEnableDisableMFA(t *testing.T) {
 		t.Error("MFA should be disabled")
 	}
 }
-
-func TestVerifyEmailByToken(t *testing.T) {
-	cleanup := setupTestDB(t)
-	defer cleanup()
-
-	emailEnc, _ := crypto.Encrypt("verify@example.com")
-	emailBI := crypto.ComputeBlindIndex("verify@example.com")
-	userID, _ := CreateUser(emailEnc, emailBI, "hash", "user")
-
-	_, err := DB.Exec(`UPDATE users SET email_verified=0, verification_token=? WHERE id=?`, "mytoken123", userID)
-	if err != nil {
-		t.Fatalf("set verification_token: %v", err)
-	}
-
-	if err := VerifyEmailByToken("mytoken123"); err != nil {
-		t.Fatalf("VerifyEmailByToken: %v", err)
-	}
-
-	user, _ := GetUserByID(userID)
-	if !user.EmailVerified {
-		t.Error("email should be verified")
-	}
-}
-
-func TestVerifyEmailByTokenInvalid(t *testing.T) {
-	cleanup := setupTestDB(t)
-	defer cleanup()
-
-	if err := VerifyEmailByToken("nonexistent-token"); err == nil {
-		t.Error("should return error for invalid token")
-	}
-}
