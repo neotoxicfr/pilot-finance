@@ -436,5 +436,6 @@
   "theme.light": "Theme: Light",
   "theme.dark": "Theme: Dark",
   "theme.system": "Theme: System",
-  "audit.action.PASSWORD_RESET": "Password reset by email"
+  "audit.action.PASSWORD_RESET": "Password reset by email",
+  "error.mfa_already_enabled": "2FA is already enabled. Disable it first to switch apps."
 }
