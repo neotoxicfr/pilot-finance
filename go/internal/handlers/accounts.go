@@ -455,6 +455,19 @@ func ReorderAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// PERF-06 : sans borne, un corps de 1 Mo (~170 k ids) tenait le verrou
+	// d'écriture SQLite ~1 s par requête (un UPDATE par id). Un ordre légitime
+	// ne contient jamais plus d'ids que l'utilisateur n'a de comptes.
+	count, err := hookCountAccountsByUserID(user.ID)
+	if err != nil {
+		serverError(w, r, "reorder accounts: count", err)
+		return
+	}
+	if len(body.IDs) > count {
+		clientErrorT(w, r, ErrValidation, "error.invalid_data", http.StatusBadRequest)
+		return
+	}
+
 	if err := hookReorderAccounts(user.ID, body.IDs); err != nil {
 		serverError(w, r, "reorder accounts", err)
 		return
