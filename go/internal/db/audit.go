@@ -110,11 +110,6 @@ func collectAuditBatch(queue chan auditJob, first auditJob) []auditJob {
 	return batch
 }
 
-// writeAuditEntry écrit une seule entrée (lot de un).
-func writeAuditEntry(job auditJob) {
-	writeAuditBatch([]auditJob{job})
-}
-
 // writeAuditBatch chiffre IP/UserAgent puis insère le lot dans une seule
 // transaction ; le chiffrement se fait avant BEGIN pour tenir le verrou
 // d'écriture le moins longtemps possible.
