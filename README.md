@@ -139,7 +139,7 @@ Open your domain, create your account, then set `ALLOW_REGISTER=false` and resta
 docker compose down && docker compose up -d
 ```
 
-The application listens on port **3000** inside the container. Point your reverse proxy there.
+The application listens on port **3000** inside the container. Point your reverse proxy there. The app does not compress its responses: enable compression on the proxy (e.g. Traefik `compress` middleware, which serves brotli/zstd/gzip).
 
 ---
 

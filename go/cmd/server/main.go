@@ -222,7 +222,9 @@ func newRouter(tp func(http.Handler) http.Handler, host string, disableRL bool) 
 	r.Use(chimw.RequestID)
 	r.Use(middleware.SanitizedLogger)
 	r.Use(chimw.Recoverer)
-	r.Use(chimw.Compress(5))
+	// Pas de compression ici : le reverse-proxy s'en charge (Traefik en prod :
+	// br/zstd/gzip, CPU hors du conteneur). Compressée par l'appli, la réponse
+	// lui arrivait déjà encodée en gzip et il la laissait telle quelle.
 	r.Use(metrics.Middleware)
 	r.Use(middleware.SecurityHeaders)
 	r.Use(middleware.MaxBodySize)
