@@ -162,20 +162,20 @@
             }
         };
     </script>
-    <link rel="stylesheet" href="/static/css/tailwind.css?v={{.AssetVer}}">
-    <link rel="stylesheet" href="/static/css/app.css?v={{.AssetVer}}">
-    <script nonce="{{.Nonce}}" defer src="/static/js/htmx.min.js?v={{.AssetVer}}"></script>
+    <link rel="stylesheet" href="/static/css/tailwind.css?v={{index .AssetVer "css/tailwind.css"}}">
+    <link rel="stylesheet" href="/static/css/app.css?v={{index .AssetVer "css/app.css"}}">
+    <script nonce="{{.Nonce}}" defer src="/static/js/htmx.min.js?v={{index .AssetVer "js/htmx.min.js"}}"></script>
     {{if and (eq .CurrentPath "/") .HasAccounts}}
-    <script nonce="{{.Nonce}}" defer src="/static/js/chart.umd.min.js?v={{.AssetVer}}"></script>
-    <script nonce="{{.Nonce}}" defer src="/static/js/charts.js?v={{.AssetVer}}"></script>
+    <script nonce="{{.Nonce}}" defer src="/static/js/chart.umd.min.js?v={{index .AssetVer "js/chart.umd.min.js"}}"></script>
+    <script nonce="{{.Nonce}}" defer src="/static/js/charts.js?v={{index .AssetVer "js/charts.js"}}"></script>
     {{end}}
-    <script nonce="{{.Nonce}}" defer src="/static/js/alpine-csp.min.js?v={{.AssetVer}}"></script>
+    <script nonce="{{.Nonce}}" defer src="/static/js/alpine-csp.min.js?v={{index .AssetVer "js/alpine-csp.min.js"}}"></script>
     {{if or (eq .CurrentPath "/login") (eq .CurrentPath "/settings")}}
     <script nonce="{{.Nonce}}">window.PASSKEY_I18N={cancelled:"{{index .T "passkey.error.cancelled"}}",security:"{{index .T "passkey.error.security"}}",generic:"{{index .T "passkey.error.generic"}}",registerCancelled:"{{index .T "passkey.error.register_cancelled"}}",alreadyRegistered:"{{index .T "passkey.error.already_registered"}}"};</script>
-    <script nonce="{{.Nonce}}" defer src="/static/js/passkey.js?v={{.AssetVer}}"></script>
+    <script nonce="{{.Nonce}}" defer src="/static/js/passkey.js?v={{index .AssetVer "js/passkey.js"}}"></script>
     {{end}}
     {{if eq .CurrentPath "/accounts"}}
-    <script nonce="{{.Nonce}}" defer src="/static/js/sortable.min.js?v={{.AssetVer}}"></script>
+    <script nonce="{{.Nonce}}" defer src="/static/js/sortable.min.js?v={{index .AssetVer "js/sortable.min.js"}}"></script>
     {{end}}
 </head>
 <body class="font-sans antialiased bg-background text-foreground {{if not .User}}no-nav {{end}}{{block "bodyClass" .}}min-h-screen flex flex-col{{end}}" x-data="themeData">
