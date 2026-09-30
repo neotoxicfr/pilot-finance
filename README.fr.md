@@ -139,7 +139,7 @@ Ouvrez votre domaine, creez votre compte, puis passez `ALLOW_REGISTER=false` et 
 docker compose down && docker compose up -d
 ```
 
-L'application ecoute sur le port **3000** a l'interieur du conteneur. Configurez votre reverse-proxy pour y rediriger le trafic.
+L'application ecoute sur le port **3000** a l'interieur du conteneur. Configurez votre reverse-proxy pour y rediriger le trafic. L'application ne compresse pas ses reponses : activez la compression sur le proxy (ex : middleware `compress` de Traefik, qui sert brotli/zstd/gzip).
 
 ---
 
