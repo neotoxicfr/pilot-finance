@@ -437,5 +437,6 @@
   "theme.dark": "Theme: Dark",
   "theme.system": "Theme: System",
   "audit.action.PASSWORD_RESET": "Password reset by email",
-  "error.mfa_already_enabled": "2FA is already enabled. Disable it first to switch apps."
+  "error.mfa_already_enabled": "2FA is already enabled. Disable it first to switch apps.",
+  "settings.passkey_password": "Current password (required to add a Passkey)"
 }

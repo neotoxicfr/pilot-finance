@@ -405,7 +405,7 @@ func TestPasskeyRegistrationStart_WithCreds(t *testing.T) {
 		t.Fatalf("CreateAuthenticator: %v", err)
 	}
 
-	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/start", nil), mu(uid, "USER"))
+	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/start", pkPwdBody()), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
 	PasskeyRegistrationStart(rr, req)
 	if rr.Code != http.StatusOK {
