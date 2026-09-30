@@ -158,9 +158,15 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Chercher l'utilisateur par blind index
-	blindIndex := hookComputeBlindIndex(email)
-	user, err := hookGetUserByBlindIndex(blindIndex)
+	// Chercher l'utilisateur par blind index.
+	// SEC-10 : inscription et mot de passe oublié indexent l'e-mail en
+	// minuscules ; le login le prenait tel quel, « Jean@x.fr » échouait. On
+	// cherche d'abord en minuscules, puis sous la casse saisie : l'ancien front
+	// Node indexait l'e-mail brut, ces comptes doivent rester accessibles.
+	user, err := hookGetUserByBlindIndex(hookComputeBlindIndex(strings.ToLower(email)))
+	if err == nil && user == nil && email != strings.ToLower(email) {
+		user, err = hookGetUserByBlindIndex(hookComputeBlindIndex(email))
+	}
 	if err != nil {
 		serverError(w, r, "get user", err)
 		return
