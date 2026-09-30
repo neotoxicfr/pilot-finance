@@ -132,10 +132,6 @@ function dashboardData() {
         accountColors: initial.accountColors || [],
         updateTimeout: null,
 
-        formatMoney(value) {
-            return new Intl.NumberFormat(window.PILOT_LOCALE||'fr-FR', { maximumFractionDigits: 0 }).format(value) + ' ' + (window.PILOT_CURRENCY||'EUR');
-        },
-
         formatAmount(value) {
             return new Intl.NumberFormat(window.PILOT_LOCALE||'fr-FR', { maximumFractionDigits: 0 }).format(value);
         },

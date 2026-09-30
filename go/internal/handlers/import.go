@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
@@ -276,6 +277,9 @@ func ImportTemplate(w http.ResponseWriter, r *http.Request) {
 	for _, acc := range accounts {
 		name, derr := hookDecryptStr(acc.Name)
 		if derr != nil {
+			// CODE-4 : ce modèle sert à ré-importer les soldes ; une ligne
+			// omise sans trace rendait la perte invisible. On la signale.
+			slog.Warn("ImportTemplate: nom de compte indéchiffrable, ligne omise", "accountID", acc.ID, "err", derr)
 			continue
 		}
 		_ = cw.Write([]string{name, formatCentsPlain(acc.Balance)})

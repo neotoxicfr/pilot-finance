@@ -106,26 +106,6 @@ func TestSub(t *testing.T) {
 	}
 }
 
-// --- absFunc ---
-
-func TestAbsFunc_Positive(t *testing.T) {
-	if got, err := absFunc(5.0); err != nil || got != 5.0 {
-		t.Errorf("absFunc(5): want 5, got %v (err=%v)", got, err)
-	}
-}
-
-func TestAbsFunc_Negative(t *testing.T) {
-	if got, err := absFunc(-3.14); err != nil || got != 3.14 {
-		t.Errorf("absFunc(-3.14): want 3.14, got %v (err=%v)", got, err)
-	}
-}
-
-func TestAbsFunc_Zero(t *testing.T) {
-	if got, err := absFunc(0); err != nil || got != 0 {
-		t.Errorf("absFunc(0): want 0, got %v (err=%v)", got, err)
-	}
-}
-
 // --- formatBalance ---
 
 func TestFormatBalance_Integer(t *testing.T) {
@@ -666,11 +646,6 @@ func TestArithmetic_PropagatesTypeError(t *testing.T) {
 			}
 		})
 	}
-	t.Run("abs", func(t *testing.T) {
-		if v, err := absFunc(bad); err == nil {
-			t.Errorf("absFunc(bad): want erreur, got %v", v)
-		}
-	})
 }
 
 // --- formatFloat: edge cases ---

@@ -9,7 +9,7 @@ import (
 )
 
 // TestWriteAuditEntry_EncryptionFailureNeverStoresPlaintext couvre le
-// durcissement de l'audit S-24 : si le chiffrement échoue, writeAuditEntry
+// durcissement de l'audit S-24 : si le chiffrement échoue, writeAuditBatch
 // retombait sur la valeur EN CLAIR (fail-open), alors que le contrat annoncé
 // est « IP et UserAgent chiffrés avant stockage ». Le repli doit être la chaîne
 // vide, la trace (utilisateur/action/date) restant enregistrée.
@@ -35,13 +35,13 @@ func TestWriteAuditEntry_EncryptionFailureNeverStoresPlaintext(t *testing.T) {
 		}
 	})
 
-	writeAuditEntry(auditJob{
+	writeAuditBatch([]auditJob{{
 		userID:    userID,
 		action:    AuditLoginFail,
 		ip:        plainIP,
 		userAgent: plainUA,
 		createdAt: time.Now().Unix(),
-	})
+	}})
 
 	var ip, ua string
 	if err := DB.QueryRow(`SELECT COALESCE(ip, ''), COALESCE(user_agent, '')

@@ -1,12 +1,11 @@
 package auth
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
@@ -51,15 +50,17 @@ func TestBeginLogin_MarshalError(t *testing.T) {
 	}
 }
 
-// helpers — encode a minimal webauthn.SessionData to base64 for Finish* tests.
-func validSessionBase64(t *testing.T) string {
+// helpers — signe une SessionData minimale (challenge unique, SEC-02) pour les tests Finish*.
+func validSessionToken(t *testing.T, audience string) string {
 	t.Helper()
-	session := webauthn.SessionData{}
-	data, err := json.Marshal(session)
-	if err != nil {
-		t.Fatalf("marshal session: %v", err)
+	if len(jwtSecret) == 0 {
+		InitJWT("test-jwt-secret-32bytes-padding!!")
 	}
-	return base64.StdEncoding.EncodeToString(data)
+	tok, err := signPasskeySession(&webauthn.SessionData{Challenge: t.Name() + time.Now().String()}, audience)
+	if err != nil {
+		t.Fatalf("sign session: %v", err)
+	}
+	return tok
 }
 
 // TestBeginRegistration_WebAuthnError covers the beginRegistrationFn error branch.
@@ -103,7 +104,7 @@ func TestFinishRegistration_CreateCredentialError(t *testing.T) {
 	}
 
 	u := &PasskeyUser{ID: 1}
-	_, err := FinishRegistration(u, validSessionBase64(t), nil)
+	_, err := FinishRegistration(u, validSessionToken(t, AudiencePasskeyRegister), nil)
 	if err == nil || err.Error() != "create credential error" {
 		t.Errorf("want 'create credential error', got %v", err)
 	}
@@ -120,7 +121,7 @@ func TestFinishRegistration_CreateCredentialSuccess(t *testing.T) {
 	}
 
 	u := &PasskeyUser{ID: 1}
-	cred, err := FinishRegistration(u, validSessionBase64(t), nil)
+	cred, err := FinishRegistration(u, validSessionToken(t, AudiencePasskeyRegister), nil)
 	if err != nil {
 		t.Fatalf("want success, got %v", err)
 	}
@@ -139,7 +140,7 @@ func TestFinishLogin_FinishError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest("POST", "/", nil)
-	_, _, err := FinishLogin(validSessionBase64(t), req, nil)
+	_, _, err := FinishLogin(validSessionToken(t, AudiencePasskeyLogin), req, nil)
 	if err == nil || err.Error() != "finish login error" {
 		t.Errorf("want 'finish login error', got %v", err)
 	}
@@ -159,7 +160,7 @@ func TestFinishLogin_UserHandlerError(t *testing.T) {
 	userHandler := func(rawID, userHandle []byte) (webauthn.User, error) {
 		return nil, errors.New("user not found")
 	}
-	_, _, err := FinishLogin(validSessionBase64(t), req, userHandler)
+	_, _, err := FinishLogin(validSessionToken(t, AudiencePasskeyLogin), req, userHandler)
 	if err == nil || err.Error() != "user not found" {
 		t.Errorf("want 'user not found', got %v", err)
 	}
@@ -188,7 +189,7 @@ func TestFinishLogin_UserNotPasskeyUser(t *testing.T) {
 	userHandler := func(rawID, userHandle []byte) (webauthn.User, error) {
 		return &nonPasskeyUser{}, nil // not a *PasskeyUser
 	}
-	result, _, err := FinishLogin(validSessionBase64(t), req, userHandler)
+	result, _, err := FinishLogin(validSessionToken(t, AudiencePasskeyLogin), req, userHandler)
 	if result != nil {
 		t.Error("want nil PasskeyUser when type assertion fails")
 	}
@@ -210,7 +211,7 @@ func TestFinishLogin_Success(t *testing.T) {
 	userHandler := func(rawID, userHandle []byte) (webauthn.User, error) {
 		return expectedUser, nil
 	}
-	user, cred, err := FinishLogin(validSessionBase64(t), req, userHandler)
+	user, cred, err := FinishLogin(validSessionToken(t, AudiencePasskeyLogin), req, userHandler)
 	if err != nil {
 		t.Fatalf("want success, got %v", err)
 	}
@@ -229,7 +230,7 @@ func TestFinishRegistration_DefaultBody(t *testing.T) {
 		t.Fatal(err)
 	}
 	u := &PasskeyUser{ID: 1}
-	_, err := FinishRegistration(u, validSessionBase64(t), nil)
+	_, err := FinishRegistration(u, validSessionToken(t, AudiencePasskeyRegister), nil)
 	if err == nil {
 		t.Error("want error from real wa.CreateCredential with nil response")
 	}
@@ -242,7 +243,7 @@ func TestFinishLogin_DefaultBody(t *testing.T) {
 		t.Fatal(err)
 	}
 	req := httptest.NewRequest("POST", "/", nil)
-	_, _, err := FinishLogin(validSessionBase64(t), req, nil)
+	_, _, err := FinishLogin(validSessionToken(t, AudiencePasskeyLogin), req, nil)
 	if err == nil {
 		t.Error("want error from real wa.FinishDiscoverableLogin with empty request")
 	}

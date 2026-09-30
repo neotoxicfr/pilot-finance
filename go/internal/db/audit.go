@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"pilot-finance/internal/crypto"
 )
@@ -35,6 +36,9 @@ const (
 	AuditGDPRExport         = "GDPR_EXPORT"
 	AuditGDPRDelete         = "GDPR_DELETE"
 	AuditAdminDeleteUser    = "ADMIN_DELETE_USER"
+	// SEC-08 : une réinitialisation par e-mail change le mot de passe sans
+	// session ; sans trace, une prise de contrôle par la boîte mail est invisible.
+	AuditPasswordReset = "PASSWORD_RESET"
 )
 
 // AuditEntry représente une entrée dans le journal d'audit
@@ -50,11 +54,16 @@ type AuditEntry struct {
 // auditWG suit les écritures audit en vol pour FlushAuditLog au shutdown.
 var auditWG sync.WaitGroup
 
-// auditWriteConcurrency borne le nombre de goroutines d'écriture audit afin de
-// ne pas saturer le pool de 10 connexions sous une rafale d'évènements.
-const auditWriteConcurrency = 8
+// auditBatchMax borne la taille d'un lot d'écritures audit.
+//
+// PERF-05 : SQLite n'a qu'un écrivain ; les 8 workers d'origine n'ajoutaient
+// aucun débit mais occupaient jusqu'à 8 des 10 connexions du pool en attente
+// du verrou (busy_timeout), affamant les handlers en lecture pendant une
+// transaction longue. Un worker unique vide désormais la file par lots, une
+// transaction par lot.
+const auditBatchMax = 64
 
-// auditJob représente une écriture audit à effectuer par le worker pool.
+// auditJob représente une écriture audit à effectuer par le worker.
 type auditJob struct {
 	userID    int64
 	action    string
@@ -63,28 +72,47 @@ type auditJob struct {
 	createdAt int64
 }
 
-// auditQueue est le canal tamponné alimentant le worker pool. Initialisé
+// auditQueue est le canal tamponné alimentant le worker. Initialisé
 // paresseusement par startAuditWorkers (via sync.Once) au premier LogAudit.
 var (
 	auditQueue chan auditJob
 	auditOnce  sync.Once
 )
 
-// startAuditWorkers démarre un pool fixe de workers consommant auditQueue.
+// startAuditWorkers démarre l'unique worker consommant auditQueue.
 // Appelé paresseusement et une seule fois.
 func startAuditWorkers() {
 	auditQueue = make(chan auditJob, 256)
-	for i := 0; i < auditWriteConcurrency; i++ {
-		go func() {
-			for job := range auditQueue {
-				writeAuditEntry(job)
-				auditWG.Done()
-			}
-		}()
-	}
+	go func() {
+		for job := range auditQueue {
+			batch := collectAuditBatch(auditQueue, job)
+			writeAuditBatch(batch)
+			auditWG.Add(-len(batch))
+		}
+	}()
 }
 
-// writeAuditEntry chiffre IP/UserAgent et insère une entrée d'audit.
+// collectAuditBatch complète first avec les jobs déjà en file, sans attendre,
+// jusqu'à auditBatchMax.
+func collectAuditBatch(queue chan auditJob, first auditJob) []auditJob {
+	batch := []auditJob{first}
+	for len(batch) < auditBatchMax {
+		select {
+		case job, ok := <-queue:
+			if !ok {
+				return batch
+			}
+			batch = append(batch, job)
+		default:
+			return batch
+		}
+	}
+	return batch
+}
+
+// writeAuditBatch chiffre IP/UserAgent puis insère le lot dans une seule
+// transaction ; le chiffrement se fait avant BEGIN pour tenir le verrou
+// d'écriture le moins longtemps possible.
 //
 // Audit S-24 : en cas d'échec de chiffrement, ces deux champs retombaient sur
 // la valeur EN CLAIR — soit exactement l'inverse du contrat affiché (« IP et
@@ -92,27 +120,63 @@ func startAuditWorkers() {
 // visible. Le repli est désormais la chaîne VIDE : la trace d'audit
 // (utilisateur, action, horodatage) est conservée, mais aucune donnée
 // personnelle n'est jamais écrite en clair.
-func writeAuditEntry(job auditJob) {
-	ipEnc, err := crypto.Encrypt(job.ip)
+func writeAuditBatch(batch []auditJob) {
+	type row struct {
+		job          auditJob
+		ipEnc, uaEnc string
+	}
+	rows := make([]row, 0, len(batch))
+	for _, job := range batch {
+		ipEnc, err := crypto.Encrypt(job.ip)
+		if err != nil {
+			slog.Error("audit log: chiffrement ip échoué, champ vidé (jamais stocké en clair)", "err", err)
+			ipEnc = ""
+		}
+		uaEnc, err := crypto.Encrypt(job.userAgent)
+		if err != nil {
+			slog.Error("audit log: chiffrement user_agent échoué, champ vidé (jamais stocké en clair)", "err", err)
+			uaEnc = ""
+		}
+		rows = append(rows, row{job, ipEnc, uaEnc})
+	}
+	tx, err := DB.Begin()
 	if err != nil {
-		slog.Error("audit log: chiffrement ip échoué, champ vidé (jamais stocké en clair)", "err", err)
-		ipEnc = ""
+		slog.Warn("audit log: transaction impossible, lot perdu", "entries", len(batch), "err", err)
+		return
 	}
-	uaEnc, err := crypto.Encrypt(job.userAgent)
-	if err != nil {
-		slog.Error("audit log: chiffrement user_agent échoué, champ vidé (jamais stocké en clair)", "err", err)
-		uaEnc = ""
+	defer func() { _ = tx.Rollback() }()
+	for _, r := range rows {
+		if _, err := tx.Exec(`INSERT INTO audit_log (user_id, action, ip, user_agent, created_at) VALUES (?, ?, ?, ?, ?)`,
+			r.job.userID, r.job.action, r.ipEnc, r.uaEnc, r.job.createdAt); err != nil {
+			slog.Warn("audit log insert failed", "action", r.job.action, "userID", r.job.userID, "err", err)
+		}
 	}
-	if _, err := DB.Exec(`INSERT INTO audit_log (user_id, action, ip, user_agent, created_at) VALUES (?, ?, ?, ?, ?)`,
-		job.userID, job.action, ipEnc, uaEnc, job.createdAt); err != nil {
-		slog.Warn("audit log insert failed", "action", job.action, "userID", job.userID, "err", err)
+	if err := tx.Commit(); err != nil {
+		slog.Warn("audit log: commit du lot échoué", "entries", len(batch), "err", err)
 	}
+}
+
+// auditUserAgentMax borne le User-Agent journalisé. PERF-03 : l'en-tête était
+// stocké tel quel (chiffré puis encodé, taille ×2) ; un client anonyme
+// connaissant un e-mail écrivait une ligne de ~2 Mo par mot de passe faux.
+const auditUserAgentMax = 512
+
+// truncateUTF8 coupe s à au plus limit octets sans casser un caractère UTF-8.
+func truncateUTF8(s string, limit int) string {
+	if len(s) <= limit {
+		return s
+	}
+	cut := limit
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut]
 }
 
 // LogAudit enregistre une action dans le journal d'audit (vraie fire-and-forget).
 // M6 fix : 2 chiffrements AES + 1 INSERT exécutés hors du handler appelant pour
 // ne pas le bloquer (~2-5ms gagnés par action sensible). Le travail est confié à
-// un pool de workers borné (auditWriteConcurrency) afin de ne pas saturer le pool
+// un worker unique qui écrit par lots (PERF-05) afin de ne pas saturer le pool
 // de connexions sous une rafale d'évènements. Le timestamp est capturé de manière
 // synchrone pour préserver l'ordre logique des événements. IP et UserAgent sont
 // chiffrés AES-256-GCM avant stockage.
@@ -124,7 +188,7 @@ func LogAudit(userID int64, action, ip, userAgent string) {
 		userID:    userID,
 		action:    action,
 		ip:        ip,
-		userAgent: userAgent,
+		userAgent: truncateUTF8(userAgent, auditUserAgentMax),
 		createdAt: createdAt,
 	}
 }

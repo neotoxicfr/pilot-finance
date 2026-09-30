@@ -163,9 +163,24 @@ func Middleware(next http.Handler) http.Handler {
 		duration := time.Since(start).Seconds()
 		code := statusBucket(wrapped.statusCode)
 
-		httpRequestsTotal.WithLabelValues(r.Method, route, code).Inc()
-		httpRequestDuration.WithLabelValues(r.Method, route).Observe(duration)
+		method := methodLabel(r.Method)
+		httpRequestsTotal.WithLabelValues(method, route, code).Inc()
+		httpRequestDuration.WithLabelValues(method, route).Observe(duration)
 	})
+}
+
+// methodLabel borne le label method. PERF-02 : net/http accepte toute
+// méthode-token (« X1 », « X2 »…) ; la reprendre telle quelle créait une
+// série Prometheus par méthode inventée, jamais libérée (croissance mémoire
+// pilotable sans compte).
+func methodLabel(m string) string {
+	switch m {
+	case http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut,
+		http.MethodPatch, http.MethodDelete, http.MethodOptions:
+		return m
+	default:
+		return "OTHER"
+	}
 }
 
 // groupRoute normalise les chemins pour limiter la cardinalité des labels.

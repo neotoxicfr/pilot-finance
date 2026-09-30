@@ -54,7 +54,6 @@ var FuncMap = template.FuncMap{
 	"gt":                 gt,
 	"eq":                 eqFunc,
 	"ne":                 neFunc,
-	"abs":                absFunc,
 	"replace":            replaceFunc,
 }
 
@@ -465,15 +464,3 @@ func gt(a, b interface{}) (bool, error) {
 
 func eqFunc(a, b interface{}) bool { return a == b }
 func neFunc(a, b interface{}) bool { return a != b }
-
-// Fonction valeur absolue
-func absFunc(a interface{}) (float64, error) {
-	f, err := toNumber(a)
-	if err != nil {
-		return 0, err
-	}
-	if f < 0 {
-		return -f, nil
-	}
-	return f, nil
-}
