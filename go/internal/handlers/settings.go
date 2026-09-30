@@ -3,10 +3,7 @@ package handlers
 import (
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
-
-	"github.com/go-chi/chi/v5"
 
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/i18n"
@@ -53,9 +50,8 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Verifier le mot de passe actuel
-	if !hookVerifyPassword(currentPassword, dbUser.Password) {
-		clientErrorT(w, r, ErrAuthInvalid, "error.current_password_incorrect", http.StatusUnauthorized)
+	// Verifier le mot de passe actuel (SEC-03 : limiteur par compte + audit d'échec)
+	if !verifyCurrentPassword(w, r, dbUser, currentPassword) {
 		return
 	}
 
@@ -247,8 +243,8 @@ func DeleteSelfAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !hookVerifyPassword(currentPassword, dbUser.Password) {
-		clientErrorT(w, r, ErrAuthInvalid, "error.password_incorrect", http.StatusUnauthorized)
+	// SEC-03 : limiteur par compte + audit d'échec
+	if !verifyCurrentPassword(w, r, dbUser, currentPassword) {
 		return
 	}
 
@@ -281,10 +277,8 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		clientErrorT(w, r, ErrValidation, "error.invalid_id", http.StatusBadRequest)
+	id, ok := urlID(w, r)
+	if !ok {
 		return
 	}
 

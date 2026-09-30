@@ -74,6 +74,18 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// SEC-01 : limiteur par COMPTE en plus du limiteur par IP ci-dessus,
+		// sinon N IP donnent N×5 essais TOTP. Pas de handleFailedLogin : un
+		// mot de passe correct remet FailedLoginAttempts à zéro à l'étape 1,
+		// l'attaquant qui le connaît repartirait de zéro à chaque cycle.
+		pendingKey := strconv.FormatInt(pendingUserID, 10)
+		acctResult := hookRateLimitCheck(pendingKey, "twoFactorAccount")
+		if !acctResult.Allowed {
+			waitMin := (acctResult.RetryAfterMs / 60000) + 1
+			clientErrorTn(w, r, ErrRateLimited, "error.rate_limited_2fa_min", http.StatusTooManyRequests, waitMin)
+			return
+		}
+
 		user, err := hookGetUserByID(pendingUserID)
 		if err != nil || user == nil {
 			clientErrorT(w, r, ErrAuthInvalid, "error.user_not_found", http.StatusUnauthorized)
@@ -102,6 +114,9 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		usedRecoveryCode := false
 		if !hookValidateTOTP(secret, twoFactorCode) {
 			if !consumeRecoveryCode(user.ID, twoFactorCode) {
+				// SEC-01/SEC-08 : un brute-force du second facteur doit
+				// laisser une trace dans /admin/audit.
+				hookLogAudit(user.ID, db.AuditLoginFail, clientIP, r.UserAgent())
 				clientErrorT(w, r, ErrAuthInvalid, "error.totp_invalid", http.StatusUnauthorized)
 				return
 			}
@@ -122,6 +137,7 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		// Réinitialiser les rate limiters (IP + compte)
 		hookRateLimitReset(clientIP, "login")
 		hookRateLimitReset(strconv.FormatInt(user.ID, 10), "loginAccount")
+		hookRateLimitReset(pendingKey, "twoFactorAccount")
 
 		if usedRecoveryCode {
 			hookLogAudit(user.ID, db.AuditMFARecoveryUsed, clientIP, r.UserAgent())
@@ -142,9 +158,15 @@ func HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Chercher l'utilisateur par blind index
-	blindIndex := hookComputeBlindIndex(email)
-	user, err := hookGetUserByBlindIndex(blindIndex)
+	// Chercher l'utilisateur par blind index.
+	// SEC-10 : inscription et mot de passe oublié indexent l'e-mail en
+	// minuscules ; le login le prenait tel quel, « Jean@x.fr » échouait. On
+	// cherche d'abord en minuscules, puis sous la casse saisie : l'ancien front
+	// Node indexait l'e-mail brut, ces comptes doivent rester accessibles.
+	user, err := hookGetUserByBlindIndex(hookComputeBlindIndex(strings.ToLower(email)))
+	if err == nil && user == nil && email != strings.ToLower(email) {
+		user, err = hookGetUserByBlindIndex(hookComputeBlindIndex(email))
+	}
 	if err != nil {
 		serverError(w, r, "get user", err)
 		return
@@ -358,7 +380,11 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	// Persist the detected language preference
 	if detectedLang != "fr" {
-		_ = hookUpdateUserPrefs(userID, detectedLang, "EUR")
+		// CODE-4 : non bloquant (le compte existe déjà) mais tracé, sinon la
+		// langue détectée est perdue sans explication.
+		if err := hookUpdateUserPrefs(userID, detectedLang, "EUR"); err != nil {
+			slog.Warn("register: persist detected language", "err", err, "userID", userID)
+		}
 	}
 
 	// Email de vérification (best-effort) : génère un token et l'envoie si SMTP configuré.

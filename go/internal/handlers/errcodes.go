@@ -16,7 +16,6 @@ import (
 const (
 	ErrValidation       = "VALIDATION_FAILED"
 	ErrAuthRequired     = "AUTH_REQUIRED"
-	ErrAuthExpired      = "AUTH_EXPIRED"
 	ErrAuthInvalid      = "AUTH_INVALID"
 	ErrForbidden        = "FORBIDDEN"
 	ErrNotFound         = "NOT_FOUND"

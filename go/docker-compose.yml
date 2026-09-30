@@ -38,6 +38,8 @@ services:
     environment:
       # ENV=production active les logs JSON ET impose TRUSTED_PROXIES
       # (sans quoi X-Forwarded-For serait spoofable et contournerait le rate limit).
+      # C'est aussi la valeur par défaut de l'image (SEC-05) ; ENV=development
+      # la surcharge pour un essai local sans reverse-proxy.
       - ENV=production
       # Liste d'IPs / CIDR autorisés à poser X-Forwarded-For. Par défaut : les
       # réseaux bridge Docker (le reverse-proxy est un conteneur voisin).
@@ -61,7 +63,7 @@ services:
       - HOST=${HOST:-localhost}
       - ALLOW_REGISTER=${ALLOW_REGISTER:-false}
       # DISABLE_RATE_LIMIT=true DÉSACTIVE toutes les limites de débit.
-      # Réservé aux tests E2E — ne jamais activer sur une instance exposée.
+      # Réservé aux tests E2E — refusé au démarrage si ENV=production (SEC-06).
       # - DISABLE_RATE_LIMIT=false
       # --- Docker Secrets (alternative plus sécurisée) ---
       # Décommenter les lignes _FILE et commenter les variables ci-dessus :

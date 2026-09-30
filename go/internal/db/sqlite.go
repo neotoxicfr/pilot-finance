@@ -44,7 +44,6 @@ func Init(cfg Config) error {
 	return dbInitErr
 }
 
-// initDB performs the actual database initialization (called via sync.Once).
 // checkDirWritable écrit puis supprime un fichier témoin pour prouver que le
 // dossier est inscriptible par l'utilisateur courant.
 func checkDirWritable(dir string) error {
@@ -79,6 +78,7 @@ func newDataDirPermError(dir string, cause error) error {
 		dir, uid, gid, uid, gid, cause)
 }
 
+// initDB performs the actual database initialization (called via sync.Once).
 func initDB(cfg Config) error {
 	// S'assurer que le dossier existe
 	dir := filepath.Dir(cfg.Path)
@@ -740,6 +740,20 @@ func runMigrations(dbPath string) error {
 				}
 			}
 			return tx.Commit()
+		}},
+		// PERF-07 : account_id (CASCADE) et to_account_id (SET NULL) n'avaient
+		// pas d'index ; avec foreign_keys(1), chaque compte supprimé déclenchait
+		// deux SCAN complets de recurring_operations (tous utilisateurs).
+		{Name: "015_recurring_account_indexes", Run: func(d *sql.DB) error {
+			for _, idx := range []string{
+				`CREATE INDEX IF NOT EXISTS idx_recurring_account ON recurring_operations(account_id)`,
+				`CREATE INDEX IF NOT EXISTS idx_recurring_to_account ON recurring_operations(to_account_id)`,
+			} {
+				if _, err := d.Exec(idx); err != nil {
+					return err
+				}
+			}
+			return nil
 		}},
 	}
 

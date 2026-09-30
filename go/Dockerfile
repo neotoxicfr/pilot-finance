@@ -88,6 +88,12 @@ COPY --from=builder /app/locales /app/locales
 
 WORKDIR /app
 
+# SEC-05 : sans ENV=production, un `docker run` de l'image publiée tournait en
+# mode dev et acceptait X-Forwarded-For de n'importe qui (tous les limiteurs
+# par IP contournables). L'image est donc fail-closed : TRUSTED_PROXIES devient
+# obligatoire (refus de démarrer sinon). Dev local : -e ENV=development.
+ENV ENV=production
+
 # Port
 EXPOSE 3000
 

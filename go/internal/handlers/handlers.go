@@ -13,9 +13,11 @@ import (
 // Version est définie par ldflags au build
 var Version = "dev"
 
-// AssetVersion est un hash court des fichiers statiques, calculé au démarrage.
-// Utilisé pour le cache-busting des CSS/JS (?v=xxx).
-var AssetVersion = "dev"
+// AssetVersions associe chaque CSS/JS (chemin relatif à static/) à une
+// empreinte courte de son contenu, calculée au démarrage. Utilisé pour le
+// cache-busting fichier par fichier (?v=xxx). Vide en test : les URL gardent
+// un ?v= vide, sans effet sur le rendu.
+var AssetVersions = map[string]string{}
 
 // HealthResponse représente la réponse du health check
 type HealthResponse struct {

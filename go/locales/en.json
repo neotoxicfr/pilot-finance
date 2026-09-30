@@ -125,7 +125,6 @@
   "error.passkey_name_invalid": "Invalid name (1-100 characters)",
   "error.passkey_registration_failed": "Registration failed",
   "error.passkey_response_invalid": "Invalid response",
-  "error.password_incorrect": "Incorrect password",
   "error.password_required": "Password required",
   "error.password_required_disable_mfa": "Password required to disable 2FA",
   "error.passwords_mismatch": "Passwords do not match",
@@ -227,7 +226,6 @@
   "recurring.auto_badge_annual": "/ yr",
   "recurring.day_hint": "5",
   "recurring.day_label": "Day of month",
-  "recurring.day_placeholder": "D",
   "recurring.edit_form": "Edit",
   "recurring.empty_subtitle": "Add your recurring income, expenses and transfers",
   "recurring.empty_title": "No operations yet",
@@ -434,10 +432,11 @@
   "verify_email.resend_rate_limited": "Please wait a few minutes before another send.",
   "verify_email.resend_already_verified": "Email already verified.",
   "verify_email.success_toast": "Email verified successfully!",
-  "verify_email.invalid_token": "Invalid or expired verification link.",
-  "verify_email.already_verified": "Email already verified.",
   "verify_email.mail_disabled": "Email sending is not configured on this server.",
   "theme.light": "Theme: Light",
   "theme.dark": "Theme: Dark",
-  "theme.system": "Theme: System"
+  "theme.system": "Theme: System",
+  "audit.action.PASSWORD_RESET": "Password reset by email",
+  "error.mfa_already_enabled": "2FA is already enabled. Disable it first to switch apps.",
+  "settings.passkey_password": "Current password (required to add a Passkey)"
 }

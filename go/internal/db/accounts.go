@@ -179,13 +179,22 @@ func ReorderAccounts(userID int64, ids []int64) error {
 		return err
 	}
 	defer tx.Rollback()
-	for pos, id := range ids {
+	// PERF-06 : un id répété ne sert à rien (seule sa dernière position
+	// comptait) ; on ne garde que la première occurrence.
+	seen := make(map[int64]struct{}, len(ids))
+	pos := 0
+	for _, id := range ids {
+		if _, dup := seen[id]; dup {
+			continue
+		}
+		seen[id] = struct{}{}
 		if _, err := tx.Exec(
 			"UPDATE accounts SET position = ? WHERE id = ? AND user_id = ?",
 			pos, id, userID,
 		); err != nil {
 			return err
 		}
+		pos++
 	}
 	return tx.Commit()
 }

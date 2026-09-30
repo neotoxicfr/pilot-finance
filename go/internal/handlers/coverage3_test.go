@@ -96,6 +96,10 @@ func TestReorderAccounts_DBError(t *testing.T) {
 		return errTest
 	}
 	t.Cleanup(func() { hookReorderAccounts = orig })
+	// PERF-06 : le nombre d'ids est borné par le nombre de comptes.
+	origCount := hookCountAccountsByUserID
+	hookCountAccountsByUserID = func(int64) (int, error) { return 3, nil }
+	t.Cleanup(func() { hookCountAccountsByUserID = origCount })
 
 	req := injectUser(
 		postBody("/accounts/reorder", []byte(`{"ids":[1,2,3]}`), "application/json"),
@@ -405,7 +409,7 @@ func TestPasskeyRegistrationStart_WithCreds(t *testing.T) {
 		t.Fatalf("CreateAuthenticator: %v", err)
 	}
 
-	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/start", nil), mu(uid, "USER"))
+	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/start", pkPwdBody()), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
 	PasskeyRegistrationStart(rr, req)
 	if rr.Code != http.StatusOK {
@@ -1247,15 +1251,6 @@ func TestMethodNotAllowed_Renders(t *testing.T) {
 	}
 	if got := rr.Header().Get("X-Error-Code"); got != ErrMethodNotAllowed {
 		t.Errorf("X-Error-Code: want %q, got %q", ErrMethodNotAllowed, got)
-	}
-}
-
-func TestInternalServerError_Renders(t *testing.T) {
-	setupHandlerTest(t)
-	rr := httptest.NewRecorder()
-	InternalServerError(rr, httptest.NewRequest(http.MethodGet, "/bad", nil))
-	if rr.Code != http.StatusInternalServerError {
-		t.Errorf("want 500, got %d", rr.Code)
 	}
 }
 

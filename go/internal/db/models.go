@@ -2,13 +2,7 @@
 package db
 
 import (
-	"errors"
 	"time"
-)
-
-// Erreurs communes
-var (
-	ErrTokenInvalid = errors.New("token invalide ou expiré")
 )
 
 // User représente un utilisateur
@@ -36,17 +30,17 @@ type User struct {
 type Account struct {
 	ID               int64      `json:"id"`
 	UserID           int64      `json:"user_id"`
-	Name             string     `json:"name"`              // Chiffré en BDD
-	Balance          int64      `json:"balance"`           // centimes
+	Name             string     `json:"name"`    // Chiffré en BDD
+	Balance          int64      `json:"balance"` // centimes
 	Color            string     `json:"color"`
 	Position         int        `json:"position"`
 	UpdatedAt        time.Time  `json:"updated_at"`
 	IsYieldActive    bool       `json:"is_yield_active"`
-	YieldType        string     `json:"yield_type"`        // FIXED ou RANGE
+	YieldType        string     `json:"yield_type"` // FIXED ou RANGE
 	YieldMin         float64    `json:"yield_min"`
 	YieldMax         float64    `json:"yield_max"`
-	YieldFrequency   string     `json:"yield_frequency"`   // YEARLY, MONTHLY
-	PayoutFrequency  string     `json:"payout_frequency"`  // MONTHLY, YEARLY
+	YieldFrequency   string     `json:"yield_frequency"`  // YEARLY, MONTHLY
+	PayoutFrequency  string     `json:"payout_frequency"` // MONTHLY, YEARLY
 	LastYieldDate    *time.Time `json:"last_yield_date"`
 	ReinvestmentRate int        `json:"reinvestment_rate"` // 0-100
 	TargetAccountID  *int64     `json:"target_account_id"`
@@ -58,7 +52,7 @@ type RecurringOperation struct {
 	UserID      int64      `json:"userId"`
 	AccountID   int64      `json:"accountId"`
 	ToAccountID *int64     `json:"toAccountId"`
-	Amount      int64      `json:"amount"`            // centimes
+	Amount      int64      `json:"amount"`      // centimes
 	Description string     `json:"description"` // Chiffré en BDD
 	DayOfMonth  int        `json:"dayOfMonth"`
 	LastRunDate *time.Time `json:"lastRunDate"`
