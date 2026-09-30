@@ -36,7 +36,7 @@ func TestPasskeyRegistrationStart_Success(t *testing.T) {
 	setupHandlerTest(t)
 	uid := newUser(t, "pkregstart@example.com", "ValidP@ss1!", "USER")
 
-	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/start", nil), mu(uid, "USER"))
+	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/start", pkPwdBody()), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
 	PasskeyRegistrationStart(rr, req)
 	if rr.Code != http.StatusOK {
@@ -286,7 +286,7 @@ func TestPasskeyRegistrationStart_GetAuthsError(t *testing.T) {
 		return nil, errors.New("db error")
 	}
 
-	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/start", nil), mu(uid, "USER"))
+	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/start", pkPwdBody()), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
 	PasskeyRegistrationStart(rr, req)
 	if rr.Code != http.StatusInternalServerError {
@@ -307,7 +307,7 @@ func TestPasskeyRegistrationStart_BeginRegError(t *testing.T) {
 		return nil, "", errors.New("webauthn error")
 	}
 
-	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/start", nil), mu(uid, "USER"))
+	req := injectUser(httptest.NewRequest(http.MethodPost, "/api/passkey/register/start", pkPwdBody()), mu(uid, "USER"))
 	rr := httptest.NewRecorder()
 	PasskeyRegistrationStart(rr, req)
 	if rr.Code != http.StatusInternalServerError {

@@ -141,13 +141,14 @@ async function loginWithPasskey() {
 }
 
 // Enregistrement de Passkey (pour la page settings)
-async function registerPasskey() {
+async function registerPasskey(password) {
     try {
-        // 1. Obtenir les options du serveur
+        // 1. Obtenir les options du serveur (SEC-03 : mot de passe courant exigé)
         const startResponse = await fetch('/api/passkey/register/start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            credentials: 'include'
+            credentials: 'include',
+            body: JSON.stringify({ password: password || '' })
         });
 
         if (!startResponse.ok) {

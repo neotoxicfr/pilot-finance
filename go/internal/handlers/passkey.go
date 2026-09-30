@@ -26,6 +26,19 @@ func PasskeyRegistrationStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// SEC-03 : une session volée suffisait à enregistrer SA passkey, accès
+	// persistant qui survit au changement de mot de passe. Ré-auth exigée.
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Password == "" {
+		clientErrorT(w, r, ErrValidation, "error.current_password_incorrect", http.StatusBadRequest)
+		return
+	}
+	if !verifyCurrentPassword(w, r, user, req.Password) {
+		return
+	}
+
 	// Récupérer les passkeys existantes
 	authenticators, err := hookGetAuthenticatorsByUserID(user.ID)
 	if err != nil {
@@ -213,6 +226,15 @@ func PasskeyLoginFinish(w http.ResponseWriter, r *http.Request) {
 
 	passkeyUser, credential, err := hookFinishLogin(cookie.Value, r, userHandler)
 	if err != nil {
+		clientErrorT(w, r, ErrAuthInvalid, "error.authentication_failed", http.StatusUnauthorized)
+		return
+	}
+
+	// SEC-02 : compteur de signature en régression = authentificateur
+	// probablement cloné ; go-webauthn ne fait que lever le drapeau.
+	if credential.Authenticator.CloneWarning {
+		slog.Warn("passkey: clone warning", "user_id", passkeyUser.ID)
+		hookLogAudit(passkeyUser.ID, db.AuditLoginFail, clientIP, r.UserAgent())
 		clientErrorT(w, r, ErrAuthInvalid, "error.authentication_failed", http.StatusUnauthorized)
 		return
 	}
