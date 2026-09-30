@@ -56,9 +56,9 @@ func main() {
 
 	// Propager la version au package handlers (health check)
 	handlers.Version = Version
-	handlers.AssetVersion = computeAssetVersion()
+	handlers.AssetVersions = computeAssetVersions()
 
-	slog.Info("Pilot Finance démarrage", "version", Version, "assets", handlers.AssetVersion)
+	slog.Info("Pilot Finance démarrage", "version", Version, "assets", len(handlers.AssetVersions))
 
 	// Charger la configuration
 	cfg, err := config.Load()
@@ -376,13 +376,15 @@ var staticETags = func() map[string]string {
 	return tags
 }()
 
-// computeAssetVersion calcule un hash court de TOUS les .css/.js servis (y
-// compris les libs vendorées htmx/alpine/chart/sortable) pour le cache-busting.
-// Servis en Cache-Control immutable/1 an, ils doivent changer d'URL à chaque
-// bump : les hasher tous évite qu'un bump vendor reste invisible jusqu'à un an
-// côté navigateur (audit FIN-13). Parcours déterministe (fs.WalkDir trie).
-func computeAssetVersion() string {
-	h := md5.New()
+// computeAssetVersions calcule une empreinte courte du CONTENU de chaque
+// .css/.js servi (libs vendorées htmx/alpine/chart/sortable comprises), pour le
+// cache-busting. Servis en Cache-Control immutable/1 an, ils doivent changer
+// d'URL à chaque bump, sinon un bump vendor reste invisible jusqu'à un an côté
+// navigateur (audit FIN-13). Une empreinte PAR FICHIER, et non globale : un
+// déploiement qui ne touche que app.css ne fait plus retélécharger chart.js
+// (208 Ko) et les autres libs à tous les navigateurs.
+func computeAssetVersions() map[string]string {
+	vers := make(map[string]string)
 	if err := fs.WalkDir(os.DirFS("static"), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
@@ -394,13 +396,12 @@ func computeAssetVersion() string {
 		if rerr != nil {
 			return nil
 		}
-		h.Write([]byte(path))
-		h.Write(data)
+		vers[path] = fmt.Sprintf("%x", md5.Sum(data))[:8]
 		return nil
 	}); err != nil {
-		slog.Warn("computeAssetVersion", "err", err)
+		slog.Warn("computeAssetVersions", "err", err)
 	}
-	return fmt.Sprintf("%x", h.Sum(nil))[:8]
+	return vers
 }
 
 // cacheStatic ajoute des headers de cache et ETag pour les fichiers statiques
@@ -426,6 +427,6 @@ func cacheStatic(next http.Handler) http.Handler {
 	})
 }
 
-// computeAssetVersion et cacheStatic restent ici : plomberie d'assets liée au
+// computeAssetVersions et cacheStatic restent ici : plomberie d'assets liée au
 // dossier "static" et calculée au démarrage. Les middlewares de sécurité
 // (TrustedProxy, SecurityHeaders, MaxBodySize) sont dans internal/middleware.
