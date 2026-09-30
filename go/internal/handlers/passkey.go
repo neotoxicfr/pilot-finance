@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 
@@ -290,14 +289,12 @@ func DeletePasskey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		clientErrorT(w, r, ErrValidation, "error.invalid_id", http.StatusBadRequest)
+	id, ok := urlID(w, r)
+	if !ok {
 		return
 	}
 
-	err = hookDeleteAuthenticator(id, user.ID)
+	err := hookDeleteAuthenticator(id, user.ID)
 	if err != nil {
 		serverError(w, r, "delete authenticator", err)
 		return
@@ -316,10 +313,8 @@ func RenamePasskey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		clientErrorT(w, r, ErrValidation, "error.invalid_id", http.StatusBadRequest)
+	id, ok := urlID(w, r)
+	if !ok {
 		return
 	}
 
@@ -337,7 +332,7 @@ func RenamePasskey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = hookRenameAuthenticator(id, user.ID, req.Name)
+	err := hookRenameAuthenticator(id, user.ID, req.Name)
 	if err != nil {
 		serverError(w, r, "rename authenticator", err)
 		return

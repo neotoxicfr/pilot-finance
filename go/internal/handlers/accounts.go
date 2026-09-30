@@ -9,8 +9,6 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/go-chi/chi/v5"
-
 	"pilot-finance/internal/db"
 	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
@@ -308,14 +306,12 @@ func DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		clientErrorT(w, r, ErrValidation, "error.invalid_id", http.StatusBadRequest)
+	id, ok := urlID(w, r)
+	if !ok {
 		return
 	}
 
-	err = hookDeleteAccount(id, user.ID)
+	err := hookDeleteAccount(id, user.ID)
 	if err != nil {
 		serverError(w, r, "delete account", err)
 		return
@@ -335,10 +331,8 @@ func UpdateBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		clientErrorT(w, r, ErrValidation, "error.invalid_id", http.StatusBadRequest)
+	id, ok := urlID(w, r)
+	if !ok {
 		return
 	}
 
@@ -379,10 +373,8 @@ func MoveAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		clientErrorT(w, r, ErrValidation, "error.invalid_id", http.StatusBadRequest)
+	id, ok := urlID(w, r)
+	if !ok {
 		return
 	}
 

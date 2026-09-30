@@ -14,6 +14,8 @@ import (
 	"pilot-finance/internal/i18n"
 	"pilot-finance/internal/middleware"
 	"pilot-finance/internal/projection"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // loadAccountsAndRecurring récupère comptes et opérations récurrentes en
@@ -155,6 +157,17 @@ func verifyCurrentPassword(w http.ResponseWriter, r *http.Request, user *db.User
 
 	hookRateLimitReset(key, "reauth")
 	return true
+}
+
+// urlID lit le paramètre {id} de la route ; sur une valeur non numérique il
+// répond 400 (error.invalid_id) et renvoie false.
+func urlID(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		clientErrorT(w, r, ErrValidation, "error.invalid_id", http.StatusBadRequest)
+		return 0, false
+	}
+	return id, true
 }
 
 // decryptAccountNames déchiffre les noms de comptes en place
