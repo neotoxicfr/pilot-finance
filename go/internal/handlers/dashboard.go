@@ -123,7 +123,13 @@ func RecurringAPI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Dechiffrer les noms de comptes
-	accounts, _ := hookGetAccountsByUserID(user.ID)
+	// CODE-4 : l'erreur était ignorée et la réponse partait avec des noms de
+	// comptes vides, indistinguable d'un succès.
+	accounts, err := hookGetAccountsByUserID(user.ID)
+	if err != nil {
+		serverError(w, r, "get accounts", err)
+		return
+	}
 	decryptAccountNames(accounts)
 	accountMap := buildAccountMap(accounts)
 
