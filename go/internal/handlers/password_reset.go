@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"pilot-finance/internal/db"
 	"pilot-finance/internal/i18n"
 )
 
@@ -223,6 +224,9 @@ func ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 
 	// Invalidate session cache so stolen tokens are rejected immediately
 	hookInvalidateSessionCache(user.ID)
+
+	// SEC-08 : tracer la réinitialisation dans le journal d'audit
+	hookLogAudit(user.ID, db.AuditPasswordReset, getClientIP(r), r.UserAgent())
 
 	// Rediriger vers login avec message de succes
 	http.Redirect(w, r, "/login?reset=success", http.StatusSeeOther)
