@@ -69,6 +69,25 @@ func qrEncodePNG(otpauthURI string, size int) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// rejectIfMFAEnabled répond 409 et renvoie true si le 2FA est déjà actif.
+//
+// SEC-04 : sans ce garde-fou, une session volée ré-enrôlait SON appli via
+// setup/enable, écrasant le secret et les codes de secours de la victime
+// (qui ne passait plus l'étape TOTP) sans jamais fournir le mot de passe ;
+// il faut d'abord désactiver, ce qui exige une ré-authentification.
+func rejectIfMFAEnabled(w http.ResponseWriter, r *http.Request, userID int64) bool {
+	dbUser, err := hookGetUserByID(userID)
+	if err != nil || dbUser == nil {
+		jsonErrorT(w, r, ErrNotFound, "error.user_not_found", http.StatusNotFound)
+		return true
+	}
+	if dbUser.MFAEnabled {
+		jsonErrorT(w, r, ErrConflict, "error.mfa_already_enabled", http.StatusConflict)
+		return true
+	}
+	return false
+}
+
 // MFASetup retourne le QR code pour configurer le 2FA et stocke le secret
 // dans un cookie signé HS256 (mfa_setup, 5 min). Le secret n'est PLUS exposé
 // dans la réponse JSON (M3 fix : empêche le client de choisir un secret
@@ -77,6 +96,9 @@ func MFASetup(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
 		jsonErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
+		return
+	}
+	if rejectIfMFAEnabled(w, r, user.ID) {
 		return
 	}
 
@@ -122,6 +144,10 @@ func MFAEnable(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	if user == nil {
 		jsonErrorT(w, r, ErrAuthRequired, "error.auth_required", http.StatusUnauthorized)
+		return
+	}
+
+	if rejectIfMFAEnabled(w, r, user.ID) {
 		return
 	}
 
