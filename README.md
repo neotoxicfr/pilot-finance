@@ -37,7 +37,7 @@
 - **Passkeys** (WebAuthn) and **2FA** (TOTP) support
 - **Strict CSP** — per-request nonces, `@alpinejs/csp` build (no `unsafe-eval`, no `unsafe-inline`)
 - **CSRF protection** — Origin/Referer validation on all mutating requests
-- **Rate limiting** — 120 req/min global, 10 req/min on auth routes (see `DISABLE_RATE_LIMIT` and `TRUSTED_PROXIES` below)
+- **Rate limiting** — 120 req/min global (static assets and `/api/health` excluded), 10 req/min on auth routes (see `DISABLE_RATE_LIMIT` and `TRUSTED_PROXIES` below)
 - **Session versioning** — automatic logout on all devices after password change
 - **Audit log** — full traceability of authentication and account events (admin view)
 - **Non-root container** — runs as uid/gid 1000 on a `scratch` base (no shell, no package manager)
@@ -224,12 +224,12 @@ Restore with the **same** `ENCRYPTION_KEY` / `BLIND_INDEX_KEY` the backup was wr
 | `BLIND_INDEX_KEY` | Yes | 32-byte hex key for secure email search indexes. |
 | `AUTH_SECRET` | Yes | 32+ byte hex key for JWT session signing. |
 | `DATABASE_URL` | Yes | SQLite path (e.g. `file:/data/pilot.db`). |
-| `TRUSTED_PROXIES` | In production | Comma-separated IPs and/or CIDR ranges allowed to set `X-Forwarded-For` / `X-Real-IP` (e.g. `172.16.0.0/12`). **Mandatory when `ENV=production` — the server refuses to start without it.** Left empty outside production, `X-Forwarded-For` is accepted from any source (development only), which lets a client forge its IP and bypass the rate limits. |
-| `ENV` | No | `production` switches logs to JSON **and makes `TRUSTED_PROXIES` mandatory**. Any other value, or unset, means development. |
+| `TRUSTED_PROXIES` | In production | Comma-separated IPs and/or CIDR ranges allowed to set `X-Forwarded-For` / `X-Real-IP` (e.g. `172.16.0.0/12`). **Mandatory when `ENV=production` — the server refuses to start without it**, which is the Docker image's default, so a plain `docker run` must set it too. Left empty outside production, `X-Forwarded-For` is accepted from any source (development only), which lets a client forge its IP and bypass the rate limits. |
+| `ENV` | No | `production` switches logs to JSON **and makes `TRUSTED_PROXIES` mandatory**. Any other value, or unset, means development. **The Docker image defaults to `production`**; set `ENV=development` only for a local test without a reverse proxy. |
 | `ALLOW_REGISTER` | No | `true` / `false` (default `false`). Set to `false` after initial registration. |
 | `PORT` | No | Port the server listens on inside the container (default: `3000`). |
 | `TZ` | No | Container timezone (e.g. `Europe/Paris`). |
-| `DISABLE_RATE_LIMIT` | No | `true` **turns off all rate limiting** (the 120 req/min and 10 req/min auth limits). Intended for the E2E suite only — never set it on an exposed instance. |
+| `DISABLE_RATE_LIMIT` | No | `true` **turns off all rate limiting** (the 120 req/min and 10 req/min auth limits). Intended for the E2E suite only: the server refuses to start when it is combined with `ENV=production`. |
 | `SMTP_HOST` | No | SMTP server. Enables email verification and password recovery. |
 | `SMTP_PORT` | No | SMTP port (default: 587). |
 | `SMTP_USER` | No | SMTP username. |
@@ -242,6 +242,21 @@ Restore with the **same** `ENCRYPTION_KEY` / `BLIND_INDEX_KEY` the backup was wr
 > **Keys are permanent**: `ENCRYPTION_KEY` and `BLIND_INDEX_KEY` cannot be rotated — there is no key-version mechanism. Changing one makes existing data unreadable. The only way out is Settings → Export, then a fresh database with the new keys and a re-import. `AUTH_SECRET` can be changed freely; it only invalidates active sessions.
 
 > **Docker Secrets**: Sensitive variables support the `_FILE` suffix (e.g. `AUTH_SECRET_FILE=/run/secrets/auth_secret`). The app reads the file content at startup. Supported: `AUTH_SECRET`, `ENCRYPTION_KEY`, `BLIND_INDEX_KEY`, `SMTP_PASS`, `DATABASE_URL`.
+
+---
+
+## JSON API
+
+Read-only endpoints for scripts and integrations. They use the web session cookie (log in first; there are no API tokens), count against the 120 req/min global limit, and return plain JSON with amounts in cents.
+
+| Endpoint | Returns |
+| :--- | :--- |
+| `GET /api/accounts` | Your accounts, names decrypted: `id`, `name`, `balance`, `color`, `position`, and the yield settings (`is_yield_active`, `yield_type`, `yield_min`, `yield_max`, `payout_frequency`, `reinvestment_rate`, `target_account_id`…). |
+| `GET /api/recurring` | Your recurring operations: `id`, `description`, `amount`, `dayOfMonth`, `accountId`, `accountName`, `toAccountId`, `toAccountName`, `isActive`. Empty array when there are none. |
+| `GET /api/dashboard` | The data behind the dashboard charts (totals, projection, monthly summary). |
+| `GET /api/health` | Unauthenticated probe (status, database ping), not rate limited. |
+
+Without a valid session these endpoints answer `401`.
 
 ---
 

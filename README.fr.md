@@ -37,7 +37,7 @@
 - Support **Passkeys** (WebAuthn) et **2FA** (TOTP)
 - **CSP stricte** — nonces dynamiques par requete, build `@alpinejs/csp` (pas d'`unsafe-eval`, pas d'`unsafe-inline`)
 - **Protection CSRF** — validation Origin/Referer sur toutes les requetes mutantes
-- **Rate limiting** — 120 req/min global, 10 req/min sur les routes d'authentification (voir `DISABLE_RATE_LIMIT` et `TRUSTED_PROXIES` plus bas)
+- **Rate limiting** — 120 req/min global (hors fichiers statiques et `/api/health`), 10 req/min sur les routes d'authentification (voir `DISABLE_RATE_LIMIT` et `TRUSTED_PROXIES` plus bas)
 - **Session versioning** — deconnexion automatique sur tous les appareils apres changement de mot de passe
 - **Journal d'audit** — tracabilite complete des evenements d'authentification et de compte (vue admin)
 - **Conteneur non privilegie** — execution en uid/gid 1000 sur une base `scratch` (ni shell, ni gestionnaire de paquets)
@@ -222,12 +222,12 @@ Restaurez avec les **memes** `ENCRYPTION_KEY` / `BLIND_INDEX_KEY` que ceux utili
 | `BLIND_INDEX_KEY` | Oui | Cle hex de 32 octets pour les index de recherche securises. |
 | `AUTH_SECRET` | Oui | Cle hex de 32+ octets pour la signature des sessions JWT. |
 | `DATABASE_URL` | Oui | Chemin SQLite (ex : `file:/data/pilot.db`). |
-| `TRUSTED_PROXIES` | En production | IPs et/ou plages CIDR separees par des virgules, autorisees a poser `X-Forwarded-For` / `X-Real-IP` (ex : `172.16.0.0/12`). **Obligatoire quand `ENV=production` — le serveur refuse de demarrer sans.** Laissee vide hors production, `X-Forwarded-For` est accepte de n'importe quelle source (usage dev uniquement), ce qui permet a un client de falsifier son IP et de contourner les limites de debit. |
-| `ENV` | Non | `production` bascule les logs en JSON **et rend `TRUSTED_PROXIES` obligatoire**. Toute autre valeur, ou l'absence de valeur, signifie developpement. |
+| `TRUSTED_PROXIES` | En production | IPs et/ou plages CIDR separees par des virgules, autorisees a poser `X-Forwarded-For` / `X-Real-IP` (ex : `172.16.0.0/12`). **Obligatoire quand `ENV=production` — le serveur refuse de demarrer sans**, ce qui est la valeur par defaut de l'image Docker : un simple `docker run` doit donc la poser aussi. Laissee vide hors production, `X-Forwarded-For` est accepte de n'importe quelle source (usage dev uniquement), ce qui permet a un client de falsifier son IP et de contourner les limites de debit. |
+| `ENV` | Non | `production` bascule les logs en JSON **et rend `TRUSTED_PROXIES` obligatoire**. Toute autre valeur, ou l'absence de valeur, signifie developpement. **L'image Docker vaut `production` par defaut** ; ne poser `ENV=development` que pour un essai local sans reverse-proxy. |
 | `ALLOW_REGISTER` | Non | `true` / `false` (defaut `false`). Passer a `false` apres l'inscription initiale. |
 | `PORT` | Non | Port d'ecoute du serveur dans le conteneur (defaut : `3000`). |
 | `TZ` | Non | Fuseau horaire du conteneur (ex : `Europe/Paris`). |
-| `DISABLE_RATE_LIMIT` | Non | `true` **desactive tout le rate limiting** (les limites 120 req/min et 10 req/min sur l'auth). Prevu pour la suite E2E uniquement — a ne jamais poser sur une instance exposee. |
+| `DISABLE_RATE_LIMIT` | Non | `true` **desactive tout le rate limiting** (les limites 120 req/min et 10 req/min sur l'auth). Prevu pour la suite E2E uniquement : le serveur refuse de demarrer si elle est combinee a `ENV=production`. |
 | `SMTP_HOST` | Non | Serveur SMTP. Active la verification email et la recuperation de mot de passe. |
 | `SMTP_PORT` | Non | Port SMTP (defaut : 587). |
 | `SMTP_USER` | Non | Identifiant SMTP. |
@@ -240,6 +240,21 @@ Restaurez avec les **memes** `ENCRYPTION_KEY` / `BLIND_INDEX_KEY` que ceux utili
 > **Cles definitives** : `ENCRYPTION_KEY` et `BLIND_INDEX_KEY` ne peuvent pas etre changees — il n'existe aucun mecanisme de version de cle. En changer une rend les donnees existantes illisibles. La seule voie de sortie est Parametres → Export, puis une base vierge avec les nouvelles cles et un reimport. `AUTH_SECRET` peut etre change librement : cela invalide seulement les sessions actives.
 
 > **Docker Secrets** : Les variables sensibles supportent le suffixe `_FILE` (ex : `AUTH_SECRET_FILE=/run/secrets/auth_secret`). L'app lit le contenu du fichier au demarrage. Supportees : `AUTH_SECRET`, `ENCRYPTION_KEY`, `BLIND_INDEX_KEY`, `SMTP_PASS`, `DATABASE_URL`.
+
+---
+
+## API JSON
+
+Endpoints en lecture seule pour scripts et integrations. Ils utilisent le cookie de session du site (se connecter d'abord ; pas de jeton d'API), comptent dans la limite globale de 120 req/min et renvoient du JSON brut, montants en centimes.
+
+| Endpoint | Renvoie |
+| :--- | :--- |
+| `GET /api/accounts` | Vos comptes, noms dechiffres : `id`, `name`, `balance`, `color`, `position` et les reglages de rendement (`is_yield_active`, `yield_type`, `yield_min`, `yield_max`, `payout_frequency`, `reinvestment_rate`, `target_account_id`…). |
+| `GET /api/recurring` | Vos operations recurrentes : `id`, `description`, `amount`, `dayOfMonth`, `accountId`, `accountName`, `toAccountId`, `toAccountName`, `isActive`. Tableau vide s'il n'y en a aucune. |
+| `GET /api/dashboard` | Les donnees des graphiques du tableau de bord (totaux, projection, synthese mensuelle). |
+| `GET /api/health` | Sonde sans authentification (statut, ping de la base), hors rate limit. |
+
+Sans session valide, ces endpoints repondent `401`.
 
 ---
 
