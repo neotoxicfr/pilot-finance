@@ -3,6 +3,7 @@ package auth
 
 import (
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -14,6 +15,17 @@ var (
 	ErrExpiredToken  = errors.New("token expiré")
 	// parseWithClaimsFn est injectable pour les tests (couvre les branches mortes !ok || !token.Valid).
 	parseWithClaimsFn = jwt.ParseWithClaims
+)
+
+// SEC-07 : audiences distinctes par usage. Tous les jetons partagent le même
+// secret HS256 ; sans discriminant, un jeton mfa_setup (uid) passait pour un
+// pending_2fa et inversement. Chaque type pose son aud et l'exige au parse.
+const (
+	AudienceSession         = "session"
+	Audience2FA             = "2fa"
+	AudienceMFASetup        = "mfa-setup"
+	AudiencePasskeyRegister = "passkey-register"
+	AudiencePasskeyLogin    = "passkey-login"
 )
 
 // Claims représente les données du token JWT
@@ -40,6 +52,7 @@ func GenerateToken(userID int64, role, language, currency string, sessionVersion
 		Language:       language,
 		Currency:       currency,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Audience:  jwt.ClaimStrings{AudienceSession},
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
@@ -56,13 +69,13 @@ func GenerateToken(userID int64, role, language, currency string, sessionVersion
 // l'appelant (Go 1.26 generics). En cas d'échec, l'erreur brute de parsing est
 // remontée telle quelle (ErrInvalidToken pour la keyfunc, jwt.ErrTokenExpired
 // pour un token expiré) afin que les appelants conservent leur sémantique.
-func parseClaims[T jwt.Claims](tokenString string, claims T) (T, error) {
+func parseClaims[T jwt.Claims](tokenString string, claims T, opts ...jwt.ParserOption) (T, error) {
 	token, err := parseWithClaimsFn(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, ErrInvalidToken
 		}
 		return jwtSecret, nil
-	})
+	}, opts...)
 	if err != nil {
 		var zero T
 		return zero, err
@@ -86,6 +99,12 @@ func ValidateToken(tokenString string) (*Claims, error) {
 		}
 		return nil, ErrInvalidToken
 	}
+	// SEC-07 : les sessions émises avant l'ajout de l'aud (24 h max) restent
+	// valides pour ne pas déconnecter tout le monde au déploiement ; un jeton
+	// portant une AUTRE audience (2fa, mfa-setup…) est refusé.
+	if len(claims.Audience) > 0 && !slices.Contains(claims.Audience, AudienceSession) {
+		return nil, ErrInvalidToken
+	}
 	return claims, nil
 }
 
@@ -100,6 +119,7 @@ func GeneratePending2FAToken(userID int64) (string, error) {
 	claims := &Pending2FAClaims{
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Audience:  jwt.ClaimStrings{Audience2FA},
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
@@ -111,7 +131,7 @@ func GeneratePending2FAToken(userID int64) (string, error) {
 
 // ValidatePending2FAToken valide un token temporaire 2FA
 func ValidatePending2FAToken(tokenString string) (int64, error) {
-	claims, err := parseClaims(tokenString, &Pending2FAClaims{})
+	claims, err := parseClaims(tokenString, &Pending2FAClaims{}, jwt.WithAudience(Audience2FA))
 	if err != nil {
 		return 0, ErrInvalidToken
 	}
@@ -134,6 +154,7 @@ func GenerateMFASetupToken(userID int64, secret string) (string, error) {
 		UserID: userID,
 		Secret: secret,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Audience:  jwt.ClaimStrings{AudienceMFASetup},
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
@@ -144,7 +165,7 @@ func GenerateMFASetupToken(userID int64, secret string) (string, error) {
 
 // ValidateMFASetupToken vérifie le cookie et retourne (userID, secret) si valide.
 func ValidateMFASetupToken(tokenString string) (int64, string, error) {
-	claims, err := parseClaims(tokenString, &MFASetupClaims{})
+	claims, err := parseClaims(tokenString, &MFASetupClaims{}, jwt.WithAudience(AudienceMFASetup))
 	if err != nil {
 		return 0, "", ErrInvalidToken
 	}
