@@ -125,7 +125,6 @@
   "error.passkey_name_invalid": "Nom invalide (1-100 caract\u00e8res)",
   "error.passkey_registration_failed": "Enregistrement \u00e9chou\u00e9",
   "error.passkey_response_invalid": "R\u00e9ponse invalide",
-  "error.password_incorrect": "Mot de passe incorrect",
   "error.password_required": "Mot de passe requis",
   "error.password_required_disable_mfa": "Mot de passe requis pour d\u00e9sactiver le 2FA",
   "error.passwords_mismatch": "Les mots de passe ne correspondent pas",
