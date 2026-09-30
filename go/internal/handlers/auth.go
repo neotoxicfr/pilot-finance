@@ -374,7 +374,11 @@ func HandleRegister(w http.ResponseWriter, r *http.Request) {
 
 	// Persist the detected language preference
 	if detectedLang != "fr" {
-		_ = hookUpdateUserPrefs(userID, detectedLang, "EUR")
+		// CODE-4 : non bloquant (le compte existe déjà) mais tracé, sinon la
+		// langue détectée est perdue sans explication.
+		if err := hookUpdateUserPrefs(userID, detectedLang, "EUR"); err != nil {
+			slog.Warn("register: persist detected language", "err", err, "userID", userID)
+		}
 	}
 
 	// Email de vérification (best-effort) : génère un token et l'envoie si SMTP configuré.
