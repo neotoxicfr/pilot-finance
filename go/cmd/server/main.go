@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -126,7 +127,11 @@ func main() {
 	}
 
 	// Désactiver le rate limiting applicatif si demandé (tests E2E)
-	disableRL := os.Getenv("DISABLE_RATE_LIMIT") == "true"
+	disableRL, err := rateLimitDisabled(os.Getenv("ENV"), os.Getenv("DISABLE_RATE_LIMIT"))
+	if err != nil {
+		slog.Error("rate limiting", "err", err)
+		os.Exit(1)
+	}
 	if disableRL {
 		ratelimit.Disabled = true
 		slog.Warn("rate limiting désactivé (DISABLE_RATE_LIMIT=true)")
@@ -136,16 +141,83 @@ func main() {
 	metrics.Init(func() *sql.DB { return db.DB })
 	slog.Info("métriques Prometheus initialisées")
 
-	// Créer le routeur
-	r := chi.NewRouter()
-
-	// Middlewares globaux — doivent être déclarés AVANT NotFound/MethodNotAllowed
-	// pour que chi les applique aux handlers d'erreur
 	tp, err := middleware.TrustedProxy(os.Getenv("TRUSTED_PROXIES"), os.Getenv("ENV") == "production")
 	if err != nil {
 		slog.Error("trusted proxies", "err", err)
 		os.Exit(1)
 	}
+	r := newRouter(tp, host, disableRL)
+
+	// Démarrer le serveur
+	addr := ":" + cfg.Port
+	server := &http.Server{
+		Addr:              addr,
+		Handler:           r,
+		ReadTimeout:       15 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		// PERF-03 : défaut Go = 1 Mo d'en-têtes par requête ; 64 Ko suffisent
+		// largement et bornent ce qu'un client anonyme peut faire journaliser.
+		MaxHeaderBytes: 64 << 10,
+	}
+
+	// Graceful shutdown via signal.NotifyContext
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// Rotation automatique du journal d'audit (purge > 90 jours, toutes les 24h)
+	db.StartAuditRotation(ctx)
+
+	go func() {
+		slog.Info("serveur démarré", "addr", "http://localhost"+addr)
+		if err := server.ListenAndServe(); err != http.ErrServerClosed {
+			slog.Error("serveur", "err", err)
+			os.Exit(1)
+		}
+	}()
+
+	<-ctx.Done()
+	slog.Info("arrêt en cours")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		slog.Error("shutdown", "err", err)
+	}
+	// Stop rate-limiter background workers only after in-flight requests have
+	// drained (server.Shutdown above), since handlers may still touch limiters.
+	ratelimit.StopAll()
+	// Drain les tâches forgot-password en vol (audit S-33). Le handler répond
+	// immédiatement puis fait le travail en arrière-plan pour ne pas exposer un
+	// oracle temporel ; sans ce drain, un arrêt pendant cette fenêtre laissait
+	// l'écriture du jeton ou l'envoi du mail inachevés, sur une base déjà fermée.
+	handlers.FlushForgotPassword()
+	// M6 : drain les écritures audit en vol avant de quitter (fire-and-forget).
+	db.FlushAuditLog()
+	slog.Info("serveur arrêté proprement")
+}
+
+// rateLimitDisabled lit DISABLE_RATE_LIMIT. SEC-06 : la variable, pensée pour
+// l'E2E, coupait toutes les limites (login, 2FA, forgot…) même en production,
+// avec un simple Warn ; recopiée par erreur dans un .env de prod, elle ouvrait
+// le brute-force. En production on refuse désormais de démarrer.
+func rateLimitDisabled(env, flag string) (bool, error) {
+	if flag != "true" {
+		return false, nil
+	}
+	if env == "production" {
+		return false, errors.New("DISABLE_RATE_LIMIT=true est interdit quand ENV=production")
+	}
+	return true, nil
+}
+
+// newRouter construit le routeur complet (extrait de main pour être testable).
+func newRouter(tp func(http.Handler) http.Handler, host string, disableRL bool) *chi.Mux {
+	r := chi.NewRouter()
+
+	// Middlewares globaux — doivent être déclarés AVANT NotFound/MethodNotAllowed
+	// pour que chi les applique aux handlers d'erreur
 	r.Use(tp)
 	r.Use(chimw.RequestID)
 	r.Use(middleware.SanitizedLogger)
@@ -154,19 +226,37 @@ func main() {
 	r.Use(metrics.Middleware)
 	r.Use(middleware.SecurityHeaders)
 	r.Use(middleware.MaxBodySize)
+
+	// PERF-01 : le limiteur global 120 req/min était posé par r.Use sur la
+	// racine, donc appliqué aussi à /static/* et /api/health ; un chargement à
+	// froid (~10 assets par page) suffisait à renvoyer des 429 sur le CSS/JS à
+	// un utilisateur légitime ou à un foyer derrière un NAT. Il ne couvre plus
+	// que les routes dynamiques (groupe ci-dessous) et les pages d'erreur ;
+	// une seule instance, donc un seul compteur partagé.
+	globalRL := func(next http.Handler) http.Handler { return next }
 	if !disableRL {
-		r.Use(httprate.LimitBy(120, time.Minute, middleware.ClientIPKey)) // 120 req/min global
+		globalRL = httprate.LimitBy(120, time.Minute, middleware.ClientIPKey) // 120 req/min global
 	}
 
-	r.NotFound(handlers.NotFound)
-	r.MethodNotAllowed(handlers.MethodNotAllowed)
+	r.NotFound(globalRL(http.HandlerFunc(handlers.NotFound)).ServeHTTP)
+	r.MethodNotAllowed(globalRL(http.HandlerFunc(handlers.MethodNotAllowed)).ServeHTTP)
 
 	// Fichiers statiques avec cache (pas de rate limit)
 	fileServer := http.FileServer(http.Dir("static"))
 	r.Handle("/static/*", http.StripPrefix("/static/", cacheStatic(fileServer)))
 
-	// Health check, CSP report (pas de rate limit strict)
+	// Health check (pas de rate limit : sonde du conteneur et du proxy)
 	r.Get("/api/health", handlers.HealthCheck)
+
+	r.Group(func(r chi.Router) {
+		r.Use(globalRL)
+		dynamicRoutes(r, host, disableRL)
+	})
+	return r
+}
+
+// dynamicRoutes déclare toutes les routes soumises au limiteur global.
+func dynamicRoutes(r chi.Router, host string, disableRL bool) {
 	r.Post("/api/csp-report", handlers.CSPReport)
 
 	// Metrics endpoint (admin auth required)
@@ -266,52 +356,6 @@ func main() {
 		r.Delete("/admin/users/{id}", handlers.DeleteUser)
 		r.Get("/admin/audit", handlers.AuditPage)
 	})
-
-	// Démarrer le serveur
-	addr := ":" + cfg.Port
-	server := &http.Server{
-		Addr:              addr,
-		Handler:           r,
-		ReadTimeout:       15 * time.Second,
-		ReadHeaderTimeout: 5 * time.Second,
-		WriteTimeout:      15 * time.Second,
-		IdleTimeout:       60 * time.Second,
-	}
-
-	// Graceful shutdown via signal.NotifyContext
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	// Rotation automatique du journal d'audit (purge > 90 jours, toutes les 24h)
-	db.StartAuditRotation(ctx)
-
-	go func() {
-		slog.Info("serveur démarré", "addr", "http://localhost"+addr)
-		if err := server.ListenAndServe(); err != http.ErrServerClosed {
-			slog.Error("serveur", "err", err)
-			os.Exit(1)
-		}
-	}()
-
-	<-ctx.Done()
-	slog.Info("arrêt en cours")
-
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		slog.Error("shutdown", "err", err)
-	}
-	// Stop rate-limiter background workers only after in-flight requests have
-	// drained (server.Shutdown above), since handlers may still touch limiters.
-	ratelimit.StopAll()
-	// Drain les tâches forgot-password en vol (audit S-33). Le handler répond
-	// immédiatement puis fait le travail en arrière-plan pour ne pas exposer un
-	// oracle temporel ; sans ce drain, un arrêt pendant cette fenêtre laissait
-	// l'écriture du jeton ou l'envoi du mail inachevés, sur une base déjà fermée.
-	handlers.FlushForgotPassword()
-	// M6 : drain les écritures audit en vol avant de quitter (fire-and-forget).
-	db.FlushAuditLog()
-	slog.Info("serveur arrêté proprement")
 }
 
 // staticETags calcule les ETag au démarrage pour chaque fichier statique
