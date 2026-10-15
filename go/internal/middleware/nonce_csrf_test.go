@@ -334,3 +334,30 @@ func TestValidateOrigin_RejectsMalformedOrigin(t *testing.T) {
 		t.Errorf("malformed origin must be rejected, got %d", rr.Code)
 	}
 }
+
+// HOST configuré : http:// n'est admis que pour localhost (contexte sécurisé),
+// jamais pour un vrai domaine ni pour un hôte qui ne fait que commencer par
+// « localhost ».
+func TestValidateOrigin_POST_HostScheme(t *testing.T) {
+	cases := []struct {
+		host, origin string
+		want         int
+	}{
+		{"localhost:3000", "http://localhost:3000", http.StatusOK},
+		{"localhost:3000", "https://localhost:3000", http.StatusOK},
+		{"localhost:3000", "http://localhost:4000", http.StatusForbidden},
+		{"localhost.evil.com", "http://localhost.evil.com", http.StatusForbidden},
+		{"example.com", "http://example.com", http.StatusForbidden},
+	}
+	for _, tc := range cases {
+		t.Run(tc.host+" "+tc.origin, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/", nil)
+			req.Header.Set("Origin", tc.origin)
+			rr := httptest.NewRecorder()
+			middleware.ValidateOrigin(tc.host)(passThroughHandler).ServeHTTP(rr, req)
+			if rr.Code != tc.want {
+				t.Errorf("got %d, want %d", rr.Code, tc.want)
+			}
+		})
+	}
+}

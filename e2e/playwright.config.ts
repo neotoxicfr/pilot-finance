@@ -39,18 +39,20 @@ export default defineConfig({
       },
       dependencies: ['setup'],
     },
-    // WebKit runs locally only — flaky cookie/storageState handling on Linux CI.
-    // The READMEs therefore advertise Chromium/Firefox/Mobile Chrome for CI.
-    // input.css carries an iOS-Safari-only fix (@supports -webkit-touch-callout),
-    // so run `npx playwright test --project=webkit` locally before a release.
-    ...(!process.env.CI ? [{
+    // WebKit is opt-in (`default: false`, Playwright ≥ 1.64) — flaky
+    // cookie/storageState handling on Linux, so neither CI nor a plain
+    // `npx playwright test` runs it. input.css carries an iOS-Safari-only fix
+    // (@supports -webkit-touch-callout), so run
+    // `npx playwright test --project=webkit` locally before a release.
+    {
       name: 'webkit',
+      default: false,
       use: {
         ...devices['Desktop Safari'],
         storageState: 'e2e/.auth/user.json',
       },
       dependencies: ['setup'],
-    }] : []),
+    },
 
     // — Mobile viewport —
     {
