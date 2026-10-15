@@ -92,6 +92,11 @@ func TestTrustedProxy_Forwarding(t *testing.T) {
 		{"XFF illisible → fail-closed, repli RemoteAddr", "10.5.6.7:5000", map[string]string{"X-Forwarded-For": "garbage"}, "10.5.6.7"},
 		{"trusted mais aucun header proxy", "10.5.6.7:5000", nil, "10.5.6.7"},
 		{"untrusted peer ignore XFF", "8.8.8.8:5000", map[string]string{"X-Forwarded-For": "1.2.3.4"}, "8.8.8.8"},
+		// Vérification du pair déléguée à chi ≥ 5.4 (GHSA-j6qf-3m9c-vwj3) : un
+		// client direct ne choisit son IP ni par X-Real-IP ni par les deux en-têtes.
+		{"untrusted peer ignore X-Real-IP", "8.8.8.8:5000", map[string]string{"X-Real-IP": "1.2.3.4"}, "8.8.8.8"},
+		{"untrusted peer ignore XFF + X-Real-IP", "8.8.8.8:5000", map[string]string{"X-Forwarded-For": "10.1.1.1", "X-Real-IP": "192.168.1.10"}, "8.8.8.8"},
+		{"trusted peer IPv4-mapped (dual-stack)", "[::ffff:10.5.6.7]:5000", map[string]string{"X-Forwarded-For": "1.2.3.4"}, "1.2.3.4"},
 		{"RemoteAddr illisible", "garbage", map[string]string{"X-Forwarded-For": "1.2.3.4"}, "garbage"},
 	}
 	for _, tc := range cases {

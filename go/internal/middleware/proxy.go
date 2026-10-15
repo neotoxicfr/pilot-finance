@@ -62,7 +62,10 @@ func TrustedProxy(proxyEnv string, isProd bool) (func(http.Handler) http.Handler
 			return nil, errors.New("TRUSTED_PROXIES doit être défini en production (sinon X-Forwarded-For est spoofable et bypasse les rate limits)")
 		}
 		slog.Warn("TRUSTED_PROXIES vide : X-Forwarded-For accepté de toute source — usage dev uniquement")
-		xff := chimw.ClientIPFromXFF()
+		// chi ≥ 5.4 : ClientIPFromXFF exige au moins un préfixe de confiance
+		// (panique sinon) ; sans préfixe, l'ancien comportement était celui de
+		// ClientIPFromXFFTrustedProxies(1) : entrée XFF la plus à droite.
+		xff := chimw.ClientIPFromXFFTrustedProxies(1)
 		return func(next http.Handler) http.Handler {
 			// Le middleware le plus interne qui résout une IP écrase les
 			// précédents : XFF prioritaire, RemoteAddr en repli.
@@ -70,11 +73,10 @@ func TrustedProxy(proxyEnv string, isProd bool) (func(http.Handler) http.Handler
 		}, nil
 	}
 
-	// Supporte IPs exactes ET ranges CIDR (les IPs containers Docker changent au restart).
-	trustedIPs := make(map[string]bool)
-	var trustedNets []*net.IPNet
-	// prefixes reprend l'allowlist au format CIDR pour le parcours XFF de chi
-	// (IP exacte → /32 ou /128).
+	// Supporte IPs exactes ET ranges CIDR (les IPs containers Docker changent
+	// au restart). prefixes reprend l'allowlist au format CIDR attendu par chi
+	// (IP exacte → /32 ou /128) ; on valide nous-mêmes pour renvoyer une erreur
+	// lisible plutôt que la panique de chi sur un préfixe invalide.
 	var prefixes []string
 	for _, p := range strings.Split(proxyEnv, ",") {
 		p = strings.TrimSpace(p)
@@ -86,14 +88,12 @@ func TrustedProxy(proxyEnv string, isProd bool) (func(http.Handler) http.Handler
 			if err != nil {
 				return nil, errors.New("TRUSTED_PROXIES : CIDR invalide : " + p)
 			}
-			trustedNets = append(trustedNets, ipnet)
 			prefixes = append(prefixes, ipnet.String())
 		} else {
 			ip := net.ParseIP(p)
 			if ip == nil {
 				return nil, errors.New("TRUSTED_PROXIES : IP invalide : " + p)
 			}
-			trustedIPs[p] = true
 			if ip.To4() != nil {
 				prefixes = append(prefixes, ip.String()+"/32")
 			} else {
@@ -102,39 +102,15 @@ func TrustedProxy(proxyEnv string, isProd bool) (func(http.Handler) http.Handler
 		}
 	}
 
-	isTrusted := func(host string) bool {
-		if trustedIPs[host] {
-			return true
-		}
-		ip := net.ParseIP(host)
-		if ip == nil {
-			return false
-		}
-		for _, n := range trustedNets {
-			if n.Contains(ip) {
-				return true
-			}
-		}
-		return false
-	}
-
+	// chi ≥ 5.4 (GHSA-j6qf-3m9c-vwj3) traite RemoteAddr comme le saut le plus
+	// à droite : un pair hors allowlist EST le client, et XFF / X-Real-IP sont
+	// ignorés. Cette vérification du pair, faite jusqu'ici à la main, est donc
+	// assurée par chi pour les deux en-têtes.
 	fromXFF := chimw.ClientIPFromXFF(prefixes...)
-	fromXRealIP := chimw.ClientIPFromHeader("X-Real-IP")
+	fromXRealIP := chimw.ClientIPFromHeader("X-Real-IP", prefixes...)
 	return func(next http.Handler) http.Handler {
 		// Priorité XFF > X-Real-IP > RemoteAddr : le middleware le plus interne
 		// qui résout une IP écrase les précédents.
-		viaProxy := chimw.ClientIPFromRemoteAddr(fromXRealIP(fromXFF(next)))
-		direct := chimw.ClientIPFromRemoteAddr(next)
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			host, _, err := net.SplitHostPort(r.RemoteAddr)
-			if err != nil {
-				host = r.RemoteAddr
-			}
-			if isTrusted(host) {
-				viaProxy.ServeHTTP(w, r)
-			} else {
-				direct.ServeHTTP(w, r)
-			}
-		})
+		return chimw.ClientIPFromRemoteAddr(fromXRealIP(fromXFF(next)))
 	}, nil
 }
