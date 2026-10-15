@@ -4,6 +4,7 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"sync"
@@ -64,11 +65,32 @@ func (u *PasskeyUser) WebAuthnIcon() string {
 
 // InitWebAuthn initialise le module WebAuthn
 func InitWebAuthn(rpID, rpOrigin, rpName string) error {
+	return initWebAuthn(rpID, []string{rpOrigin}, rpName)
+}
+
+// InitWebAuthnForHost initialise WebAuthn à partir de HOST (« domaine » ou
+// « domaine:port »). Le rpId est le nom d'hôte SANS port, comme l'exige la
+// spec WebAuthn ; l'origine attendue est https://HOST. Pour localhost
+// seulement, http://HOST est aussi accepté : les navigateurs le traitent en
+// contexte sécurisé, ce qui permet le dev local et l'E2E sans TLS.
+func InitWebAuthnForHost(host, rpName string) error {
+	rpID := host
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		rpID = h
+	}
+	origins := []string{"https://" + host}
+	if rpID == "localhost" {
+		origins = append(origins, "http://"+host)
+	}
+	return initWebAuthn(rpID, origins, rpName)
+}
+
+func initWebAuthn(rpID string, rpOrigins []string, rpName string) error {
 	var err error
 	webAuthn, err = webauthn.New(&webauthn.Config{
 		RPDisplayName: rpName,
 		RPID:          rpID,
-		RPOrigins:     []string{rpOrigin},
+		RPOrigins:     rpOrigins,
 		Timeouts: webauthn.TimeoutsConfig{
 			Login: webauthn.TimeoutConfig{
 				Enforce:    true,

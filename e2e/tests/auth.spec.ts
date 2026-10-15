@@ -52,7 +52,7 @@ test.describe('Authentication', () => {
     const responsePromise = page.waitForResponse(
       resp => resp.url().includes('/login') && resp.request().method() === 'POST'
     );
-    await page.getByRole('button', { name: /se connecter|sign in/i }).click();
+    await page.getByRole('button', { name: /^(se connecter|sign in)$/i }).click();
     const response = await responsePromise;
     expect(response.status()).toBe(401);
     // Page should stay on /login (htmx:beforeSwap 401 handler redirects back)

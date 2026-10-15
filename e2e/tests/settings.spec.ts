@@ -49,8 +49,9 @@ test.describe('Settings', () => {
     // /télécharger/ pattern that would now resolve to both.
     await expect(page.getByRole('button', { name: /mes données|my data/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /modèle|template/i })).toBeVisible();
-    // Delete button
-    await expect(page.getByRole('button', { name: /supprimer|delete/i })).toBeVisible();
+    // Account deletion button — matched on its own wording: once passkeys are
+    // registered, each one carries a "Supprimer/Delete" button too.
+    await expect(page.getByRole('button', { name: /supprimer mon compte|delete my account/i })).toBeVisible();
   });
 
   test('theme toggle is functional', async ({ page }) => {

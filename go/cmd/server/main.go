@@ -118,8 +118,7 @@ func main() {
 	// Initialiser WebAuthn/Passkeys si HOST est configuré
 	host := os.Getenv("HOST")
 	if host != "" {
-		rpOrigin := "https://" + host
-		if err := auth.InitWebAuthn(host, rpOrigin, "Pilot Finance"); err != nil {
+		if err := auth.InitWebAuthnForHost(host, "Pilot Finance"); err != nil {
 			slog.Warn("passkeys non configurés", "err", err)
 		} else {
 			slog.Info("passkeys configurés")

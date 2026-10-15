@@ -46,8 +46,15 @@ func ValidateOrigin(host string) func(http.Handler) http.Handler {
 						return false
 					}
 					if host != "" {
-						// Production: only allow HTTPS and exact host match
-						return u.Scheme == "https" && u.Host == effectiveHost
+						// Production: only allow HTTPS and exact host match —
+						// except HOST=localhost[:port], where http:// is also
+						// accepted (secure context for browsers, same rule as
+						// auth.InitWebAuthnForHost) so that local dev and the E2E
+						// suite can run with passkeys enabled.
+						if u.Host != effectiveHost {
+							return false
+						}
+						return u.Scheme == "https" || (u.Scheme == "http" && u.Hostname() == "localhost")
 					}
 					// Dev fallback: allow both HTTP and HTTPS, exact host match
 					return (u.Scheme == "https" || u.Scheme == "http") && u.Host == effectiveHost

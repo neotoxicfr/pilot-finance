@@ -32,7 +32,7 @@ export async function login(page: Page, email: string, password: string) {
   await page.goto('/login');
   await page.locator('input[name="email"]').fill(email);
   await page.locator('input[name="password"]').fill(password);
-  await page.getByRole('button', { name: /se connecter|sign in/i }).click();
+  await page.getByRole('button', { name: /^(se connecter|sign in)$/i }).click();
   // HTMX sends HX-Redirect → full page navigation to /
   await Promise.race([
     page.waitForURL('/', { timeout: 15000 }),
