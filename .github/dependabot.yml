@@ -21,6 +21,11 @@ updates:
       go-dependencies:
         patterns:
           - "*"
+    # modernc.org/sqlite exige EXACTEMENT la version de modernc.org/libc de son
+    # propre go.mod (doc.go, « Fragile modernc.org/libc dependency ») : libc ne
+    # bouge qu'avec sqlite, jamais seule. Garde-fou : TestLibcMatchesSQLite.
+    ignore:
+      - dependency-name: "modernc.org/libc"
 
   - package-ecosystem: "docker"
     directory: "/go"

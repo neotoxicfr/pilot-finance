@@ -3,9 +3,10 @@ name: E2E Tests
 on:
   push:
     branches: [develop]
-    # Les tags sont couverts pour que l'image :latest passe par le même
-    # garde-fou E2E que develop (audit S-13).
-    tags: ['v*.*.*']
+    # Pas de déclencheur sur les tags (2026-10-20) : une release se vérifie en
+    # local avant le tag (lint, govulncheck, tests -race, couverture, E2E) et se
+    # crée avec `gh release create`. L'image :latest reste gardée par la
+    # barrière `go test -race` de docker-publish (ex-audit S-13).
     paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
   pull_request:
     branches: [main, develop]
