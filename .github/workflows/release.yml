@@ -1,10 +1,9 @@
 name: Release
 
-# Déclenchement manuel seulement (2026-10-20) : la release se prépare en local
-# (tests -race, couverture, lint, govulncheck, E2E) et se crée avec
-# `gh release create vX.Y.Z --notes-file …` ; ce workflow reste en secours.
 on:
-  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
 
 # Pas de `concurrency` ici : une publication de release ne doit jamais être
 # annulée par un autre run.
