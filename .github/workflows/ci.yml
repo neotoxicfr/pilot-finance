@@ -96,9 +96,28 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Install Trivy (GitHub release, checksum verified)
+        # trivy-action installe Trivy via get.trivy.dev, domaine expiré depuis le
+        # 2026-11-04 (aquasecurity/trivy#11537, NXDOMAIN) : l'installation échouait
+        # (curl 6) et bloquait le scan. Binaire pris sur la release GitHub, empreinte
+        # SHA-256 vérifiée contre le fichier de sommes de la même release.
+        env:
+          TRIVY_VERSION: 0.70.0
+        run: |
+          cd "$RUNNER_TEMP"
+          base="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"
+          tarball="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -fsSLO "$base/$tarball"
+          curl -fsSLO "$base/trivy_${TRIVY_VERSION}_checksums.txt"
+          grep " ${tarball}\$" "trivy_${TRIVY_VERSION}_checksums.txt" | sha256sum -c -
+          mkdir -p "$HOME/.local/bin"
+          tar xzf "$tarball" -C "$HOME/.local/bin" trivy
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
         with:
+          skip-setup-trivy: true
           scan-type: 'fs'
           scan-ref: './go'
           format: 'table'
