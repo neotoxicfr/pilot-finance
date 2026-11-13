@@ -1,29 +1,22 @@
 version: 2
 
-# Tous les écosystèmes présents dans le dépôt sont couverts :
-#   gomod          → go/go.mod
-#   docker         → go/Dockerfile (node, golang, alpine)
-#   github-actions → .github/workflows/*.yml
-#   npm (/e2e)     → outillage Playwright
-#   npm (/go)      → chaîne d'assets Tailwind + esbuild (audit FIN-5)
-# Chaque écosystème est groupé en une seule PR pour limiter le bruit.
-# Pas d'auto-merge : les notes de release sont rédigées à la main.
+# Montées de version vers develop, chaque jour ; mineures et correctifs groupés
+# par écosystème (une PR), majeures à part. Tout ce qui passe la CI fusionne
+# seul dans develop (automerge.yml). Les mises à jour de sécurité visent
+# toujours main : automerge.yml les ramène sur develop. La CI décide seule.
 updates:
   - package-ecosystem: "gomod"
     directory: "/go"
     target-branch: "develop"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
+      interval: "daily"
     commit-message:
       prefix: "chore(deps)"
     groups:
-      go-dependencies:
-        patterns:
-          - "*"
-    # modernc.org/sqlite exige EXACTEMENT la version de modernc.org/libc de son
-    # propre go.mod (doc.go, « Fragile modernc.org/libc dependency ») : libc ne
-    # bouge qu'avec sqlite, jamais seule. Garde-fou : TestLibcMatchesSQLite.
+      go:
+        update-types: ["minor", "patch"]
+    # modernc.org/sqlite exige EXACTEMENT la libc de son propre go.mod : libc ne
+    # bouge qu'avec sqlite (garde-fou : TestLibcMatchesSQLite).
     ignore:
       - dependency-name: "modernc.org/libc"
 
@@ -31,52 +24,43 @@ updates:
     directory: "/go"
     target-branch: "develop"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 3
+      interval: "daily"
     commit-message:
       prefix: "chore(deps)"
     groups:
-      docker-base-images:
-        patterns:
-          - "*"
+      docker:
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
     target-branch: "develop"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 3
+      interval: "daily"
     commit-message:
       prefix: "chore(deps)"
     groups:
-      github-actions:
-        patterns:
-          - "*"
+      actions:
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: "npm"
     directory: "/e2e"
     target-branch: "develop"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
+      interval: "daily"
     commit-message:
       prefix: "chore(deps)"
     groups:
-      npm-dependencies:
-        patterns:
-          - "*"
+      e2e:
+        update-types: ["minor", "patch"]
 
-  # Chaîne d'outils d'assets du stage `css` de go/Dockerfile : Tailwind CSS et
-  # esbuild produisent les fichiers réellement servis en production.
+  # Chaîne d'assets du stage `css` de go/Dockerfile (Tailwind, esbuild).
   - package-ecosystem: "npm"
     directory: "/go"
     target-branch: "develop"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
+      interval: "daily"
     commit-message:
       prefix: "chore(deps)"
     groups:
-      asset-toolchain:
-        patterns:
-          - "*"
+      assets:
+        update-types: ["minor", "patch"]

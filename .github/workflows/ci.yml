@@ -3,14 +3,14 @@ name: CI
 on:
   push:
     branches: [develop]
-    # Pas de déclencheur sur les tags (2026-10-20) : une release se vérifie en
-    # local avant le tag (lint, govulncheck, tests -race, couverture, E2E) et se
-    # crée avec `gh release create`. L'image :latest reste gardée par la
-    # barrière `go test -race` de docker-publish (ex-audit S-13).
+    # Les tags sont couverts pour que :latest passe par le même garde-fou que
+    # develop (lint, couverture, govulncheck, Trivy fs) — audit S-13.
+    tags: ['v*.*.*']
     paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
+  # Pas de filtre de chemins sur les PR : ces contrôles sont obligatoires sur
+  # develop, une PR qui ne les recevrait pas resterait bloquée.
   pull_request:
     branches: [main, develop]
-    paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -74,7 +74,7 @@ jobs:
       - name: Lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          version: v2.14.0
+          version: v2.15.0
           working-directory: go
 
       - name: Vulnerability scan
@@ -97,14 +97,70 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Install Trivy (GitHub release, checksum verified)
+        # trivy-action installe Trivy via get.trivy.dev, domaine expiré depuis le
+        # 2026-11-04 (aquasecurity/trivy#11537, NXDOMAIN) : l'installation échouait
+        # (curl 6) et bloquait le scan. Binaire pris sur la release GitHub, empreinte
+        # SHA-256 vérifiée contre le fichier de sommes de la même release.
+        env:
+          TRIVY_VERSION: 0.76.2
+        run: |
+          cd "$RUNNER_TEMP"
+          base="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"
+          tarball="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -fsSLO "$base/$tarball"
+          curl -fsSLO "$base/trivy_${TRIVY_VERSION}_checksums.txt"
+          grep " ${tarball}\$" "trivy_${TRIVY_VERSION}_checksums.txt" | sha256sum -c -
+          mkdir -p "$HOME/.local/bin"
+          tar xzf "$tarball" -C "$HOME/.local/bin" trivy
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
         with:
+          skip-setup-trivy: true
           scan-type: 'fs'
           scan-ref: './go'
           format: 'table'
           severity: 'CRITICAL,HIGH'
           exit-code: '1'
+
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks (GitHub release, checksum verified)
+        env:
+          GITLEAKS_VERSION: 8.30.1
+        run: |
+          cd "$RUNNER_TEMP"
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSLO "$base/$tarball"
+          curl -fsSLO "$base/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          grep " ${tarball}\$" "gitleaks_${GITLEAKS_VERSION}_checksums.txt" | sha256sum -c -
+          tar xzf "$tarball" gitleaks
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      # Les commits apportés par la PR ou le push (tout l'historique déjà publié
+      # est passé par le hook gitleaks local et le secret scanning de GitHub).
+      - name: Scan new commits
+        env:
+          FROM: ${{ github.event.pull_request.base.sha || github.event.before }}
+          TO: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ -z "$FROM" ] || [ "$FROM" = 0000000000000000000000000000000000000000 ]; then
+            range="-1 $TO"
+          else
+            range="$FROM..$TO"
+          fi
+          gitleaks git --redact --verbose --log-opts="$range"
 
   # Audit FIN-5 : la chaîne d'assets (Tailwind + esbuild) est le seul chemin par
   # lequel du code tiers atteint les fichiers servis en production. Ce job

@@ -70,7 +70,7 @@ jobs:
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log into registry ${{ env.REGISTRY }}
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -118,9 +118,28 @@ jobs:
       # `trivy fs` (bloquant) et `govulncheck` dans ci.yml. Il est conservé
       # bloquant et pré-push pour qu'une régression de base d'image future
       # (passage hors scratch) soit arrêtée avant publication.
+      - name: Install Trivy (GitHub release, checksum verified)
+        # trivy-action installe Trivy via get.trivy.dev, domaine expiré depuis le
+        # 2026-11-04 (aquasecurity/trivy#11537, NXDOMAIN) : l'installation échouait
+        # (curl 6) et bloquait le scan. Binaire pris sur la release GitHub, empreinte
+        # SHA-256 vérifiée contre le fichier de sommes de la même release.
+        env:
+          TRIVY_VERSION: 0.76.2
+        run: |
+          cd "$RUNNER_TEMP"
+          base="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"
+          tarball="trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+          curl -fsSLO "$base/$tarball"
+          curl -fsSLO "$base/trivy_${TRIVY_VERSION}_checksums.txt"
+          grep " ${tarball}\$" "trivy_${TRIVY_VERSION}_checksums.txt" | sha256sum -c -
+          mkdir -p "$HOME/.local/bin"
+          tar xzf "$tarball" -C "$HOME/.local/bin" trivy
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
       - name: Scan image with Trivy (blocking, pre-push)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
         with:
+          skip-setup-trivy: true
           image-ref: pilot-finance:scan
           format: table
           severity: CRITICAL,HIGH

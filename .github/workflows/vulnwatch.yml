@@ -1,0 +1,71 @@
+name: Vulnerability watch
+
+# Chaque jour, govulncheck et npm audit sur develop. Jamais d'échec (un échec
+# quotidien = un mail par jour) : une seule issue « Vulnérabilité à corriger »
+# est ouverte ou mise à jour, puis fermée quand develop est propre.
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: vulnwatch
+  cancel-in-progress: true
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: develop
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+
+      - name: Scan develop
+        id: scan
+        run: |
+          report="$RUNNER_TEMP/report.md"
+          status=clean
+          go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
+          if out=$(cd go && govulncheck ./... 2>&1); then :; elif [ $? -eq 3 ]; then
+            status=found; printf '## govulncheck\n\n```\n%s\n```\n\n' "$out" >> "$report"
+          else
+            status=error
+          fi
+          for dir in go e2e; do
+            if ! out=$(cd "$dir" && npm audit --package-lock-only --audit-level=high 2>&1); then
+              if echo "$out" | grep -q "vulnerabilit"; then
+                status=found; printf '## npm audit (%s)\n\n```\n%s\n```\n\n' "$dir" "$out" >> "$report"
+              else
+                status=error
+              fi
+            fi
+          done
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Open, update or close the single issue
+        if: steps.scan.outputs.status != 'error'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          STATUS: ${{ steps.scan.outputs.status }}
+        run: |
+          title="Vulnérabilité à corriger"
+          n=$(gh issue list --state open --search "in:title \"$title\"" --json number,title \
+              --jq ".[] | select(.title == \"$title\") | .number" | head -1)
+          if [ "$STATUS" = found ]; then
+            head -c 60000 "$RUNNER_TEMP/report.md" > "$RUNNER_TEMP/body.md"
+            if [ -n "$n" ]; then gh issue edit "$n" --body-file "$RUNNER_TEMP/body.md"
+            else gh issue create --title "$title" --body-file "$RUNNER_TEMP/body.md"; fi
+          elif [ -n "$n" ]; then
+            gh issue close "$n" --comment "Plus aucune vulnérabilité détectée sur develop."
+          fi
