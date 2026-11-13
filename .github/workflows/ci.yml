@@ -2,15 +2,15 @@ name: CI
 
 on:
   push:
-    branches: [develop]
+    branches: [dev]
     # Les tags sont couverts pour que :latest passe par le même garde-fou que
-    # develop (lint, couverture, govulncheck, Trivy fs) — audit S-13.
+    # dev (lint, couverture, govulncheck, Trivy fs) — audit S-13.
     tags: ['v*.*.*']
     paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
   # Pas de filtre de chemins sur les PR : ces contrôles sont obligatoires sur
-  # develop, une PR qui ne les recevrait pas resterait bloquée.
+  # dev, une PR qui ne les recevrait pas resterait bloquée.
   pull_request:
-    branches: [main, develop]
+    branches: [main, dev]
 
 concurrency:
   group: ci-${{ github.ref }}

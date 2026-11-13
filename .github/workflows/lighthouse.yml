@@ -2,10 +2,10 @@ name: Lighthouse CI
 
 on:
   push:
-    branches: [develop]
+    branches: [dev]
     paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
   pull_request:
-    branches: [main, develop]
+    branches: [main, dev]
     paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
 
 concurrency:

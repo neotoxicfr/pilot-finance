@@ -183,7 +183,7 @@ BREAKING CHANGE: /api/health now returns JSON instead of plain text
 
 ## Pull Request Process
 
-1. **Branch from `develop`** — never commit directly to `main`
+1. **Branch from `dev`** — never commit directly to `main`
 2. **Write tests** — maintain 100% coverage
 3. **Follow commit convention** — keeps history clean
 4. **CI must pass** — Go tests, lint, E2E, Lighthouse
@@ -222,7 +222,7 @@ By contributing, you agree that your contributions will be licensed under the MI
 Merci de votre intérêt ! Voici la marche à suivre :
 
 1. **Ouvrir une Issue d'abord** — Discutez du changement souhaité avant de coder.
-2. **Pull Request** — Soumettez vos modifications sur une branche séparée depuis `develop`.
+2. **Pull Request** — Soumettez vos modifications sur une branche séparée depuis `dev`.
 3. **Convention de commit** — Utilisez les [Conventional Commits](https://www.conventionalcommits.org/fr/) (`feat:`, `fix:`, `docs:`, etc.)
 4. **Tests** — Maintenez la couverture à 100%. La CI échouera sinon.
 5. **Standards de code** — Respectez les patterns existants (handlers chi, partials HTMX, Alpine.js CSP).

@@ -1,8 +1,8 @@
 name: Vulnerability watch
 
-# Chaque jour, govulncheck et npm audit sur develop. Jamais d'échec (un échec
+# Chaque jour, govulncheck et npm audit sur dev. Jamais d'échec (un échec
 # quotidien = un mail par jour) : une seule issue « Vulnérabilité à corriger »
-# est ouverte ou mise à jour, puis fermée quand develop est propre.
+# est ouverte ou mise à jour, puis fermée quand dev est propre.
 on:
   schedule:
     - cron: '17 5 * * *'
@@ -23,14 +23,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: develop
+          ref: dev
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go/go.mod
           cache-dependency-path: go/go.sum
 
-      - name: Scan develop
+      - name: Scan dev
         id: scan
         run: |
           report="$RUNNER_TEMP/report.md"
@@ -67,5 +67,5 @@ jobs:
             if [ -n "$n" ]; then gh issue edit "$n" --body-file "$RUNNER_TEMP/body.md"
             else gh issue create --title "$title" --body-file "$RUNNER_TEMP/body.md"; fi
           elif [ -n "$n" ]; then
-            gh issue close "$n" --comment "Plus aucune vulnérabilité détectée sur develop."
+            gh issue close "$n" --comment "Plus aucune vulnérabilité détectée sur dev."
           fi

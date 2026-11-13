@@ -1,15 +1,18 @@
 version: 2
 
-# Montées de version vers develop, chaque jour ; mineures et correctifs groupés
+# Montées de version vers dev, chaque jour ; mineures et correctifs groupés
 # par écosystème (une PR), majeures à part. Tout ce qui passe la CI fusionne
-# seul dans develop (automerge.yml). Les mises à jour de sécurité visent
-# toujours main : automerge.yml les ramène sur develop. La CI décide seule.
+# seul dans dev (automerge.yml). Les mises à jour de sécurité visent
+# toujours main : automerge.yml les ramène sur dev. La CI décide seule.
+# Aucun délai : `cooldown: exclude: ["*"]` coupe les 3 jours par défaut.
 updates:
   - package-ecosystem: "gomod"
     directory: "/go"
-    target-branch: "develop"
+    target-branch: "dev"
     schedule:
       interval: "daily"
+    cooldown:
+      exclude: ["*"]
     commit-message:
       prefix: "chore(deps)"
     groups:
@@ -22,9 +25,11 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/go"
-    target-branch: "develop"
+    target-branch: "dev"
     schedule:
       interval: "daily"
+    cooldown:
+      exclude: ["*"]
     commit-message:
       prefix: "chore(deps)"
     groups:
@@ -33,9 +38,11 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
-    target-branch: "develop"
+    target-branch: "dev"
     schedule:
       interval: "daily"
+    cooldown:
+      exclude: ["*"]
     commit-message:
       prefix: "chore(deps)"
     groups:
@@ -44,9 +51,11 @@ updates:
 
   - package-ecosystem: "npm"
     directory: "/e2e"
-    target-branch: "develop"
+    target-branch: "dev"
     schedule:
       interval: "daily"
+    cooldown:
+      exclude: ["*"]
     commit-message:
       prefix: "chore(deps)"
     groups:
@@ -56,9 +65,11 @@ updates:
   # Chaîne d'assets du stage `css` de go/Dockerfile (Tailwind, esbuild).
   - package-ecosystem: "npm"
     directory: "/go"
-    target-branch: "develop"
+    target-branch: "dev"
     schedule:
       interval: "daily"
+    cooldown:
+      exclude: ["*"]
     commit-message:
       prefix: "chore(deps)"
     groups:
