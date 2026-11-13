@@ -3,7 +3,7 @@ version: 2
 # Montées de version vers develop, chaque jour ; mineures et correctifs groupés
 # par écosystème (une PR), majeures à part. Tout ce qui passe la CI fusionne
 # seul dans develop (automerge.yml). Les mises à jour de sécurité visent
-# toujours main : automerge.yml les ramène sur develop.
+# toujours main : automerge.yml les ramène sur develop. La CI décide seule.
 updates:
   - package-ecosystem: "gomod"
     directory: "/go"
