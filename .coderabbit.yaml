@@ -19,6 +19,15 @@ reviews:
     base_branches:
       - develop
 
+  # Presque toutes les PR viennent de Dependabot, qui ne remplit jamais le
+  # modèle de PR du dépôt : le contrôle de description ne ferait que du bruit.
+  pre_merge_checks:
+    description:
+      mode: "off"
+    title:
+      mode: warning
+      requirements: "Conventional Commits en anglais, `type(scope): résumé`, comme les commits du dépôt."
+
   # Exclus de la relecture (et du clone partiel) : vendoré, généré, lockfiles,
   # binaires et sorties de build.
   path_filters:
