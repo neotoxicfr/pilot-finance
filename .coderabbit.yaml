@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit conseille ; la CI (golangci-lint, couverture 100 %, govulncheck,
+# Trivy, E2E Playwright, CodeQL, Lighthouse) et le mainteneur décident.
+language: fr-FR
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+
+  auto_review:
+    enabled: true
+    drafts: false
+    # La branche par défaut (main) est toujours relue ; develop reçoit le
+    # travail courant et les PR Dependabot, relues elles aussi.
+    base_branches:
+      - develop
+
+  # Exclus de la relecture (et du clone partiel) : vendoré, généré, lockfiles,
+  # binaires et sorties de build.
+  path_filters:
+    - "!go/static/js/*.min.js"
+    - "!go/static/css/tailwind.css"
+    - "!go/go.sum"
+    - "!**/package-lock.json"
+    - "!**/*.png"
+    - "!**/*.ico"
+    - "!**/*.db"
+    - "!go/data/**"
+    - "!e2e/test-results/**"
+    - "!e2e/playwright-report/**"
+    - "!**/coverage.out"
+
+  path_instructions:
+    - path: "**"
+      instructions: |
+        Ne jamais introduire de secret, clé, jeton, mot de passe réel, adresse e-mail personnelle, IP ou nom d'hôte privé : valeurs de test factices (user@example.com), secrets par variables d'environnement ou fichiers *_FILE.
+        Assumé, ne pas re-signaler : tailwind.css et bibliothèques JS vendorées committées ; Alpine.js en build CSP ; écarts gofmt d'alignement sous Go 1.27 ; helpers de test ResetForTest, ratelimit.Start et db.CreateUser sans appelant en production ; pas de compression HTTP dans l'application (faite par le reverse proxy) ; pas de cache de pages rendues (nonce CSP et données propres à chaque requête).
+    - path: "go/internal/middleware/**"
+      instructions: |
+        Sécurité transverse, à ne jamais affaiblir : CSP avec nonce par requête, sans 'unsafe-inline' ni 'unsafe-eval' ; en-têtes de sécurité ; ValidateOrigin sur toute requête mutante (POST/PUT/PATCH/DELETE), routes d'authentification comprises ; TRUSTED_PROXIES obligatoire en production ; IP client résolue par chi ClientIPFrom* (en-têtes de proxy ignorés si le pair n'est pas approuvé). http:// n'est admis que pour HOST=localhost.
+    - path: "go/internal/auth/**"
+      instructions: |
+        Jetons HS256 à algorithme épinglé et audience propre à chaque type (session, 2fa, mfa-setup, passkey-*) ; session WebAuthn signée, challenge à usage unique, vérification utilisateur (PIN/biométrie) exigée. Champs sensibles chiffrés en AES-256-GCM, recherche par e-mail via index aveugle HMAC ; bcrypt coût 12, mot de passe borné à 72 octets ; comparaisons de secrets à temps constant.
+    - path: "go/internal/crypto/**"
+      instructions: |
+        Jetons HS256 à algorithme épinglé et audience propre à chaque type (session, 2fa, mfa-setup, passkey-*) ; session WebAuthn signée, challenge à usage unique, vérification utilisateur (PIN/biométrie) exigée. Champs sensibles chiffrés en AES-256-GCM, recherche par e-mail via index aveugle HMAC ; bcrypt coût 12, mot de passe borné à 72 octets ; comparaisons de secrets à temps constant.
+    - path: "go/internal/handlers/**"
+      instructions: |
+        Toute lecture ou écriture de données est filtrée par l'utilisateur courant (pas d'IDOR). Actions sensibles : ré-authentification par verifyCurrentPassword (limiteur par compte + audit d'échec). Erreurs montrées à l'utilisateur via des clés i18n (clientErrorT), jamais de texte en dur. Dépendances injectables par les variables hookXxx pour les tests ; identifiant d'URL lu par urlID.
+    - path: "go/internal/db/**"
+      instructions: |
+        Requêtes paramétrées uniquement. Montants en centimes (int64) ; agrégats calculés en unités (float64) : formatCents / formatUnits côté gabarit. Transactions en _txlock=immediate. Toute migration est idempotente et ajoutée à verifyMigrations. modernc.org/libc doit rester à la version exacte exigée par modernc.org/sqlite (gardé par TestLibcMatchesSQLite).
+    - path: "go/templates/**/*.html"
+      instructions: |
+        html/template : ne jamais contourner l'échappement ; tout <script> inline porte le nonce. Alpine en build CSP : interdits `x-for="c in obj.champ"`, un appel `f(obj.champ)` dans un attribut évalué, et `a = 1; b = 2` dans un attribut (vérifié par alpine_csp_test.go) ; passer par un getter ou une méthode du composant. `x-cloak` seulement sur un élément masqué à l'état initial. Le parseur Go interprète les `{{…}}` même dans un commentaire HTML. Les partiels HTMX reçoivent Currency, T et Locale. Accessibilité WCAG AA : nom accessible, focus visible, cibles tactiles.
+    - path: "go/locales/*.json"
+      instructions: |
+        Toute clé existe dans fr.json ET en.json (une clé absente s'affiche comme une chaîne vide) ; texte pur, jamais de HTML (il serait échappé et affiché en clair).
+    - path: "go/static/js/*.js"
+      instructions: |
+        Pas d'eval ni de new Function (CSP sans 'unsafe-eval') ; aucun chargement depuis un CDN, tout est servi localement.
+    - path: "**/*_test.go"
+      instructions: |
+        Couverture de 100 % imposée par la CI (hors cmd/ et internal/db) : toute nouvelle branche a son test. Un test de non-régression doit échouer sans le correctif. Préférer les hooks injectables aux doubles globaux.
+    - path: "e2e/**"
+      instructions: |
+        Playwright : sélecteurs par rôle et libellé exacts, en français et en anglais ; le serveur E2E tourne avec HOST=localhost:3000 (tests passkeys). WebKit est optionnel.
+    - path: ".github/workflows/**"
+      instructions: |
+        Actions épinglées par SHA complet avec la version en commentaire ; permissions minimales. Les notes de release sont écrites à la main : pas de generate_release_notes. Trivy est installé depuis sa release GitHub avec vérification SHA-256.
+    - path: "go/Dockerfile"
+      instructions: |
+        Image finale scratch, utilisateur 1000:1000, ENV=production. Outillage npm en versions exactes, installé avec --ignore-scripts. Aucun port publié.
+
+  tools:
+    golangci-lint:
+      enabled: true
+      config_file: go/.golangci.yml
+    gitleaks:
+      enabled: true
+    actionlint:
+      enabled: true
+    zizmor:
+      enabled: true
+    hadolint:
+      enabled: true
+    shellcheck:
+      enabled: true
+    yamllint:
+      enabled: true
+    # Doublons de contrôles bloquants (govulncheck, npm audit, Dependabot,
+    # Trivy fs en CI) ; osvScanner signalerait aussi des modules non atteignables.
+    osvScanner:
+      enabled: false
+    trivy:
+      enabled: false
+    # Bruit sur cette pile : gabarits Go ({{…}}) pour htmlhint, directives
+    # Tailwind v4 pour stylelint, textes bilingues pour languagetool.
+    htmlhint:
+      enabled: false
+    stylelint:
+      enabled: false
+    languagetool:
+      enabled: false
+    markdownlint:
+      enabled: false
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - CONTRIBUTING.md
+      - SECURITY.md
+      - .github/copilot-instructions.md
+  learnings:
+    scope: local
