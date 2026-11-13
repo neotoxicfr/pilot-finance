@@ -14,11 +14,14 @@ reviews:
   auto_review:
     enabled: true
     drafts: false
-    # La branche par défaut (main) est toujours relue ; dev reçoit le travail
-    # courant et les PR de Dependabot, relues elles aussi : le check CodeRabbit
-    # est obligatoire sur dev, la fusion automatique attend la revue.
+    # La branche par défaut (main) est toujours relue ; dev reçoit tout le code,
+    # en PR. Les PR de Dependabot ne sont pas relues (la CI suffit pour les
+    # montées, et le quota est épargné) ; une PR du propriétaire ne fusionne
+    # qu'après une vraie revue (automerge.yml).
     base_branches:
       - dev
+    ignore_usernames:
+      - "dependabot[bot]"
 
   # Le modèle de PR du dépôt n'est pas tenu pour les PR courtes : le contrôle
   # de description ne ferait que du bruit.
