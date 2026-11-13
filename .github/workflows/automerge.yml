@@ -1,0 +1,59 @@
+name: Automerge
+
+# Toute PR de Dependabot ou du propriétaire vers develop fusionne seule (squash)
+# dès que les contrôles obligatoires du ruleset de develop sont verts ; sinon
+# elle reste ouverte. Une mise à jour de sécurité Dependabot (toujours ouverte
+# vers main) est d'abord ramenée sur develop. Jamais de fusion automatique sur main.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    branches: [main, develop]
+
+permissions: {}
+
+concurrency:
+  group: automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  automerge:
+    if: >-
+      !github.event.pull_request.draft &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (github.event.pull_request.user.login == 'dependabot[bot]' ||
+       github.event.pull_request.user.login == github.repository_owner)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number }}
+      BASE: ${{ github.event.pull_request.base.ref }}
+      AUTHOR: ${{ github.event.pull_request.user.login }}
+    steps:
+      - name: Enable auto-merge into develop
+        run: |
+          if [ "$BASE" = main ]; then
+            # Seules les mises à jour de sécurité Dependabot quittent main.
+            [ "$AUTHOR" = "dependabot[bot]" ] || exit 0
+            gh pr edit "$PR" --base develop
+          fi
+          gh pr merge "$PR" --auto --squash
+
+      # Une fusion faite avec GITHUB_TOKEN ne déclenche pas les workflows `push` :
+      # l'image :dev serait oubliée. workflow_dispatch, lui, part bien.
+      - name: Rebuild :dev once merged
+        run: |
+          for _ in $(seq 1 80); do
+            state=$(gh pr view "$PR" --json state --jq .state)
+            if [ "$state" = MERGED ]; then
+              gh workflow run docker-publish.yml --ref develop
+              exit 0
+            fi
+            [ "$state" = OPEN ] || exit 0
+            sleep 30
+          done

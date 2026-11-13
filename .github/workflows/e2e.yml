@@ -7,9 +7,10 @@ on:
     # garde-fou E2E que develop (audit S-13).
     tags: ['v*.*.*']
     paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
+  # Pas de filtre de chemins sur les PR : ces contrôles sont obligatoires sur
+  # develop, une PR qui ne les recevrait pas resterait bloquée.
   pull_request:
     branches: [main, develop]
-    paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
 
 concurrency:
   group: e2e-${{ github.ref }}

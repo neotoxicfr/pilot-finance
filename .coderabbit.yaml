@@ -15,12 +15,14 @@ reviews:
     enabled: true
     drafts: false
     # La branche par défaut (main) est toujours relue ; develop reçoit le
-    # travail courant et les PR Dependabot, relues elles aussi.
+    # travail courant. Les PR de Dependabot ne sont pas relues : la CI décide.
     base_branches:
       - develop
+    ignore_usernames:
+      - "dependabot[bot]"
 
-  # Presque toutes les PR viennent de Dependabot, qui ne remplit jamais le
-  # modèle de PR du dépôt : le contrôle de description ne ferait que du bruit.
+  # Le modèle de PR du dépôt n'est pas tenu pour les PR courtes : le contrôle
+  # de description ne ferait que du bruit.
   pre_merge_checks:
     description:
       mode: "off"
