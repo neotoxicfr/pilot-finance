@@ -2,15 +2,15 @@ name: E2E Tests
 
 on:
   push:
-    branches: [develop]
+    branches: [dev]
     # Les tags sont couverts pour que l'image :latest passe par le même
-    # garde-fou E2E que develop (audit S-13).
+    # garde-fou E2E que dev (audit S-13).
     tags: ['v*.*.*']
     paths-ignore: ['**.md', 'LICENSE', '.github/dependabot.yml']
   # Pas de filtre de chemins sur les PR : ces contrôles sont obligatoires sur
-  # develop, une PR qui ne les recevrait pas resterait bloquée.
+  # dev, une PR qui ne les recevrait pas resterait bloquée.
   pull_request:
-    branches: [main, develop]
+    branches: [main, dev]
 
 concurrency:
   group: e2e-${{ github.ref }}

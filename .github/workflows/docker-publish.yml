@@ -3,7 +3,7 @@ name: Build and Push Docker Image
 on:
   workflow_dispatch:
   push:
-    branches: [ develop ]
+    branches: [ dev ]
     paths-ignore:
       - '**.md'
       - 'LICENSE'
@@ -16,7 +16,7 @@ on:
       - '.gitignore'
     tags: [ 'v*.*.*' ]
 
-# Deux pushes rapprochés sur develop laissaient l'ancien commit sous :dev
+# Deux pushes rapprochés sur dev laissaient l'ancien commit sous :dev
 # (audit S-38). On annule le run obsolète — jamais sur un tag, dont la
 # publication ne doit pas être interrompue.
 concurrency:
@@ -93,7 +93,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/') }}
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') }}
-            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/develop' }}
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
 
       # Le scan doit précéder le push (audit S-35) : scanner l'image déjà
       # publiée ne peut plus rien empêcher. Build amd64 local, mis en cache et

@@ -1,13 +1,13 @@
 name: Automerge
 
-# Toute PR de Dependabot ou du propriétaire vers develop fusionne seule (squash)
-# dès que les contrôles obligatoires du ruleset de develop sont verts ; sinon
+# Toute PR de Dependabot ou du propriétaire vers dev fusionne seule (squash)
+# dès que les contrôles obligatoires du ruleset de dev sont verts ; sinon
 # elle reste ouverte. Une mise à jour de sécurité Dependabot (toujours ouverte
-# vers main) est d'abord ramenée sur develop. Jamais de fusion automatique sur main.
+# vers main) est d'abord ramenée sur dev. Jamais de fusion automatique sur main.
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
-    branches: [main, develop]
+    branches: [main, dev]
 
 permissions: {}
 
@@ -35,12 +35,12 @@ jobs:
       BASE: ${{ github.event.pull_request.base.ref }}
       AUTHOR: ${{ github.event.pull_request.user.login }}
     steps:
-      - name: Enable auto-merge into develop
+      - name: Enable auto-merge into dev
         run: |
           if [ "$BASE" = main ]; then
             # Seules les mises à jour de sécurité Dependabot quittent main.
             [ "$AUTHOR" = "dependabot[bot]" ] || exit 0
-            gh pr edit "$PR" --base develop
+            gh pr edit "$PR" --base dev
           fi
           gh pr merge "$PR" --auto --squash
 
@@ -51,7 +51,7 @@ jobs:
           for _ in $(seq 1 80); do
             state=$(gh pr view "$PR" --json state --jq .state)
             if [ "$state" = MERGED ]; then
-              gh workflow run docker-publish.yml --ref develop
+              gh workflow run docker-publish.yml --ref dev
               exit 0
             fi
             [ "$state" = OPEN ] || exit 0
