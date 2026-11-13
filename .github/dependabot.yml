@@ -4,7 +4,7 @@ version: 2
 # par écosystème (une PR), majeures à part. Tout ce qui passe la CI fusionne
 # seul dans dev (automerge.yml). Les mises à jour de sécurité visent
 # toujours main : automerge.yml les ramène sur dev. La CI décide seule.
-# Aucun délai : `cooldown: exclude: ["*"]` coupe les 3 jours par défaut.
+# Aucun délai : `cooldown: exclude: ["*"]` coupe les 3 jours par défaut de Dependabot.
 updates:
   - package-ecosystem: "gomod"
     directory: "/go"
