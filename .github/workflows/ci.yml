@@ -73,7 +73,7 @@ jobs:
       - name: Lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
-          version: v2.14.0
+          version: v2.15.0
           working-directory: go
 
       - name: Vulnerability scan
@@ -102,7 +102,7 @@ jobs:
         # (curl 6) et bloquait le scan. Binaire pris sur la release GitHub, empreinte
         # SHA-256 vérifiée contre le fichier de sommes de la même release.
         env:
-          TRIVY_VERSION: 0.70.0
+          TRIVY_VERSION: 0.76.2
         run: |
           cd "$RUNNER_TEMP"
           base="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}"

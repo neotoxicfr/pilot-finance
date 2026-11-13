@@ -45,7 +45,7 @@ go test -race -timeout 600s -coverprofile=coverage.out $(go list ./... | grep -v
 # Benchmarks
 go test -bench=. -benchmem ./internal/projection/
 
-# Lint (CI pins v2.13.2 — see .github/workflows/ci.yml)
+# Lint (CI pins v2.15.0 — see .github/workflows/ci.yml)
 golangci-lint run
 ```
 
