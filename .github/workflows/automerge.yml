@@ -1,10 +1,12 @@
 name: Automerge
 
-# Une PR de Dependabot ou du propriétaire vers dev fusionne seule (squash) quand
-# les contrôles obligatoires du ruleset de dev sont verts ET que CodeRabbit a
-# réellement relu son commit de tête (revue publiée, ou check « Review
-# completed » ; une revue sautée, hors quota ou en erreur ne compte pas).
-# Sinon elle reste ouverte ; la revue est redemandée une seule fois, plus tard.
+# Une PR vers dev fusionne seule (squash) quand les contrôles obligatoires du
+# ruleset de dev sont verts :
+# - Dependabot : la CI suffit (CodeRabbit ignore les bots) ;
+# - propriétaire : il faut EN PLUS que CodeRabbit ait réellement relu le commit de
+#   tête (revue publiée, ou check « Review completed » ; une revue sautée, hors
+#   quota ou en erreur ne compte pas). Sinon la PR reste ouverte et la revue est
+#   redemandée une seule fois, plus tard.
 # Une mise à jour de sécurité Dependabot (toujours ouverte vers main) est d'abord
 # ramenée sur dev. Jamais de fusion automatique sur main.
 on:
@@ -45,13 +47,18 @@ jobs:
       BASE: ${{ github.event.pull_request.base.ref }}
       AUTHOR: ${{ github.event.pull_request.user.login }}
     steps:
-      - name: Auto-merge into dev once CodeRabbit has really reviewed
+      - name: Auto-merge into dev (owner PRs only after a real CodeRabbit review)
         id: merge
         run: |
           if [ "$BASE" = main ]; then
             # Seules les mises à jour de sécurité Dependabot quittent main.
             [ "$AUTHOR" = "dependabot[bot]" ] || exit 0
             gh pr edit "$PR" --base dev
+          fi
+          if [ "$AUTHOR" = "dependabot[bot]" ]; then
+            gh pr merge "$PR" --auto --squash
+            echo "armed=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           sha=$(gh pr view "$PR" --json headRefOid --jq .headRefOid)
           reviews=$(gh api "repos/$GH_REPO/pulls/$PR/reviews" --paginate \
@@ -81,8 +88,9 @@ jobs:
             sleep 30
           done
 
-  # Une fois par jour : une PR vers dev restée sans vraie revue CodeRabbit de son
-  # commit de tête depuis plus de 2 h reçoit UNE demande de revue, jamais deux.
+  # Une fois par jour : une PR du propriétaire vers dev restée sans vraie revue
+  # CodeRabbit de son commit de tête depuis plus de 2 h reçoit UNE demande de
+  # revue, jamais deux.
   rerequest:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -100,7 +108,7 @@ jobs:
           cutoff=$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ)
           gh pr list --base dev --state open --json number,author,isDraft,createdAt,headRefOid \
             --jq ".[] | select(.isDraft | not) | select(.createdAt < \"$cutoff\")
-                 | select(.author.login == \"app/dependabot\" or .author.login == \"$OWNER\")
+                 | select(.author.login == \"$OWNER\")
                  | \"\(.number) \(.headRefOid)\"" |
           while read -r pr sha; do
             reviewed=$(gh api "repos/$GH_REPO/pulls/$pr/reviews" --paginate \
