@@ -1,23 +1,32 @@
 name: Automerge
 
-# Toute PR de Dependabot ou du propriétaire vers dev fusionne seule (squash)
-# dès que les contrôles obligatoires du ruleset de dev sont verts ; sinon
-# elle reste ouverte. Une mise à jour de sécurité Dependabot (toujours ouverte
-# vers main) est d'abord ramenée sur dev. Jamais de fusion automatique sur main.
+# Une PR de Dependabot ou du propriétaire vers dev fusionne seule (squash) quand
+# les contrôles obligatoires du ruleset de dev sont verts ET que CodeRabbit a
+# réellement relu son commit de tête (revue publiée, ou check « Review
+# completed » ; une revue sautée, hors quota ou en erreur ne compte pas).
+# Sinon elle reste ouverte ; la revue est redemandée une seule fois, plus tard.
+# Une mise à jour de sécurité Dependabot (toujours ouverte vers main) est d'abord
+# ramenée sur dev. Jamais de fusion automatique sur main.
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
     branches: [main, dev]
+  pull_request_review:
+    types: [submitted]
+  schedule:
+    - cron: '41 6 * * *'
+  workflow_dispatch:
 
 permissions: {}
 
 concurrency:
-  group: automerge-${{ github.event.pull_request.number }}
+  group: automerge-${{ github.event.pull_request.number || github.event_name }}
   cancel-in-progress: true
 
 jobs:
-  automerge:
+  merge:
     if: >-
+      github.event.pull_request &&
       !github.event.pull_request.draft &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       (github.event.pull_request.user.login == 'dependabot[bot]' ||
@@ -26,6 +35,7 @@ jobs:
     timeout-minutes: 45
     permissions:
       actions: write
+      checks: read
       contents: write
       pull-requests: write
     env:
@@ -35,18 +45,31 @@ jobs:
       BASE: ${{ github.event.pull_request.base.ref }}
       AUTHOR: ${{ github.event.pull_request.user.login }}
     steps:
-      - name: Enable auto-merge into dev
+      - name: Auto-merge into dev once CodeRabbit has really reviewed
+        id: merge
         run: |
           if [ "$BASE" = main ]; then
             # Seules les mises à jour de sécurité Dependabot quittent main.
             [ "$AUTHOR" = "dependabot[bot]" ] || exit 0
             gh pr edit "$PR" --base dev
           fi
-          gh pr merge "$PR" --auto --squash
+          sha=$(gh pr view "$PR" --json headRefOid --jq .headRefOid)
+          reviews=$(gh api "repos/$GH_REPO/pulls/$PR/reviews" --paginate \
+            --jq "[.[] | select(.user.login == \"coderabbitai[bot]\" and .commit_id == \"$sha\")] | length")
+          checks=$(gh api "repos/$GH_REPO/commits/$sha/check-runs?check_name=CodeRabbit" \
+            --jq '[.check_runs[] | select(.conclusion == "success" and (.output.summary // "" | test("Review completed")))] | length')
+          if [ "$reviews" -gt 0 ] || [ "$checks" -gt 0 ]; then
+            gh pr merge "$PR" --auto --squash
+            echo "armed=true" >> "$GITHUB_OUTPUT"
+          else
+            # Pas (encore) de vraie revue de ce commit : pas de fusion.
+            gh pr merge "$PR" --disable-auto 2>/dev/null || true
+          fi
 
       # Une fusion faite avec GITHUB_TOKEN ne déclenche pas les workflows `push` :
       # l'image :dev serait oubliée. workflow_dispatch, lui, part bien.
       - name: Rebuild :dev once merged
+        if: steps.merge.outputs.armed == 'true'
         run: |
           for _ in $(seq 1 80); do
             state=$(gh pr view "$PR" --json state --jq .state)
@@ -56,4 +79,36 @@ jobs:
             fi
             [ "$state" = OPEN ] || exit 0
             sleep 30
+          done
+
+  # Une fois par jour : une PR vers dev restée sans vraie revue CodeRabbit de son
+  # commit de tête depuis plus de 2 h reçoit UNE demande de revue, jamais deux.
+  rerequest:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      checks: read
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      OWNER: ${{ github.repository_owner }}
+    steps:
+      - name: Ask CodeRabbit once for a missing review
+        run: |
+          marker='<!-- automerge:review-requested -->'
+          cutoff=$(date -u -d '2 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          gh pr list --base dev --state open --json number,author,isDraft,createdAt,headRefOid \
+            --jq ".[] | select(.isDraft | not) | select(.createdAt < \"$cutoff\")
+                 | select(.author.login == \"app/dependabot\" or .author.login == \"$OWNER\")
+                 | \"\(.number) \(.headRefOid)\"" |
+          while read -r pr sha; do
+            reviewed=$(gh api "repos/$GH_REPO/pulls/$pr/reviews" --paginate \
+              --jq "[.[] | select(.user.login == \"coderabbitai[bot]\" and .commit_id == \"$sha\")] | length")
+            [ "$reviewed" -gt 0 ] && continue
+            asked=$(gh api "repos/$GH_REPO/issues/$pr/comments" --paginate \
+              --jq "[.[] | select(.body | contains(\"$marker\"))] | length")
+            [ "$asked" -gt 0 ] && continue
+            gh pr comment "$pr" --body "@coderabbitai review
+          $marker"
           done
